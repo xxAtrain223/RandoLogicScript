@@ -4,8 +4,8 @@
 #include "soh_solver.h"
 
 int main() {
-    const auto ast = rls::parser::Parse("demo_rule");
-    const auto output = rls::transpilers::soh_solver::Transpile(ast);
+    const auto file = rls::parser::Parse("");
+    const auto output = rls::transpilers::soh_solver::Transpile(file);
     std::cout << output << std::endl;
     return 0;
 }

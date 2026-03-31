@@ -6,6 +6,6 @@
 
 namespace rls::parser {
 
-rls::AstNode Parse(const std::string& source);
+rls::ast::File Parse(const std::string& source);
 
 } // namespace rls::parser

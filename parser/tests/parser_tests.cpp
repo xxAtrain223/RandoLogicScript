@@ -2,14 +2,14 @@
 
 #include "parser.h"
 
-TEST(ParserTests, ReturnsEmptyMarkerForEmptySource) {
-	const auto ast = rls::parser::Parse("");
+TEST(ParserTests, ReturnsEmptyFileForEmptySource) {
+	const auto file = rls::parser::Parse("");
 
-	EXPECT_EQ(ast.name, "empty");
+	EXPECT_TRUE(file.declarations.empty());
 }
 
-TEST(ParserTests, PreservesNonEmptySourceAsNodeName) {
-	const auto ast = rls::parser::Parse("demo_rule");
+TEST(ParserTests, ReturnsEmptyFileForNonEmptySource) {
+	const auto file = rls::parser::Parse("region RR_TEST {}");
 
-	EXPECT_EQ(ast.name, "demo_rule");
+	EXPECT_TRUE(file.declarations.empty());
 }
