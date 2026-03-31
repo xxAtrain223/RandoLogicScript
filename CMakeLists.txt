@@ -4,10 +4,9 @@ project(RandoLogicScript)
 set(CMAKE_CXX_STANDARD 20)
 
 include(CTest)
+include(FetchContent)
 
 if(BUILD_TESTING)
-	include(FetchContent)
-
 	set(gtest_force_shared_crt ON CACHE BOOL "" FORCE)
 
 	FetchContent_Declare(
