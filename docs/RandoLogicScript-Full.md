@@ -193,17 +193,16 @@ at_night                           # logic->AtNight
 any_age { can_kill(RE_ARMOS) }     # region->AnyAgeTime([]{return logic->CanKillEnemy(RE_ARMOS);})
 ```
 
-Since `any_age { ... }` is a first-class expression, it can appear anywhere a value is expected - including inside function arguments and ternary conditions. This enables complex compositions:
+Since `any_age { ... }` is a first-class expression, it can appear anywhere a value is expected — including composed with `and`/`or` alongside other conditions:
 
-```rls
-# any_age inside a ternary condition inside a function argument
-can_use(any_age { has(RG_IRON_BOOTS) } ? RG_HOOKSHOT : RG_LONGSHOT)
+```rlsl
+can_hit_switch() and any_age { can_use(RG_DINS_FIRE) } and has(RG_OPEN_CHEST)
 ```
 
 The transpiler generates:
 ```cpp
-logic->CanUse(region->AnyAgeTime([]{return logic->HasItem(RG_IRON_BOOTS);})
-    ? RG_HOOKSHOT : RG_LONGSHOT)
+logic->CanHitSwitch() && AnyAgeTime([]{return logic->CanUse(RG_DINS_FIRE);})
+    && logic->HasItem(RG_OPEN_CHEST)
 ```
 
 ### 4.3 Region Definitions
