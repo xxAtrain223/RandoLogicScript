@@ -253,7 +253,7 @@ Defaults are derived automatically from the `scene` value - most regions don't n
 region RR_HC_GARDEN {
     scene: SCENE_CASTLE_COURTYARD_GUARDS_DAY
     no_time_passes
-    areas: [RA_CASTLE_GROUNDS]
+    areas: RA_CASTLE_GROUNDS
 
     exits {
         RR_HC_GARDEN_GATE: always
@@ -1063,11 +1063,11 @@ The transpiler bridges these differences:
 file          = (region | extend | define | enemy)* ;
 
 region        = "region" IDENT "{" region_body "}" ;
-extend        = "extend" "region" IDENT "{" region_body "}" ;
+extend        = "extend" "region" IDENT "{" section* "}" ;
 region_body   = region_props section* ;
 region_props  = ("scene:" IDENT)?
                 ("time_passes" | "no_time_passes")?
-                ("areas:" "[" ident_list "]")? ;
+                ("areas:" ident_list )? ;
 
 section       = section_kind "{" entry* "}" ;
 section_kind  = "events" | "locations" | "exits" ;

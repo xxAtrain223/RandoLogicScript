@@ -21,4 +21,5 @@ if(BUILD_TESTING)
 
     rls_add_gtest(parser_tests ${parser_test_sources})
     target_link_libraries(parser_tests PRIVATE parser)
+    target_include_directories(parser_tests PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/src")
 endif()
