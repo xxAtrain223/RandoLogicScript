@@ -1065,7 +1065,7 @@ file          = (region | extend | define | enemy)* ;
 region        = "region" IDENT "{" region_body "}" ;
 extend        = "extend" "region" IDENT "{" section* "}" ;
 region_body   = region_props section* ;
-region_props  = ("scene:" IDENT)?
+region_props  = "scene:" IDENT
                 ("time_passes" | "no_time_passes")?
                 ("areas:" ident_list )? ;
 

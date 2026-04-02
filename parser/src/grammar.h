@@ -406,4 +406,96 @@ struct match_expr : seq<
 	close_brace
 > {};
 
+// == Declaration grammar ======================================================
+
+// -- Shared building blocks ---------------------------------------------------
+
+/// type = IDENT
+struct type : ident {};
+
+/// ident_list = IDENT ("," IDENT)*
+struct ident_list : list<ident, seq<_, comma, _>> {};
+
+/// param = IDENT (":" type)? ("=" expr)?
+struct param : seq<ident, opt<seq<_, colon, _, type>>, opt<seq<_, one<'='>, _, expr>>> {};
+
+/// params = param ("," param)*
+struct params : list<param, seq<_, comma, _>> {};
+
+// -- Sections (events / locations / exits) ------------------------------------
+
+/// entry = IDENT ":" expr
+struct entry : seq<ident, _, colon, _, expr> {};
+
+/// section_kind = "events" | "locations" | "exits"
+struct section_kind : sor<kw<kw_events>, kw<kw_locations>, kw<kw_exits>> {};
+
+/// section = section_kind "{" entry* "}"
+struct section : seq<section_kind, _, open_brace, _, star<seq<entry, _>>, close_brace> {};
+
+// -- Region -------------------------------------------------------------------
+
+/// region_props = "scene:" IDENT ("time_passes" | "no_time_passes")? ("areas:" ident_list)?
+///
+/// Scene is required; time_passes variant and areas are optional.
+/// Order-sensitive: scene first, then time_passes variant, then areas.
+struct scene_prop      : seq<kw<kw_scene>, _, colon, _, ident> {};
+struct time_prop       : sor<kw<kw_no_time_passes>, kw<kw_time_passes>> {};
+struct areas_prop      : seq<kw<kw_areas>, _, colon, _, ident_list> {};
+struct region_props    : seq<scene_prop, _, opt<seq<time_prop, _>>, opt<seq<areas_prop, _>>> {};
+
+/// region_body = region_props section*
+struct region_body : seq<region_props, star<seq<section, _>>> {};
+
+/// region = "region" IDENT "{" region_body "}"
+struct region_decl : seq<kw<kw_region>, _, ident, _, open_brace, _, region_body, _, close_brace> {};
+
+// -- Extend region ------------------------------------------------------------
+
+/// extend = "extend" "region" IDENT "{" section* "}"
+struct extend_decl : seq<
+	kw<kw_extend>, _, kw<kw_region>, _, ident, _,
+	open_brace, _,
+	star<seq<section, _>>,
+	close_brace
+> {};
+
+// -- Define -------------------------------------------------------------------
+
+/// define = "define" IDENT "(" params? ")" ":" expr
+struct define_decl : seq<
+	kw<kw_define>, _, ident, _,
+	open_paren, _, opt<params>, _, close_paren, _,
+	colon, _, expr
+> {};
+
+// -- Enemy --------------------------------------------------------------------
+
+/// enemy_field_kind = "kill" | "pass" | "drop" | "avoid"
+struct enemy_field_kind : sor<kw<kw_kill>, kw<kw_pass>, kw<kw_drop>, kw<kw_avoid>> {};
+
+/// enemy_field = enemy_field_kind ("(" params? ")")? ":" expr
+struct enemy_field : seq<
+	enemy_field_kind, _,
+	opt<seq<open_paren, _, opt<params>, _, close_paren, _>>,
+	colon, _, expr
+> {};
+
+/// enemy = "enemy" IDENT "{" enemy_field+ "}"
+struct enemy_decl : seq<
+	kw<kw_enemy>, _, ident, _,
+	open_brace, _,
+	plus<seq<enemy_field, _>>,
+	close_brace
+> {};
+
+// -- Top-level file -----------------------------------------------------------
+
+/// declaration = region | extend | define | enemy
+struct declaration : sor<region_decl, extend_decl, define_decl, enemy_decl> {};
+
+/// file = _ (declaration _)* eof
+/// Named `rls_file` to avoid clashing with any PEGTL or std types.
+struct rls_file : seq<_, star<seq<declaration, _>>, tao::pegtl::eof> {};
+
 } // namespace rls::parser::grammar
