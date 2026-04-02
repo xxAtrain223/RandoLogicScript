@@ -3,8 +3,15 @@
 #include "grammar.h"
 
 #include <tao/pegtl.hpp>
+#include <tao/pegtl/contrib/analyze.hpp>
 
 using namespace rls::parser::grammar;
+
+// == Analyzer =================================================================
+
+TEST(Grammar, AnalyzeDetectsNoIssues) {
+	EXPECT_EQ(0u, tao::pegtl::analyze<rls_file>());
+}
 
 // == Helper ===================================================================
 
