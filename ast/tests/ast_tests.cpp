@@ -429,7 +429,6 @@ TEST(FileTests, FileWithMixedDeclarations) {
 TEST(ProjectTests, EmptyProject) {
 	Project project;
 	EXPECT_TRUE(project.files.empty());
-	EXPECT_TRUE(project.allDeclarations().empty());
 }
 
 TEST(ProjectTests, AllDeclarationsAcrossFiles) {
@@ -459,10 +458,4 @@ TEST(ProjectTests, AllDeclarationsAcrossFiles) {
 	ASSERT_EQ(project.files.size(), 2u);
 	EXPECT_EQ(project.files[0].path, "spirit_temple.rls");
 	EXPECT_EQ(project.files[1].path, "enemies.rls");
-
-	auto allDecls = project.allDeclarations();
-	ASSERT_EQ(allDecls.size(), 3u);
-	EXPECT_TRUE(std::holds_alternative<RegionDecl>(*allDecls[0]));
-	EXPECT_TRUE(std::holds_alternative<DefineDecl>(*allDecls[1]));
-	EXPECT_TRUE(std::holds_alternative<EnemyDecl>(*allDecls[2]));
 }

@@ -27,5 +27,6 @@ endif()
 
 add_subdirectory(ast)
 add_subdirectory(parser)
+add_subdirectory(sema)
 add_subdirectory(transpilers)
 add_subdirectory(console)

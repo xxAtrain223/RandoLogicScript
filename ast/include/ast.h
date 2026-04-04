@@ -4,6 +4,7 @@
 #include <memory>
 #include <optional>
 #include <string>
+#include <unordered_map>
 #include <utility>
 #include <variant>
 #include <vector>
@@ -262,6 +263,24 @@ struct RegionBody {
 		  sections(std::move(sections)) {}
 };
 
+/// One field of an `enemy` declaration: `kill`, `pass`, `drop`, or `avoid`.
+struct EnemyField {
+	EnemyFieldKind kind;
+	std::vector<Param> params;
+	ExprPtr body;
+	Span span;
+
+	EnemyField(
+		EnemyFieldKind kind,
+		std::vector<Param> params,
+		ExprPtr body,
+		Span span = {})
+		: kind(kind),
+		  params(std::move(params)),
+		  body(std::move(body)),
+		  span(span) {}
+};
+
 // == Top-level declarations ===================================================
 
 /// `region RR_NAME { ... }`
@@ -308,24 +327,6 @@ struct DefineDecl {
 		  span(span) {}
 };
 
-/// One field of an `enemy` declaration: `kill`, `pass`, `drop`, or `avoid`.
-struct EnemyField {
-	EnemyFieldKind kind;
-	std::vector<Param> params;
-	ExprPtr body;
-	Span span;
-
-	EnemyField(
-		EnemyFieldKind kind,
-		std::vector<Param> params,
-		ExprPtr body,
-		Span span = {})
-		: kind(kind),
-		  params(std::move(params)),
-		  body(std::move(body)),
-		  span(span) {}
-};
-
 /// `enemy RE_NAME { kill: ..., pass: ..., drop: ..., avoid: ... }`
 struct EnemyDecl {
 	std::string name;
@@ -357,15 +358,10 @@ struct File {
 struct Project {
 	std::vector<File> files;
 
-	/// Flat view of every declaration across all files.
-	/// Useful for semantic analysis passes that don't care about file boundaries.
-	std::vector<Decl*> allDeclarations() {
-		std::vector<Decl*> result;
-		for (auto& file : files)
-			for (auto& decl : file.declarations)
-				result.push_back(&decl);
-		return result;
-	}
+	std::unordered_map<std::string, const RegionDecl*> RegionDecls;
+	std::unordered_multimap<std::string, const ExtendRegionDecl*> ExtendRegionDecls;
+	std::unordered_map<std::string, const DefineDecl*> DefineDecls;
+	std::unordered_map<std::string, const EnemyDecl*> EnemyDecls;
 };
 
 } // namespace rls::ast
