@@ -10,7 +10,7 @@ using namespace rls::ast;
 
 /// Parse a single-declaration source and return the File.
 static File parse(const std::string& src) {
-	return rls::parser::Parse(src);
+	return rls::parser::ParseString(src);
 }
 
 /// Parse a source that should contain exactly one declaration and return it.
@@ -33,19 +33,19 @@ static const Expr& parseExpr(const std::string& exprSrc) {
 // == Basic parsing ============================================================
 
 TEST(ParserTests, ReturnsEmptyFileForEmptySource) {
-	const auto file = rls::parser::Parse("");
+	const auto file = rls::parser::ParseString("");
 
 	EXPECT_TRUE(file.declarations.empty());
 }
 
 TEST(ParserTests, ThrowsOnInvalidSource) {
-	EXPECT_THROW(rls::parser::Parse("not valid rls at all ^^^"),
+	EXPECT_THROW(rls::parser::ParseString("not valid rls at all ^^^"),
 	             std::runtime_error);
 }
 
 TEST(ParserTests, ValidSourceReturnsFile) {
 	const auto file =
-		rls::parser::Parse("region RR_TEST { scene: SCENE_TEST }");
+		rls::parser::ParseString("region RR_TEST { scene: SCENE_TEST }");
 
 	ASSERT_EQ(file.declarations.size(), 1u);
 	const auto* region =
