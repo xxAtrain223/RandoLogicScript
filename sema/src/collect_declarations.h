@@ -3,7 +3,6 @@
 #include <vector>
 
 #include "ast.h"
-#include "diagnostic.h"
 
 namespace rls::sema {
 

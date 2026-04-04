@@ -343,12 +343,24 @@ struct EnemyDecl {
 /// A top-level declaration: region, extend region, define, or enemy.
 using Decl = std::variant<RegionDecl, ExtendRegionDecl, DefineDecl, EnemyDecl>;
 
+// == Diagnostics ==============================================================
+
+enum class DiagnosticLevel { Error, Warning };
+
+/// A diagnostic message produced during parsing or semantic analysis.
+struct Diagnostic {
+	DiagnosticLevel level;
+	std::string message;
+	Span span; // location of the offending construct
+};
+
 // == File =====================================================================
 
 /// Root AST node representing an entire `.rls` file.
 struct File {
 	std::string path;  // owned canonical path of the source file
 	std::vector<Decl> declarations;
+	std::vector<Diagnostic> diagnostics;
 };
 
 // == Project ==================================================================

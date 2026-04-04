@@ -1,7 +1,6 @@
 #include <gtest/gtest.h>
 
 #include "ast.h"
-#include "diagnostic.h"
 #include "parser.h"
 #include "sema.h"
 

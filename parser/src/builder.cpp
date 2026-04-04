@@ -3,8 +3,9 @@
 #include "grammar.h"
 
 #include <charconv>
-#include <stdexcept>
+#include <optional>
 #include <string>
+#include <vector>
 
 namespace rls::parser {
 
@@ -33,10 +34,24 @@ ast::Span makeSpan(const Node& n) {
 }
 
 // =============================================================================
+// Diagnostic helper
+// =============================================================================
+
+using Diags = std::vector<ast::Diagnostic>;
+
+void emitError(Diags& diags, const std::string& msg, const Node& n) {
+	diags.push_back({
+		ast::DiagnosticLevel::Error,
+		msg,
+		makeSpan(n)
+	});
+}
+
+// =============================================================================
 // Forward declarations
 // =============================================================================
 
-ast::ExprPtr buildExpr(const Node& n);
+ast::ExprPtr buildExpr(const Node& n, Diags& diags);
 
 // =============================================================================
 // Operator mapping
@@ -72,11 +87,11 @@ ast::BinaryOp mapMulDivOp(std::string_view s) {
 /// Left-fold binary expression whose children alternate:
 ///   [operand, op_token, operand, op_token, operand, ...]
 template <typename OpMapper>
-ast::ExprPtr buildBinaryChain(const Node& n, OpMapper mapOp) {
-	auto result = buildExpr(*n.children[0]);
+ast::ExprPtr buildBinaryChain(const Node& n, OpMapper mapOp, Diags& diags) {
+	auto result = buildExpr(*n.children[0], diags);
 	for (size_t i = 1; i + 1 < n.children.size(); i += 2) {
 		auto op = mapOp(n.children[i]->string_view());
-		auto right = buildExpr(*n.children[i + 1]);
+		auto right = buildExpr(*n.children[i + 1], diags);
 		result = ast::makeExpr(ast::BinaryExpr(
 			op, std::move(result), std::move(right)));
 	}
@@ -85,10 +100,10 @@ ast::ExprPtr buildBinaryChain(const Node& n, OpMapper mapOp) {
 
 /// Left-fold for and/or chains whose children are just operands
 /// (no explicit operator token nodes).
-ast::ExprPtr buildLogicalChain(const Node& n, ast::BinaryOp op) {
-	auto result = buildExpr(*n.children[0]);
+ast::ExprPtr buildLogicalChain(const Node& n, ast::BinaryOp op, Diags& diags) {
+	auto result = buildExpr(*n.children[0], diags);
 	for (size_t i = 1; i < n.children.size(); ++i) {
-		auto right = buildExpr(*n.children[i]);
+		auto right = buildExpr(*n.children[i], diags);
 		result = ast::makeExpr(ast::BinaryExpr(
 			op, std::move(result), std::move(right)));
 	}
@@ -96,7 +111,7 @@ ast::ExprPtr buildLogicalChain(const Node& n, ast::BinaryOp op) {
 }
 
 /// Main expression dispatcher — pattern-matches on the CST node type.
-ast::ExprPtr buildExpr(const Node& n) {
+ast::ExprPtr buildExpr(const Node& n, Diags& diags) {
 
 	// -- Leaf nodes -----------------------------------------------------------
 
@@ -118,7 +133,8 @@ ast::ExprPtr buildExpr(const Node& n) {
 			return ast::makeExpr(ast::KeywordExpr{ast::Keyword::IsVanilla}, makeSpan(n));
 		if (s == "is_mq")
 			return ast::makeExpr(ast::KeywordExpr{ast::Keyword::IsMq}, makeSpan(n));
-		throw std::runtime_error("Unknown atom keyword: " + std::string(s));
+		emitError(diags, "unknown atom keyword: " + std::string(s), n);
+		return ast::makeExpr(ast::BoolLiteral{false}, makeSpan(n));
 	}
 
 	if (n.is_type<grammar::ident>()) {
@@ -131,7 +147,8 @@ ast::ExprPtr buildExpr(const Node& n) {
 		auto text = n.string_view();
 		auto [ptr, ec] = std::from_chars(text.data(), text.data() + text.size(), value);
 		if (ec != std::errc()) {
-			throw std::runtime_error("Invalid integer literal: " + std::string(text));
+			emitError(diags, "invalid integer literal: " + std::string(text), n);
+			return ast::makeExpr(ast::IntLiteral{0}, makeSpan(n));
 		}
 		return ast::makeExpr(ast::IntLiteral{value}, makeSpan(n));
 	}
@@ -141,18 +158,18 @@ ast::ExprPtr buildExpr(const Node& n) {
 	if (n.is_type<grammar::unary>()) {
 		// children: [kw_not, operand]
 		return ast::makeExpr(
-			ast::UnaryExpr(ast::UnaryOp::Not, buildExpr(*n.children[1])),
+			ast::UnaryExpr(ast::UnaryOp::Not, buildExpr(*n.children[1], diags)),
 			makeSpan(n));
 	}
 
 	// -- Binary chains with explicit operator tokens --------------------------
 
 	if (n.is_type<grammar::mul_div>()) {
-		return buildBinaryChain(n, mapMulDivOp);
+		return buildBinaryChain(n, mapMulDivOp, diags);
 	}
 
 	if (n.is_type<grammar::add_sub>()) {
-		return buildBinaryChain(n, mapAddSubOp);
+		return buildBinaryChain(n, mapAddSubOp, diags);
 	}
 
 	// -- Comparison -----------------------------------------------------------
@@ -162,20 +179,20 @@ ast::ExprPtr buildExpr(const Node& n) {
 		auto op = mapCompOp(n.children[1]->string_view());
 		return ast::makeExpr(
 			ast::BinaryExpr(op,
-				buildExpr(*n.children[0]),
-				buildExpr(*n.children[2])),
+				buildExpr(*n.children[0], diags),
+				buildExpr(*n.children[2], diags)),
 			makeSpan(n));
 	}
 
 	// -- Logical chains (no explicit operator nodes) --------------------------
 
 	if (n.is_type<grammar::and_expr>()) {
-		return buildLogicalChain(n, ast::BinaryOp::And);
+		return buildLogicalChain(n, ast::BinaryOp::And, diags);
 	}
 
 	if (n.is_type<grammar::or_expr>() ||
 	    n.is_type<grammar::match_or_expr>()) {
-		return buildLogicalChain(n, ast::BinaryOp::Or);
+		return buildLogicalChain(n, ast::BinaryOp::Or, diags);
 	}
 
 	// -- Ternary --------------------------------------------------------------
@@ -186,9 +203,9 @@ ast::ExprPtr buildExpr(const Node& n) {
 		// children: [condition, thenBranch, elseBranch]
 		return ast::makeExpr(
 			ast::TernaryExpr(
-				buildExpr(*n.children[0]),
-				buildExpr(*n.children[1]),
-				buildExpr(*n.children[2])),
+				buildExpr(*n.children[0], diags),
+				buildExpr(*n.children[1], diags),
+				buildExpr(*n.children[2], diags)),
 			makeSpan(n));
 	}
 
@@ -204,10 +221,10 @@ ast::ExprPtr buildExpr(const Node& n) {
 			if (child.is_type<grammar::named_arg>()) {
 				// named_arg children: [ident(name), expr]
 				std::string argName(child.children[0]->string_view());
-				args.emplace_back(std::move(argName), buildExpr(*child.children[1]));
+				args.emplace_back(std::move(argName), buildExpr(*child.children[1], diags));
 			} else {
 				// Positional argument — the child IS the expression.
-				args.emplace_back(std::nullopt, buildExpr(child));
+				args.emplace_back(std::nullopt, buildExpr(child, diags));
 			}
 		}
 		return ast::makeExpr(
@@ -230,7 +247,7 @@ ast::ExprPtr buildExpr(const Node& n) {
 					region = std::string(child->children[0]->string_view());
 				}
 				branches.emplace_back(std::move(region),
-					buildExpr(*child->children[1]));
+					buildExpr(*child->children[1], diags));
 			}
 		}
 		return ast::makeExpr(
@@ -242,7 +259,7 @@ ast::ExprPtr buildExpr(const Node& n) {
 	if (n.is_type<grammar::any_age_block>()) {
 		// children: [kw_any_age, body_expr]
 		return ast::makeExpr(
-			ast::AnyAgeBlock(buildExpr(*n.children.back())), makeSpan(n));
+			ast::AnyAgeBlock(buildExpr(*n.children.back(), diags)), makeSpan(n));
 	}
 
 	// -- Match expression -----------------------------------------------------
@@ -264,7 +281,7 @@ ast::ExprPtr buildExpr(const Node& n) {
 			}
 
 			// Body
-			ast::ExprPtr body = buildExpr(*armNode.children[1]);
+			ast::ExprPtr body = buildExpr(*armNode.children[1], diags);
 
 			// Fallthrough
 			bool fallthrough = armNode.children.size() > 2 &&
@@ -279,15 +296,15 @@ ast::ExprPtr buildExpr(const Node& n) {
 			makeSpan(n));
 	}
 
-	throw std::runtime_error(
-		std::string("buildExpr: unhandled node type: ") + std::string(n.type));
+	emitError(diags, "unhandled expression node type: " + std::string(n.type), n);
+	return ast::makeExpr(ast::BoolLiteral{false}, makeSpan(n));
 }
 
 // =============================================================================
 // Param builder
 // =============================================================================
 
-ast::Param buildParam(const Node& n) {
+ast::Param buildParam(const Node& n, Diags& diags) {
 	// param children: [ident(name), optional type, optional default_expr]
 	std::string name(n.children[0]->string_view());
 	std::optional<std::string> type;
@@ -297,7 +314,7 @@ ast::Param buildParam(const Node& n) {
 		if (n.children[i]->is_type<grammar::type>()) {
 			type = std::string(n.children[i]->string_view());
 		} else {
-			defaultValue = buildExpr(*n.children[i]);
+			defaultValue = buildExpr(*n.children[i], diags);
 		}
 	}
 
@@ -308,17 +325,17 @@ ast::Param buildParam(const Node& n) {
 // Entry builder
 // =============================================================================
 
-ast::Entry buildEntry(const Node& n) {
+ast::Entry buildEntry(const Node& n, Diags& diags) {
 	// entry children: [ident(name), expr]
 	std::string name(n.children[0]->string_view());
-	return ast::Entry(std::move(name), buildExpr(*n.children[1]), makeSpan(n));
+	return ast::Entry(std::move(name), buildExpr(*n.children[1], diags), makeSpan(n));
 }
 
 // =============================================================================
 // Section builder
 // =============================================================================
 
-ast::Section buildSection(const Node& n) {
+ast::Section buildSection(const Node& n, Diags& diags) {
 	// section children: [section_kind, entry, entry, ...]
 	ast::SectionKind kind;
 	auto s = n.children[0]->string_view();
@@ -328,7 +345,7 @@ ast::Section buildSection(const Node& n) {
 
 	std::vector<ast::Entry> entries;
 	for (size_t i = 1; i < n.children.size(); ++i) {
-		entries.push_back(buildEntry(*n.children[i]));
+		entries.push_back(buildEntry(*n.children[i], diags));
 	}
 
 	return ast::Section(kind, std::move(entries));
@@ -338,7 +355,7 @@ ast::Section buildSection(const Node& n) {
 // Declaration builders
 // =============================================================================
 
-ast::RegionDecl buildRegionDecl(const Node& n) {
+ast::RegionDecl buildRegionDecl(const Node& n, Diags& diags) {
 	// children: [ident(name), scene_prop, optional time_prop,
 	//            optional areas_prop, section, section, ...]
 	std::string name(n.children[0]->string_view());
@@ -363,7 +380,7 @@ ast::RegionDecl buildRegionDecl(const Node& n) {
 				areas.emplace_back(std::string(area->string_view()));
 			}
 		} else if (child.is_type<grammar::section>()) {
-			sections.push_back(buildSection(child));
+			sections.push_back(buildSection(child, diags));
 		}
 	}
 
@@ -374,18 +391,18 @@ ast::RegionDecl buildRegionDecl(const Node& n) {
 		makeSpan(n));
 }
 
-ast::ExtendRegionDecl buildExtendDecl(const Node& n) {
+ast::ExtendRegionDecl buildExtendDecl(const Node& n, Diags& diags) {
 	// children: [ident(name), section, section, ...]
 	std::string name(n.children[0]->string_view());
 	std::vector<ast::Section> sections;
 	for (size_t i = 1; i < n.children.size(); ++i) {
-		sections.push_back(buildSection(*n.children[i]));
+		sections.push_back(buildSection(*n.children[i], diags));
 	}
 	return ast::ExtendRegionDecl(
 		std::move(name), std::move(sections), makeSpan(n));
 }
 
-ast::DefineDecl buildDefineDecl(const Node& n) {
+ast::DefineDecl buildDefineDecl(const Node& n, Diags& diags) {
 	// children: [ident(name), param, param, ..., body_expr]
 	std::string name(n.children[0]->string_view());
 	std::vector<ast::Param> params;
@@ -393,9 +410,9 @@ ast::DefineDecl buildDefineDecl(const Node& n) {
 
 	for (size_t i = 1; i < n.children.size(); ++i) {
 		if (n.children[i]->is_type<grammar::param>()) {
-			params.push_back(buildParam(*n.children[i]));
+			params.push_back(buildParam(*n.children[i], diags));
 		} else {
-			body = buildExpr(*n.children[i]);
+			body = buildExpr(*n.children[i], diags);
 		}
 	}
 
@@ -403,7 +420,7 @@ ast::DefineDecl buildDefineDecl(const Node& n) {
 		std::move(name), std::move(params), std::move(body), makeSpan(n));
 }
 
-ast::EnemyDecl buildEnemyDecl(const Node& n) {
+ast::EnemyDecl buildEnemyDecl(const Node& n, Diags& diags) {
 	// children: [ident(name), enemy_field, enemy_field, ...]
 	std::string name(n.children[0]->string_view());
 	std::vector<ast::EnemyField> fields;
@@ -424,9 +441,9 @@ ast::EnemyDecl buildEnemyDecl(const Node& n) {
 
 		for (size_t j = 1; j < fieldNode.children.size(); ++j) {
 			if (fieldNode.children[j]->is_type<grammar::param>()) {
-				params.push_back(buildParam(*fieldNode.children[j]));
+				params.push_back(buildParam(*fieldNode.children[j], diags));
 			} else {
-				body = buildExpr(*fieldNode.children[j]);
+				body = buildExpr(*fieldNode.children[j], diags);
 			}
 		}
 
@@ -437,13 +454,13 @@ ast::EnemyDecl buildEnemyDecl(const Node& n) {
 	return ast::EnemyDecl(std::move(name), std::move(fields), makeSpan(n));
 }
 
-ast::Decl buildDecl(const Node& n) {
-	if (n.is_type<grammar::region_decl>()) return buildRegionDecl(n);
-	if (n.is_type<grammar::extend_decl>()) return buildExtendDecl(n);
-	if (n.is_type<grammar::define_decl>()) return buildDefineDecl(n);
-	if (n.is_type<grammar::enemy_decl>())  return buildEnemyDecl(n);
-	throw std::runtime_error(
-		std::string("buildDecl: unhandled node type: ") + std::string(n.type));
+std::optional<ast::Decl> buildDecl(const Node& n, Diags& diags) {
+	if (n.is_type<grammar::region_decl>()) return buildRegionDecl(n, diags);
+	if (n.is_type<grammar::extend_decl>()) return buildExtendDecl(n, diags);
+	if (n.is_type<grammar::define_decl>()) return buildDefineDecl(n, diags);
+	if (n.is_type<grammar::enemy_decl>())  return buildEnemyDecl(n, diags);
+	emitError(diags, "unhandled declaration node type: " + std::string(n.type), n);
+	return std::nullopt;
 }
 
 } // anonymous namespace
@@ -452,14 +469,17 @@ ast::Decl buildDecl(const Node& n) {
 // Public entry point
 // =============================================================================
 
-ast::File buildFile(const Node& root) {
+ast::File buildFile(const Node& root, std::vector<ast::Diagnostic>& diags) {
 	ast::File file;
 	// The parse tree's synthetic root contains the rls_file node as its
 	// sole child.  Declarations live one level deeper.
 	if (!root.children.empty()) {
 		const auto& fileNode = *root.children[0];
 		for (const auto& child : fileNode.children) {
-			file.declarations.push_back(buildDecl(*child));
+			auto decl = buildDecl(*child, diags);
+			if (decl) {
+				file.declarations.push_back(std::move(*decl));
+			}
 		}
 	}
 	return file;

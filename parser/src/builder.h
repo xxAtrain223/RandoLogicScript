@@ -20,6 +20,8 @@
 
 #include <tao/pegtl/contrib/parse_tree.hpp>
 
+#include <vector>
+
 namespace rls::parser {
 
 // == Selector =================================================================
@@ -103,6 +105,8 @@ using selector = tao::pegtl::parse_tree::selector<
 // == Builder ==================================================================
 
 /// Walk a PEGTL parse tree (CST) and produce an AST File.
-ast::File buildFile(const tao::pegtl::parse_tree::node& root);
+/// Diagnostics encountered during CST-to-AST conversion are appended to diags.
+ast::File buildFile(const tao::pegtl::parse_tree::node& root,
+                    std::vector<ast::Diagnostic>& diags);
 
 } // namespace rls::parser

@@ -36,17 +36,22 @@ TEST(ParserTests, ReturnsEmptyFileForEmptySource) {
 	const auto file = rls::parser::ParseString("");
 
 	EXPECT_TRUE(file.declarations.empty());
+	EXPECT_TRUE(file.diagnostics.empty());
 }
 
-TEST(ParserTests, ThrowsOnInvalidSource) {
-	EXPECT_THROW(rls::parser::ParseString("not valid rls at all ^^^"),
-	             std::runtime_error);
+TEST(ParserTests, InvalidSourceReportsDiagnostic) {
+	const auto file = rls::parser::ParseString("not valid rls at all ^^^");
+
+	EXPECT_TRUE(file.declarations.empty());
+	ASSERT_FALSE(file.diagnostics.empty());
+	EXPECT_EQ(file.diagnostics[0].level, DiagnosticLevel::Error);
 }
 
 TEST(ParserTests, ValidSourceReturnsFile) {
 	const auto file =
 		rls::parser::ParseString("region RR_TEST { scene: SCENE_TEST }");
 
+	EXPECT_TRUE(file.diagnostics.empty());
 	ASSERT_EQ(file.declarations.size(), 1u);
 	const auto* region =
 		std::get_if<rls::ast::RegionDecl>(&file.declarations[0]);
