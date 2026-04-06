@@ -459,3 +459,116 @@ TEST(ProjectTests, AllDeclarationsAcrossFiles) {
 	EXPECT_EQ(project.files[0].path, "spirit_temple.rls");
 	EXPECT_EQ(project.files[1].path, "enemies.rls");
 }
+
+// == Type side table ==========================================================
+
+TEST(TypeTableTests, EmptyByDefault) {
+	Project project;
+	auto expr = makeExpr(BoolLiteral{true});
+	EXPECT_FALSE(project.getType(expr.get()).has_value());
+}
+
+TEST(TypeTableTests, SetAndGetExprType) {
+	Project project;
+	auto expr = makeExpr(BoolLiteral{true});
+	project.setType(expr.get(), Type::Bool);
+
+	auto result = project.getType(expr.get());
+	ASSERT_TRUE(result.has_value());
+	EXPECT_EQ(result.value(), Type::Bool);
+}
+
+TEST(TypeTableTests, SetAndGetParamType) {
+	Param param("distance", std::nullopt, makeExpr(Identifier{"ED_CLOSE"}));
+	Project project;
+	project.setType(&param, Type::Distance);
+
+	auto result = project.getType(&param);
+	ASSERT_TRUE(result.has_value());
+	EXPECT_EQ(result.value(), Type::Distance);
+}
+
+TEST(TypeTableTests, OverwriteType) {
+	Project project;
+	auto expr = makeExpr(Identifier{"x"});
+	project.setType(expr.get(), Type::Error);
+	project.setType(expr.get(), Type::Int);
+
+	EXPECT_EQ(project.getType(expr.get()).value(), Type::Int);
+}
+
+TEST(TypeTableTests, DistinctExprsHaveDistinctTypes) {
+	Project project;
+	auto boolExpr = makeExpr(BoolLiteral{true});
+	auto intExpr = makeExpr(IntLiteral{42});
+	auto identExpr = makeExpr(Identifier{"RG_HOOKSHOT"});
+
+	project.setType(boolExpr.get(), Type::Bool);
+	project.setType(intExpr.get(), Type::Int);
+	project.setType(identExpr.get(), Type::Item);
+
+	EXPECT_EQ(project.getType(boolExpr.get()).value(), Type::Bool);
+	EXPECT_EQ(project.getType(intExpr.get()).value(), Type::Int);
+	EXPECT_EQ(project.getType(identExpr.get()).value(), Type::Item);
+}
+
+TEST(TypeTableTests, MixedExprAndParamKeys) {
+	Project project;
+	auto expr = makeExpr(IntLiteral{3});
+	Param param("scene", "Scene", nullptr);
+
+	project.setType(expr.get(), Type::Int);
+	project.setType(&param, Type::Scene);
+
+	EXPECT_EQ(project.getType(expr.get()).value(), Type::Int);
+	EXPECT_EQ(project.getType(&param).value(), Type::Scene);
+}
+
+TEST(TypeTableTests, UnknownPointerReturnsNullopt) {
+	Project project;
+	auto expr1 = makeExpr(BoolLiteral{true});
+	auto expr2 = makeExpr(BoolLiteral{false});
+
+	project.setType(expr1.get(), Type::Bool);
+
+	// expr2 was never registered
+	EXPECT_FALSE(project.getType(expr2.get()).has_value());
+}
+
+TEST(TypeTableTests, PointerStabilityAfterProjectFilesGrow) {
+	Project project;
+
+	// Add a file with a define that has a param and body expr.
+	File file;
+	file.path = "test.rls";
+	std::vector<Param> params;
+	params.emplace_back("d", std::nullopt, nullptr);
+	file.declarations.emplace_back(DefineDecl(
+		"foo", std::move(params), makeExpr(Identifier{"d"})
+	));
+	project.files.push_back(std::move(file));
+
+	// Grab pointers into the AST owned by the project.
+	auto& decl = std::get<DefineDecl>(project.files[0].declarations[0]);
+	const Param* paramPtr = &decl.params[0];
+	const Expr* bodyPtr = decl.body.get();
+
+	project.setType(paramPtr, Type::Distance);
+	project.setType(bodyPtr, Type::Distance);
+
+	// Add more files — vector may reallocate File storage, but
+	// the Decl/Param/Expr objects are heap-allocated and stable.
+	for (int i = 0; i < 100; ++i) {
+		File extra;
+		extra.path = "extra_" + std::to_string(i) + ".rls";
+		extra.declarations.emplace_back(DefineDecl(
+			"bar" + std::to_string(i), std::vector<Param>{},
+			makeExpr(BoolLiteral{true})
+		));
+		project.files.push_back(std::move(extra));
+	}
+
+	// Original pointers still resolve correctly.
+	EXPECT_EQ(project.getType(paramPtr).value(), Type::Distance);
+	EXPECT_EQ(project.getType(bodyPtr).value(), Type::Distance);
+}

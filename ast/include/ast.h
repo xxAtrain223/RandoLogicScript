@@ -365,6 +365,26 @@ struct File {
 
 // == Project ==================================================================
 
+enum class Type {
+    Bool,       // true, false, always, never, and/or/not, conditions
+    Int,        // integer literals, arithmetic results, hearts(), keys(), etc.
+    Item,       // RG_*
+    Enemy,      // RE_*
+    Distance,   // ED_*
+    Trick,      // RT_*
+    Setting,    // RSK_* / RO_*
+    Region,     // RR_*
+    Check,      // RC_*
+    Logic,      // LOGIC_*
+    Scene,      // SCENE_*
+    Dungeon,    // DUNGEON_*
+    Area,       // RA_*
+    Trial,      // TK_*
+    WaterLevel, // WL_*
+    Void,       // statements / declarations with no value
+    Error,      // poison type — inference failed, suppress cascading errors
+};
+
 /// Aggregated AST for all `.rls` files in a project.
 /// All top-level declarations are globally visible (no import mechanism).
 struct Project {
@@ -374,6 +394,20 @@ struct Project {
 	std::unordered_multimap<std::string, const ExtendRegionDecl*> ExtendRegionDecls;
 	std::unordered_map<std::string, const DefineDecl*> DefineDecls;
 	std::unordered_map<std::string, const EnemyDecl*> EnemyDecls;
+
+	template <typename T>
+	void setType(const T* node, Type type) {
+		TypeTable[node] = type;
+	}
+
+	template <typename T>
+	std::optional<Type> getType(const T* node) const {
+		auto it = TypeTable.find(node);
+		return it != TypeTable.end() ? std::optional(it->second) : std::nullopt;
+	}
+
+private:
+	std::unordered_map<const void*, Type> TypeTable;
 };
 
 } // namespace rls::ast
