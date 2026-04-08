@@ -551,11 +551,11 @@ TEST(Analyze, PopulatesDeclMaps) {
 		"define has_explosives():\n"
 		"    has(RG_BOMB_BAG) or has(RG_BOMBCHU_5)\n"
 		"enemy RE_ARMOS {\n"
-		"    kill: blast_or_smash()\n"
+		"    kill: can_use(RG_BOMB_BAG)\n"
 		"}\n"
 		"extend region RR_FOYER {\n"
 		"    locations {\n"
-		"        RC_POT: can_break_pots()\n"
+		"        RC_POT: has(RG_POWER_BRACELET)\n"
 		"    }\n"
 		"}\n",
 		"all.rls"

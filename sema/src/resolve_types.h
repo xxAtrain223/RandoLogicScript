@@ -1,0 +1,27 @@
+#pragma once
+
+#include <optional>
+#include <string_view>
+#include <vector>
+
+#include "ast.h"
+
+namespace rls::sema {
+
+/// Map an identifier name to its type based on its enum prefix.
+/// Returns nullopt if the name has no recognized prefix (e.g. a parameter name).
+std::optional<ast::Type> typeFromIdentifier(std::string_view name);
+
+/// Pass 2: Resolve and check types for all expressions in the project.
+/// Populates Project::TypeTable via setType().
+///
+/// Currently handles:
+///   - Enum-prefixed identifiers (Step 1)
+///   - Host function call validation (Step 2)
+///   - Bottom-up expression typing for all node types (Step 3)
+///
+/// Identifiers that do not match an enum prefix are reported as errors
+/// until scope support is added (Step 4).
+std::vector<ast::Diagnostic> resolveTypes(ast::Project& project);
+
+} // namespace rls::sema
