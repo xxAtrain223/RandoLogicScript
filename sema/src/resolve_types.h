@@ -12,6 +12,10 @@ namespace rls::sema {
 /// Returns nullopt if the name has no recognized prefix (e.g. a parameter name).
 std::optional<ast::Type> typeFromIdentifier(std::string_view name);
 
+/// Parse a type annotation string (e.g. "Distance") to a Type enum value.
+/// Returns nullopt if the annotation is not a recognized type name.
+std::optional<ast::Type> typeFromAnnotation(std::string_view annotation);
+
 /// Pass 2: Resolve and check types for all expressions in the project.
 /// Populates Project::TypeTable via setType().
 ///
@@ -19,9 +23,7 @@ std::optional<ast::Type> typeFromIdentifier(std::string_view name);
 ///   - Enum-prefixed identifiers (Step 1)
 ///   - Host function call validation (Step 2)
 ///   - Bottom-up expression typing for all node types (Step 3)
-///
-/// Identifiers that do not match an enum prefix are reported as errors
-/// until scope support is added (Step 4).
+///   - Parameter scope for define and enemy field bodies (Step 4)
 std::vector<ast::Diagnostic> resolveTypes(ast::Project& project);
 
 } // namespace rls::sema

@@ -62,6 +62,7 @@ static Project makeProjectWithExpr(ExprPtr expr) {
 	));
 
 	project.files.push_back(std::move(file));
+	collectDeclarations(project);
 	return project;
 }
 
@@ -824,4 +825,251 @@ TEST(ResolveTypes, CompositeExpression) {
 	auto diags = resolveTypes(project);
 	EXPECT_TRUE(diags.empty());
 	EXPECT_EQ(project.getType(getEntryExpr(project)), Type::Bool);
+}
+
+// -- typeFromAnnotation (Step 4) ----------------------------------------------
+
+TEST(TypeAnnotation, AllTypes) {
+	EXPECT_EQ(typeFromAnnotation("Bool"),       Type::Bool);
+	EXPECT_EQ(typeFromAnnotation("Int"),        Type::Int);
+	EXPECT_EQ(typeFromAnnotation("Item"),       Type::Item);
+	EXPECT_EQ(typeFromAnnotation("Enemy"),      Type::Enemy);
+	EXPECT_EQ(typeFromAnnotation("Distance"),   Type::Distance);
+	EXPECT_EQ(typeFromAnnotation("Trick"),      Type::Trick);
+	EXPECT_EQ(typeFromAnnotation("Setting"),    Type::Setting);
+	EXPECT_EQ(typeFromAnnotation("Region"),     Type::Region);
+	EXPECT_EQ(typeFromAnnotation("Check"),      Type::Check);
+	EXPECT_EQ(typeFromAnnotation("Logic"),      Type::Logic);
+	EXPECT_EQ(typeFromAnnotation("Scene"),      Type::Scene);
+	EXPECT_EQ(typeFromAnnotation("Dungeon"),    Type::Dungeon);
+	EXPECT_EQ(typeFromAnnotation("Area"),       Type::Area);
+	EXPECT_EQ(typeFromAnnotation("Trial"),      Type::Trial);
+	EXPECT_EQ(typeFromAnnotation("WaterLevel"), Type::WaterLevel);
+}
+
+TEST(TypeAnnotation, Unknown) {
+	EXPECT_FALSE(typeFromAnnotation("Foo").has_value());
+	EXPECT_FALSE(typeFromAnnotation("").has_value());
+	EXPECT_FALSE(typeFromAnnotation("bool").has_value()); // case-sensitive
+}
+
+// -- Parameter scope (Step 4) -------------------------------------------------
+
+TEST(ResolveTypes, DefineParamWithAnnotation) {
+	// define foo(d: Distance): d
+	Project project;
+	File file;
+	file.path = "test.rls";
+
+	std::vector<Param> params;
+	params.emplace_back("d", std::optional<std::string>{"Distance"}, nullptr);
+
+	file.declarations.emplace_back(DefineDecl(
+		"foo", std::move(params), makeExpr(Identifier{"d"})
+	));
+
+	project.files.push_back(std::move(file));
+	collectDeclarations(project);
+	auto diags = resolveTypes(project);
+	EXPECT_TRUE(diags.empty());
+
+	auto& def = std::get<DefineDecl>(project.files[0].declarations[0]);
+	EXPECT_EQ(project.getType(def.body.get()), Type::Distance);
+}
+
+TEST(ResolveTypes, DefineParamWithDefault) {
+	// define foo(d = ED_CLOSE): d
+	Project project;
+	File file;
+	file.path = "test.rls";
+
+	std::vector<Param> params;
+	params.emplace_back("d", std::nullopt, makeExpr(Identifier{"ED_CLOSE"}));
+
+	file.declarations.emplace_back(DefineDecl(
+		"foo", std::move(params), makeExpr(Identifier{"d"})
+	));
+
+	project.files.push_back(std::move(file));
+	collectDeclarations(project);
+	auto diags = resolveTypes(project);
+	EXPECT_TRUE(diags.empty());
+
+	auto& def = std::get<DefineDecl>(project.files[0].declarations[0]);
+	EXPECT_EQ(project.getType(def.body.get()), Type::Distance);
+}
+
+TEST(ResolveTypes, DefineParamUntyped) {
+	// define foo(x): x — type unknown, no error for the identifier itself
+	Project project;
+	File file;
+	file.path = "test.rls";
+
+	std::vector<Param> params;
+	params.emplace_back("x", std::nullopt, nullptr);
+
+	file.declarations.emplace_back(DefineDecl(
+		"foo", std::move(params), makeExpr(Identifier{"x"})
+	));
+
+	project.files.push_back(std::move(file));
+	collectDeclarations(project);
+	auto diags = resolveTypes(project);
+	// No "unknown identifier" error — x is a known parameter.
+	EXPECT_EQ(countErrors(diags), 0u);
+	// But the body type is Error since x's type is unknown.
+	auto& def = std::get<DefineDecl>(project.files[0].declarations[0]);
+	EXPECT_EQ(project.getType(def.body.get()), Type::Error);
+}
+
+TEST(ResolveTypes, DefineParamBadAnnotation) {
+	// define foo(x: Foo): x — unknown type annotation
+	Project project;
+	File file;
+	file.path = "test.rls";
+
+	std::vector<Param> params;
+	params.emplace_back("x", std::optional<std::string>{"Foo"}, nullptr);
+
+	file.declarations.emplace_back(DefineDecl(
+		"foo", std::move(params), makeExpr(Identifier{"x"})
+	));
+
+	project.files.push_back(std::move(file));
+	collectDeclarations(project);
+	auto diags = resolveTypes(project);
+	EXPECT_EQ(countErrors(diags), 1u);
+	EXPECT_NE(diags[0].message.find("unknown type annotation 'Foo'"),
+		std::string::npos);
+}
+
+TEST(ResolveTypes, DefineParamUsedInExpression) {
+	// define foo(d: Distance): d == ED_CLOSE
+	Project project;
+	File file;
+	file.path = "test.rls";
+
+	std::vector<Param> params;
+	params.emplace_back("d", std::optional<std::string>{"Distance"}, nullptr);
+
+	file.declarations.emplace_back(DefineDecl(
+		"foo", std::move(params),
+		makeExpr(BinaryExpr(BinaryOp::Eq,
+			makeExpr(Identifier{"d"}),
+			makeExpr(Identifier{"ED_CLOSE"})))
+	));
+
+	project.files.push_back(std::move(file));
+	collectDeclarations(project);
+	auto diags = resolveTypes(project);
+	EXPECT_TRUE(diags.empty());
+
+	auto& def = std::get<DefineDecl>(project.files[0].declarations[0]);
+	EXPECT_EQ(project.getType(def.body.get()), Type::Bool);
+}
+
+TEST(ResolveTypes, EnemyFieldKillParamScope) {
+	// enemy RE_TEST { kill(distance, wallOrFloor): wallOrFloor }
+	// can_kill signature: Enemy, Distance?, Bool?, Int?, Bool?, Bool?
+	// Field params (skip Enemy): distance → Distance, wallOrFloor → Bool
+	Project project;
+	File file;
+	file.path = "test.rls";
+
+	std::vector<Param> params;
+	params.emplace_back("distance", std::nullopt, nullptr);
+	params.emplace_back("wallOrFloor", std::nullopt, nullptr);
+
+	std::vector<EnemyField> fields;
+	fields.emplace_back(EnemyFieldKind::Kill, std::move(params),
+		makeExpr(Identifier{"wallOrFloor"}));
+
+	file.declarations.emplace_back(EnemyDecl("RE_TEST", std::move(fields)));
+	project.files.push_back(std::move(file));
+	collectDeclarations(project);
+
+	auto diags = resolveTypes(project);
+	EXPECT_TRUE(diags.empty());
+
+	auto& enemy = std::get<EnemyDecl>(project.files[0].declarations[0]);
+	EXPECT_EQ(project.getType(enemy.fields[0].body.get()), Type::Bool);
+}
+
+TEST(ResolveTypes, EnemyFieldAvoidParamScope) {
+	// enemy RE_TEST { avoid(grounded, quantity): quantity }
+	// can_avoid signature: Enemy, Bool?, Int?
+	// Field params (skip Enemy): grounded → Bool, quantity → Int
+	Project project;
+	File file;
+	file.path = "test.rls";
+
+	std::vector<Param> params;
+	params.emplace_back("grounded", std::nullopt, nullptr);
+	params.emplace_back("quantity", std::nullopt, nullptr);
+
+	std::vector<EnemyField> fields;
+	fields.emplace_back(EnemyFieldKind::Avoid, std::move(params),
+		makeExpr(Identifier{"quantity"}));
+
+	file.declarations.emplace_back(EnemyDecl("RE_TEST", std::move(fields)));
+	project.files.push_back(std::move(file));
+	collectDeclarations(project);
+
+	auto diags = resolveTypes(project);
+	EXPECT_TRUE(diags.empty());
+
+	auto& enemy = std::get<EnemyDecl>(project.files[0].declarations[0]);
+	EXPECT_EQ(project.getType(enemy.fields[0].body.get()), Type::Int);
+}
+
+TEST(ResolveTypes, EnemyFieldBodyNotBoolCompatible) {
+	// enemy RE_TEST { kill(distance): distance }
+	// Body is Distance — not bool-compatible.
+	Project project;
+	File file;
+	file.path = "test.rls";
+
+	std::vector<Param> params;
+	params.emplace_back("distance", std::nullopt, nullptr);
+
+	std::vector<EnemyField> fields;
+	fields.emplace_back(EnemyFieldKind::Kill, std::move(params),
+		makeExpr(Identifier{"distance"}));
+
+	file.declarations.emplace_back(EnemyDecl("RE_TEST", std::move(fields)));
+	project.files.push_back(std::move(file));
+	collectDeclarations(project);
+
+	auto diags = resolveTypes(project);
+	EXPECT_EQ(countErrors(diags), 1u);
+	EXPECT_NE(diags[0].message.find("enemy field"), std::string::npos);
+	EXPECT_NE(diags[0].message.find("must be Bool"), std::string::npos);
+}
+
+TEST(ResolveTypes, EnemyFieldDropParamScope) {
+	// enemy RE_TEST { drop(distance): distance == ED_CLOSE }
+	// can_get_drop signature: Enemy, Distance?, Bool?
+	// Field params (skip Enemy): distance → Distance
+	Project project;
+	File file;
+	file.path = "test.rls";
+
+	std::vector<Param> params;
+	params.emplace_back("distance", std::nullopt, nullptr);
+
+	std::vector<EnemyField> fields;
+	fields.emplace_back(EnemyFieldKind::Drop, std::move(params),
+		makeExpr(BinaryExpr(BinaryOp::Eq,
+			makeExpr(Identifier{"distance"}),
+			makeExpr(Identifier{"ED_CLOSE"}))));
+
+	file.declarations.emplace_back(EnemyDecl("RE_TEST", std::move(fields)));
+	project.files.push_back(std::move(file));
+	collectDeclarations(project);
+
+	auto diags = resolveTypes(project);
+	EXPECT_TRUE(diags.empty());
+
+	auto& enemy = std::get<EnemyDecl>(project.files[0].declarations[0]);
+	EXPECT_EQ(project.getType(enemy.fields[0].body.get()), Type::Bool);
 }

@@ -129,12 +129,62 @@ static bool isBoolCompatible(ast::Type t) {
 		|| t == ast::Type::Setting;
 }
 
+// == Step 4: Scope for parameters ============================================
+
+/// Maps parameter names to their types. nullopt = not yet inferred.
+using Scope = std::unordered_map<std::string, std::optional<ast::Type>>;
+
+/// Empty scope for contexts without parameters (regions, top-level).
+static const Scope emptyScope;
+
+/// Parse a type annotation string (e.g. "Distance") to a Type enum value.
+std::optional<ast::Type> typeFromAnnotation(std::string_view annotation) {
+	struct Entry {
+		std::string_view name;
+		ast::Type type;
+	};
+
+	static constexpr Entry table[] = {
+		{"Bool",       ast::Type::Bool},
+		{"Int",        ast::Type::Int},
+		{"Item",       ast::Type::Item},
+		{"Enemy",      ast::Type::Enemy},
+		{"Distance",   ast::Type::Distance},
+		{"Trick",      ast::Type::Trick},
+		{"Setting",    ast::Type::Setting},
+		{"Region",     ast::Type::Region},
+		{"Check",      ast::Type::Check},
+		{"Logic",      ast::Type::Logic},
+		{"Scene",      ast::Type::Scene},
+		{"Dungeon",    ast::Type::Dungeon},
+		{"Area",       ast::Type::Area},
+		{"Trial",      ast::Type::Trial},
+		{"WaterLevel", ast::Type::WaterLevel},
+	};
+
+	for (const auto& [name, type] : table) {
+		if (annotation == name) return type;
+	}
+	return std::nullopt;
+}
+
+/// Map an EnemyFieldKind to its corresponding built-in function name.
+static const char* enemyFieldBuiltinName(ast::EnemyFieldKind kind) {
+	switch (kind) {
+	case ast::EnemyFieldKind::Kill:  return "can_kill";
+	case ast::EnemyFieldKind::Pass:  return "can_pass";
+	case ast::EnemyFieldKind::Avoid: return "can_avoid";
+	case ast::EnemyFieldKind::Drop:  return "can_get_drop";
+	}
+	return nullptr;
+}
+
 /// Validate a call's arguments against a known signature.
 /// Returns the signature's return type.
 static ast::Type validateCallArgs(
 	const std::string& function, const HostSignature& sig,
 	const std::vector<ast::Type>& argTypes,
-	ast::CallExpr& node, ast::Expr& expr,
+	const ast::CallExpr& node, const ast::Expr& expr,
 	std::vector<ast::Diagnostic>& diags)
 {
 	using T = ast::Type;
@@ -183,423 +233,444 @@ static ast::Type validateCallArgs(
 
 // == Step 3: Bottom-up expression typing =====================================
 
-// Forward declaration — each node handler may recurse.
-static ast::Type resolveExpr(
-	ast::Expr& expr,
-	ast::Project& project,
-	std::vector<ast::Diagnostic>& diags);
+/// Visitor that resolves and type-checks all expression nodes.
+/// Holds shared context (project, scope, diagnostics) so individual
+/// handlers only need the node and its wrapping Expr.
+struct ExprResolver {
+	ast::Project& project;
+	const Scope& scope;
+	std::vector<ast::Diagnostic>& diags;
 
-// -- Node handlers -----------------------------------------------------------
+	/// Recursively resolve the type of an expression.
+	ast::Type resolveExpr(const ast::Expr& expr) {
+		if (auto cached = project.getType(&expr)) {
+			return *cached;
+		}
 
-static ast::Type resolve(
-	ast::BoolLiteral&, ast::Expr&, ast::Project&,
-	std::vector<ast::Diagnostic>&)
-{
-	return ast::Type::Bool;
-}
+		auto result = std::visit(
+			[&](auto& node) { return resolve(node, expr); },
+			expr.node);
 
-static ast::Type resolve(
-	ast::IntLiteral&, ast::Expr&, ast::Project&,
-	std::vector<ast::Diagnostic>&)
-{
-	return ast::Type::Int;
-}
-
-static ast::Type resolve(
-	ast::KeywordExpr&, ast::Expr&, ast::Project&,
-	std::vector<ast::Diagnostic>&)
-{
-	return ast::Type::Bool;
-}
-
-static ast::Type resolve(
-	ast::Identifier& node, ast::Expr& expr, ast::Project&,
-	std::vector<ast::Diagnostic>& diags)
-{
-	if (auto t = typeFromIdentifier(node.name)) {
-		return *t;
+		project.setType(&expr, result);
+		return result;
 	}
-	// No enum prefix — could be a parameter (Step 4 adds scope).
-	diags.push_back({
-		ast::DiagnosticLevel::Error,
-		std::format("unknown identifier '{}'", node.name),
-		expr.span
-	});
-	return ast::Type::Error;
-}
 
-static ast::Type resolve(
-	ast::UnaryExpr& node, ast::Expr& expr, ast::Project& project,
-	std::vector<ast::Diagnostic>& diags)
-{
-	auto opType = resolveExpr(*node.operand, project, diags);
-	if (opType != ast::Type::Error && !isBoolCompatible(opType)) {
+	// -- Node handlers -------------------------------------------------------
+
+	ast::Type resolve(const ast::BoolLiteral&, const ast::Expr&) {
+		return ast::Type::Bool;
+	}
+
+	ast::Type resolve(const ast::IntLiteral&, const ast::Expr&) {
+		return ast::Type::Int;
+	}
+
+	ast::Type resolve(const ast::KeywordExpr&, const ast::Expr&) {
+		return ast::Type::Bool;
+	}
+
+	ast::Type resolve(const ast::Identifier& node, const ast::Expr& expr) {
+		// Check scope first (parameter names).
+		if (auto it = scope.find(node.name); it != scope.end()) {
+			if (it->second) {
+				return *it->second;
+			}
+			// Parameter exists but type not yet inferred (Step 5).
+			return ast::Type::Error;
+		}
+
+		if (auto t = typeFromIdentifier(node.name)) {
+			return *t;
+		}
 		diags.push_back({
 			ast::DiagnosticLevel::Error,
-			std::format("'not' requires a Bool operand, got {}",
-				typeName(opType)),
+			std::format("unknown identifier '{}'", node.name),
 			expr.span
 		});
-	}
-	return ast::Type::Bool;
-}
-
-static ast::Type resolve(
-	ast::BinaryExpr& node, ast::Expr& expr, ast::Project& project,
-	std::vector<ast::Diagnostic>& diags)
-{
-	using T = ast::Type;
-	auto leftType = resolveExpr(*node.left, project, diags);
-	auto rightType = resolveExpr(*node.right, project, diags);
-
-	switch (node.op) {
-	// Logical: both sides must be bool-compatible.
-	case ast::BinaryOp::And:
-	case ast::BinaryOp::Or: {
-		auto opName = node.op == ast::BinaryOp::And ? "and" : "or";
-		if (leftType != T::Error && !isBoolCompatible(leftType)) {
-			diags.push_back({
-				ast::DiagnosticLevel::Error,
-				std::format("'{}' requires Bool operands, left is {}",
-					opName, typeName(leftType)),
-				node.left->span
-			});
-		}
-		if (rightType != T::Error && !isBoolCompatible(rightType)) {
-			diags.push_back({
-				ast::DiagnosticLevel::Error,
-				std::format("'{}' requires Bool operands, right is {}",
-					opName, typeName(rightType)),
-				node.right->span
-			});
-		}
-		return T::Bool;
+		return ast::Type::Error;
 	}
 
-	// Equality: both sides must be the same type.
-	case ast::BinaryOp::Eq:
-	case ast::BinaryOp::NotEq:
-		if (leftType != T::Error && rightType != T::Error
-			&& leftType != rightType) {
+	ast::Type resolve(const ast::UnaryExpr& node, const ast::Expr& expr) {
+		auto opType = resolveExpr(*node.operand);
+		if (opType != ast::Type::Error && !isBoolCompatible(opType)) {
 			diags.push_back({
 				ast::DiagnosticLevel::Error,
-				std::format("comparison between incompatible types {} and {}",
-					typeName(leftType), typeName(rightType)),
+				std::format("'not' requires a Bool operand, got {}",
+					typeName(opType)),
 				expr.span
 			});
 		}
-		return T::Bool;
-
-	// Ordering: both sides must be Int.
-	case ast::BinaryOp::Lt:
-	case ast::BinaryOp::LtEq:
-	case ast::BinaryOp::Gt:
-	case ast::BinaryOp::GtEq:
-		if (leftType != T::Error && leftType != T::Int) {
-			diags.push_back({
-				ast::DiagnosticLevel::Error,
-				std::format("comparison requires Int operands, left is {}",
-					typeName(leftType)),
-				node.left->span
-			});
-		}
-		if (rightType != T::Error && rightType != T::Int) {
-			diags.push_back({
-				ast::DiagnosticLevel::Error,
-				std::format("comparison requires Int operands, right is {}",
-					typeName(rightType)),
-				node.right->span
-			});
-		}
-		return T::Bool;
-
-	// Arithmetic: both sides must be Int.
-	case ast::BinaryOp::Add:
-	case ast::BinaryOp::Sub:
-	case ast::BinaryOp::Mul:
-	case ast::BinaryOp::Div:
-		if (leftType != T::Error && leftType != T::Int) {
-			diags.push_back({
-				ast::DiagnosticLevel::Error,
-				std::format("arithmetic requires Int operands, left is {}",
-					typeName(leftType)),
-				node.left->span
-			});
-		}
-		if (rightType != T::Error && rightType != T::Int) {
-			diags.push_back({
-				ast::DiagnosticLevel::Error,
-				std::format("arithmetic requires Int operands, right is {}",
-					typeName(rightType)),
-				node.right->span
-			});
-		}
-		return T::Int;
+		return ast::Type::Bool;
 	}
 
-	return T::Error; // unreachable — all BinaryOp cases covered
-}
+	ast::Type resolve(const ast::BinaryExpr& node, const ast::Expr& expr) {
+		using T = ast::Type;
+		auto leftType = resolveExpr(*node.left);
+		auto rightType = resolveExpr(*node.right);
 
-static ast::Type resolve(
-	ast::TernaryExpr& node, ast::Expr& expr, ast::Project& project,
-	std::vector<ast::Diagnostic>& diags)
-{
-	using T = ast::Type;
-	auto condType = resolveExpr(*node.condition, project, diags);
-	auto thenType = resolveExpr(*node.thenBranch, project, diags);
-	auto elseType = resolveExpr(*node.elseBranch, project, diags);
-
-	if (condType != T::Error && !isBoolCompatible(condType)) {
-		diags.push_back({
-			ast::DiagnosticLevel::Error,
-			std::format("ternary condition must be Bool, got {}",
-				typeName(condType)),
-			node.condition->span
-		});
-	}
-
-	// Determine result type from branches.
-	if (thenType == T::Error) return elseType == T::Error ? T::Error : elseType;
-	if (elseType == T::Error) return thenType;
-
-	if (thenType == elseType) return thenType;
-
-	// Both bool-compatible but different (e.g. Int + Bool) → unify to Bool.
-	if (isBoolCompatible(thenType) && isBoolCompatible(elseType)) {
-		diags.push_back({
-			ast::DiagnosticLevel::Warning,
-			std::format("ternary branches have types {} and {}, implicitly converted to Bool",
-				typeName(thenType), typeName(elseType)),
-			expr.span
-		});
-		return T::Bool;
-	}
-
-	diags.push_back({
-		ast::DiagnosticLevel::Error,
-		std::format("ternary branches have different types: {} and {}",
-			typeName(thenType), typeName(elseType)),
-		expr.span
-	});
-	return T::Error;
-}
-
-static ast::Type resolve(
-	ast::CallExpr& node, ast::Expr& expr, ast::Project& project,
-	std::vector<ast::Diagnostic>& diags)
-{
-	using T = ast::Type;
-
-	// Resolve all argument types first.
-	std::vector<T> argTypes;
-	argTypes.reserve(node.args.size());
-	for (auto& arg : node.args) {
-		argTypes.push_back(resolveExpr(*arg.value, project, diags));
-	}
-
-	// Enemy built-in functions (can_kill, can_pass, etc.).
-	auto& enemies = enemyBuiltins();
-	if (auto it = enemies.find(node.function); it != enemies.end()) {
-		return validateCallArgs(node.function, it->second, argTypes,
-			node, expr, diags);
-	}
-
-	// Host functions.
-	auto& hosts = hostFunctions();
-	if (auto it = hosts.find(node.function); it != hosts.end()) {
-		return validateCallArgs(node.function, it->second, argTypes,
-			node, expr, diags);
-	}
-
-	// User-defined functions (define declarations).
-	if (auto it = project.DefineDecls.find(node.function);
-		it != project.DefineDecls.end()) {
-		// If the define's body has been typed, use its return type.
-		// Full arg checking is deferred to Step 5.
-		if (auto bodyType = project.getType(it->second->body.get())) {
-			return *bodyType;
-		}
-		// Body not yet resolved — proper ordering in Step 7.
-		return T::Error;
-	}
-
-	// Unknown function.
-	diags.push_back({
-		ast::DiagnosticLevel::Error,
-		std::format("unknown function '{}'", node.function),
-		expr.span
-	});
-	return T::Error;
-}
-
-static ast::Type resolve(
-	ast::SharedBlock& node, ast::Expr&, ast::Project& project,
-	std::vector<ast::Diagnostic>& diags)
-{
-	for (auto& branch : node.branches) {
-		auto branchType = resolveExpr(*branch.condition, project, diags);
-		if (branchType != ast::Type::Error && !isBoolCompatible(branchType)) {
-			diags.push_back({
-				ast::DiagnosticLevel::Error,
-				std::format("shared branch condition must be Bool, got {}",
-					typeName(branchType)),
-				branch.condition->span
-			});
-		}
-	}
-	return ast::Type::Bool;
-}
-
-static ast::Type resolve(
-	ast::AnyAgeBlock& node, ast::Expr&, ast::Project& project,
-	std::vector<ast::Diagnostic>& diags)
-{
-	auto bodyType = resolveExpr(*node.body, project, diags);
-	if (bodyType != ast::Type::Error && !isBoolCompatible(bodyType)) {
-		diags.push_back({
-			ast::DiagnosticLevel::Error,
-			std::format("any_age body must be Bool, got {}",
-				typeName(bodyType)),
-			node.body->span
-		});
-	}
-	return ast::Type::Bool;
-}
-
-static ast::Type resolve(
-	ast::MatchExpr& node, ast::Expr& expr, ast::Project& project,
-	std::vector<ast::Diagnostic>& diags)
-{
-	using T = ast::Type;
-
-	// Infer discriminant type from arm patterns.
-	std::optional<T> patternType;
-
-	for (const auto& arm : node.arms) {
-		for (const auto& pattern : arm.patterns) {
-			if (auto t = typeFromIdentifier(pattern)) {
-				if (!patternType) {
-					patternType = *t;
-				} else if (*t != *patternType) {
-					diags.push_back({
-						ast::DiagnosticLevel::Error,
-						std::format(
-							"match pattern '{}' is {} but expected {}",
-							pattern, typeName(*t),
-							typeName(*patternType)),
-						expr.span
-					});
-				}
-			} else {
+		switch (node.op) {
+		// Logical: both sides must be bool-compatible.
+		case ast::BinaryOp::And:
+		case ast::BinaryOp::Or: {
+			auto opName = node.op == ast::BinaryOp::And ? "and" : "or";
+			if (leftType != T::Error && !isBoolCompatible(leftType)) {
 				diags.push_back({
 					ast::DiagnosticLevel::Error,
-					std::format("unrecognized match pattern '{}'",
-						pattern),
+					std::format("'{}' requires Bool operands, left is {}",
+						opName, typeName(leftType)),
+					node.left->span
+				});
+			}
+			if (rightType != T::Error && !isBoolCompatible(rightType)) {
+				diags.push_back({
+					ast::DiagnosticLevel::Error,
+					std::format("'{}' requires Bool operands, right is {}",
+						opName, typeName(rightType)),
+					node.right->span
+				});
+			}
+			return T::Bool;
+		}
+
+		// Equality: both sides must be the same type.
+		case ast::BinaryOp::Eq:
+		case ast::BinaryOp::NotEq:
+			if (leftType != T::Error && rightType != T::Error
+				&& leftType != rightType) {
+				diags.push_back({
+					ast::DiagnosticLevel::Error,
+					std::format("comparison between incompatible types {} and {}",
+						typeName(leftType), typeName(rightType)),
 					expr.span
 				});
 			}
+			return T::Bool;
+
+		// Ordering: both sides must be Int.
+		case ast::BinaryOp::Lt:
+		case ast::BinaryOp::LtEq:
+		case ast::BinaryOp::Gt:
+		case ast::BinaryOp::GtEq:
+			if (leftType != T::Error && leftType != T::Int) {
+				diags.push_back({
+					ast::DiagnosticLevel::Error,
+					std::format("comparison requires Int operands, left is {}",
+						typeName(leftType)),
+					node.left->span
+				});
+			}
+			if (rightType != T::Error && rightType != T::Int) {
+				diags.push_back({
+					ast::DiagnosticLevel::Error,
+					std::format("comparison requires Int operands, right is {}",
+						typeName(rightType)),
+					node.right->span
+				});
+			}
+			return T::Bool;
+
+		// Arithmetic: both sides must be Int.
+		case ast::BinaryOp::Add:
+		case ast::BinaryOp::Sub:
+		case ast::BinaryOp::Mul:
+		case ast::BinaryOp::Div:
+			if (leftType != T::Error && leftType != T::Int) {
+				diags.push_back({
+					ast::DiagnosticLevel::Error,
+					std::format("arithmetic requires Int operands, left is {}",
+						typeName(leftType)),
+					node.left->span
+				});
+			}
+			if (rightType != T::Error && rightType != T::Int) {
+				diags.push_back({
+					ast::DiagnosticLevel::Error,
+					std::format("arithmetic requires Int operands, right is {}",
+						typeName(rightType)),
+					node.right->span
+				});
+			}
+			return T::Int;
 		}
+
+		return T::Error; // unreachable — all BinaryOp cases covered
 	}
 
-	// Resolve arm bodies and find common type.
-	T bodyType = T::Error;
-	for (auto& arm : node.arms) {
-		auto armType = resolveExpr(*arm.body, project, diags);
-		if (armType != T::Error) {
-			if (bodyType == T::Error) {
-				bodyType = armType;
-			} else if (armType != bodyType) {
-				if (isBoolCompatible(armType) && isBoolCompatible(bodyType)) {
-					diags.push_back({
-						ast::DiagnosticLevel::Warning,
-						std::format(
-							"match arm body type {} implicitly "
-							"converted to Bool (previous arms are {})",
-							typeName(armType), typeName(bodyType)),
-						arm.body->span
-					});
-					bodyType = T::Bool;
+	ast::Type resolve(const ast::TernaryExpr& node, const ast::Expr& expr) {
+		using T = ast::Type;
+		auto condType = resolveExpr(*node.condition);
+		auto thenType = resolveExpr(*node.thenBranch);
+		auto elseType = resolveExpr(*node.elseBranch);
+
+		if (condType != T::Error && !isBoolCompatible(condType)) {
+			diags.push_back({
+				ast::DiagnosticLevel::Error,
+				std::format("ternary condition must be Bool, got {}",
+					typeName(condType)),
+				node.condition->span
+			});
+		}
+
+		// Determine result type from branches.
+		if (thenType == T::Error) return elseType == T::Error ? T::Error : elseType;
+		if (elseType == T::Error) return thenType;
+
+		if (thenType == elseType) return thenType;
+
+		// Both bool-compatible but different (e.g. Int + Bool) → unify to Bool.
+		if (isBoolCompatible(thenType) && isBoolCompatible(elseType)) {
+			diags.push_back({
+				ast::DiagnosticLevel::Warning,
+				std::format("ternary branches have types {} and {}, implicitly converted to Bool",
+					typeName(thenType), typeName(elseType)),
+				expr.span
+			});
+			return T::Bool;
+		}
+
+		diags.push_back({
+			ast::DiagnosticLevel::Error,
+			std::format("ternary branches have different types: {} and {}",
+				typeName(thenType), typeName(elseType)),
+			expr.span
+		});
+		return T::Error;
+	}
+
+	ast::Type resolve(const ast::CallExpr& node, const ast::Expr& expr) {
+		using T = ast::Type;
+
+		// Resolve all argument types first.
+		std::vector<T> argTypes;
+		argTypes.reserve(node.args.size());
+		for (auto& arg : node.args) {
+			argTypes.push_back(resolveExpr(*arg.value));
+		}
+
+		// Enemy built-in functions (can_kill, can_pass, etc.).
+		auto& enemies = enemyBuiltins();
+		if (auto it = enemies.find(node.function); it != enemies.end()) {
+			return validateCallArgs(node.function, it->second, argTypes,
+				node, expr, diags);
+		}
+
+		// Host functions.
+		auto& hosts = hostFunctions();
+		if (auto it = hosts.find(node.function); it != hosts.end()) {
+			return validateCallArgs(node.function, it->second, argTypes,
+				node, expr, diags);
+		}
+
+		// User-defined functions (define declarations).
+		if (auto it = project.DefineDecls.find(node.function);
+			it != project.DefineDecls.end()) {
+			// If the define's body has been typed, use its return type.
+			// Full arg checking is deferred to Step 5.
+			if (auto bodyType = project.getType(it->second->body.get())) {
+				return *bodyType;
+			}
+			// Body not yet resolved — proper ordering in Step 7.
+			return T::Error;
+		}
+
+		// Unknown function.
+		diags.push_back({
+			ast::DiagnosticLevel::Error,
+			std::format("unknown function '{}'", node.function),
+			expr.span
+		});
+		return T::Error;
+	}
+
+	ast::Type resolve(const ast::SharedBlock& node, const ast::Expr&) {
+		for (auto& branch : node.branches) {
+			auto branchType = resolveExpr(*branch.condition);
+			if (branchType != ast::Type::Error && !isBoolCompatible(branchType)) {
+				diags.push_back({
+					ast::DiagnosticLevel::Error,
+					std::format("shared branch condition must be Bool, got {}",
+						typeName(branchType)),
+					branch.condition->span
+				});
+			}
+		}
+		return ast::Type::Bool;
+	}
+
+	ast::Type resolve(const ast::AnyAgeBlock& node, const ast::Expr&) {
+		auto bodyType = resolveExpr(*node.body);
+		if (bodyType != ast::Type::Error && !isBoolCompatible(bodyType)) {
+			diags.push_back({
+				ast::DiagnosticLevel::Error,
+				std::format("any_age body must be Bool, got {}",
+					typeName(bodyType)),
+				node.body->span
+			});
+		}
+		return ast::Type::Bool;
+	}
+
+	ast::Type resolve(const ast::MatchExpr& node, const ast::Expr& expr) {
+		using T = ast::Type;
+
+		// Infer discriminant type from arm patterns.
+		std::optional<T> patternType;
+
+		for (const auto& arm : node.arms) {
+			for (const auto& pattern : arm.patterns) {
+				if (auto t = typeFromIdentifier(pattern)) {
+					if (!patternType) {
+						patternType = *t;
+					} else if (*t != *patternType) {
+						diags.push_back({
+							ast::DiagnosticLevel::Error,
+							std::format(
+								"match pattern '{}' is {} but expected {}",
+								pattern, typeName(*t),
+								typeName(*patternType)),
+							expr.span
+						});
+					}
 				} else {
 					diags.push_back({
 						ast::DiagnosticLevel::Error,
-						std::format(
-							"match arm body type {} doesn't match "
-							"previous arms ({})",
-							typeName(armType), typeName(bodyType)),
-						arm.body->span
+						std::format("unrecognized match pattern '{}'",
+							pattern),
+						expr.span
 					});
 				}
 			}
 		}
+
+		// Resolve arm bodies and find common type.
+		T bodyType = T::Error;
+		for (auto& arm : node.arms) {
+			auto armType = resolveExpr(*arm.body);
+			if (armType != T::Error) {
+				if (bodyType == T::Error) {
+					bodyType = armType;
+				} else if (armType != bodyType) {
+					if (isBoolCompatible(armType) && isBoolCompatible(bodyType)) {
+						diags.push_back({
+							ast::DiagnosticLevel::Warning,
+							std::format(
+								"match arm body type {} implicitly "
+								"converted to Bool (previous arms are {})",
+								typeName(armType), typeName(bodyType)),
+							arm.body->span
+						});
+						bodyType = T::Bool;
+					} else {
+						diags.push_back({
+							ast::DiagnosticLevel::Error,
+							std::format(
+								"match arm body type {} doesn't match "
+								"previous arms ({})",
+								typeName(armType), typeName(bodyType)),
+							arm.body->span
+						});
+					}
+				}
+			}
+		}
+
+		return bodyType;
 	}
-
-	return bodyType;
-}
-
-// -- Dispatch ----------------------------------------------------------------
-
-static ast::Type resolveExpr(
-	ast::Expr& expr,
-	ast::Project& project,
-	std::vector<ast::Diagnostic>& diags)
-{
-	if (auto cached = project.getType(&expr)) {
-		return *cached;
-	}
-
-	auto result = std::visit(
-		[&](auto& node) { return resolve(node, expr, project, diags); },
-		expr.node);
-
-	project.setType(&expr, result);
-	return result;
-}
+};
 
 // == Top-level walk ===========================================================
 
 std::vector<ast::Diagnostic> resolveTypes(ast::Project& project) {
 	std::vector<ast::Diagnostic> diags;
 
-	for (auto& file : project.files) {
-		for (auto& decl : file.declarations) {
-			std::visit([&](auto& d) {
-				using D = std::decay_t<decltype(d)>;
-
-				if constexpr (std::is_same_v<D, ast::DefineDecl>) {
-					// Process define bodies first so their return types
-					// are available when regions call them.
-					resolveExpr(*d.body, project, diags);
+	// Resolve define bodies.
+	for (auto& [name, decl] : project.DefineDecls) {
+		Scope scope;
+		for (const auto& param : decl->params) {
+			if (param.type) {
+				if (auto t = typeFromAnnotation(*param.type)) {
+					scope[param.name] = *t;
+				} else {
+					diags.push_back({
+						ast::DiagnosticLevel::Error,
+						std::format(
+							"unknown type annotation '{}' "
+							"for parameter '{}'",
+							*param.type, param.name),
+						decl->span
+					});
+					scope[param.name] = std::nullopt;
 				}
-				else if constexpr (std::is_same_v<D, ast::EnemyDecl>) {
-					for (auto& field : d.fields) {
-						resolveExpr(*field.body, project, diags);
+			} else if (param.defaultValue) {
+				ExprResolver defaultResolver{project, emptyScope, diags};
+				auto defaultType =
+					defaultResolver.resolveExpr(*param.defaultValue);
+				scope[param.name] =
+					defaultType != ast::Type::Error
+						? std::optional(defaultType)
+						: std::nullopt;
+			} else {
+				// No annotation, no default — type unknown
+				// until call-site inference (Step 5).
+				scope[param.name] = std::nullopt;
+			}
+		}
+		ExprResolver resolver{project, scope, diags};
+		resolver.resolveExpr(*decl->body);
+	}
+
+	// Resolve enemy field bodies.
+	for (auto& [name, decl] : project.EnemyDecls) {
+		for (const auto& field : decl->fields) {
+			Scope scope;
+			auto* builtinName = enemyFieldBuiltinName(field.kind);
+			auto& builtins = enemyBuiltins();
+			if (auto it = builtins.find(builtinName);
+				it != builtins.end())
+			{
+				const auto& sig = it->second;
+				// Skip first param (Enemy) — field params
+				// correspond to remaining signature params.
+				for (size_t i = 0; i < field.params.size(); ++i) {
+					size_t sigIdx = i + 1;
+					if (sigIdx < sig.params.size()) {
+						scope[field.params[i].name] =
+							sig.params[sigIdx].type;
 					}
 				}
-			}, decl);
+			}
+			ExprResolver resolver{project, scope, diags};
+			auto bodyType = resolver.resolveExpr(*field.body);
+			if (bodyType != ast::Type::Error
+				&& !isBoolCompatible(bodyType))
+			{
+				diags.push_back({
+					ast::DiagnosticLevel::Error,
+					std::format(
+						"enemy field '{}' body must be Bool, got {}",
+						builtinName, typeName(bodyType)),
+					field.body->span
+				});
+			}
 		}
 	}
 
-	// Now resolve region/extend entry conditions (which may call defines).
-	for (auto& file : project.files) {
-		for (auto& decl : file.declarations) {
-			std::visit([&](auto& d) {
-				using D = std::decay_t<decltype(d)>;
+	// Resolve region entry conditions.
+	ExprResolver resolver{project, emptyScope, diags};
+	for (auto& [name, decl] : project.RegionDecls) {
+		for (const auto& section : decl->body.sections) {
+			for (const auto& entry : section.entries) {
+				resolver.resolveExpr(*entry.condition);
+			}
+		}
+	}
 
-				if constexpr (std::is_same_v<D, ast::RegionDecl>) {
-					for (auto& section : d.body.sections) {
-						for (auto& entry : section.entries) {
-							resolveExpr(*entry.condition, project, diags);
-						}
-					}
-				}
-				else if constexpr (std::is_same_v<D, ast::ExtendRegionDecl>) {
-					for (auto& section : d.sections) {
-						for (auto& entry : section.entries) {
-							resolveExpr(*entry.condition, project, diags);
-						}
-					}
-				}
-			}, decl);
+	// Resolve extend-region entry conditions.
+	for (auto& [name, decl] : project.ExtendRegionDecls) {
+		for (const auto& section : decl->sections) {
+			for (const auto& entry : section.entries) {
+				resolver.resolveExpr(*entry.condition);
+			}
 		}
 	}
 
