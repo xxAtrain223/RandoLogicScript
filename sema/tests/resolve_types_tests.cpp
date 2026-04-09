@@ -598,6 +598,328 @@ TEST(ResolveTypes, UserDefineCallResolvesReturnType) {
 	EXPECT_EQ(project.getType(callExpr), Type::Bool);
 }
 
+TEST(ResolveTypes, DefineCallArgTypeMatch) {
+	// define foo(x: Item): has(x)
+	// Call: foo(RG_HOOKSHOT) — correct arg type.
+	Project project;
+	File file;
+	file.path = "test.rls";
+
+	std::vector<Param> params;
+	params.emplace_back("x", std::optional<std::string>{"Item"}, nullptr);
+	std::vector<Arg> bodyArgs;
+	bodyArgs.emplace_back(std::nullopt, makeExpr(Identifier{"x"}));
+	file.declarations.emplace_back(DefineDecl(
+		"foo", std::move(params),
+		makeExpr(CallExpr("has", std::move(bodyArgs)))
+	));
+
+	std::vector<Arg> callArgs;
+	callArgs.emplace_back(std::nullopt, makeExpr(Identifier{"RG_HOOKSHOT"}));
+	std::vector<Entry> entries;
+	entries.emplace_back("TEST_LOC",
+		makeExpr(CallExpr("foo", std::move(callArgs))));
+	std::vector<Section> sections;
+	sections.emplace_back(SectionKind::Locations, std::move(entries));
+	file.declarations.emplace_back(RegionDecl(
+		"RR_TEST",
+		RegionBody("SCENE_TEST", TimePasses::Auto, {}, std::move(sections))
+	));
+
+	project.files.push_back(std::move(file));
+	collectDeclarations(project);
+	auto diags = resolveTypes(project);
+	EXPECT_TRUE(diags.empty());
+}
+
+TEST(ResolveTypes, DefineCallArgTypeMismatch) {
+	// define foo(x: Item): has(x)
+	// Call: foo(RE_ARMOS) — Enemy where Item expected.
+	Project project;
+	File file;
+	file.path = "test.rls";
+
+	std::vector<Param> params;
+	params.emplace_back("x", std::optional<std::string>{"Item"}, nullptr);
+	std::vector<Arg> bodyArgs;
+	bodyArgs.emplace_back(std::nullopt, makeExpr(Identifier{"x"}));
+	file.declarations.emplace_back(DefineDecl(
+		"foo", std::move(params),
+		makeExpr(CallExpr("has", std::move(bodyArgs)))
+	));
+
+	std::vector<Arg> callArgs;
+	callArgs.emplace_back(std::nullopt, makeExpr(Identifier{"RE_ARMOS"}));
+	std::vector<Entry> entries;
+	entries.emplace_back("TEST_LOC",
+		makeExpr(CallExpr("foo", std::move(callArgs))));
+	std::vector<Section> sections;
+	sections.emplace_back(SectionKind::Locations, std::move(entries));
+	file.declarations.emplace_back(RegionDecl(
+		"RR_TEST",
+		RegionBody("SCENE_TEST", TimePasses::Auto, {}, std::move(sections))
+	));
+
+	project.files.push_back(std::move(file));
+	collectDeclarations(project);
+	auto diags = resolveTypes(project);
+	EXPECT_EQ(countErrors(diags), 1u);
+	EXPECT_NE(diags[0].message.find("argument 1 expected Item, got Enemy"),
+		std::string::npos);
+}
+
+TEST(ResolveTypes, DefineCallTooFewArgs) {
+	// define foo(x: Item): has(x)
+	// Call: foo() — missing required arg.
+	Project project;
+	File file;
+	file.path = "test.rls";
+
+	std::vector<Param> params;
+	params.emplace_back("x", std::optional<std::string>{"Item"}, nullptr);
+	std::vector<Arg> bodyArgs;
+	bodyArgs.emplace_back(std::nullopt, makeExpr(Identifier{"x"}));
+	file.declarations.emplace_back(DefineDecl(
+		"foo", std::move(params),
+		makeExpr(CallExpr("has", std::move(bodyArgs)))
+	));
+
+	std::vector<Entry> entries;
+	entries.emplace_back("TEST_LOC",
+		makeExpr(CallExpr("foo", {})));
+	std::vector<Section> sections;
+	sections.emplace_back(SectionKind::Locations, std::move(entries));
+	file.declarations.emplace_back(RegionDecl(
+		"RR_TEST",
+		RegionBody("SCENE_TEST", TimePasses::Auto, {}, std::move(sections))
+	));
+
+	project.files.push_back(std::move(file));
+	collectDeclarations(project);
+	auto diags = resolveTypes(project);
+	EXPECT_EQ(countErrors(diags), 1u);
+	EXPECT_NE(diags[0].message.find("expects 1 argument(s), got 0"),
+		std::string::npos);
+}
+
+TEST(ResolveTypes, DefineCallTooManyArgs) {
+	// define foo(x: Item): has(x)
+	// Call: foo(RG_HOOKSHOT, RG_FAIRY_BOW) — too many.
+	Project project;
+	File file;
+	file.path = "test.rls";
+
+	std::vector<Param> params;
+	params.emplace_back("x", std::optional<std::string>{"Item"}, nullptr);
+	std::vector<Arg> bodyArgs;
+	bodyArgs.emplace_back(std::nullopt, makeExpr(Identifier{"x"}));
+	file.declarations.emplace_back(DefineDecl(
+		"foo", std::move(params),
+		makeExpr(CallExpr("has", std::move(bodyArgs)))
+	));
+
+	std::vector<Arg> callArgs;
+	callArgs.emplace_back(std::nullopt, makeExpr(Identifier{"RG_HOOKSHOT"}));
+	callArgs.emplace_back(std::nullopt, makeExpr(Identifier{"RG_FAIRY_BOW"}));
+	std::vector<Entry> entries;
+	entries.emplace_back("TEST_LOC",
+		makeExpr(CallExpr("foo", std::move(callArgs))));
+	std::vector<Section> sections;
+	sections.emplace_back(SectionKind::Locations, std::move(entries));
+	file.declarations.emplace_back(RegionDecl(
+		"RR_TEST",
+		RegionBody("SCENE_TEST", TimePasses::Auto, {}, std::move(sections))
+	));
+
+	project.files.push_back(std::move(file));
+	collectDeclarations(project);
+	auto diags = resolveTypes(project);
+	EXPECT_EQ(countErrors(diags), 1u);
+	EXPECT_NE(diags[0].message.find("expects 1 argument(s), got 2"),
+		std::string::npos);
+}
+
+TEST(ResolveTypes, DefineCallWithDefaultOmitted) {
+	// define foo(x: Item, d = ED_CLOSE): has(x)
+	// Call: foo(RG_HOOKSHOT) — optional d omitted.
+	Project project;
+	File file;
+	file.path = "test.rls";
+
+	std::vector<Param> params;
+	params.emplace_back("x", std::optional<std::string>{"Item"}, nullptr);
+	params.emplace_back("d", std::nullopt, makeExpr(Identifier{"ED_CLOSE"}));
+	std::vector<Arg> bodyArgs;
+	bodyArgs.emplace_back(std::nullopt, makeExpr(Identifier{"x"}));
+	file.declarations.emplace_back(DefineDecl(
+		"foo", std::move(params),
+		makeExpr(CallExpr("has", std::move(bodyArgs)))
+	));
+
+	std::vector<Arg> callArgs;
+	callArgs.emplace_back(std::nullopt, makeExpr(Identifier{"RG_HOOKSHOT"}));
+	std::vector<Entry> entries;
+	entries.emplace_back("TEST_LOC",
+		makeExpr(CallExpr("foo", std::move(callArgs))));
+	std::vector<Section> sections;
+	sections.emplace_back(SectionKind::Locations, std::move(entries));
+	file.declarations.emplace_back(RegionDecl(
+		"RR_TEST",
+		RegionBody("SCENE_TEST", TimePasses::Auto, {}, std::move(sections))
+	));
+
+	project.files.push_back(std::move(file));
+	collectDeclarations(project);
+	auto diags = resolveTypes(project);
+	EXPECT_TRUE(diags.empty());
+}
+
+TEST(ResolveTypes, DefineCallWithDefaultProvided) {
+	// define foo(x: Item, d = ED_CLOSE): has(x)
+	// Call: foo(RG_HOOKSHOT, ED_FAR) — optional d provided.
+	Project project;
+	File file;
+	file.path = "test.rls";
+
+	std::vector<Param> params;
+	params.emplace_back("x", std::optional<std::string>{"Item"}, nullptr);
+	params.emplace_back("d", std::nullopt, makeExpr(Identifier{"ED_CLOSE"}));
+	std::vector<Arg> bodyArgs;
+	bodyArgs.emplace_back(std::nullopt, makeExpr(Identifier{"x"}));
+	file.declarations.emplace_back(DefineDecl(
+		"foo", std::move(params),
+		makeExpr(CallExpr("has", std::move(bodyArgs)))
+	));
+
+	std::vector<Arg> callArgs;
+	callArgs.emplace_back(std::nullopt, makeExpr(Identifier{"RG_HOOKSHOT"}));
+	callArgs.emplace_back(std::nullopt, makeExpr(Identifier{"ED_FAR"}));
+	std::vector<Entry> entries;
+	entries.emplace_back("TEST_LOC",
+		makeExpr(CallExpr("foo", std::move(callArgs))));
+	std::vector<Section> sections;
+	sections.emplace_back(SectionKind::Locations, std::move(entries));
+	file.declarations.emplace_back(RegionDecl(
+		"RR_TEST",
+		RegionBody("SCENE_TEST", TimePasses::Auto, {}, std::move(sections))
+	));
+
+	project.files.push_back(std::move(file));
+	collectDeclarations(project);
+	auto diags = resolveTypes(project);
+	EXPECT_TRUE(diags.empty());
+}
+
+TEST(ResolveTypes, DefineCallDefaultArgWrongType) {
+	// define foo(x: Item, d = ED_CLOSE): has(x)
+	// Call: foo(RG_HOOKSHOT, true) — Bool where Distance expected.
+	Project project;
+	File file;
+	file.path = "test.rls";
+
+	std::vector<Param> params;
+	params.emplace_back("x", std::optional<std::string>{"Item"}, nullptr);
+	params.emplace_back("d", std::nullopt, makeExpr(Identifier{"ED_CLOSE"}));
+	std::vector<Arg> bodyArgs;
+	bodyArgs.emplace_back(std::nullopt, makeExpr(Identifier{"x"}));
+	file.declarations.emplace_back(DefineDecl(
+		"foo", std::move(params),
+		makeExpr(CallExpr("has", std::move(bodyArgs)))
+	));
+
+	std::vector<Arg> callArgs;
+	callArgs.emplace_back(std::nullopt, makeExpr(Identifier{"RG_HOOKSHOT"}));
+	callArgs.emplace_back(std::nullopt, makeExpr(BoolLiteral{true}));
+	std::vector<Entry> entries;
+	entries.emplace_back("TEST_LOC",
+		makeExpr(CallExpr("foo", std::move(callArgs))));
+	std::vector<Section> sections;
+	sections.emplace_back(SectionKind::Locations, std::move(entries));
+	file.declarations.emplace_back(RegionDecl(
+		"RR_TEST",
+		RegionBody("SCENE_TEST", TimePasses::Auto, {}, std::move(sections))
+	));
+
+	project.files.push_back(std::move(file));
+	collectDeclarations(project);
+	auto diags = resolveTypes(project);
+	EXPECT_EQ(countErrors(diags), 1u);
+	EXPECT_NE(diags[0].message.find("argument 2 expected Distance, got Bool"),
+		std::string::npos);
+}
+
+TEST(ResolveTypes, DefineCallErrorArgNoCascade) {
+	// define foo(x: Item): has(x)
+	// Call: foo(unknown_id) — only "unknown identifier" error.
+	Project project;
+	File file;
+	file.path = "test.rls";
+
+	std::vector<Param> params;
+	params.emplace_back("x", std::optional<std::string>{"Item"}, nullptr);
+	std::vector<Arg> bodyArgs;
+	bodyArgs.emplace_back(std::nullopt, makeExpr(Identifier{"x"}));
+	file.declarations.emplace_back(DefineDecl(
+		"foo", std::move(params),
+		makeExpr(CallExpr("has", std::move(bodyArgs)))
+	));
+
+	std::vector<Arg> callArgs;
+	callArgs.emplace_back(std::nullopt, makeExpr(Identifier{"unknown_id"}));
+	std::vector<Entry> entries;
+	entries.emplace_back("TEST_LOC",
+		makeExpr(CallExpr("foo", std::move(callArgs))));
+	std::vector<Section> sections;
+	sections.emplace_back(SectionKind::Locations, std::move(entries));
+	file.declarations.emplace_back(RegionDecl(
+		"RR_TEST",
+		RegionBody("SCENE_TEST", TimePasses::Auto, {}, std::move(sections))
+	));
+
+	project.files.push_back(std::move(file));
+	collectDeclarations(project);
+	auto diags = resolveTypes(project);
+	// Only the "unknown identifier" error, not a type mismatch.
+	EXPECT_EQ(countErrors(diags), 1u);
+	EXPECT_NE(diags[0].message.find("unknown identifier"),
+		std::string::npos);
+}
+
+TEST(ResolveTypes, DefineCallWithRangeArgCount) {
+	// define foo(x: Item, d = ED_CLOSE): has(x)
+	// Call: foo() — too few for range (needs 1-2, got 0).
+	Project project;
+	File file;
+	file.path = "test.rls";
+
+	std::vector<Param> params;
+	params.emplace_back("x", std::optional<std::string>{"Item"}, nullptr);
+	params.emplace_back("d", std::nullopt, makeExpr(Identifier{"ED_CLOSE"}));
+	std::vector<Arg> bodyArgs;
+	bodyArgs.emplace_back(std::nullopt, makeExpr(Identifier{"x"}));
+	file.declarations.emplace_back(DefineDecl(
+		"foo", std::move(params),
+		makeExpr(CallExpr("has", std::move(bodyArgs)))
+	));
+
+	std::vector<Entry> entries;
+	entries.emplace_back("TEST_LOC",
+		makeExpr(CallExpr("foo", {})));
+	std::vector<Section> sections;
+	sections.emplace_back(SectionKind::Locations, std::move(entries));
+	file.declarations.emplace_back(RegionDecl(
+		"RR_TEST",
+		RegionBody("SCENE_TEST", TimePasses::Auto, {}, std::move(sections))
+	));
+
+	project.files.push_back(std::move(file));
+	collectDeclarations(project);
+	auto diags = resolveTypes(project);
+	EXPECT_EQ(countErrors(diags), 1u);
+	EXPECT_NE(diags[0].message.find("expects 1-2 argument(s), got 0"),
+		std::string::npos);
+}
+
 // -- Shared block -------------------------------------------------------------
 
 TEST(ResolveTypes, SharedBlockBool) {

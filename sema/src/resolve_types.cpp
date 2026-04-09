@@ -464,9 +464,49 @@ struct ExprResolver {
 		// User-defined functions (define declarations).
 		if (auto it = project.DefineDecls.find(node.function);
 			it != project.DefineDecls.end()) {
-			// If the define's body has been typed, use its return type.
-			// Full arg checking is deferred to Step 5.
-			if (auto bodyType = project.getType(it->second->body.get())) {
+			const auto& def = *it->second;
+
+			// Count required params (those without defaults).
+			size_t required = 0;
+			for (const auto& p : def.params) {
+				if (!p.defaultValue) ++required;
+			}
+
+			size_t nArgs = argTypes.size();
+			size_t nParams = def.params.size();
+			bool argCountOk = nArgs >= required && nArgs <= nParams;
+
+			if (!argCountOk) {
+				auto count = required == nParams
+					? std::format("{}", required)
+					: std::format("{}-{}", required, nParams);
+				diags.push_back({
+					ast::DiagnosticLevel::Error,
+					std::format("'{}' expects {} argument(s), got {}",
+						node.function, count, nArgs),
+					expr.span
+				});
+			}
+
+			// Check each provided arg against its param type.
+			for (size_t i = 0; argCountOk && i < nArgs; ++i) {
+				if (argTypes[i] == T::Error) continue;
+
+				auto paramType = project.getType(&def.params[i]);
+				if (!paramType) continue;
+				if (argTypes[i] == *paramType) continue;
+
+				diags.push_back({
+					ast::DiagnosticLevel::Error,
+					std::format("'{}' argument {} expected {}, got {}",
+						node.function, i + 1,
+						typeName(*paramType), typeName(argTypes[i])),
+					node.args[i].value->span
+				});
+			}
+
+			// Return the define's body type if available.
+			if (auto bodyType = project.getType(def.body.get())) {
 				return *bodyType;
 			}
 			// Body not yet resolved — proper ordering in Step 7.
@@ -590,6 +630,7 @@ std::vector<ast::Diagnostic> resolveTypes(ast::Project& project) {
 			if (param.type) {
 				if (auto t = typeFromAnnotation(*param.type)) {
 					scope[param.name] = *t;
+					project.setType(&param, *t);
 				} else {
 					diags.push_back({
 						ast::DiagnosticLevel::Error,
@@ -605,10 +646,12 @@ std::vector<ast::Diagnostic> resolveTypes(ast::Project& project) {
 				ExprResolver defaultResolver{project, emptyScope, diags};
 				auto defaultType =
 					defaultResolver.resolveExpr(*param.defaultValue);
-				scope[param.name] =
-					defaultType != ast::Type::Error
-						? std::optional(defaultType)
-						: std::nullopt;
+				if (defaultType != ast::Type::Error) {
+					scope[param.name] = defaultType;
+					project.setType(&param, defaultType);
+				} else {
+					scope[param.name] = std::nullopt;
+				}
 			} else {
 				// No annotation, no default — type unknown
 				// until call-site inference (Step 5).
