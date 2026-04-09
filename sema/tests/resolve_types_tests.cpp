@@ -1034,6 +1034,137 @@ TEST(ResolveTypes, MatchBoolCompatibleArmsUnifyWithWarning) {
 	EXPECT_EQ(project.getType(getEntryExpr(project)), Type::Bool);
 }
 
+TEST(ResolveTypes, MatchArmsSameNonBoolType) {
+	// match x { ED_CLOSE: ED_FAR, ED_FAR: ED_CLOSE } — all Distance.
+	std::vector<MatchArm> arms;
+	arms.emplace_back(
+		std::vector<std::string>{"ED_CLOSE"},
+		makeExpr(Identifier{"ED_FAR"}), false);
+	arms.emplace_back(
+		std::vector<std::string>{"ED_FAR"},
+		makeExpr(Identifier{"ED_CLOSE"}), false);
+
+	auto project = makeProjectWithExpr(
+		makeExpr(MatchExpr("x", std::move(arms)))
+	);
+	auto diags = resolveTypes(project);
+	EXPECT_TRUE(diags.empty());
+	EXPECT_EQ(project.getType(getEntryExpr(project)), Type::Distance);
+}
+
+TEST(ResolveTypes, MatchArmBodyTypeMismatch) {
+	// match x { ED_CLOSE: RG_HOOKSHOT, ED_FAR: true } — Item vs Bool.
+	std::vector<MatchArm> arms;
+	arms.emplace_back(
+		std::vector<std::string>{"ED_CLOSE"},
+		makeExpr(Identifier{"RG_HOOKSHOT"}), false);
+	arms.emplace_back(
+		std::vector<std::string>{"ED_FAR"},
+		makeExpr(BoolLiteral{true}), false);
+
+	auto project = makeProjectWithExpr(
+		makeExpr(MatchExpr("x", std::move(arms)))
+	);
+	auto diags = resolveTypes(project);
+	EXPECT_EQ(countErrors(diags), 1u);
+	EXPECT_NE(diags[0].message.find("doesn't match previous arms"),
+		std::string::npos);
+}
+
+TEST(ResolveTypes, MatchDiscriminantTyped) {
+	// define foo(d: Distance): match d { ED_CLOSE: true, ED_FAR: false }
+	// Discriminant 'd' is Distance; patterns are Distance — OK.
+	Project project;
+	File file;
+	file.path = "test.rls";
+
+	std::vector<Param> params;
+	params.emplace_back("d", std::optional<std::string>{"Distance"}, nullptr);
+
+	std::vector<MatchArm> arms;
+	arms.emplace_back(
+		std::vector<std::string>{"ED_CLOSE"},
+		makeExpr(BoolLiteral{true}), false);
+	arms.emplace_back(
+		std::vector<std::string>{"ED_FAR"},
+		makeExpr(BoolLiteral{false}), false);
+
+	file.declarations.emplace_back(DefineDecl(
+		"foo", std::move(params),
+		makeExpr(MatchExpr("d", std::move(arms)))
+	));
+
+	project.files.push_back(std::move(file));
+	collectDeclarations(project);
+	auto diags = resolveTypes(project);
+	EXPECT_TRUE(diags.empty());
+
+	auto& def = std::get<DefineDecl>(project.files[0].declarations[0]);
+	EXPECT_EQ(project.getType(def.body.get()), Type::Bool);
+}
+
+TEST(ResolveTypes, MatchDiscriminantTypeMismatch) {
+	// define foo(d: Item): match d { ED_CLOSE: true }
+	// Discriminant 'd' is Item but pattern ED_CLOSE is Distance — error.
+	Project project;
+	File file;
+	file.path = "test.rls";
+
+	std::vector<Param> params;
+	params.emplace_back("d", std::optional<std::string>{"Item"}, nullptr);
+
+	std::vector<MatchArm> arms;
+	arms.emplace_back(
+		std::vector<std::string>{"ED_CLOSE"},
+		makeExpr(BoolLiteral{true}), false);
+
+	file.declarations.emplace_back(DefineDecl(
+		"foo", std::move(params),
+		makeExpr(MatchExpr("d", std::move(arms)))
+	));
+
+	project.files.push_back(std::move(file));
+	collectDeclarations(project);
+	auto diags = resolveTypes(project);
+	EXPECT_EQ(countErrors(diags), 1u);
+	EXPECT_NE(diags[0].message.find(
+		"match discriminant 'd' is Item but patterns are Distance"),
+		std::string::npos);
+}
+
+TEST(ResolveTypes, MatchDiscriminantInferred) {
+	// define foo(d): match d { ED_CLOSE: true, ED_FAR: false }
+	// Discriminant 'd' has no type — infer Distance from patterns.
+	// Then using 'd' after the match should resolve to Distance.
+	Project project;
+	File file;
+	file.path = "test.rls";
+
+	std::vector<Param> params;
+	params.emplace_back("d", std::nullopt, nullptr);
+
+	std::vector<MatchArm> arms;
+	arms.emplace_back(
+		std::vector<std::string>{"ED_CLOSE"},
+		makeExpr(BoolLiteral{true}), false);
+	arms.emplace_back(
+		std::vector<std::string>{"ED_FAR"},
+		makeExpr(BoolLiteral{false}), false);
+
+	file.declarations.emplace_back(DefineDecl(
+		"foo", std::move(params),
+		makeExpr(MatchExpr("d", std::move(arms)))
+	));
+
+	project.files.push_back(std::move(file));
+	collectDeclarations(project);
+	auto diags = resolveTypes(project);
+	EXPECT_TRUE(diags.empty());
+
+	auto& def = std::get<DefineDecl>(project.files[0].declarations[0]);
+	EXPECT_EQ(project.getType(def.body.get()), Type::Bool);
+}
+
 // -- Error poisoning ----------------------------------------------------------
 
 TEST(ResolveTypes, ErrorPoisonSuppressesCascade) {

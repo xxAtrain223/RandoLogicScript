@@ -134,8 +134,7 @@ static bool isBoolCompatible(ast::Type t) {
 /// Maps parameter names to their types. nullopt = not yet inferred.
 using Scope = std::unordered_map<std::string, std::optional<ast::Type>>;
 
-/// Empty scope for contexts without parameters (regions, top-level).
-static const Scope emptyScope;
+
 
 /// Parse a type annotation string (e.g. "Distance") to a Type enum value.
 std::optional<ast::Type> typeFromAnnotation(std::string_view annotation) {
@@ -238,7 +237,7 @@ static ast::Type validateCallArgs(
 /// handlers only need the node and its wrapping Expr.
 struct ExprResolver {
 	ast::Project& project;
-	const Scope& scope;
+	Scope& scope;
 	std::vector<ast::Diagnostic>& diags;
 
 	/// Recursively resolve the type of an expression.
@@ -553,7 +552,15 @@ struct ExprResolver {
 	ast::Type resolve(const ast::MatchExpr& node, const ast::Expr& expr) {
 		using T = ast::Type;
 
-		// Infer discriminant type from arm patterns.
+		// --- Discriminant: look up in scope (should be a parameter) ---
+		std::optional<T> discrimType;
+		bool discrimInScope = false;
+		if (auto it = scope.find(node.discriminant); it != scope.end()) {
+			discrimInScope = true;
+			discrimType = it->second; // may be nullopt if untyped
+		}
+
+		// --- Arm patterns: all must be the same enum type ---------------
 		std::optional<T> patternType;
 
 		for (const auto& arm : node.arms) {
@@ -582,34 +589,56 @@ struct ExprResolver {
 			}
 		}
 
-		// Resolve arm bodies and find common type.
+		// --- Unify discriminant type with pattern type ------------------
+		if (patternType) {
+			if (discrimType) {
+				// Both typed — they must agree.
+				if (*discrimType != *patternType) {
+					diags.push_back({
+						ast::DiagnosticLevel::Error,
+						std::format(
+							"match discriminant '{}' is {} "
+							"but patterns are {}",
+							node.discriminant,
+							typeName(*discrimType),
+							typeName(*patternType)),
+						expr.span
+					});
+				}
+			} else if (discrimInScope) {
+				// Discriminant is a parameter with no type — infer it.
+				scope[node.discriminant] = *patternType;
+			}
+		}
+
+		// --- Arm bodies: resolve and unify types -----------------------
 		T bodyType = T::Error;
 		for (auto& arm : node.arms) {
 			auto armType = resolveExpr(*arm.body);
-			if (armType != T::Error) {
-				if (bodyType == T::Error) {
-					bodyType = armType;
-				} else if (armType != bodyType) {
-					if (isBoolCompatible(armType) && isBoolCompatible(bodyType)) {
-						diags.push_back({
-							ast::DiagnosticLevel::Warning,
-							std::format(
-								"match arm body type {} implicitly "
-								"converted to Bool (previous arms are {})",
-								typeName(armType), typeName(bodyType)),
-							arm.body->span
-						});
-						bodyType = T::Bool;
-					} else {
-						diags.push_back({
-							ast::DiagnosticLevel::Error,
-							std::format(
-								"match arm body type {} doesn't match "
-								"previous arms ({})",
-								typeName(armType), typeName(bodyType)),
-							arm.body->span
-						});
-					}
+			if (armType == T::Error) continue;
+
+			if (bodyType == T::Error) {
+				bodyType = armType;
+			} else if (armType != bodyType) {
+				if (isBoolCompatible(armType) && isBoolCompatible(bodyType)) {
+					diags.push_back({
+						ast::DiagnosticLevel::Warning,
+						std::format(
+							"match arm type {} implicitly "
+							"converted to Bool (previous arms are {})",
+							typeName(armType), typeName(bodyType)),
+						arm.body->span
+					});
+					bodyType = T::Bool;
+				} else {
+					diags.push_back({
+						ast::DiagnosticLevel::Error,
+						std::format(
+							"match arm type {} doesn't match "
+							"previous arms ({})",
+							typeName(armType), typeName(bodyType)),
+						arm.body->span
+					});
 				}
 			}
 		}
@@ -643,7 +672,8 @@ std::vector<ast::Diagnostic> resolveTypes(ast::Project& project) {
 					scope[param.name] = std::nullopt;
 				}
 			} else if (param.defaultValue) {
-				ExprResolver defaultResolver{project, emptyScope, diags};
+				Scope noScope;
+				ExprResolver defaultResolver{project, noScope, diags};
 				auto defaultType =
 					defaultResolver.resolveExpr(*param.defaultValue);
 				if (defaultType != ast::Type::Error) {
@@ -699,20 +729,27 @@ std::vector<ast::Diagnostic> resolveTypes(ast::Project& project) {
 	}
 
 	// Resolve region entry conditions.
-	ExprResolver resolver{project, emptyScope, diags};
-	for (auto& [name, decl] : project.RegionDecls) {
-		for (const auto& section : decl->body.sections) {
-			for (const auto& entry : section.entries) {
-				resolver.resolveExpr(*entry.condition);
+	{
+		Scope regionScope;
+		ExprResolver resolver{project, regionScope, diags};
+		for (auto& [name, decl] : project.RegionDecls) {
+			for (const auto& section : decl->body.sections) {
+				for (const auto& entry : section.entries) {
+					resolver.resolveExpr(*entry.condition);
+				}
 			}
 		}
 	}
 
 	// Resolve extend-region entry conditions.
-	for (auto& [name, decl] : project.ExtendRegionDecls) {
-		for (const auto& section : decl->sections) {
-			for (const auto& entry : section.entries) {
-				resolver.resolveExpr(*entry.condition);
+	{
+		Scope extendScope;
+		ExprResolver resolver{project, extendScope, diags};
+		for (auto& [name, decl] : project.ExtendRegionDecls) {
+			for (const auto& section : decl->sections) {
+				for (const auto& entry : section.entries) {
+					resolver.resolveExpr(*entry.condition);
+				}
 			}
 		}
 	}
