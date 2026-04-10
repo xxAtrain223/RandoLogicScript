@@ -11,6 +11,8 @@ namespace rls::sema {
 /// Currently performs:
 ///   Pass 1 - Collect all top-level declarations into the Project's lookup maps
 ///            (RegionDecls, ExtendRegionDecls, DefineDecls, EnemyDecls).
+///   Pass 2 - Resolve and type-check every expression in the project
+///            (defines, enemy fields, region/extend-region conditions).
 ///
 /// Returns all diagnostics (errors and warnings) accumulated across passes.
 /// The Project is modified in-place to populate its side tables.

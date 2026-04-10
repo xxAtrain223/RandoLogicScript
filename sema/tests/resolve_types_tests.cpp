@@ -920,6 +920,206 @@ TEST(ResolveTypes, DefineCallWithRangeArgCount) {
 		std::string::npos);
 }
 
+// -- Define ordering (Step 7) -------------------------------------------------
+
+TEST(ResolveTypes, DefineOrderingCalleeFirst) {
+	// define foo(): bar()
+	// define bar(): true
+	// Region: foo()
+	// Topo sort ensures bar is resolved before foo regardless of decl order.
+	Project project;
+	File file;
+	file.path = "test.rls";
+
+	// foo calls bar (declared first).
+	file.declarations.emplace_back(DefineDecl(
+		"foo", {}, makeExpr(CallExpr("bar", {}))
+	));
+	// bar returns Bool (declared second).
+	file.declarations.emplace_back(DefineDecl(
+		"bar", {}, makeExpr(BoolLiteral{true})
+	));
+
+	// Region entry calling foo.
+	std::vector<Entry> entries;
+	entries.emplace_back("TEST_LOC",
+		makeExpr(CallExpr("foo", {})));
+	std::vector<Section> sections;
+	sections.emplace_back(SectionKind::Locations, std::move(entries));
+	file.declarations.emplace_back(RegionDecl(
+		"RR_TEST",
+		RegionBody("SCENE_TEST", TimePasses::Auto, {}, std::move(sections))
+	));
+
+	project.files.push_back(std::move(file));
+	collectDeclarations(project);
+	auto diags = resolveTypes(project);
+	EXPECT_TRUE(diags.empty());
+
+	// foo should resolve to Bool (bar's return type).
+	auto& region = std::get<RegionDecl>(project.files[0].declarations[2]);
+	auto* callExpr = region.body.sections[0].entries[0].condition.get();
+	EXPECT_EQ(project.getType(callExpr), Type::Bool);
+}
+
+TEST(ResolveTypes, DefineOrderingTransitive) {
+	// define a(): b()
+	// define b(): c()
+	// define c(): RG_HOOKSHOT
+	// Region: a()
+	// Must be processed c → b → a.
+	Project project;
+	File file;
+	file.path = "test.rls";
+
+	file.declarations.emplace_back(DefineDecl(
+		"a", {}, makeExpr(CallExpr("b", {}))
+	));
+	file.declarations.emplace_back(DefineDecl(
+		"b", {}, makeExpr(CallExpr("c", {}))
+	));
+	file.declarations.emplace_back(DefineDecl(
+		"c", {}, makeExpr(Identifier{"RG_HOOKSHOT"})
+	));
+
+	std::vector<Entry> entries;
+	entries.emplace_back("TEST_LOC",
+		makeExpr(CallExpr("a", {})));
+	std::vector<Section> sections;
+	sections.emplace_back(SectionKind::Locations, std::move(entries));
+	file.declarations.emplace_back(RegionDecl(
+		"RR_TEST",
+		RegionBody("SCENE_TEST", TimePasses::Auto, {}, std::move(sections))
+	));
+
+	project.files.push_back(std::move(file));
+	collectDeclarations(project);
+	auto diags = resolveTypes(project);
+	EXPECT_TRUE(diags.empty());
+
+	// a() should resolve to Item (c returns RG_HOOKSHOT → Item).
+	auto& region = std::get<RegionDecl>(project.files[0].declarations[3]);
+	auto* callExpr = region.body.sections[0].entries[0].condition.get();
+	EXPECT_EQ(project.getType(callExpr), Type::Item);
+}
+
+TEST(ResolveTypes, DefineOrderingIndependentDefines) {
+	// define foo(): true
+	// define bar(): 42
+	// Both independent — no dependencies, both should resolve.
+	Project project;
+	File file;
+	file.path = "test.rls";
+
+	file.declarations.emplace_back(DefineDecl(
+		"foo", {}, makeExpr(BoolLiteral{true})
+	));
+	file.declarations.emplace_back(DefineDecl(
+		"bar", {}, makeExpr(IntLiteral{42})
+	));
+
+	std::vector<Entry> entries;
+	entries.emplace_back("TEST_LOC", makeExpr(BoolLiteral{true}));
+	std::vector<Section> sections;
+	sections.emplace_back(SectionKind::Locations, std::move(entries));
+	file.declarations.emplace_back(RegionDecl(
+		"RR_TEST",
+		RegionBody("SCENE_TEST", TimePasses::Auto, {}, std::move(sections))
+	));
+
+	project.files.push_back(std::move(file));
+	collectDeclarations(project);
+	auto diags = resolveTypes(project);
+	EXPECT_TRUE(diags.empty());
+
+	auto& foo = std::get<DefineDecl>(project.files[0].declarations[0]);
+	auto& bar = std::get<DefineDecl>(project.files[0].declarations[1]);
+	EXPECT_EQ(project.getType(foo.body.get()), Type::Bool);
+	EXPECT_EQ(project.getType(bar.body.get()), Type::Int);
+}
+
+TEST(ResolveTypes, DefineCycleDetected) {
+	// define foo(): bar()
+	// define bar(): foo()
+	// Cycle → error diagnostic.
+	Project project;
+	File file;
+	file.path = "test.rls";
+
+	file.declarations.emplace_back(DefineDecl(
+		"foo", {}, makeExpr(CallExpr("bar", {}))
+	));
+	file.declarations.emplace_back(DefineDecl(
+		"bar", {}, makeExpr(CallExpr("foo", {}))
+	));
+
+	std::vector<Entry> entries;
+	entries.emplace_back("TEST_LOC", makeExpr(BoolLiteral{true}));
+	std::vector<Section> sections;
+	sections.emplace_back(SectionKind::Locations, std::move(entries));
+	file.declarations.emplace_back(RegionDecl(
+		"RR_TEST",
+		RegionBody("SCENE_TEST", TimePasses::Auto, {}, std::move(sections))
+	));
+
+	project.files.push_back(std::move(file));
+	collectDeclarations(project);
+	auto diags = resolveTypes(project);
+	EXPECT_GE(countErrors(diags), 1u);
+	bool foundCycle = false;
+	for (const auto& d : diags) {
+		if (d.level == DiagnosticLevel::Error
+			&& d.message.find("cycle") != std::string::npos) {
+			foundCycle = true;
+			// The message should name the involved defines.
+			EXPECT_NE(d.message.find("foo"), std::string::npos);
+			EXPECT_NE(d.message.find("bar"), std::string::npos);
+		}
+	}
+	EXPECT_TRUE(foundCycle);
+}
+
+TEST(ResolveTypes, DefineOrderingDefaultValueDep) {
+	// define bar(): RG_HOOKSHOT
+	// define foo(x = bar()): x
+	// Default value of foo's param calls bar → bar processed first.
+	Project project;
+	File file;
+	file.path = "test.rls";
+
+	file.declarations.emplace_back(DefineDecl(
+		"foo",
+		[&] {
+			std::vector<Param> p;
+			p.emplace_back("x", std::nullopt, makeExpr(CallExpr("bar", {})));
+			return p;
+		}(),
+		makeExpr(Identifier{"x"})
+	));
+	file.declarations.emplace_back(DefineDecl(
+		"bar", {}, makeExpr(Identifier{"RG_HOOKSHOT"})
+	));
+
+	std::vector<Entry> entries;
+	entries.emplace_back("TEST_LOC", makeExpr(BoolLiteral{true}));
+	std::vector<Section> sections;
+	sections.emplace_back(SectionKind::Locations, std::move(entries));
+	file.declarations.emplace_back(RegionDecl(
+		"RR_TEST",
+		RegionBody("SCENE_TEST", TimePasses::Auto, {}, std::move(sections))
+	));
+
+	project.files.push_back(std::move(file));
+	collectDeclarations(project);
+	auto diags = resolveTypes(project);
+	EXPECT_TRUE(diags.empty());
+
+	auto& foo = std::get<DefineDecl>(project.files[0].declarations[0]);
+	// foo's param x gets type Item from bar()'s return type.
+	EXPECT_EQ(project.getType(&foo.params[0]), Type::Item);
+	EXPECT_EQ(project.getType(foo.body.get()), Type::Item);
+}
+
 // -- Shared block -------------------------------------------------------------
 
 TEST(ResolveTypes, SharedBlockBool) {

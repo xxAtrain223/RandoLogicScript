@@ -2,7 +2,9 @@
 
 #include <format>
 #include <string>
+#include <type_traits>
 #include <unordered_map>
+#include <unordered_set>
 
 namespace rls::sema {
 
@@ -647,13 +649,146 @@ struct ExprResolver {
 	}
 };
 
+// == Step 7: Topological ordering of defines =================================
+
+/// Recursively walk an expression tree and collect the names of any
+/// user-defined functions (defines) that it calls.
+static void collectDefineCalls(
+	const ast::Expr& expr,
+	const std::unordered_map<std::string, const ast::DefineDecl*>& defines,
+	std::unordered_set<std::string>& out)
+{
+	std::visit([&](const auto& node) {
+		using N = std::decay_t<decltype(node)>;
+		if constexpr (std::is_same_v<N, ast::UnaryExpr>) {
+			collectDefineCalls(*node.operand, defines, out);
+		} else if constexpr (std::is_same_v<N, ast::BinaryExpr>) {
+			collectDefineCalls(*node.left, defines, out);
+			collectDefineCalls(*node.right, defines, out);
+		} else if constexpr (std::is_same_v<N, ast::TernaryExpr>) {
+			collectDefineCalls(*node.condition, defines, out);
+			collectDefineCalls(*node.thenBranch, defines, out);
+			collectDefineCalls(*node.elseBranch, defines, out);
+		} else if constexpr (std::is_same_v<N, ast::CallExpr>) {
+			if (defines.contains(node.function)) {
+				out.insert(node.function);
+			}
+			for (const auto& arg : node.args) {
+				collectDefineCalls(*arg.value, defines, out);
+			}
+		} else if constexpr (std::is_same_v<N, ast::SharedBlock>) {
+			for (const auto& branch : node.branches) {
+				collectDefineCalls(*branch.condition, defines, out);
+			}
+		} else if constexpr (std::is_same_v<N, ast::AnyAgeBlock>) {
+			collectDefineCalls(*node.body, defines, out);
+		} else if constexpr (std::is_same_v<N, ast::MatchExpr>) {
+			for (const auto& arm : node.arms) {
+				collectDefineCalls(*arm.body, defines, out);
+			}
+		}
+		// Leaf nodes (BoolLiteral, IntLiteral, Identifier, KeywordExpr)
+		// have no child expressions.
+	}, expr.node);
+}
+
+/// DFS helper for topological sort. Post-order traversal ensures callees
+/// appear before callers in the output.
+/// When a back edge is found, extracts the cycle from the path stack.
+static void topoSortDfs(
+	const std::string& name,
+	const std::unordered_map<std::string, std::unordered_set<std::string>>& callees,
+	std::unordered_map<std::string, int>& marks,
+	std::vector<std::string>& order,
+	std::vector<std::string>& path,
+	std::vector<std::vector<std::string>>& cycles)
+{
+	if (marks[name] == 2) return;       // Perm — already processed
+	if (marks[name] == 1) {             // Temp — back edge = cycle
+		// Extract just the cycle portion from the path.
+		std::vector<std::string> cycle;
+		for (auto it = path.rbegin(); it != path.rend(); ++it) {
+			cycle.push_back(*it);
+			if (*it == name) break;
+		}
+		std::reverse(cycle.begin(), cycle.end());
+		cycles.push_back(std::move(cycle));
+		return;
+	}
+	marks[name] = 1;
+	path.push_back(name);
+	if (auto it = callees.find(name); it != callees.end()) {
+		for (const auto& callee : it->second) {
+			topoSortDfs(callee, callees, marks, order, path, cycles);
+		}
+	}
+	path.pop_back();
+	marks[name] = 2;
+	order.push_back(name);
+}
+
+/// Topologically sort defines by their call graph.
+/// Returns define names in dependency order: callees before callers.
+/// Emits an error diagnostic if a cycle is detected.
+static std::vector<std::string> topoSortDefines(
+	const std::unordered_map<std::string, const ast::DefineDecl*>& defines,
+	std::vector<ast::Diagnostic>& diags)
+{
+	// Build call graph: name → set of defines it calls.
+	std::unordered_map<std::string, std::unordered_set<std::string>> callees;
+	for (const auto& [name, decl] : defines) {
+		auto& calls = callees[name];
+		collectDefineCalls(*decl->body, defines, calls);
+		for (const auto& param : decl->params) {
+			if (param.defaultValue) {
+				collectDefineCalls(*param.defaultValue, defines, calls);
+			}
+		}
+	}
+
+	// DFS-based topological sort with cycle detection.
+	std::unordered_map<std::string, int> marks;
+	for (const auto& [name, _] : defines) {
+		marks[name] = 0;
+	}
+
+	std::vector<std::string> order;
+	std::vector<std::string> path;
+	std::vector<std::vector<std::string>> cycles;
+	for (const auto& [name, _] : defines) {
+		if (marks[name] == 0) {
+			topoSortDfs(name, callees, marks, order, path, cycles);
+		}
+	}
+
+	for (const auto& cycle : cycles) {
+		std::string names = cycle.front();
+		for (size_t i = 1; i < cycle.size(); ++i) {
+			names += " -> ";
+			names += cycle[i];
+		}
+		names += " -> ";
+		names += cycle.front();
+		diags.push_back({
+			ast::DiagnosticLevel::Error,
+			std::format("cycle in define call graph: {}", names),
+			{}
+		});
+	}
+
+	return order;
+}
+
 // == Top-level walk ===========================================================
 
 std::vector<ast::Diagnostic> resolveTypes(ast::Project& project) {
 	std::vector<ast::Diagnostic> diags;
 
-	// Resolve define bodies.
-	for (auto& [name, decl] : project.DefineDecls) {
+	// Resolve define bodies in dependency order (callees first).
+	auto defineOrder = topoSortDefines(project.DefineDecls, diags);
+
+	for (const auto& name : defineOrder) {
+		const auto* decl = project.DefineDecls.at(name);
 		Scope scope;
 		for (const auto& param : decl->params) {
 			if (param.type) {
@@ -684,7 +819,7 @@ std::vector<ast::Diagnostic> resolveTypes(ast::Project& project) {
 				}
 			} else {
 				// No annotation, no default — type unknown
-				// until call-site inference (Step 5).
+				// until body-usage inference.
 				scope[param.name] = std::nullopt;
 			}
 		}
