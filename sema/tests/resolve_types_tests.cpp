@@ -44,99 +44,111 @@ TEST(EnumPrefix, PrefixOnly)  { EXPECT_EQ(typeFromIdentifier("RG_"), Type::Item)
 
 // == resolveTypes (Steps 2-3) =================================================
 
-// Helper: wrap an expression in a region entry so resolveTypes will visit it.
-static Project makeProjectWithExpr(ExprPtr expr) {
+/// Parse RLS source, collect declarations, and resolve types.
+static std::pair<Project, std::vector<Diagnostic>> resolveFromSource(
+	const std::string& source)
+{
 	Project project;
-	File file;
-	file.path = "test.rls";
-
-	std::vector<Entry> entries;
-	entries.emplace_back("TEST_LOC", std::move(expr));
-
-	std::vector<Section> sections;
-	sections.emplace_back(SectionKind::Locations, std::move(entries));
-
-	file.declarations.emplace_back(RegionDecl(
-		"RR_TEST",
-		RegionBody("SCENE_TEST", TimePasses::Auto, {}, std::move(sections))
-	));
-
-	project.files.push_back(std::move(file));
+	project.files.push_back(rls::parser::ParseString(source));
 	collectDeclarations(project);
-	return project;
+	auto diags = resolveTypes(project);
+	return {std::move(project), std::move(diags)};
 }
 
-// Helper: get the Expr* of the first region entry's condition.
-static const Expr* getEntryExpr(const Project& project) {
-	auto& region = std::get<RegionDecl>(project.files[0].declarations[0]);
-	return region.body.sections[0].entries[0].condition.get();
+/// Find the first region entry condition by region name.
+static const Expr* findRegionEntry(const Project& project,
+	const std::string& regionName = "RR_TEST")
+{
+	auto it = project.RegionDecls.find(regionName);
+	if (it == project.RegionDecls.end()) return nullptr;
+	auto& sections = it->second->body.sections;
+	if (sections.empty() || sections[0].entries.empty()) return nullptr;
+	return sections[0].entries[0].condition.get();
 }
 
 // -- Leaf types ---------------------------------------------------------------
 
 TEST(ResolveTypes, BoolLiteral) {
-	auto project = makeProjectWithExpr(makeExpr(BoolLiteral{true}));
-	auto diags = resolveTypes(project);
+	auto [project, diags] = resolveFromSource(
+		"region RR_TEST {\n"
+		"    scene: SCENE_TEST\n"
+		"    locations { TEST_LOC: true }\n"
+		"}\n");
 	EXPECT_TRUE(diags.empty());
-	EXPECT_EQ(project.getType(getEntryExpr(project)), Type::Bool);
+	EXPECT_EQ(project.getType(findRegionEntry(project)), Type::Bool);
 }
 
 TEST(ResolveTypes, IntLiteral) {
-	auto project = makeProjectWithExpr(makeExpr(IntLiteral{42}));
-	auto diags = resolveTypes(project);
+	auto [project, diags] = resolveFromSource(
+		"region RR_TEST {\n"
+		"    scene: SCENE_TEST\n"
+		"    locations { TEST_LOC: 42 }\n"
+		"}\n");
 	EXPECT_TRUE(diags.empty());
-	EXPECT_EQ(project.getType(getEntryExpr(project)), Type::Int);
+	EXPECT_EQ(project.getType(findRegionEntry(project)), Type::Int);
 }
 
 TEST(ResolveTypes, KeywordExpr) {
-	auto project = makeProjectWithExpr(makeExpr(KeywordExpr{Keyword::IsChild}));
-	auto diags = resolveTypes(project);
+	auto [project, diags] = resolveFromSource(
+		"region RR_TEST {\n"
+		"    scene: SCENE_TEST\n"
+		"    locations { TEST_LOC: is_child }\n"
+		"}\n");
 	EXPECT_TRUE(diags.empty());
-	EXPECT_EQ(project.getType(getEntryExpr(project)), Type::Bool);
+	EXPECT_EQ(project.getType(findRegionEntry(project)), Type::Bool);
 }
 
 TEST(ResolveTypes, IdentifierEnum) {
-	auto project = makeProjectWithExpr(makeExpr(Identifier{"RG_HOOKSHOT"}));
-	auto diags = resolveTypes(project);
+	auto [project, diags] = resolveFromSource(
+		"region RR_TEST {\n"
+		"    scene: SCENE_TEST\n"
+		"    locations { TEST_LOC: RG_HOOKSHOT }\n"
+		"}\n");
 	EXPECT_TRUE(diags.empty());
-	EXPECT_EQ(project.getType(getEntryExpr(project)), Type::Item);
+	EXPECT_EQ(project.getType(findRegionEntry(project)), Type::Item);
 }
 
 TEST(ResolveTypes, IdentifierUnknown) {
-	auto project = makeProjectWithExpr(makeExpr(Identifier{"distance"}));
-	auto diags = resolveTypes(project);
+	auto [project, diags] = resolveFromSource(
+		"region RR_TEST {\n"
+		"    scene: SCENE_TEST\n"
+		"    locations { TEST_LOC: distance }\n"
+		"}\n");
 	EXPECT_EQ(countErrors(diags), 1u);
 	EXPECT_NE(diags[0].message.find("unknown identifier 'distance'"), std::string::npos);
-	EXPECT_EQ(project.getType(getEntryExpr(project)), Type::Error);
+	EXPECT_EQ(project.getType(findRegionEntry(project)), Type::Error);
 }
 
 // -- Unary --------------------------------------------------------------------
 
 TEST(ResolveTypes, UnaryNotBool) {
-	auto project = makeProjectWithExpr(
-		makeExpr(UnaryExpr(UnaryOp::Not, makeExpr(BoolLiteral{true})))
-	);
-	auto diags = resolveTypes(project);
+	auto [project, diags] = resolveFromSource(
+		"region RR_TEST {\n"
+		"    scene: SCENE_TEST\n"
+		"    locations { TEST_LOC: not true }\n"
+		"}\n");
 	EXPECT_TRUE(diags.empty());
-	EXPECT_EQ(project.getType(getEntryExpr(project)), Type::Bool);
+	EXPECT_EQ(project.getType(findRegionEntry(project)), Type::Bool);
 }
 
 TEST(ResolveTypes, UnaryNotIntImplicitConvert) {
 	// not 42 — Int is bool-compatible, so no error.
-	auto project = makeProjectWithExpr(
-		makeExpr(UnaryExpr(UnaryOp::Not, makeExpr(IntLiteral{42})))
-	);
-	auto diags = resolveTypes(project);
+	auto [project, diags] = resolveFromSource(
+		"region RR_TEST {\n"
+		"    scene: SCENE_TEST\n"
+		"    locations { TEST_LOC: not 42 }\n"
+		"}\n");
 	EXPECT_TRUE(diags.empty());
-	EXPECT_EQ(project.getType(getEntryExpr(project)), Type::Bool);
+	EXPECT_EQ(project.getType(findRegionEntry(project)), Type::Bool);
 }
 
 TEST(ResolveTypes, UnaryNotTypeMismatch) {
 	// not RG_HOOKSHOT — Item is not bool-compatible.
-	auto project = makeProjectWithExpr(
-		makeExpr(UnaryExpr(UnaryOp::Not, makeExpr(Identifier{"RG_HOOKSHOT"})))
-	);
-	auto diags = resolveTypes(project);
+	auto [project, diags] = resolveFromSource(
+		"region RR_TEST {\n"
+		"    scene: SCENE_TEST\n"
+		"    locations { TEST_LOC: not RG_HOOKSHOT }\n"
+		"}\n");
 	EXPECT_EQ(countErrors(diags), 1u);
 	EXPECT_NE(diags[0].message.find("'not' requires a Bool operand"), std::string::npos);
 }
@@ -144,36 +156,33 @@ TEST(ResolveTypes, UnaryNotTypeMismatch) {
 // -- Binary logical -----------------------------------------------------------
 
 TEST(ResolveTypes, BinaryAndBool) {
-	auto project = makeProjectWithExpr(
-		makeExpr(BinaryExpr(BinaryOp::And,
-			makeExpr(BoolLiteral{true}),
-			makeExpr(BoolLiteral{false})))
-	);
-	auto diags = resolveTypes(project);
+	auto [project, diags] = resolveFromSource(
+		"region RR_TEST {\n"
+		"    scene: SCENE_TEST\n"
+		"    locations { TEST_LOC: true and false }\n"
+		"}\n");
 	EXPECT_TRUE(diags.empty());
-	EXPECT_EQ(project.getType(getEntryExpr(project)), Type::Bool);
+	EXPECT_EQ(project.getType(findRegionEntry(project)), Type::Bool);
 }
 
 TEST(ResolveTypes, BinaryOrIntImplicit) {
 	// 42 or true — Int on left is bool-compatible.
-	auto project = makeProjectWithExpr(
-		makeExpr(BinaryExpr(BinaryOp::Or,
-			makeExpr(IntLiteral{42}),
-			makeExpr(BoolLiteral{true})))
-	);
-	auto diags = resolveTypes(project);
+	auto [project, diags] = resolveFromSource(
+		"region RR_TEST {\n"
+		"    scene: SCENE_TEST\n"
+		"    locations { TEST_LOC: 42 or true }\n"
+		"}\n");
 	EXPECT_TRUE(diags.empty());
-	EXPECT_EQ(project.getType(getEntryExpr(project)), Type::Bool);
+	EXPECT_EQ(project.getType(findRegionEntry(project)), Type::Bool);
 }
 
 TEST(ResolveTypes, BinaryAndTypeMismatch) {
 	// RG_HOOKSHOT and true — Item is not bool-compatible.
-	auto project = makeProjectWithExpr(
-		makeExpr(BinaryExpr(BinaryOp::And,
-			makeExpr(Identifier{"RG_HOOKSHOT"}),
-			makeExpr(BoolLiteral{true})))
-	);
-	auto diags = resolveTypes(project);
+	auto [project, diags] = resolveFromSource(
+		"region RR_TEST {\n"
+		"    scene: SCENE_TEST\n"
+		"    locations { TEST_LOC: RG_HOOKSHOT and true }\n"
+		"}\n");
 	EXPECT_EQ(countErrors(diags), 1u);
 	EXPECT_NE(diags[0].message.find("'and' requires Bool operands"), std::string::npos);
 }
@@ -182,48 +191,44 @@ TEST(ResolveTypes, BinaryAndTypeMismatch) {
 
 TEST(ResolveTypes, EqualitySameType) {
 	// RG_HOOKSHOT == RG_FAIRY_BOW  (both Item)
-	auto project = makeProjectWithExpr(
-		makeExpr(BinaryExpr(BinaryOp::Eq,
-			makeExpr(Identifier{"RG_HOOKSHOT"}),
-			makeExpr(Identifier{"RG_FAIRY_BOW"})))
-	);
-	auto diags = resolveTypes(project);
+	auto [project, diags] = resolveFromSource(
+		"region RR_TEST {\n"
+		"    scene: SCENE_TEST\n"
+		"    locations { TEST_LOC: RG_HOOKSHOT == RG_FAIRY_BOW }\n"
+		"}\n");
 	EXPECT_TRUE(diags.empty());
-	EXPECT_EQ(project.getType(getEntryExpr(project)), Type::Bool);
+	EXPECT_EQ(project.getType(findRegionEntry(project)), Type::Bool);
 }
 
 TEST(ResolveTypes, EqualityTypeMismatch) {
 	// RG_HOOKSHOT == RE_ARMOS  (Item vs Enemy)
-	auto project = makeProjectWithExpr(
-		makeExpr(BinaryExpr(BinaryOp::Eq,
-			makeExpr(Identifier{"RG_HOOKSHOT"}),
-			makeExpr(Identifier{"RE_ARMOS"})))
-	);
-	auto diags = resolveTypes(project);
+	auto [project, diags] = resolveFromSource(
+		"region RR_TEST {\n"
+		"    scene: SCENE_TEST\n"
+		"    locations { TEST_LOC: RG_HOOKSHOT == RE_ARMOS }\n"
+		"}\n");
 	EXPECT_EQ(countErrors(diags), 1u);
 	EXPECT_NE(diags[0].message.find("incompatible types"), std::string::npos);
 }
 
 TEST(ResolveTypes, OrderingInts) {
 	// 3 >= 1
-	auto project = makeProjectWithExpr(
-		makeExpr(BinaryExpr(BinaryOp::GtEq,
-			makeExpr(IntLiteral{3}),
-			makeExpr(IntLiteral{1})))
-	);
-	auto diags = resolveTypes(project);
+	auto [project, diags] = resolveFromSource(
+		"region RR_TEST {\n"
+		"    scene: SCENE_TEST\n"
+		"    locations { TEST_LOC: 3 >= 1 }\n"
+		"}\n");
 	EXPECT_TRUE(diags.empty());
-	EXPECT_EQ(project.getType(getEntryExpr(project)), Type::Bool);
+	EXPECT_EQ(project.getType(findRegionEntry(project)), Type::Bool);
 }
 
 TEST(ResolveTypes, OrderingNonInt) {
-	// RG_HOOKSHOT > RG_BOW  — Item is not Int.
-	auto project = makeProjectWithExpr(
-		makeExpr(BinaryExpr(BinaryOp::Gt,
-			makeExpr(Identifier{"RG_HOOKSHOT"}),
-			makeExpr(Identifier{"RG_FAIRY_BOW"})))
-	);
-	auto diags = resolveTypes(project);
+	// RG_HOOKSHOT > RG_FAIRY_BOW  — Item is not Int.
+	auto [project, diags] = resolveFromSource(
+		"region RR_TEST {\n"
+		"    scene: SCENE_TEST\n"
+		"    locations { TEST_LOC: RG_HOOKSHOT > RG_FAIRY_BOW }\n"
+		"}\n");
 	EXPECT_EQ(countErrors(diags), 2u); // both sides flagged
 }
 
@@ -231,24 +236,22 @@ TEST(ResolveTypes, OrderingNonInt) {
 
 TEST(ResolveTypes, ArithmeticInts) {
 	// 3 + 1
-	auto project = makeProjectWithExpr(
-		makeExpr(BinaryExpr(BinaryOp::Add,
-			makeExpr(IntLiteral{3}),
-			makeExpr(IntLiteral{1})))
-	);
-	auto diags = resolveTypes(project);
+	auto [project, diags] = resolveFromSource(
+		"region RR_TEST {\n"
+		"    scene: SCENE_TEST\n"
+		"    locations { TEST_LOC: 3 + 1 }\n"
+		"}\n");
 	EXPECT_TRUE(diags.empty());
-	EXPECT_EQ(project.getType(getEntryExpr(project)), Type::Int);
+	EXPECT_EQ(project.getType(findRegionEntry(project)), Type::Int);
 }
 
 TEST(ResolveTypes, ArithmeticNonInt) {
 	// true + 1
-	auto project = makeProjectWithExpr(
-		makeExpr(BinaryExpr(BinaryOp::Add,
-			makeExpr(BoolLiteral{true}),
-			makeExpr(IntLiteral{1})))
-	);
-	auto diags = resolveTypes(project);
+	auto [project, diags] = resolveFromSource(
+		"region RR_TEST {\n"
+		"    scene: SCENE_TEST\n"
+		"    locations { TEST_LOC: true + 1 }\n"
+		"}\n");
 	EXPECT_EQ(countErrors(diags), 1u);
 	EXPECT_NE(diags[0].message.find("arithmetic requires Int"), std::string::npos);
 }
@@ -257,412 +260,312 @@ TEST(ResolveTypes, ArithmeticNonInt) {
 
 TEST(ResolveTypes, TernaryOk) {
 	// true ? ED_CLOSE : ED_FAR
-	auto project = makeProjectWithExpr(
-		makeExpr(TernaryExpr(
-			makeExpr(BoolLiteral{true}),
-			makeExpr(Identifier{"ED_CLOSE"}),
-			makeExpr(Identifier{"ED_FAR"})))
-	);
-	auto diags = resolveTypes(project);
+	auto [project, diags] = resolveFromSource(
+		"region RR_TEST {\n"
+		"    scene: SCENE_TEST\n"
+		"    locations { TEST_LOC: true ? ED_CLOSE : ED_FAR }\n"
+		"}\n");
 	EXPECT_TRUE(diags.empty());
-	EXPECT_EQ(project.getType(getEntryExpr(project)), Type::Distance);
+	EXPECT_EQ(project.getType(findRegionEntry(project)), Type::Distance);
 }
 
 TEST(ResolveTypes, TernaryBranchMismatch) {
 	// true ? ED_CLOSE : RG_HOOKSHOT
-	auto project = makeProjectWithExpr(
-		makeExpr(TernaryExpr(
-			makeExpr(BoolLiteral{true}),
-			makeExpr(Identifier{"ED_CLOSE"}),
-			makeExpr(Identifier{"RG_HOOKSHOT"})))
-	);
-	auto diags = resolveTypes(project);
+	auto [project, diags] = resolveFromSource(
+		"region RR_TEST {\n"
+		"    scene: SCENE_TEST\n"
+		"    locations { TEST_LOC: true ? ED_CLOSE : RG_HOOKSHOT }\n"
+		"}\n");
 	EXPECT_EQ(countErrors(diags), 1u);
 	EXPECT_NE(diags[0].message.find("different types"), std::string::npos);
 }
 
 TEST(ResolveTypes, TernaryBoolCompatibleBranchesUnify) {
 	// true ? 1 : false  →  Int + Bool both bool-compatible → Bool
-	auto project = makeProjectWithExpr(
-		makeExpr(TernaryExpr(
-			makeExpr(BoolLiteral{true}),
-			makeExpr(IntLiteral{1}),
-			makeExpr(BoolLiteral{false})))
-	);
-	auto diags = resolveTypes(project);
+	auto [project, diags] = resolveFromSource(
+		"region RR_TEST {\n"
+		"    scene: SCENE_TEST\n"
+		"    locations { TEST_LOC: true ? 1 : false }\n"
+		"}\n");
 	EXPECT_EQ(countErrors(diags), 0u);
 	ASSERT_EQ(diags.size(), 1u);
 	EXPECT_EQ(diags[0].level, DiagnosticLevel::Warning);
 	EXPECT_NE(diags[0].message.find("implicitly converted to Bool"), std::string::npos);
-	EXPECT_EQ(project.getType(getEntryExpr(project)), Type::Bool);
+	EXPECT_EQ(project.getType(findRegionEntry(project)), Type::Bool);
 }
 
 TEST(ResolveTypes, TernaryCondNotBool) {
 	// RG_HOOKSHOT ? 1 : 2
-	auto project = makeProjectWithExpr(
-		makeExpr(TernaryExpr(
-			makeExpr(Identifier{"RG_HOOKSHOT"}),
-			makeExpr(IntLiteral{1}),
-			makeExpr(IntLiteral{2})))
-	);
-	auto diags = resolveTypes(project);
+	auto [project, diags] = resolveFromSource(
+		"region RR_TEST {\n"
+		"    scene: SCENE_TEST\n"
+		"    locations { TEST_LOC: RG_HOOKSHOT ? 1 : 2 }\n"
+		"}\n");
 	EXPECT_EQ(countErrors(diags), 1u);
 	EXPECT_NE(diags[0].message.find("ternary condition must be Bool"), std::string::npos);
 	// But the result type is still Int from the branches.
-	EXPECT_EQ(project.getType(getEntryExpr(project)), Type::Int);
+	EXPECT_EQ(project.getType(findRegionEntry(project)), Type::Int);
 }
 
 // -- Host function calls ------------------------------------------------------
 
 TEST(ResolveTypes, HostCallHas) {
 	// has(RG_HOOKSHOT)
-	std::vector<Arg> args;
-	args.emplace_back(std::nullopt, makeExpr(Identifier{"RG_HOOKSHOT"}));
-	auto project = makeProjectWithExpr(
-		makeExpr(CallExpr("has", std::move(args)))
-	);
-	auto diags = resolveTypes(project);
+	auto [project, diags] = resolveFromSource(
+		"region RR_TEST {\n"
+		"    scene: SCENE_TEST\n"
+		"    locations { TEST_LOC: has(RG_HOOKSHOT) }\n"
+		"}\n");
 	EXPECT_TRUE(diags.empty());
-	EXPECT_EQ(project.getType(getEntryExpr(project)), Type::Bool);
+	EXPECT_EQ(project.getType(findRegionEntry(project)), Type::Bool);
 }
 
 TEST(ResolveTypes, HostCallSetting) {
 	// setting(RSK_SUNLIGHT_ARROWS)
-	std::vector<Arg> args;
-	args.emplace_back(std::nullopt, makeExpr(Identifier{"RSK_SUNLIGHT_ARROWS"}));
-	auto project = makeProjectWithExpr(
-		makeExpr(CallExpr("setting", std::move(args)))
-	);
-	auto diags = resolveTypes(project);
+	auto [project, diags] = resolveFromSource(
+		"region RR_TEST {\n"
+		"    scene: SCENE_TEST\n"
+		"    locations { TEST_LOC: setting(RSK_SUNLIGHT_ARROWS) }\n"
+		"}\n");
 	EXPECT_TRUE(diags.empty());
-	EXPECT_EQ(project.getType(getEntryExpr(project)), Type::Setting);
+	EXPECT_EQ(project.getType(findRegionEntry(project)), Type::Setting);
 }
 
 TEST(ResolveTypes, HostCallReturnsInt) {
 	// hearts()
-	auto project = makeProjectWithExpr(
-		makeExpr(CallExpr("hearts", {}))
-	);
-	auto diags = resolveTypes(project);
+	auto [project, diags] = resolveFromSource(
+		"region RR_TEST {\n"
+		"    scene: SCENE_TEST\n"
+		"    locations { TEST_LOC: hearts() }\n"
+		"}\n");
 	EXPECT_TRUE(diags.empty());
-	EXPECT_EQ(project.getType(getEntryExpr(project)), Type::Int);
+	EXPECT_EQ(project.getType(findRegionEntry(project)), Type::Int);
 }
 
 TEST(ResolveTypes, HostCallWrongArgType) {
 	// has(RE_ARMOS) — Enemy where Item expected.
-	std::vector<Arg> args;
-	args.emplace_back(std::nullopt, makeExpr(Identifier{"RE_ARMOS"}));
-	auto project = makeProjectWithExpr(
-		makeExpr(CallExpr("has", std::move(args)))
-	);
-	auto diags = resolveTypes(project);
+	auto [project, diags] = resolveFromSource(
+		"region RR_TEST {\n"
+		"    scene: SCENE_TEST\n"
+		"    locations { TEST_LOC: has(RE_ARMOS) }\n"
+		"}\n");
 	EXPECT_EQ(countErrors(diags), 1u);
 	EXPECT_NE(diags[0].message.find("expected Item, got Enemy"), std::string::npos);
 	// Return type is still Bool.
-	EXPECT_EQ(project.getType(getEntryExpr(project)), Type::Bool);
+	EXPECT_EQ(project.getType(findRegionEntry(project)), Type::Bool);
 }
 
 TEST(ResolveTypes, HostCallTooFewArgs) {
 	// has() — missing required arg.
-	auto project = makeProjectWithExpr(
-		makeExpr(CallExpr("has", {}))
-	);
-	auto diags = resolveTypes(project);
+	auto [project, diags] = resolveFromSource(
+		"region RR_TEST {\n"
+		"    scene: SCENE_TEST\n"
+		"    locations { TEST_LOC: has() }\n"
+		"}\n");
 	EXPECT_EQ(countErrors(diags), 1u);
 	EXPECT_NE(diags[0].message.find("expects 1 argument(s), got 0"), std::string::npos);
 }
 
 TEST(ResolveTypes, HostCallTooManyArgs) {
 	// has(RG_HOOKSHOT, RG_FAIRY_BOW) — too many.
-	std::vector<Arg> args;
-	args.emplace_back(std::nullopt, makeExpr(Identifier{"RG_HOOKSHOT"}));
-	args.emplace_back(std::nullopt, makeExpr(Identifier{"RG_FAIRY_BOW"}));
-	auto project = makeProjectWithExpr(
-		makeExpr(CallExpr("has", std::move(args)))
-	);
-	auto diags = resolveTypes(project);
+	auto [project, diags] = resolveFromSource(
+		"region RR_TEST {\n"
+		"    scene: SCENE_TEST\n"
+		"    locations { TEST_LOC: has(RG_HOOKSHOT, RG_FAIRY_BOW) }\n"
+		"}\n");
 	EXPECT_EQ(countErrors(diags), 1u);
 	EXPECT_NE(diags[0].message.find("expects 1 argument(s), got 2"), std::string::npos);
 }
 
 TEST(ResolveTypes, HostCallOptionalArgOmitted) {
 	// check_price() — 0 args, optional Check param.
-	auto project = makeProjectWithExpr(
-		makeExpr(CallExpr("check_price", {}))
-	);
-	auto diags = resolveTypes(project);
+	auto [project, diags] = resolveFromSource(
+		"region RR_TEST {\n"
+		"    scene: SCENE_TEST\n"
+		"    locations { TEST_LOC: check_price() }\n"
+		"}\n");
 	EXPECT_TRUE(diags.empty());
-	EXPECT_EQ(project.getType(getEntryExpr(project)), Type::Int);
+	EXPECT_EQ(project.getType(findRegionEntry(project)), Type::Int);
 }
 
 TEST(ResolveTypes, HostCallOptionalArgProvided) {
 	// check_price(RC_SPIRIT_CHEST)
-	std::vector<Arg> args;
-	args.emplace_back(std::nullopt, makeExpr(Identifier{"RC_SPIRIT_CHEST"}));
-	auto project = makeProjectWithExpr(
-		makeExpr(CallExpr("check_price", std::move(args)))
-	);
-	auto diags = resolveTypes(project);
+	auto [project, diags] = resolveFromSource(
+		"region RR_TEST {\n"
+		"    scene: SCENE_TEST\n"
+		"    locations { TEST_LOC: check_price(RC_SPIRIT_CHEST) }\n"
+		"}\n");
 	EXPECT_TRUE(diags.empty());
-	EXPECT_EQ(project.getType(getEntryExpr(project)), Type::Int);
+	EXPECT_EQ(project.getType(findRegionEntry(project)), Type::Int);
 }
 
 TEST(ResolveTypes, HostCallMultipleArgs) {
 	// keys(SCENE_SPIRIT_TEMPLE, 3)
-	std::vector<Arg> args;
-	args.emplace_back(std::nullopt, makeExpr(Identifier{"SCENE_SPIRIT_TEMPLE"}));
-	args.emplace_back(std::nullopt, makeExpr(IntLiteral{3}));
-	auto project = makeProjectWithExpr(
-		makeExpr(CallExpr("keys", std::move(args)))
-	);
-	auto diags = resolveTypes(project);
+	auto [project, diags] = resolveFromSource(
+		"region RR_TEST {\n"
+		"    scene: SCENE_TEST\n"
+		"    locations { TEST_LOC: keys(SCENE_SPIRIT_TEMPLE, 3) }\n"
+		"}\n");
 	EXPECT_TRUE(diags.empty());
-	EXPECT_EQ(project.getType(getEntryExpr(project)), Type::Bool);
+	EXPECT_EQ(project.getType(findRegionEntry(project)), Type::Bool);
 }
 
 // -- Enemy built-in calls -----------------------------------------------------
 
 TEST(ResolveTypes, EnemyBuiltinOk) {
 	// can_kill(RE_ARMOS)
-	std::vector<Arg> args;
-	args.emplace_back(std::nullopt, makeExpr(Identifier{"RE_ARMOS"}));
-	auto project = makeProjectWithExpr(
-		makeExpr(CallExpr("can_kill", std::move(args)))
-	);
-	auto diags = resolveTypes(project);
+	auto [project, diags] = resolveFromSource(
+		"region RR_TEST {\n"
+		"    scene: SCENE_TEST\n"
+		"    locations { TEST_LOC: can_kill(RE_ARMOS) }\n"
+		"}\n");
 	EXPECT_TRUE(diags.empty());
-	EXPECT_EQ(project.getType(getEntryExpr(project)), Type::Bool);
+	EXPECT_EQ(project.getType(findRegionEntry(project)), Type::Bool);
 }
 
 TEST(ResolveTypes, EnemyBuiltinWithOptionalArgs) {
 	// can_kill(RE_ARMOS, ED_CLOSE) — optional distance arg.
-	std::vector<Arg> args;
-	args.emplace_back(std::nullopt, makeExpr(Identifier{"RE_ARMOS"}));
-	args.emplace_back(std::nullopt, makeExpr(Identifier{"ED_CLOSE"}));
-	auto project = makeProjectWithExpr(
-		makeExpr(CallExpr("can_kill", std::move(args)))
-	);
-	auto diags = resolveTypes(project);
+	auto [project, diags] = resolveFromSource(
+		"region RR_TEST {\n"
+		"    scene: SCENE_TEST\n"
+		"    locations { TEST_LOC: can_kill(RE_ARMOS, ED_CLOSE) }\n"
+		"}\n");
 	EXPECT_TRUE(diags.empty());
-	EXPECT_EQ(project.getType(getEntryExpr(project)), Type::Bool);
+	EXPECT_EQ(project.getType(findRegionEntry(project)), Type::Bool);
 }
 
 TEST(ResolveTypes, EnemyBuiltinAllArgs) {
 	// can_kill(RE_ARMOS, ED_CLOSE, true, 1, false, false)
-	std::vector<Arg> args;
-	args.emplace_back(std::nullopt, makeExpr(Identifier{"RE_ARMOS"}));
-	args.emplace_back(std::nullopt, makeExpr(Identifier{"ED_CLOSE"}));
-	args.emplace_back(std::nullopt, makeExpr(BoolLiteral{true}));
-	args.emplace_back(std::nullopt, makeExpr(IntLiteral{1}));
-	args.emplace_back(std::nullopt, makeExpr(BoolLiteral{false}));
-	args.emplace_back(std::nullopt, makeExpr(BoolLiteral{false}));
-	auto project = makeProjectWithExpr(
-		makeExpr(CallExpr("can_kill", std::move(args)))
-	);
-	auto diags = resolveTypes(project);
+	auto [project, diags] = resolveFromSource(
+		"region RR_TEST {\n"
+		"    scene: SCENE_TEST\n"
+		"    locations { TEST_LOC: can_kill(RE_ARMOS, ED_CLOSE, true, 1, false, false) }\n"
+		"}\n");
 	EXPECT_TRUE(diags.empty());
-	EXPECT_EQ(project.getType(getEntryExpr(project)), Type::Bool);
+	EXPECT_EQ(project.getType(findRegionEntry(project)), Type::Bool);
 }
 
 TEST(ResolveTypes, EnemyBuiltinNotEnemy) {
 	// can_kill(RG_HOOKSHOT) — Item, not Enemy.
-	std::vector<Arg> args;
-	args.emplace_back(std::nullopt, makeExpr(Identifier{"RG_HOOKSHOT"}));
-	auto project = makeProjectWithExpr(
-		makeExpr(CallExpr("can_kill", std::move(args)))
-	);
-	auto diags = resolveTypes(project);
+	auto [project, diags] = resolveFromSource(
+		"region RR_TEST {\n"
+		"    scene: SCENE_TEST\n"
+		"    locations { TEST_LOC: can_kill(RG_HOOKSHOT) }\n"
+		"}\n");
 	EXPECT_EQ(countErrors(diags), 1u);
 	EXPECT_NE(diags[0].message.find("argument 1 expected Enemy"), std::string::npos);
 }
 
 TEST(ResolveTypes, EnemyBuiltinNoArgs) {
 	// can_kill() — missing Enemy arg.
-	auto project = makeProjectWithExpr(
-		makeExpr(CallExpr("can_kill", {}))
-	);
-	auto diags = resolveTypes(project);
+	auto [project, diags] = resolveFromSource(
+		"region RR_TEST {\n"
+		"    scene: SCENE_TEST\n"
+		"    locations { TEST_LOC: can_kill() }\n"
+		"}\n");
 	EXPECT_EQ(countErrors(diags), 1u);
 	EXPECT_NE(diags[0].message.find("expects 1-6 argument(s), got 0"), std::string::npos);
 }
 
 TEST(ResolveTypes, EnemyBuiltinTooManyArgs) {
 	// can_kill with 7 args — one too many.
-	std::vector<Arg> args;
-	args.emplace_back(std::nullopt, makeExpr(Identifier{"RE_ARMOS"}));
-	for (int i = 0; i < 6; ++i)
-		args.emplace_back(std::nullopt, makeExpr(BoolLiteral{false}));
-	auto project = makeProjectWithExpr(
-		makeExpr(CallExpr("can_kill", std::move(args)))
-	);
-	auto diags = resolveTypes(project);
+	auto [project, diags] = resolveFromSource(
+		"region RR_TEST {\n"
+		"    scene: SCENE_TEST\n"
+		"    locations { TEST_LOC: can_kill(RE_ARMOS, false, false, false, false, false, false) }\n"
+		"}\n");
 	EXPECT_EQ(countErrors(diags), 1u);
 	EXPECT_NE(diags[0].message.find("expects 1-6 argument(s), got 7"), std::string::npos);
 }
 
 TEST(ResolveTypes, EnemyBuiltinWrongOptionalArgType) {
 	// can_kill(RE_ARMOS, RG_HOOKSHOT) — second arg should be Distance.
-	std::vector<Arg> args;
-	args.emplace_back(std::nullopt, makeExpr(Identifier{"RE_ARMOS"}));
-	args.emplace_back(std::nullopt, makeExpr(Identifier{"RG_HOOKSHOT"}));
-	auto project = makeProjectWithExpr(
-		makeExpr(CallExpr("can_kill", std::move(args)))
-	);
-	auto diags = resolveTypes(project);
+	auto [project, diags] = resolveFromSource(
+		"region RR_TEST {\n"
+		"    scene: SCENE_TEST\n"
+		"    locations { TEST_LOC: can_kill(RE_ARMOS, RG_HOOKSHOT) }\n"
+		"}\n");
 	EXPECT_EQ(countErrors(diags), 1u);
 	EXPECT_NE(diags[0].message.find("argument 2 expected Distance"), std::string::npos);
 }
 
 TEST(ResolveTypes, EnemyBuiltinCanPassSignature) {
 	// can_pass(RE_ARMOS, ED_CLOSE, true) — all 3 args.
-	std::vector<Arg> args;
-	args.emplace_back(std::nullopt, makeExpr(Identifier{"RE_ARMOS"}));
-	args.emplace_back(std::nullopt, makeExpr(Identifier{"ED_CLOSE"}));
-	args.emplace_back(std::nullopt, makeExpr(BoolLiteral{true}));
-	auto project = makeProjectWithExpr(
-		makeExpr(CallExpr("can_pass", std::move(args)))
-	);
-	auto diags = resolveTypes(project);
+	auto [project, diags] = resolveFromSource(
+		"region RR_TEST {\n"
+		"    scene: SCENE_TEST\n"
+		"    locations { TEST_LOC: can_pass(RE_ARMOS, ED_CLOSE, true) }\n"
+		"}\n");
 	EXPECT_TRUE(diags.empty());
 }
 
 TEST(ResolveTypes, EnemyBuiltinCanAvoidSignature) {
 	// can_avoid(RE_ARMOS, false, 2) — all 3 args.
-	std::vector<Arg> args;
-	args.emplace_back(std::nullopt, makeExpr(Identifier{"RE_ARMOS"}));
-	args.emplace_back(std::nullopt, makeExpr(BoolLiteral{false}));
-	args.emplace_back(std::nullopt, makeExpr(IntLiteral{2}));
-	auto project = makeProjectWithExpr(
-		makeExpr(CallExpr("can_avoid", std::move(args)))
-	);
-	auto diags = resolveTypes(project);
+	auto [project, diags] = resolveFromSource(
+		"region RR_TEST {\n"
+		"    scene: SCENE_TEST\n"
+		"    locations { TEST_LOC: can_avoid(RE_ARMOS, false, 2) }\n"
+		"}\n");
 	EXPECT_TRUE(diags.empty());
 }
 
 TEST(ResolveTypes, EnemyBuiltinCanGetDropSignature) {
 	// can_get_drop(RE_ARMOS, ED_CLOSE, false) — all 3 args.
-	std::vector<Arg> args;
-	args.emplace_back(std::nullopt, makeExpr(Identifier{"RE_ARMOS"}));
-	args.emplace_back(std::nullopt, makeExpr(Identifier{"ED_CLOSE"}));
-	args.emplace_back(std::nullopt, makeExpr(BoolLiteral{false}));
-	auto project = makeProjectWithExpr(
-		makeExpr(CallExpr("can_get_drop", std::move(args)))
-	);
-	auto diags = resolveTypes(project);
+	auto [project, diags] = resolveFromSource(
+		"region RR_TEST {\n"
+		"    scene: SCENE_TEST\n"
+		"    locations { TEST_LOC: can_get_drop(RE_ARMOS, ED_CLOSE, false) }\n"
+		"}\n");
 	EXPECT_TRUE(diags.empty());
 }
 
 // -- Unknown function ---------------------------------------------------------
 
 TEST(ResolveTypes, UnknownFunction) {
-	auto project = makeProjectWithExpr(
-		makeExpr(CallExpr("nonexistent_func", {}))
-	);
-	auto diags = resolveTypes(project);
+	auto [project, diags] = resolveFromSource(
+		"region RR_TEST {\n"
+		"    scene: SCENE_TEST\n"
+		"    locations { TEST_LOC: nonexistent_func() }\n"
+		"}\n");
 	EXPECT_EQ(countErrors(diags), 1u);
 	EXPECT_NE(diags[0].message.find("unknown function 'nonexistent_func'"), std::string::npos);
-	EXPECT_EQ(project.getType(getEntryExpr(project)), Type::Error);
+	EXPECT_EQ(project.getType(findRegionEntry(project)), Type::Error);
 }
 
 // -- User define calls --------------------------------------------------------
 
 TEST(ResolveTypes, UserDefineCallResolvesReturnType) {
-	// A define whose body is typed first, then called from a region entry.
-	Project project;
-	File file;
-	file.path = "test.rls";
-
-	// Define: has_explosives(): true
-	file.declarations.emplace_back(DefineDecl(
-		"has_explosives", {}, makeExpr(BoolLiteral{true})
-	));
-
-	// Region calling it.
-	std::vector<Entry> entries;
-	entries.emplace_back("TEST_LOC",
-		makeExpr(CallExpr("has_explosives", {})));
-	std::vector<Section> sections;
-	sections.emplace_back(SectionKind::Locations, std::move(entries));
-	file.declarations.emplace_back(RegionDecl(
-		"RR_TEST",
-		RegionBody("SCENE_TEST", TimePasses::Auto, {}, std::move(sections))
-	));
-
-	project.files.push_back(std::move(file));
-	collectDeclarations(project);
-	auto diags = resolveTypes(project);
+	auto [project, diags] = resolveFromSource(
+		"define has_explosives(): true\n"
+		"region RR_TEST {\n"
+		"    scene: SCENE_TEST\n"
+		"    locations { TEST_LOC: has_explosives() }\n"
+		"}\n");
 	EXPECT_TRUE(diags.empty());
-
-	auto& region = std::get<RegionDecl>(project.files[0].declarations[1]);
-	auto* callExpr = region.body.sections[0].entries[0].condition.get();
-	EXPECT_EQ(project.getType(callExpr), Type::Bool);
+	EXPECT_EQ(project.getType(findRegionEntry(project)), Type::Bool);
 }
 
 TEST(ResolveTypes, DefineCallArgTypeMatch) {
 	// define foo(x: Item): has(x)
 	// Call: foo(RG_HOOKSHOT) — correct arg type.
-	Project project;
-	File file;
-	file.path = "test.rls";
-
-	std::vector<Param> params;
-	params.emplace_back("x", std::optional<std::string>{"Item"}, nullptr);
-	std::vector<Arg> bodyArgs;
-	bodyArgs.emplace_back(std::nullopt, makeExpr(Identifier{"x"}));
-	file.declarations.emplace_back(DefineDecl(
-		"foo", std::move(params),
-		makeExpr(CallExpr("has", std::move(bodyArgs)))
-	));
-
-	std::vector<Arg> callArgs;
-	callArgs.emplace_back(std::nullopt, makeExpr(Identifier{"RG_HOOKSHOT"}));
-	std::vector<Entry> entries;
-	entries.emplace_back("TEST_LOC",
-		makeExpr(CallExpr("foo", std::move(callArgs))));
-	std::vector<Section> sections;
-	sections.emplace_back(SectionKind::Locations, std::move(entries));
-	file.declarations.emplace_back(RegionDecl(
-		"RR_TEST",
-		RegionBody("SCENE_TEST", TimePasses::Auto, {}, std::move(sections))
-	));
-
-	project.files.push_back(std::move(file));
-	collectDeclarations(project);
-	auto diags = resolveTypes(project);
+	auto [project, diags] = resolveFromSource(
+		"define foo(x: Item): has(x)\n"
+		"region RR_TEST {\n"
+		"    scene: SCENE_TEST\n"
+		"    locations { TEST_LOC: foo(RG_HOOKSHOT) }\n"
+		"}\n");
 	EXPECT_TRUE(diags.empty());
 }
 
 TEST(ResolveTypes, DefineCallArgTypeMismatch) {
 	// define foo(x: Item): has(x)
 	// Call: foo(RE_ARMOS) — Enemy where Item expected.
-	Project project;
-	File file;
-	file.path = "test.rls";
-
-	std::vector<Param> params;
-	params.emplace_back("x", std::optional<std::string>{"Item"}, nullptr);
-	std::vector<Arg> bodyArgs;
-	bodyArgs.emplace_back(std::nullopt, makeExpr(Identifier{"x"}));
-	file.declarations.emplace_back(DefineDecl(
-		"foo", std::move(params),
-		makeExpr(CallExpr("has", std::move(bodyArgs)))
-	));
-
-	std::vector<Arg> callArgs;
-	callArgs.emplace_back(std::nullopt, makeExpr(Identifier{"RE_ARMOS"}));
-	std::vector<Entry> entries;
-	entries.emplace_back("TEST_LOC",
-		makeExpr(CallExpr("foo", std::move(callArgs))));
-	std::vector<Section> sections;
-	sections.emplace_back(SectionKind::Locations, std::move(entries));
-	file.declarations.emplace_back(RegionDecl(
-		"RR_TEST",
-		RegionBody("SCENE_TEST", TimePasses::Auto, {}, std::move(sections))
-	));
-
-	project.files.push_back(std::move(file));
-	collectDeclarations(project);
-	auto diags = resolveTypes(project);
+	auto [project, diags] = resolveFromSource(
+		"define foo(x: Item): has(x)\n"
+		"region RR_TEST {\n"
+		"    scene: SCENE_TEST\n"
+		"    locations { TEST_LOC: foo(RE_ARMOS) }\n"
+		"}\n");
 	EXPECT_EQ(countErrors(diags), 1u);
 	EXPECT_NE(diags[0].message.find("argument 1 expected Item, got Enemy"),
 		std::string::npos);
@@ -671,32 +574,12 @@ TEST(ResolveTypes, DefineCallArgTypeMismatch) {
 TEST(ResolveTypes, DefineCallTooFewArgs) {
 	// define foo(x: Item): has(x)
 	// Call: foo() — missing required arg.
-	Project project;
-	File file;
-	file.path = "test.rls";
-
-	std::vector<Param> params;
-	params.emplace_back("x", std::optional<std::string>{"Item"}, nullptr);
-	std::vector<Arg> bodyArgs;
-	bodyArgs.emplace_back(std::nullopt, makeExpr(Identifier{"x"}));
-	file.declarations.emplace_back(DefineDecl(
-		"foo", std::move(params),
-		makeExpr(CallExpr("has", std::move(bodyArgs)))
-	));
-
-	std::vector<Entry> entries;
-	entries.emplace_back("TEST_LOC",
-		makeExpr(CallExpr("foo", {})));
-	std::vector<Section> sections;
-	sections.emplace_back(SectionKind::Locations, std::move(entries));
-	file.declarations.emplace_back(RegionDecl(
-		"RR_TEST",
-		RegionBody("SCENE_TEST", TimePasses::Auto, {}, std::move(sections))
-	));
-
-	project.files.push_back(std::move(file));
-	collectDeclarations(project);
-	auto diags = resolveTypes(project);
+	auto [project, diags] = resolveFromSource(
+		"define foo(x: Item): has(x)\n"
+		"region RR_TEST {\n"
+		"    scene: SCENE_TEST\n"
+		"    locations { TEST_LOC: foo() }\n"
+		"}\n");
 	EXPECT_EQ(countErrors(diags), 1u);
 	EXPECT_NE(diags[0].message.find("expects 1 argument(s), got 0"),
 		std::string::npos);
@@ -705,35 +588,12 @@ TEST(ResolveTypes, DefineCallTooFewArgs) {
 TEST(ResolveTypes, DefineCallTooManyArgs) {
 	// define foo(x: Item): has(x)
 	// Call: foo(RG_HOOKSHOT, RG_FAIRY_BOW) — too many.
-	Project project;
-	File file;
-	file.path = "test.rls";
-
-	std::vector<Param> params;
-	params.emplace_back("x", std::optional<std::string>{"Item"}, nullptr);
-	std::vector<Arg> bodyArgs;
-	bodyArgs.emplace_back(std::nullopt, makeExpr(Identifier{"x"}));
-	file.declarations.emplace_back(DefineDecl(
-		"foo", std::move(params),
-		makeExpr(CallExpr("has", std::move(bodyArgs)))
-	));
-
-	std::vector<Arg> callArgs;
-	callArgs.emplace_back(std::nullopt, makeExpr(Identifier{"RG_HOOKSHOT"}));
-	callArgs.emplace_back(std::nullopt, makeExpr(Identifier{"RG_FAIRY_BOW"}));
-	std::vector<Entry> entries;
-	entries.emplace_back("TEST_LOC",
-		makeExpr(CallExpr("foo", std::move(callArgs))));
-	std::vector<Section> sections;
-	sections.emplace_back(SectionKind::Locations, std::move(entries));
-	file.declarations.emplace_back(RegionDecl(
-		"RR_TEST",
-		RegionBody("SCENE_TEST", TimePasses::Auto, {}, std::move(sections))
-	));
-
-	project.files.push_back(std::move(file));
-	collectDeclarations(project);
-	auto diags = resolveTypes(project);
+	auto [project, diags] = resolveFromSource(
+		"define foo(x: Item): has(x)\n"
+		"region RR_TEST {\n"
+		"    scene: SCENE_TEST\n"
+		"    locations { TEST_LOC: foo(RG_HOOKSHOT, RG_FAIRY_BOW) }\n"
+		"}\n");
 	EXPECT_EQ(countErrors(diags), 1u);
 	EXPECT_NE(diags[0].message.find("expects 1 argument(s), got 2"),
 		std::string::npos);
@@ -742,107 +602,36 @@ TEST(ResolveTypes, DefineCallTooManyArgs) {
 TEST(ResolveTypes, DefineCallWithDefaultOmitted) {
 	// define foo(x: Item, d = ED_CLOSE): has(x)
 	// Call: foo(RG_HOOKSHOT) — optional d omitted.
-	Project project;
-	File file;
-	file.path = "test.rls";
-
-	std::vector<Param> params;
-	params.emplace_back("x", std::optional<std::string>{"Item"}, nullptr);
-	params.emplace_back("d", std::nullopt, makeExpr(Identifier{"ED_CLOSE"}));
-	std::vector<Arg> bodyArgs;
-	bodyArgs.emplace_back(std::nullopt, makeExpr(Identifier{"x"}));
-	file.declarations.emplace_back(DefineDecl(
-		"foo", std::move(params),
-		makeExpr(CallExpr("has", std::move(bodyArgs)))
-	));
-
-	std::vector<Arg> callArgs;
-	callArgs.emplace_back(std::nullopt, makeExpr(Identifier{"RG_HOOKSHOT"}));
-	std::vector<Entry> entries;
-	entries.emplace_back("TEST_LOC",
-		makeExpr(CallExpr("foo", std::move(callArgs))));
-	std::vector<Section> sections;
-	sections.emplace_back(SectionKind::Locations, std::move(entries));
-	file.declarations.emplace_back(RegionDecl(
-		"RR_TEST",
-		RegionBody("SCENE_TEST", TimePasses::Auto, {}, std::move(sections))
-	));
-
-	project.files.push_back(std::move(file));
-	collectDeclarations(project);
-	auto diags = resolveTypes(project);
+	auto [project, diags] = resolveFromSource(
+		"define foo(x: Item, d = ED_CLOSE): has(x)\n"
+		"region RR_TEST {\n"
+		"    scene: SCENE_TEST\n"
+		"    locations { TEST_LOC: foo(RG_HOOKSHOT) }\n"
+		"}\n");
 	EXPECT_TRUE(diags.empty());
 }
 
 TEST(ResolveTypes, DefineCallWithDefaultProvided) {
 	// define foo(x: Item, d = ED_CLOSE): has(x)
 	// Call: foo(RG_HOOKSHOT, ED_FAR) — optional d provided.
-	Project project;
-	File file;
-	file.path = "test.rls";
-
-	std::vector<Param> params;
-	params.emplace_back("x", std::optional<std::string>{"Item"}, nullptr);
-	params.emplace_back("d", std::nullopt, makeExpr(Identifier{"ED_CLOSE"}));
-	std::vector<Arg> bodyArgs;
-	bodyArgs.emplace_back(std::nullopt, makeExpr(Identifier{"x"}));
-	file.declarations.emplace_back(DefineDecl(
-		"foo", std::move(params),
-		makeExpr(CallExpr("has", std::move(bodyArgs)))
-	));
-
-	std::vector<Arg> callArgs;
-	callArgs.emplace_back(std::nullopt, makeExpr(Identifier{"RG_HOOKSHOT"}));
-	callArgs.emplace_back(std::nullopt, makeExpr(Identifier{"ED_FAR"}));
-	std::vector<Entry> entries;
-	entries.emplace_back("TEST_LOC",
-		makeExpr(CallExpr("foo", std::move(callArgs))));
-	std::vector<Section> sections;
-	sections.emplace_back(SectionKind::Locations, std::move(entries));
-	file.declarations.emplace_back(RegionDecl(
-		"RR_TEST",
-		RegionBody("SCENE_TEST", TimePasses::Auto, {}, std::move(sections))
-	));
-
-	project.files.push_back(std::move(file));
-	collectDeclarations(project);
-	auto diags = resolveTypes(project);
+	auto [project, diags] = resolveFromSource(
+		"define foo(x: Item, d = ED_CLOSE): has(x)\n"
+		"region RR_TEST {\n"
+		"    scene: SCENE_TEST\n"
+		"    locations { TEST_LOC: foo(RG_HOOKSHOT, ED_FAR) }\n"
+		"}\n");
 	EXPECT_TRUE(diags.empty());
 }
 
 TEST(ResolveTypes, DefineCallDefaultArgWrongType) {
 	// define foo(x: Item, d = ED_CLOSE): has(x)
 	// Call: foo(RG_HOOKSHOT, true) — Bool where Distance expected.
-	Project project;
-	File file;
-	file.path = "test.rls";
-
-	std::vector<Param> params;
-	params.emplace_back("x", std::optional<std::string>{"Item"}, nullptr);
-	params.emplace_back("d", std::nullopt, makeExpr(Identifier{"ED_CLOSE"}));
-	std::vector<Arg> bodyArgs;
-	bodyArgs.emplace_back(std::nullopt, makeExpr(Identifier{"x"}));
-	file.declarations.emplace_back(DefineDecl(
-		"foo", std::move(params),
-		makeExpr(CallExpr("has", std::move(bodyArgs)))
-	));
-
-	std::vector<Arg> callArgs;
-	callArgs.emplace_back(std::nullopt, makeExpr(Identifier{"RG_HOOKSHOT"}));
-	callArgs.emplace_back(std::nullopt, makeExpr(BoolLiteral{true}));
-	std::vector<Entry> entries;
-	entries.emplace_back("TEST_LOC",
-		makeExpr(CallExpr("foo", std::move(callArgs))));
-	std::vector<Section> sections;
-	sections.emplace_back(SectionKind::Locations, std::move(entries));
-	file.declarations.emplace_back(RegionDecl(
-		"RR_TEST",
-		RegionBody("SCENE_TEST", TimePasses::Auto, {}, std::move(sections))
-	));
-
-	project.files.push_back(std::move(file));
-	collectDeclarations(project);
-	auto diags = resolveTypes(project);
+	auto [project, diags] = resolveFromSource(
+		"define foo(x: Item, d = ED_CLOSE): has(x)\n"
+		"region RR_TEST {\n"
+		"    scene: SCENE_TEST\n"
+		"    locations { TEST_LOC: foo(RG_HOOKSHOT, true) }\n"
+		"}\n");
 	EXPECT_EQ(countErrors(diags), 1u);
 	EXPECT_NE(diags[0].message.find("argument 2 expected Distance, got Bool"),
 		std::string::npos);
@@ -851,34 +640,12 @@ TEST(ResolveTypes, DefineCallDefaultArgWrongType) {
 TEST(ResolveTypes, DefineCallErrorArgNoCascade) {
 	// define foo(x: Item): has(x)
 	// Call: foo(unknown_id) — only "unknown identifier" error.
-	Project project;
-	File file;
-	file.path = "test.rls";
-
-	std::vector<Param> params;
-	params.emplace_back("x", std::optional<std::string>{"Item"}, nullptr);
-	std::vector<Arg> bodyArgs;
-	bodyArgs.emplace_back(std::nullopt, makeExpr(Identifier{"x"}));
-	file.declarations.emplace_back(DefineDecl(
-		"foo", std::move(params),
-		makeExpr(CallExpr("has", std::move(bodyArgs)))
-	));
-
-	std::vector<Arg> callArgs;
-	callArgs.emplace_back(std::nullopt, makeExpr(Identifier{"unknown_id"}));
-	std::vector<Entry> entries;
-	entries.emplace_back("TEST_LOC",
-		makeExpr(CallExpr("foo", std::move(callArgs))));
-	std::vector<Section> sections;
-	sections.emplace_back(SectionKind::Locations, std::move(entries));
-	file.declarations.emplace_back(RegionDecl(
-		"RR_TEST",
-		RegionBody("SCENE_TEST", TimePasses::Auto, {}, std::move(sections))
-	));
-
-	project.files.push_back(std::move(file));
-	collectDeclarations(project);
-	auto diags = resolveTypes(project);
+	auto [project, diags] = resolveFromSource(
+		"define foo(x: Item): has(x)\n"
+		"region RR_TEST {\n"
+		"    scene: SCENE_TEST\n"
+		"    locations { TEST_LOC: foo(unknown_id) }\n"
+		"}\n");
 	// Only the "unknown identifier" error, not a type mismatch.
 	EXPECT_EQ(countErrors(diags), 1u);
 	EXPECT_NE(diags[0].message.find("unknown identifier"),
@@ -888,33 +655,12 @@ TEST(ResolveTypes, DefineCallErrorArgNoCascade) {
 TEST(ResolveTypes, DefineCallWithRangeArgCount) {
 	// define foo(x: Item, d = ED_CLOSE): has(x)
 	// Call: foo() — too few for range (needs 1-2, got 0).
-	Project project;
-	File file;
-	file.path = "test.rls";
-
-	std::vector<Param> params;
-	params.emplace_back("x", std::optional<std::string>{"Item"}, nullptr);
-	params.emplace_back("d", std::nullopt, makeExpr(Identifier{"ED_CLOSE"}));
-	std::vector<Arg> bodyArgs;
-	bodyArgs.emplace_back(std::nullopt, makeExpr(Identifier{"x"}));
-	file.declarations.emplace_back(DefineDecl(
-		"foo", std::move(params),
-		makeExpr(CallExpr("has", std::move(bodyArgs)))
-	));
-
-	std::vector<Entry> entries;
-	entries.emplace_back("TEST_LOC",
-		makeExpr(CallExpr("foo", {})));
-	std::vector<Section> sections;
-	sections.emplace_back(SectionKind::Locations, std::move(entries));
-	file.declarations.emplace_back(RegionDecl(
-		"RR_TEST",
-		RegionBody("SCENE_TEST", TimePasses::Auto, {}, std::move(sections))
-	));
-
-	project.files.push_back(std::move(file));
-	collectDeclarations(project);
-	auto diags = resolveTypes(project);
+	auto [project, diags] = resolveFromSource(
+		"define foo(x: Item, d = ED_CLOSE): has(x)\n"
+		"region RR_TEST {\n"
+		"    scene: SCENE_TEST\n"
+		"    locations { TEST_LOC: foo() }\n"
+		"}\n");
 	EXPECT_EQ(countErrors(diags), 1u);
 	EXPECT_NE(diags[0].message.find("expects 1-2 argument(s), got 0"),
 		std::string::npos);
@@ -923,148 +669,55 @@ TEST(ResolveTypes, DefineCallWithRangeArgCount) {
 // -- Define ordering (Step 7) -------------------------------------------------
 
 TEST(ResolveTypes, DefineOrderingCalleeFirst) {
-	// define foo(): bar()
-	// define bar(): true
-	// Region: foo()
 	// Topo sort ensures bar is resolved before foo regardless of decl order.
-	Project project;
-	File file;
-	file.path = "test.rls";
-
-	// foo calls bar (declared first).
-	file.declarations.emplace_back(DefineDecl(
-		"foo", {}, makeExpr(CallExpr("bar", {}))
-	));
-	// bar returns Bool (declared second).
-	file.declarations.emplace_back(DefineDecl(
-		"bar", {}, makeExpr(BoolLiteral{true})
-	));
-
-	// Region entry calling foo.
-	std::vector<Entry> entries;
-	entries.emplace_back("TEST_LOC",
-		makeExpr(CallExpr("foo", {})));
-	std::vector<Section> sections;
-	sections.emplace_back(SectionKind::Locations, std::move(entries));
-	file.declarations.emplace_back(RegionDecl(
-		"RR_TEST",
-		RegionBody("SCENE_TEST", TimePasses::Auto, {}, std::move(sections))
-	));
-
-	project.files.push_back(std::move(file));
-	collectDeclarations(project);
-	auto diags = resolveTypes(project);
+	auto [project, diags] = resolveFromSource(
+		"define foo(): bar()\n"
+		"define bar(): true\n"
+		"region RR_TEST {\n"
+		"    scene: SCENE_TEST\n"
+		"    locations { TEST_LOC: foo() }\n"
+		"}\n");
 	EXPECT_TRUE(diags.empty());
-
-	// foo should resolve to Bool (bar's return type).
-	auto& region = std::get<RegionDecl>(project.files[0].declarations[2]);
-	auto* callExpr = region.body.sections[0].entries[0].condition.get();
-	EXPECT_EQ(project.getType(callExpr), Type::Bool);
+	EXPECT_EQ(project.getType(findRegionEntry(project)), Type::Bool);
 }
 
 TEST(ResolveTypes, DefineOrderingTransitive) {
-	// define a(): b()
-	// define b(): c()
-	// define c(): RG_HOOKSHOT
-	// Region: a()
 	// Must be processed c → b → a.
-	Project project;
-	File file;
-	file.path = "test.rls";
-
-	file.declarations.emplace_back(DefineDecl(
-		"a", {}, makeExpr(CallExpr("b", {}))
-	));
-	file.declarations.emplace_back(DefineDecl(
-		"b", {}, makeExpr(CallExpr("c", {}))
-	));
-	file.declarations.emplace_back(DefineDecl(
-		"c", {}, makeExpr(Identifier{"RG_HOOKSHOT"})
-	));
-
-	std::vector<Entry> entries;
-	entries.emplace_back("TEST_LOC",
-		makeExpr(CallExpr("a", {})));
-	std::vector<Section> sections;
-	sections.emplace_back(SectionKind::Locations, std::move(entries));
-	file.declarations.emplace_back(RegionDecl(
-		"RR_TEST",
-		RegionBody("SCENE_TEST", TimePasses::Auto, {}, std::move(sections))
-	));
-
-	project.files.push_back(std::move(file));
-	collectDeclarations(project);
-	auto diags = resolveTypes(project);
+	auto [project, diags] = resolveFromSource(
+		"define a(): b()\n"
+		"define b(): c()\n"
+		"define c(): RG_HOOKSHOT\n"
+		"region RR_TEST {\n"
+		"    scene: SCENE_TEST\n"
+		"    locations { TEST_LOC: a() }\n"
+		"}\n");
 	EXPECT_TRUE(diags.empty());
-
-	// a() should resolve to Item (c returns RG_HOOKSHOT → Item).
-	auto& region = std::get<RegionDecl>(project.files[0].declarations[3]);
-	auto* callExpr = region.body.sections[0].entries[0].condition.get();
-	EXPECT_EQ(project.getType(callExpr), Type::Item);
+	EXPECT_EQ(project.getType(findRegionEntry(project)), Type::Item);
 }
 
 TEST(ResolveTypes, DefineOrderingIndependentDefines) {
-	// define foo(): true
-	// define bar(): 42
 	// Both independent — no dependencies, both should resolve.
-	Project project;
-	File file;
-	file.path = "test.rls";
-
-	file.declarations.emplace_back(DefineDecl(
-		"foo", {}, makeExpr(BoolLiteral{true})
-	));
-	file.declarations.emplace_back(DefineDecl(
-		"bar", {}, makeExpr(IntLiteral{42})
-	));
-
-	std::vector<Entry> entries;
-	entries.emplace_back("TEST_LOC", makeExpr(BoolLiteral{true}));
-	std::vector<Section> sections;
-	sections.emplace_back(SectionKind::Locations, std::move(entries));
-	file.declarations.emplace_back(RegionDecl(
-		"RR_TEST",
-		RegionBody("SCENE_TEST", TimePasses::Auto, {}, std::move(sections))
-	));
-
-	project.files.push_back(std::move(file));
-	collectDeclarations(project);
-	auto diags = resolveTypes(project);
+	auto [project, diags] = resolveFromSource(
+		"define foo(): true\n"
+		"define bar(): 42\n"
+		"region RR_TEST {\n"
+		"    scene: SCENE_TEST\n"
+		"    locations { TEST_LOC: true }\n"
+		"}\n");
 	EXPECT_TRUE(diags.empty());
-
-	auto& foo = std::get<DefineDecl>(project.files[0].declarations[0]);
-	auto& bar = std::get<DefineDecl>(project.files[0].declarations[1]);
-	EXPECT_EQ(project.getType(foo.body.get()), Type::Bool);
-	EXPECT_EQ(project.getType(bar.body.get()), Type::Int);
+	EXPECT_EQ(project.getType(project.DefineDecls.at("foo")->body.get()), Type::Bool);
+	EXPECT_EQ(project.getType(project.DefineDecls.at("bar")->body.get()), Type::Int);
 }
 
 TEST(ResolveTypes, DefineCycleDetected) {
-	// define foo(): bar()
-	// define bar(): foo()
-	// Cycle → error diagnostic.
-	Project project;
-	File file;
-	file.path = "test.rls";
-
-	file.declarations.emplace_back(DefineDecl(
-		"foo", {}, makeExpr(CallExpr("bar", {}))
-	));
-	file.declarations.emplace_back(DefineDecl(
-		"bar", {}, makeExpr(CallExpr("foo", {}))
-	));
-
-	std::vector<Entry> entries;
-	entries.emplace_back("TEST_LOC", makeExpr(BoolLiteral{true}));
-	std::vector<Section> sections;
-	sections.emplace_back(SectionKind::Locations, std::move(entries));
-	file.declarations.emplace_back(RegionDecl(
-		"RR_TEST",
-		RegionBody("SCENE_TEST", TimePasses::Auto, {}, std::move(sections))
-	));
-
-	project.files.push_back(std::move(file));
-	collectDeclarations(project);
-	auto diags = resolveTypes(project);
+	// Mutual recursion foo ↔ bar → cycle error.
+	auto [project, diags] = resolveFromSource(
+		"define foo(): bar()\n"
+		"define bar(): foo()\n"
+		"region RR_TEST {\n"
+		"    scene: SCENE_TEST\n"
+		"    locations { TEST_LOC: true }\n"
+		"}\n");
 	EXPECT_GE(countErrors(diags), 1u);
 	bool foundCycle = false;
 	for (const auto& d : diags) {
@@ -1080,80 +733,57 @@ TEST(ResolveTypes, DefineCycleDetected) {
 }
 
 TEST(ResolveTypes, DefineOrderingDefaultValueDep) {
-	// define bar(): RG_HOOKSHOT
-	// define foo(x = bar()): x
 	// Default value of foo's param calls bar → bar processed first.
-	Project project;
-	File file;
-	file.path = "test.rls";
-
-	file.declarations.emplace_back(DefineDecl(
-		"foo",
-		[&] {
-			std::vector<Param> p;
-			p.emplace_back("x", std::nullopt, makeExpr(CallExpr("bar", {})));
-			return p;
-		}(),
-		makeExpr(Identifier{"x"})
-	));
-	file.declarations.emplace_back(DefineDecl(
-		"bar", {}, makeExpr(Identifier{"RG_HOOKSHOT"})
-	));
-
-	std::vector<Entry> entries;
-	entries.emplace_back("TEST_LOC", makeExpr(BoolLiteral{true}));
-	std::vector<Section> sections;
-	sections.emplace_back(SectionKind::Locations, std::move(entries));
-	file.declarations.emplace_back(RegionDecl(
-		"RR_TEST",
-		RegionBody("SCENE_TEST", TimePasses::Auto, {}, std::move(sections))
-	));
-
-	project.files.push_back(std::move(file));
-	collectDeclarations(project);
-	auto diags = resolveTypes(project);
+	auto [project, diags] = resolveFromSource(
+		"define foo(x = bar()): x\n"
+		"define bar(): RG_HOOKSHOT\n"
+		"region RR_TEST {\n"
+		"    scene: SCENE_TEST\n"
+		"    locations { TEST_LOC: true }\n"
+		"}\n");
 	EXPECT_TRUE(diags.empty());
-
-	auto& foo = std::get<DefineDecl>(project.files[0].declarations[0]);
+	auto* foo = project.DefineDecls.at("foo");
 	// foo's param x gets type Item from bar()'s return type.
-	EXPECT_EQ(project.getType(&foo.params[0]), Type::Item);
-	EXPECT_EQ(project.getType(foo.body.get()), Type::Item);
+	EXPECT_EQ(project.getType(&foo->params[0]), Type::Item);
+	EXPECT_EQ(project.getType(foo->body.get()), Type::Item);
 }
 
 // -- Shared block -------------------------------------------------------------
 
 TEST(ResolveTypes, SharedBlockBool) {
-	std::vector<SharedBranch> branches;
-	branches.emplace_back(std::nullopt, makeExpr(BoolLiteral{true}));
-	branches.emplace_back(
-		std::optional<std::string>{"RR_OTHER"},
-		makeExpr(BoolLiteral{false}));
-
-	auto project = makeProjectWithExpr(
-		makeExpr(SharedBlock(false, std::move(branches)))
-	);
-	auto diags = resolveTypes(project);
+	auto [project, diags] = resolveFromSource(
+		"region RR_TEST {\n"
+		"    scene: SCENE_TEST\n"
+		"    locations {\n"
+		"        TEST_LOC: shared {\n"
+		"            from here: true\n"
+		"            from RR_OTHER: false\n"
+		"        }\n"
+		"    }\n"
+		"}\n");
 	EXPECT_TRUE(diags.empty());
-	EXPECT_EQ(project.getType(getEntryExpr(project)), Type::Bool);
+	EXPECT_EQ(project.getType(findRegionEntry(project)), Type::Bool);
 }
 
 // -- Any-age block ------------------------------------------------------------
 
 TEST(ResolveTypes, AnyAgeBlockBool) {
-	auto project = makeProjectWithExpr(
-		makeExpr(AnyAgeBlock(makeExpr(BoolLiteral{true})))
-	);
-	auto diags = resolveTypes(project);
+	auto [project, diags] = resolveFromSource(
+		"region RR_TEST {\n"
+		"    scene: SCENE_TEST\n"
+		"    locations { TEST_LOC: any_age { true } }\n"
+		"}\n");
 	EXPECT_TRUE(diags.empty());
-	EXPECT_EQ(project.getType(getEntryExpr(project)), Type::Bool);
+	EXPECT_EQ(project.getType(findRegionEntry(project)), Type::Bool);
 }
 
 TEST(ResolveTypes, AnyAgeBlockNonBool) {
 	// any_age { RG_HOOKSHOT } — body is Item, not Bool.
-	auto project = makeProjectWithExpr(
-		makeExpr(AnyAgeBlock(makeExpr(Identifier{"RG_HOOKSHOT"})))
-	);
-	auto diags = resolveTypes(project);
+	auto [project, diags] = resolveFromSource(
+		"region RR_TEST {\n"
+		"    scene: SCENE_TEST\n"
+		"    locations { TEST_LOC: any_age { RG_HOOKSHOT } }\n"
+		"}\n");
 	EXPECT_EQ(countErrors(diags), 1u);
 	EXPECT_NE(diags[0].message.find("any_age body must be Bool"), std::string::npos);
 }
@@ -1162,36 +792,24 @@ TEST(ResolveTypes, AnyAgeBlockNonBool) {
 
 TEST(ResolveTypes, MatchExprBasic) {
 	// match distance { ED_CLOSE: true, ED_FAR: false }
-	std::vector<MatchArm> arms;
-	arms.emplace_back(
-		std::vector<std::string>{"ED_CLOSE"},
-		makeExpr(BoolLiteral{true}), true);
-	arms.emplace_back(
-		std::vector<std::string>{"ED_FAR"},
-		makeExpr(BoolLiteral{false}), false);
-
-	auto project = makeProjectWithExpr(
-		makeExpr(MatchExpr("distance", std::move(arms)))
-	);
-	auto diags = resolveTypes(project);
+	auto [project, diags] = resolveFromSource(
+		"define test_fn(distance):\n"
+		"    match distance {\n"
+		"        ED_CLOSE: true\n"
+		"        ED_FAR: false\n"
+		"    }\n");
 	EXPECT_TRUE(diags.empty());
-	EXPECT_EQ(project.getType(getEntryExpr(project)), Type::Bool);
+	EXPECT_EQ(project.getType(project.DefineDecls.at("test_fn")->body.get()), Type::Bool);
 }
 
 TEST(ResolveTypes, MatchPatternTypeMismatch) {
 	// match x { ED_CLOSE: true, RG_HOOKSHOT: false } — Distance vs Item.
-	std::vector<MatchArm> arms;
-	arms.emplace_back(
-		std::vector<std::string>{"ED_CLOSE"},
-		makeExpr(BoolLiteral{true}), false);
-	arms.emplace_back(
-		std::vector<std::string>{"RG_HOOKSHOT"},
-		makeExpr(BoolLiteral{false}), false);
-
-	auto project = makeProjectWithExpr(
-		makeExpr(MatchExpr("x", std::move(arms)))
-	);
-	auto diags = resolveTypes(project);
+	auto [project, diags] = resolveFromSource(
+		"define test_fn(x):\n"
+		"    match x {\n"
+		"        ED_CLOSE: true\n"
+		"        RG_HOOKSHOT: false\n"
+		"    }\n");
 	EXPECT_EQ(countErrors(diags), 1u);
 	EXPECT_NE(diags[0].message.find("match pattern 'RG_HOOKSHOT' is Item but expected Distance"),
 		std::string::npos);
@@ -1199,133 +817,75 @@ TEST(ResolveTypes, MatchPatternTypeMismatch) {
 
 TEST(ResolveTypes, MatchMultiPatternArm) {
 	// match x { ED_CLOSE or ED_SHORT_JUMPSLASH: true }
-	std::vector<MatchArm> arms;
-	arms.emplace_back(
-		std::vector<std::string>{"ED_CLOSE", "ED_SHORT_JUMPSLASH"},
-		makeExpr(BoolLiteral{true}), false);
-
-	auto project = makeProjectWithExpr(
-		makeExpr(MatchExpr("x", std::move(arms)))
-	);
-	auto diags = resolveTypes(project);
+	auto [project, diags] = resolveFromSource(
+		"define test_fn(x):\n"
+		"    match x {\n"
+		"        ED_CLOSE or ED_SHORT_JUMPSLASH: true\n"
+		"    }\n");
 	EXPECT_TRUE(diags.empty());
-	EXPECT_EQ(project.getType(getEntryExpr(project)), Type::Bool);
+	EXPECT_EQ(project.getType(project.DefineDecls.at("test_fn")->body.get()), Type::Bool);
 }
 
 TEST(ResolveTypes, MatchBoolCompatibleArmsUnifyWithWarning) {
 	// match x { RSK_A: 1 | RSK_B: true } → Bool + Int → unify to Bool with warning
-	std::vector<MatchArm> arms;
-	arms.emplace_back(
-		std::vector<std::string>{"RSK_A"},
-		makeExpr(IntLiteral{1}), false);
-	arms.emplace_back(
-		std::vector<std::string>{"RSK_B"},
-		makeExpr(BoolLiteral{true}), false);
-
-	auto project = makeProjectWithExpr(
-		makeExpr(MatchExpr("x", std::move(arms)))
-	);
-	auto diags = resolveTypes(project);
+	auto [project, diags] = resolveFromSource(
+		"define test_fn(x):\n"
+		"    match x {\n"
+		"        RSK_A: 1\n"
+		"        RSK_B: true\n"
+		"    }\n");
 	EXPECT_EQ(countErrors(diags), 0u);
 	ASSERT_EQ(diags.size(), 1u);
 	EXPECT_EQ(diags[0].level, DiagnosticLevel::Warning);
 	EXPECT_NE(diags[0].message.find("implicitly converted to Bool"),
 		std::string::npos);
-	EXPECT_EQ(project.getType(getEntryExpr(project)), Type::Bool);
+	EXPECT_EQ(project.getType(project.DefineDecls.at("test_fn")->body.get()), Type::Bool);
 }
 
 TEST(ResolveTypes, MatchArmsSameNonBoolType) {
 	// match x { ED_CLOSE: ED_FAR, ED_FAR: ED_CLOSE } — all Distance.
-	std::vector<MatchArm> arms;
-	arms.emplace_back(
-		std::vector<std::string>{"ED_CLOSE"},
-		makeExpr(Identifier{"ED_FAR"}), false);
-	arms.emplace_back(
-		std::vector<std::string>{"ED_FAR"},
-		makeExpr(Identifier{"ED_CLOSE"}), false);
-
-	auto project = makeProjectWithExpr(
-		makeExpr(MatchExpr("x", std::move(arms)))
-	);
-	auto diags = resolveTypes(project);
+	auto [project, diags] = resolveFromSource(
+		"define test_fn(x):\n"
+		"    match x {\n"
+		"        ED_CLOSE: ED_FAR\n"
+		"        ED_FAR: ED_CLOSE\n"
+		"    }\n");
 	EXPECT_TRUE(diags.empty());
-	EXPECT_EQ(project.getType(getEntryExpr(project)), Type::Distance);
+	EXPECT_EQ(project.getType(project.DefineDecls.at("test_fn")->body.get()), Type::Distance);
 }
 
 TEST(ResolveTypes, MatchArmBodyTypeMismatch) {
 	// match x { ED_CLOSE: RG_HOOKSHOT, ED_FAR: true } — Item vs Bool.
-	std::vector<MatchArm> arms;
-	arms.emplace_back(
-		std::vector<std::string>{"ED_CLOSE"},
-		makeExpr(Identifier{"RG_HOOKSHOT"}), false);
-	arms.emplace_back(
-		std::vector<std::string>{"ED_FAR"},
-		makeExpr(BoolLiteral{true}), false);
-
-	auto project = makeProjectWithExpr(
-		makeExpr(MatchExpr("x", std::move(arms)))
-	);
-	auto diags = resolveTypes(project);
+	auto [project, diags] = resolveFromSource(
+		"define test_fn(x):\n"
+		"    match x {\n"
+		"        ED_CLOSE: RG_HOOKSHOT\n"
+		"        ED_FAR: true\n"
+		"    }\n");
 	EXPECT_EQ(countErrors(diags), 1u);
 	EXPECT_NE(diags[0].message.find("doesn't match previous arms"),
 		std::string::npos);
 }
 
 TEST(ResolveTypes, MatchDiscriminantTyped) {
-	// define foo(d: Distance): match d { ED_CLOSE: true, ED_FAR: false }
 	// Discriminant 'd' is Distance; patterns are Distance — OK.
-	Project project;
-	File file;
-	file.path = "test.rls";
-
-	std::vector<Param> params;
-	params.emplace_back("d", std::optional<std::string>{"Distance"}, nullptr);
-
-	std::vector<MatchArm> arms;
-	arms.emplace_back(
-		std::vector<std::string>{"ED_CLOSE"},
-		makeExpr(BoolLiteral{true}), false);
-	arms.emplace_back(
-		std::vector<std::string>{"ED_FAR"},
-		makeExpr(BoolLiteral{false}), false);
-
-	file.declarations.emplace_back(DefineDecl(
-		"foo", std::move(params),
-		makeExpr(MatchExpr("d", std::move(arms)))
-	));
-
-	project.files.push_back(std::move(file));
-	collectDeclarations(project);
-	auto diags = resolveTypes(project);
+	auto [project, diags] = resolveFromSource(
+		"define foo(d: Distance):\n"
+		"    match d {\n"
+		"        ED_CLOSE: true\n"
+		"        ED_FAR: false\n"
+		"    }\n");
 	EXPECT_TRUE(diags.empty());
-
-	auto& def = std::get<DefineDecl>(project.files[0].declarations[0]);
-	EXPECT_EQ(project.getType(def.body.get()), Type::Bool);
+	EXPECT_EQ(project.getType(project.DefineDecls.at("foo")->body.get()), Type::Bool);
 }
 
 TEST(ResolveTypes, MatchDiscriminantTypeMismatch) {
-	// define foo(d: Item): match d { ED_CLOSE: true }
 	// Discriminant 'd' is Item but pattern ED_CLOSE is Distance — error.
-	Project project;
-	File file;
-	file.path = "test.rls";
-
-	std::vector<Param> params;
-	params.emplace_back("d", std::optional<std::string>{"Item"}, nullptr);
-
-	std::vector<MatchArm> arms;
-	arms.emplace_back(
-		std::vector<std::string>{"ED_CLOSE"},
-		makeExpr(BoolLiteral{true}), false);
-
-	file.declarations.emplace_back(DefineDecl(
-		"foo", std::move(params),
-		makeExpr(MatchExpr("d", std::move(arms)))
-	));
-
-	project.files.push_back(std::move(file));
-	collectDeclarations(project);
-	auto diags = resolveTypes(project);
+	auto [project, diags] = resolveFromSource(
+		"define foo(d: Item):\n"
+		"    match d {\n"
+		"        ED_CLOSE: true\n"
+		"    }\n");
 	EXPECT_EQ(countErrors(diags), 1u);
 	EXPECT_NE(diags[0].message.find(
 		"match discriminant 'd' is Item but patterns are Distance"),
@@ -1333,36 +893,15 @@ TEST(ResolveTypes, MatchDiscriminantTypeMismatch) {
 }
 
 TEST(ResolveTypes, MatchDiscriminantInferred) {
-	// define foo(d): match d { ED_CLOSE: true, ED_FAR: false }
 	// Discriminant 'd' has no type — infer Distance from patterns.
-	// Then using 'd' after the match should resolve to Distance.
-	Project project;
-	File file;
-	file.path = "test.rls";
-
-	std::vector<Param> params;
-	params.emplace_back("d", std::nullopt, nullptr);
-
-	std::vector<MatchArm> arms;
-	arms.emplace_back(
-		std::vector<std::string>{"ED_CLOSE"},
-		makeExpr(BoolLiteral{true}), false);
-	arms.emplace_back(
-		std::vector<std::string>{"ED_FAR"},
-		makeExpr(BoolLiteral{false}), false);
-
-	file.declarations.emplace_back(DefineDecl(
-		"foo", std::move(params),
-		makeExpr(MatchExpr("d", std::move(arms)))
-	));
-
-	project.files.push_back(std::move(file));
-	collectDeclarations(project);
-	auto diags = resolveTypes(project);
+	auto [project, diags] = resolveFromSource(
+		"define foo(d):\n"
+		"    match d {\n"
+		"        ED_CLOSE: true\n"
+		"        ED_FAR: false\n"
+		"    }\n");
 	EXPECT_TRUE(diags.empty());
-
-	auto& def = std::get<DefineDecl>(project.files[0].declarations[0]);
-	EXPECT_EQ(project.getType(def.body.get()), Type::Bool);
+	EXPECT_EQ(project.getType(project.DefineDecls.at("foo")->body.get()), Type::Bool);
 }
 
 // -- Error poisoning ----------------------------------------------------------
@@ -1370,50 +909,42 @@ TEST(ResolveTypes, MatchDiscriminantInferred) {
 TEST(ResolveTypes, ErrorPoisonSuppressesCascade) {
 	// unknown_id and true — the 'and' should not report an extra type error
 	// for the left side being Error; only the "unknown identifier" diagnostic.
-	auto project = makeProjectWithExpr(
-		makeExpr(BinaryExpr(BinaryOp::And,
-			makeExpr(Identifier{"unknown_id"}),
-			makeExpr(BoolLiteral{true})))
-	);
-	auto diags = resolveTypes(project);
+	auto [project, diags] = resolveFromSource(
+		"region RR_TEST {\n"
+		"    scene: SCENE_TEST\n"
+		"    locations { TEST_LOC: unknown_id and true }\n"
+		"}\n");
 	EXPECT_EQ(countErrors(diags), 1u);
 	EXPECT_NE(diags[0].message.find("unknown identifier 'unknown_id'"), std::string::npos);
 	// Result is still Bool — Error doesn't propagate upward from 'and'.
-	EXPECT_EQ(project.getType(getEntryExpr(project)), Type::Bool);
+	EXPECT_EQ(project.getType(findRegionEntry(project)), Type::Bool);
 }
 
 TEST(ResolveTypes, ErrorArgDoesNotCascadeInCall) {
 	// has(unknown_id) — the unknown identifier is diagnosed once,
 	// but the arg type check (Item vs Error) is suppressed.
-	std::vector<Arg> args;
-	args.emplace_back(std::nullopt, makeExpr(Identifier{"unknown_id"}));
-	auto project = makeProjectWithExpr(
-		makeExpr(CallExpr("has", std::move(args)))
-	);
-	auto diags = resolveTypes(project);
+	auto [project, diags] = resolveFromSource(
+		"region RR_TEST {\n"
+		"    scene: SCENE_TEST\n"
+		"    locations { TEST_LOC: has(unknown_id) }\n"
+		"}\n");
 	EXPECT_EQ(countErrors(diags), 1u); // Only the "unknown identifier" error.
-	EXPECT_EQ(project.getType(getEntryExpr(project)), Type::Bool);
+	EXPECT_EQ(project.getType(findRegionEntry(project)), Type::Bool);
 }
 
 // -- Sub-expression types populated -------------------------------------------
 
 TEST(ResolveTypes, SubExprTypesPopulated) {
 	// has(RG_HOOKSHOT) and can_use(RG_FAIRY_BOW)
-	std::vector<Arg> hasArgs;
-	hasArgs.emplace_back(std::nullopt, makeExpr(Identifier{"RG_HOOKSHOT"}));
-	std::vector<Arg> canUseArgs;
-	canUseArgs.emplace_back(std::nullopt, makeExpr(Identifier{"RG_FAIRY_BOW"}));
-
-	auto project = makeProjectWithExpr(
-		makeExpr(BinaryExpr(BinaryOp::And,
-			makeExpr(CallExpr("has", std::move(hasArgs))),
-			makeExpr(CallExpr("can_use", std::move(canUseArgs)))))
-	);
-	auto diags = resolveTypes(project);
+	auto [project, diags] = resolveFromSource(
+		"region RR_TEST {\n"
+		"    scene: SCENE_TEST\n"
+		"    locations { TEST_LOC: has(RG_HOOKSHOT) and can_use(RG_FAIRY_BOW) }\n"
+		"}\n");
 	EXPECT_TRUE(diags.empty());
 
 	// Root is Bool.
-	auto* root = getEntryExpr(project);
+	auto* root = findRegionEntry(project);
 	EXPECT_EQ(project.getType(root), Type::Bool);
 
 	// Left call is Bool.
@@ -1431,53 +962,37 @@ TEST(ResolveTypes, SubExprTypesPopulated) {
 TEST(ResolveTypes, SettingIsComparison) {
 	// setting(RSK_FOREST) is RO_CLOSED_FOREST_ON
 	// → setting() returns Setting, RO_ is Setting, == both Setting → Bool.
-	std::vector<Arg> args;
-	args.emplace_back(std::nullopt, makeExpr(Identifier{"RSK_FOREST"}));
-	auto project = makeProjectWithExpr(
-		makeExpr(BinaryExpr(BinaryOp::Eq,
-			makeExpr(CallExpr("setting", std::move(args))),
-			makeExpr(Identifier{"RO_CLOSED_FOREST_ON"})))
-	);
-	auto diags = resolveTypes(project);
+	auto [project, diags] = resolveFromSource(
+		"region RR_TEST {\n"
+		"    scene: SCENE_TEST\n"
+		"    locations { TEST_LOC: setting(RSK_FOREST) is RO_CLOSED_FOREST_ON }\n"
+		"}\n");
 	EXPECT_TRUE(diags.empty());
-	EXPECT_EQ(project.getType(getEntryExpr(project)), Type::Bool);
+	EXPECT_EQ(project.getType(findRegionEntry(project)), Type::Bool);
 }
 
 TEST(ResolveTypes, SettingBoolTruthiness) {
 	// setting(RSK_SUNLIGHT_ARROWS) and true — Setting is bool-compatible.
-	std::vector<Arg> args;
-	args.emplace_back(std::nullopt, makeExpr(Identifier{"RSK_SUNLIGHT_ARROWS"}));
-	auto project = makeProjectWithExpr(
-		makeExpr(BinaryExpr(BinaryOp::And,
-			makeExpr(CallExpr("setting", std::move(args))),
-			makeExpr(BoolLiteral{true})))
-	);
-	auto diags = resolveTypes(project);
+	auto [project, diags] = resolveFromSource(
+		"region RR_TEST {\n"
+		"    scene: SCENE_TEST\n"
+		"    locations { TEST_LOC: setting(RSK_SUNLIGHT_ARROWS) and true }\n"
+		"}\n");
 	EXPECT_TRUE(diags.empty());
-	EXPECT_EQ(project.getType(getEntryExpr(project)), Type::Bool);
+	EXPECT_EQ(project.getType(findRegionEntry(project)), Type::Bool);
 }
 
 // -- Composite expression -----------------------------------------------------
 
 TEST(ResolveTypes, CompositeExpression) {
 	// has(RG_HOOKSHOT) or (hearts() >= 3 and trick(RT_SPIRIT_CHILD_CHU))
-	std::vector<Arg> hasArgs;
-	hasArgs.emplace_back(std::nullopt, makeExpr(Identifier{"RG_HOOKSHOT"}));
-	std::vector<Arg> trickArgs;
-	trickArgs.emplace_back(std::nullopt, makeExpr(Identifier{"RT_SPIRIT_CHILD_CHU"}));
-
-	auto project = makeProjectWithExpr(
-		makeExpr(BinaryExpr(BinaryOp::Or,
-			makeExpr(CallExpr("has", std::move(hasArgs))),
-			makeExpr(BinaryExpr(BinaryOp::And,
-				makeExpr(BinaryExpr(BinaryOp::GtEq,
-					makeExpr(CallExpr("hearts", {})),
-					makeExpr(IntLiteral{3}))),
-				makeExpr(CallExpr("trick", std::move(trickArgs)))))))
-	);
-	auto diags = resolveTypes(project);
+	auto [project, diags] = resolveFromSource(
+		"region RR_TEST {\n"
+		"    scene: SCENE_TEST\n"
+		"    locations { TEST_LOC: has(RG_HOOKSHOT) or (hearts() >= 3 and trick(RT_SPIRIT_CHILD_CHU)) }\n"
+		"}\n");
 	EXPECT_TRUE(diags.empty());
-	EXPECT_EQ(project.getType(getEntryExpr(project)), Type::Bool);
+	EXPECT_EQ(project.getType(findRegionEntry(project)), Type::Bool);
 }
 
 // -- typeFromAnnotation (Step 4) ----------------------------------------------
@@ -1510,87 +1025,34 @@ TEST(TypeAnnotation, Unknown) {
 
 TEST(ResolveTypes, DefineParamWithAnnotation) {
 	// define foo(d: Distance): d
-	Project project;
-	File file;
-	file.path = "test.rls";
-
-	std::vector<Param> params;
-	params.emplace_back("d", std::optional<std::string>{"Distance"}, nullptr);
-
-	file.declarations.emplace_back(DefineDecl(
-		"foo", std::move(params), makeExpr(Identifier{"d"})
-	));
-
-	project.files.push_back(std::move(file));
-	collectDeclarations(project);
-	auto diags = resolveTypes(project);
+	auto [project, diags] = resolveFromSource(
+		"define foo(d: Distance): d\n");
 	EXPECT_TRUE(diags.empty());
-
-	auto& def = std::get<DefineDecl>(project.files[0].declarations[0]);
-	EXPECT_EQ(project.getType(def.body.get()), Type::Distance);
+	EXPECT_EQ(project.getType(project.DefineDecls.at("foo")->body.get()), Type::Distance);
 }
 
 TEST(ResolveTypes, DefineParamWithDefault) {
 	// define foo(d = ED_CLOSE): d
-	Project project;
-	File file;
-	file.path = "test.rls";
-
-	std::vector<Param> params;
-	params.emplace_back("d", std::nullopt, makeExpr(Identifier{"ED_CLOSE"}));
-
-	file.declarations.emplace_back(DefineDecl(
-		"foo", std::move(params), makeExpr(Identifier{"d"})
-	));
-
-	project.files.push_back(std::move(file));
-	collectDeclarations(project);
-	auto diags = resolveTypes(project);
+	auto [project, diags] = resolveFromSource(
+		"define foo(d = ED_CLOSE): d\n");
 	EXPECT_TRUE(diags.empty());
-
-	auto& def = std::get<DefineDecl>(project.files[0].declarations[0]);
-	EXPECT_EQ(project.getType(def.body.get()), Type::Distance);
+	EXPECT_EQ(project.getType(project.DefineDecls.at("foo")->body.get()), Type::Distance);
 }
 
 TEST(ResolveTypes, DefineParamUntyped) {
 	// define foo(x): x — type unknown, no error for the identifier itself
-	Project project;
-	File file;
-	file.path = "test.rls";
-
-	std::vector<Param> params;
-	params.emplace_back("x", std::nullopt, nullptr);
-
-	file.declarations.emplace_back(DefineDecl(
-		"foo", std::move(params), makeExpr(Identifier{"x"})
-	));
-
-	project.files.push_back(std::move(file));
-	collectDeclarations(project);
-	auto diags = resolveTypes(project);
+	auto [project, diags] = resolveFromSource(
+		"define foo(x): x\n");
 	// No "unknown identifier" error — x is a known parameter.
 	EXPECT_EQ(countErrors(diags), 0u);
 	// But the body type is Error since x's type is unknown.
-	auto& def = std::get<DefineDecl>(project.files[0].declarations[0]);
-	EXPECT_EQ(project.getType(def.body.get()), Type::Error);
+	EXPECT_EQ(project.getType(project.DefineDecls.at("foo")->body.get()), Type::Error);
 }
 
 TEST(ResolveTypes, DefineParamBadAnnotation) {
 	// define foo(x: Foo): x — unknown type annotation
-	Project project;
-	File file;
-	file.path = "test.rls";
-
-	std::vector<Param> params;
-	params.emplace_back("x", std::optional<std::string>{"Foo"}, nullptr);
-
-	file.declarations.emplace_back(DefineDecl(
-		"foo", std::move(params), makeExpr(Identifier{"x"})
-	));
-
-	project.files.push_back(std::move(file));
-	collectDeclarations(project);
-	auto diags = resolveTypes(project);
+	auto [project, diags] = resolveFromSource(
+		"define foo(x: Foo): x\n");
 	EXPECT_EQ(countErrors(diags), 1u);
 	EXPECT_NE(diags[0].message.find("unknown type annotation 'Foo'"),
 		std::string::npos);
@@ -1598,131 +1060,55 @@ TEST(ResolveTypes, DefineParamBadAnnotation) {
 
 TEST(ResolveTypes, DefineParamUsedInExpression) {
 	// define foo(d: Distance): d == ED_CLOSE
-	Project project;
-	File file;
-	file.path = "test.rls";
-
-	std::vector<Param> params;
-	params.emplace_back("d", std::optional<std::string>{"Distance"}, nullptr);
-
-	file.declarations.emplace_back(DefineDecl(
-		"foo", std::move(params),
-		makeExpr(BinaryExpr(BinaryOp::Eq,
-			makeExpr(Identifier{"d"}),
-			makeExpr(Identifier{"ED_CLOSE"})))
-	));
-
-	project.files.push_back(std::move(file));
-	collectDeclarations(project);
-	auto diags = resolveTypes(project);
+	auto [project, diags] = resolveFromSource(
+		"define foo(d: Distance): d == ED_CLOSE\n");
 	EXPECT_TRUE(diags.empty());
-
-	auto& def = std::get<DefineDecl>(project.files[0].declarations[0]);
-	EXPECT_EQ(project.getType(def.body.get()), Type::Bool);
+	EXPECT_EQ(project.getType(project.DefineDecls.at("foo")->body.get()), Type::Bool);
 }
 
 TEST(ResolveTypes, EnemyFieldKillParamScope) {
-	// enemy RE_TEST { kill(distance, wallOrFloor): wallOrFloor }
 	// can_kill signature: Enemy, Distance?, Bool?, Int?, Bool?, Bool?
 	// Field params (skip Enemy): distance → Distance, wallOrFloor → Bool
-	Project project;
-	File file;
-	file.path = "test.rls";
-
-	std::vector<Param> params;
-	params.emplace_back("distance", std::nullopt, nullptr);
-	params.emplace_back("wallOrFloor", std::nullopt, nullptr);
-
-	std::vector<EnemyField> fields;
-	fields.emplace_back(EnemyFieldKind::Kill, std::move(params),
-		makeExpr(Identifier{"wallOrFloor"}));
-
-	file.declarations.emplace_back(EnemyDecl("RE_TEST", std::move(fields)));
-	project.files.push_back(std::move(file));
-	collectDeclarations(project);
-
-	auto diags = resolveTypes(project);
+	auto [project, diags] = resolveFromSource(
+		"enemy RE_TEST {\n"
+		"    kill(distance, wallOrFloor): wallOrFloor\n"
+		"}\n");
 	EXPECT_TRUE(diags.empty());
-
-	auto& enemy = std::get<EnemyDecl>(project.files[0].declarations[0]);
-	EXPECT_EQ(project.getType(enemy.fields[0].body.get()), Type::Bool);
+	auto* enemy = project.EnemyDecls.at("RE_TEST");
+	EXPECT_EQ(project.getType(enemy->fields[0].body.get()), Type::Bool);
 }
 
 TEST(ResolveTypes, EnemyFieldAvoidParamScope) {
-	// enemy RE_TEST { avoid(grounded, quantity): quantity }
 	// can_avoid signature: Enemy, Bool?, Int?
 	// Field params (skip Enemy): grounded → Bool, quantity → Int
-	Project project;
-	File file;
-	file.path = "test.rls";
-
-	std::vector<Param> params;
-	params.emplace_back("grounded", std::nullopt, nullptr);
-	params.emplace_back("quantity", std::nullopt, nullptr);
-
-	std::vector<EnemyField> fields;
-	fields.emplace_back(EnemyFieldKind::Avoid, std::move(params),
-		makeExpr(Identifier{"quantity"}));
-
-	file.declarations.emplace_back(EnemyDecl("RE_TEST", std::move(fields)));
-	project.files.push_back(std::move(file));
-	collectDeclarations(project);
-
-	auto diags = resolveTypes(project);
+	auto [project, diags] = resolveFromSource(
+		"enemy RE_TEST {\n"
+		"    avoid(grounded, quantity): quantity\n"
+		"}\n");
 	EXPECT_TRUE(diags.empty());
-
-	auto& enemy = std::get<EnemyDecl>(project.files[0].declarations[0]);
-	EXPECT_EQ(project.getType(enemy.fields[0].body.get()), Type::Int);
+	auto* enemy = project.EnemyDecls.at("RE_TEST");
+	EXPECT_EQ(project.getType(enemy->fields[0].body.get()), Type::Int);
 }
 
 TEST(ResolveTypes, EnemyFieldBodyNotBoolCompatible) {
-	// enemy RE_TEST { kill(distance): distance }
 	// Body is Distance — not bool-compatible.
-	Project project;
-	File file;
-	file.path = "test.rls";
-
-	std::vector<Param> params;
-	params.emplace_back("distance", std::nullopt, nullptr);
-
-	std::vector<EnemyField> fields;
-	fields.emplace_back(EnemyFieldKind::Kill, std::move(params),
-		makeExpr(Identifier{"distance"}));
-
-	file.declarations.emplace_back(EnemyDecl("RE_TEST", std::move(fields)));
-	project.files.push_back(std::move(file));
-	collectDeclarations(project);
-
-	auto diags = resolveTypes(project);
+	auto [project, diags] = resolveFromSource(
+		"enemy RE_TEST {\n"
+		"    kill(distance): distance\n"
+		"}\n");
 	EXPECT_EQ(countErrors(diags), 1u);
 	EXPECT_NE(diags[0].message.find("enemy field"), std::string::npos);
 	EXPECT_NE(diags[0].message.find("must be Bool"), std::string::npos);
 }
 
 TEST(ResolveTypes, EnemyFieldDropParamScope) {
-	// enemy RE_TEST { drop(distance): distance == ED_CLOSE }
 	// can_get_drop signature: Enemy, Distance?, Bool?
 	// Field params (skip Enemy): distance → Distance
-	Project project;
-	File file;
-	file.path = "test.rls";
-
-	std::vector<Param> params;
-	params.emplace_back("distance", std::nullopt, nullptr);
-
-	std::vector<EnemyField> fields;
-	fields.emplace_back(EnemyFieldKind::Drop, std::move(params),
-		makeExpr(BinaryExpr(BinaryOp::Eq,
-			makeExpr(Identifier{"distance"}),
-			makeExpr(Identifier{"ED_CLOSE"}))));
-
-	file.declarations.emplace_back(EnemyDecl("RE_TEST", std::move(fields)));
-	project.files.push_back(std::move(file));
-	collectDeclarations(project);
-
-	auto diags = resolveTypes(project);
+	auto [project, diags] = resolveFromSource(
+		"enemy RE_TEST {\n"
+		"    drop(distance): distance is ED_CLOSE\n"
+		"}\n");
 	EXPECT_TRUE(diags.empty());
-
-	auto& enemy = std::get<EnemyDecl>(project.files[0].declarations[0]);
-	EXPECT_EQ(project.getType(enemy.fields[0].body.get()), Type::Bool);
+	auto* enemy = project.EnemyDecls.at("RE_TEST");
+	EXPECT_EQ(project.getType(enemy->fields[0].body.get()), Type::Bool);
 }
