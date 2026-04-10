@@ -1,6 +1,7 @@
 #include "sema.h"
 #include "collect_declarations.h"
 #include "resolve_types.h"
+#include "validate_declarations.h"
 
 namespace rls::sema {
 
@@ -18,6 +19,12 @@ std::vector<ast::Diagnostic> analyze(ast::Project& project) {
 	diagnostics.insert(diagnostics.end(),
 		std::make_move_iterator(pass2.begin()),
 		std::make_move_iterator(pass2.end()));
+
+	// Pass 3: Validate declarations (domain-specific checks).
+	auto pass3 = validateDeclarations(project);
+	diagnostics.insert(diagnostics.end(),
+		std::make_move_iterator(pass3.begin()),
+		std::make_move_iterator(pass3.end()));
 
 	return diagnostics;
 }
