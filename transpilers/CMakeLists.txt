@@ -1,1 +1,1 @@
-add_subdirectory(soh_solver)
+add_subdirectory(soh)

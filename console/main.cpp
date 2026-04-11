@@ -9,7 +9,7 @@
 #include "output.h"
 #include "parser.h"
 #include "sema.h"
-#include "soh_solver.h"
+#include "soh.h"
 
 namespace fs = std::filesystem;
 
@@ -23,7 +23,7 @@ static void printUsage(const char* program) {
         << "Options:\n"
         << "  -t, --transpiler <name> -o, --output <dir>\n"
         << "                            Transpiler and output directory pair (may be repeated).\n"
-        << "                            Available transpilers: soh_solver\n"
+        << "                            Available transpilers: soh\n"
         << "  -h, --help                Show this help message.\n";
 }
 
@@ -85,8 +85,8 @@ static bool runTranspiler(const TranspilerConfig& config, const rls::ast::Projec
     fs::create_directories(config.outputDir);
     DirectoryWriter writer(config.outputDir);
 
-    if (config.name == "soh_solver") {
-        rls::transpilers::soh_solver::Transpile(project, writer);
+    if (config.name == "soh") {
+        rls::transpilers::soh::Transpile(project, writer);
     } else {
         std::cerr << "error: unknown transpiler '" << config.name << "'\n";
         return false;
