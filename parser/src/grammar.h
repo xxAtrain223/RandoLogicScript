@@ -300,29 +300,29 @@ struct arg : sor<named_arg, expr> {};
 struct arg_list : opt<list<arg, seq<_, comma, _>>> {};
 
 /// Function call:  IDENT "(" arg_list ")"
-struct call : seq<ident, _, open_paren, _, arg_list, _, close_paren> {};
+struct call : seq<ident, _, open_paren, must<_, arg_list, _, close_paren>> {};
 
 /// shared_branch = "from" (IDENT | "here") ":" expr
-struct shared_branch : seq<kw<kw_from>, _, sor<kw<kw_here>, ident>, _, colon, _, expr> {};
+struct shared_branch : seq<kw<kw_from>, must<_, sor<kw<kw_here>, ident>, _, colon, _, expr>> {};
 
 /// shared_block = "shared" "any_age"? "{" shared_branch+ "}"
 struct shared_block : seq<
 	kw<kw_shared>, _,
 	opt<seq<kw<kw_any_age>, _>>,
-	open_brace, _,
+	must<open_brace, _,
 	plus<seq<shared_branch, _>>,
-	close_brace
+	close_brace>
 > {};
 
 /// any_age_block = "any_age" "{" expr "}"
-struct any_age_block : seq<kw<kw_any_age>, _, open_brace, _, expr, _, close_brace> {};
+struct any_age_block : seq<kw<kw_any_age>, must<_, open_brace, _, expr, _, close_brace>> {};
 
 // Forward declaration — match_expr is defined after ternary because its arms
 // need the match-aware or_expr variant (which depends on and_expr).
 struct match_expr;
 
 /// Parenthesised expression: "(" expr ")"
-struct paren_expr : seq<open_paren, _, expr, _, close_paren> {};
+struct paren_expr : seq<open_paren, must<_, expr, _, close_paren>> {};
 
 /// primary = call | shared_block | any_age_block | match_expr | atom | "(" expr ")"
 ///
@@ -364,7 +364,7 @@ struct and_expr : seq<comparison, star<seq<_, kw<kw_and>, _, comparison>>> {};
 struct or_expr : seq<and_expr, star<seq<_, kw<kw_or>, _, and_expr>>> {};
 
 /// ternary = or_expr ("?" ternary ":" ternary)?
-struct ternary : seq<or_expr, opt<seq<_, question_mark, _, ternary, _, colon, _, ternary>>> {};
+struct ternary : seq<or_expr, opt<seq<_, question_mark, must<_, ternary, _, colon, _, ternary>>>> {};
 
 /// expr = ternary
 struct expr : ternary {};
@@ -393,17 +393,21 @@ struct match_or_expr : seq<and_expr, star<seq<_, match_or_op, _, and_expr>>> {};
 /// The ternary ? : branches use the REGULAR ternary rule because the ? :
 /// delimiters scope the expression, and ternary-with-trailing-or in match
 /// arms is an extremely unlikely edge case.
-struct match_ternary : seq<match_or_expr, opt<seq<_, question_mark, _, ternary, _, colon, _, ternary>>> {};
+struct match_ternary : seq<match_or_expr, opt<seq<_, question_mark, must<_, ternary, _, colon, _, ternary>>>> {};
 
 /// match_arm = match_pattern ":" match_ternary trailing_or?
-struct match_arm : seq<match_pattern, _, colon, _, match_ternary, _, opt<trailing_or>> {};
+struct match_arm : seq<match_pattern, must<_, colon, _, match_ternary>, _, opt<trailing_or>> {};
+
+/// Detects a dangling 'or' after the last match arm (gives a clear error).
+struct no_trailing_or : not_at<kw<kw_or>> {};
 
 /// match_expr = "match" IDENT "{" match_arm+ "}"
 struct match_expr : seq<
-	kw<kw_match>, _, ident, _,
+	kw<kw_match>, must<_, ident, _,
 	open_brace, _,
 	plus<seq<match_arm, _>>,
-	close_brace
+	no_trailing_or,
+	close_brace>
 > {};
 
 // == Declaration grammar ======================================================
@@ -425,13 +429,13 @@ struct params : list<param, seq<_, comma, _>> {};
 // -- Sections (events / locations / exits) ------------------------------------
 
 /// entry = IDENT ":" expr
-struct entry : seq<ident, _, colon, _, expr> {};
+struct entry : seq<ident, must<_, colon, _, expr>> {};
 
 /// section_kind = "events" | "locations" | "exits"
 struct section_kind : sor<kw<kw_events>, kw<kw_locations>, kw<kw_exits>> {};
 
 /// section = section_kind "{" entry* "}"
-struct section : seq<section_kind, _, open_brace, _, star<seq<entry, _>>, close_brace> {};
+struct section : seq<section_kind, must<_, open_brace, _, star<seq<entry, _>>, close_brace>> {};
 
 // -- Region -------------------------------------------------------------------
 
@@ -439,34 +443,34 @@ struct section : seq<section_kind, _, open_brace, _, star<seq<entry, _>>, close_
 ///
 /// Scene is required; time_passes variant and areas are optional.
 /// Order-sensitive: scene first, then time_passes variant, then areas.
-struct scene_prop      : seq<kw<kw_scene>, _, colon, _, ident> {};
+struct scene_prop      : seq<kw<kw_scene>, must<_, colon, _, ident>> {};
 struct time_prop       : sor<kw<kw_no_time_passes>, kw<kw_time_passes>> {};
-struct areas_prop      : seq<kw<kw_areas>, _, colon, _, ident_list> {};
+struct areas_prop      : seq<kw<kw_areas>, must<_, colon, _, ident_list>> {};
 struct region_props    : seq<scene_prop, _, opt<seq<time_prop, _>>, opt<seq<areas_prop, _>>> {};
 
 /// region_body = region_props section*
 struct region_body : seq<region_props, star<seq<section, _>>> {};
 
 /// region = "region" IDENT "{" region_body "}"
-struct region_decl : seq<kw<kw_region>, _, ident, _, open_brace, _, region_body, _, close_brace> {};
+struct region_decl : seq<kw<kw_region>, must<_, ident, _, open_brace, _, region_body, _, close_brace>> {};
 
 // -- Extend region ------------------------------------------------------------
 
 /// extend = "extend" "region" IDENT "{" section* "}"
 struct extend_decl : seq<
-	kw<kw_extend>, _, kw<kw_region>, _, ident, _,
+	kw<kw_extend>, must<_, kw<kw_region>, _, ident, _,
 	open_brace, _,
 	star<seq<section, _>>,
-	close_brace
+	close_brace>
 > {};
 
 // -- Define -------------------------------------------------------------------
 
 /// define = "define" IDENT "(" params? ")" ":" expr
 struct define_decl : seq<
-	kw<kw_define>, _, ident, _,
+	kw<kw_define>, must<_, ident, _,
 	open_paren, _, opt<params>, _, close_paren, _,
-	colon, _, expr
+	colon, _, expr>
 > {};
 
 // -- Enemy --------------------------------------------------------------------
@@ -476,17 +480,17 @@ struct enemy_field_kind : sor<kw<kw_kill>, kw<kw_pass>, kw<kw_drop>, kw<kw_avoid
 
 /// enemy_field = enemy_field_kind ("(" params? ")")? ":" expr
 struct enemy_field : seq<
-	enemy_field_kind, _,
-	opt<seq<open_paren, _, opt<params>, _, close_paren, _>>,
-	colon, _, expr
+	enemy_field_kind, must<_,
+	opt<seq<open_paren, must<_, opt<params>, _, close_paren>, _>>,
+	colon, _, expr>
 > {};
 
 /// enemy = "enemy" IDENT "{" enemy_field+ "}"
 struct enemy_decl : seq<
-	kw<kw_enemy>, _, ident, _,
+	kw<kw_enemy>, must<_, ident, _,
 	open_brace, _,
 	plus<seq<enemy_field, _>>,
-	close_brace
+	close_brace>
 > {};
 
 // -- Top-level file -----------------------------------------------------------
@@ -496,6 +500,6 @@ struct declaration : sor<region_decl, extend_decl, define_decl, enemy_decl> {};
 
 /// file = _ (declaration _)* eof
 /// Named `rls_file` to avoid clashing with any PEGTL or std types.
-struct rls_file : seq<_, star<seq<declaration, _>>, tao::pegtl::eof> {};
+struct rls_file : seq<_, star<seq<declaration, _>>, must<tao::pegtl::eof>> {};
 
 } // namespace rls::parser::grammar

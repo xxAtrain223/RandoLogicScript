@@ -45,6 +45,91 @@ TEST(ParserTests, InvalidSourceReportsDiagnostic) {
 	EXPECT_TRUE(file.declarations.empty());
 	ASSERT_FALSE(file.diagnostics.empty());
 	EXPECT_EQ(file.diagnostics[0].level, DiagnosticLevel::Error);
+	EXPECT_EQ(file.diagnostics[0].message, "expected declaration or end of file");
+	EXPECT_EQ(file.diagnostics[0].span.start.line, 1u);
+	EXPECT_EQ(file.diagnostics[0].span.start.column, 1u);
+}
+
+TEST(ParserTests, MissingIdentifierAfterDefine) {
+	const auto file = rls::parser::ParseString("define 123");
+
+	ASSERT_FALSE(file.diagnostics.empty());
+	EXPECT_EQ(file.diagnostics[0].level, DiagnosticLevel::Error);
+	EXPECT_EQ(file.diagnostics[0].message, "expected identifier");
+}
+
+TEST(ParserTests, MissingOpenParenInDefine) {
+	const auto file = rls::parser::ParseString("define foo:");
+
+	ASSERT_FALSE(file.diagnostics.empty());
+	EXPECT_EQ(file.diagnostics[0].level, DiagnosticLevel::Error);
+	EXPECT_EQ(file.diagnostics[0].message, "expected '('");
+}
+
+TEST(ParserTests, MissingCloseParenInDefine) {
+	const auto file = rls::parser::ParseString("define foo(");
+
+	ASSERT_FALSE(file.diagnostics.empty());
+	EXPECT_EQ(file.diagnostics[0].level, DiagnosticLevel::Error);
+	EXPECT_EQ(file.diagnostics[0].message, "expected ')'");
+}
+
+TEST(ParserTests, MissingColonInDefine) {
+	const auto file = rls::parser::ParseString("define foo() true");
+
+	ASSERT_FALSE(file.diagnostics.empty());
+	EXPECT_EQ(file.diagnostics[0].level, DiagnosticLevel::Error);
+	EXPECT_EQ(file.diagnostics[0].message, "expected ':'");
+}
+
+TEST(ParserTests, MissingExprInDefine) {
+	const auto file = rls::parser::ParseString("define foo():");
+
+	ASSERT_FALSE(file.diagnostics.empty());
+	EXPECT_EQ(file.diagnostics[0].level, DiagnosticLevel::Error);
+	EXPECT_EQ(file.diagnostics[0].message, "expected expression");
+}
+
+TEST(ParserTests, MissingCloseBraceInRegion) {
+	const auto file = rls::parser::ParseString("region RR_TEST { scene: SCENE_TEST");
+
+	ASSERT_FALSE(file.diagnostics.empty());
+	EXPECT_EQ(file.diagnostics[0].level, DiagnosticLevel::Error);
+	EXPECT_EQ(file.diagnostics[0].message, "expected '}'");
+}
+
+TEST(ParserTests, ErrorPositionIsAccurate) {
+	const auto file = rls::parser::ParseString("define foo() true");
+	//                                          1234567890123456
+	//                                                        ^ col 14 (the 't' of true)
+
+	ASSERT_FALSE(file.diagnostics.empty());
+	EXPECT_EQ(file.diagnostics[0].span.start.line, 1u);
+	EXPECT_EQ(file.diagnostics[0].span.start.column, 14u);
+}
+
+TEST(ParserTests, MultilineErrorPosition) {
+	const auto file = rls::parser::ParseString(
+		"define foo():\n"
+		"    true\n"
+		"invalid");
+
+	ASSERT_FALSE(file.diagnostics.empty());
+	EXPECT_EQ(file.diagnostics[0].span.start.line, 3u);
+	EXPECT_EQ(file.diagnostics[0].span.start.column, 1u);
+	EXPECT_EQ(file.diagnostics[0].message, "expected declaration or end of file");
+}
+
+TEST(ParserTests, TrailingOrInMatchExpr) {
+	const auto file = rls::parser::ParseString(
+		"define _():\n"
+		"    match x {\n"
+		"        A: true or\n"
+		"    }");
+
+	ASSERT_FALSE(file.diagnostics.empty());
+	EXPECT_EQ(file.diagnostics[0].level, DiagnosticLevel::Error);
+	EXPECT_EQ(file.diagnostics[0].message, "trailing 'or' without a following match arm");
 }
 
 TEST(ParserTests, ValidSourceReturnsFile) {

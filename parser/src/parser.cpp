@@ -5,10 +5,51 @@
 
 #include <tao/pegtl.hpp>
 #include <tao/pegtl/contrib/parse_tree.hpp>
+#include <tao/pegtl/must_if.hpp>
 
 #include <stdexcept>
 
 namespace rls::parser {
+
+// == Custom error messages for must<> failures ================================
+
+struct parse_errors {
+	template<typename>
+	static constexpr const char* message = nullptr;
+
+	// Never auto-raise on normal failure — only raise inside must<>.
+	template<typename>
+	static constexpr bool raise_on_failure = false;
+};
+
+// -- Punctuation --------------------------------------------------------------
+template<> constexpr const char* parse_errors::message<grammar::open_paren>  = "expected '('";
+template<> constexpr const char* parse_errors::message<grammar::close_paren> = "expected ')'";
+template<> constexpr const char* parse_errors::message<grammar::open_brace>  = "expected '{'";
+template<> constexpr const char* parse_errors::message<grammar::close_brace> = "expected '}'";
+template<> constexpr const char* parse_errors::message<grammar::colon>       = "expected ':'";
+
+// -- Tokens -------------------------------------------------------------------
+template<> constexpr const char* parse_errors::message<grammar::ident>          = "expected identifier";
+template<> constexpr const char* parse_errors::message<grammar::expr>           = "expected expression";
+template<> constexpr const char* parse_errors::message<grammar::ternary>        = "expected expression";
+template<> constexpr const char* parse_errors::message<grammar::match_ternary>  = "expected expression";
+
+// -- Keywords -----------------------------------------------------------------
+template<> constexpr const char* parse_errors::message<grammar::kw<grammar::kw_region>> = "expected 'region'";
+
+// -- Structural ---------------------------------------------------------------
+template<> constexpr const char* parse_errors::message<grammar::region_body> = "expected region body (must start with 'scene:')";
+template<> constexpr const char* parse_errors::message<grammar::no_trailing_or> = "trailing 'or' without a following match arm";
+
+// -- Top-level ----------------------------------------------------------------
+template<> constexpr const char* parse_errors::message<tao::pegtl::eof> = "expected declaration or end of file";
+
+/// Control class: uses custom messages when available, falls back to default.
+template<typename Rule>
+using rls_control = tao::pegtl::must_if<parse_errors, tao::pegtl::normal, false>::control<Rule>;
+
+// =============================================================================
 
 template <typename T>
 rls::ast::File Parse(T&& in) {
@@ -17,7 +58,7 @@ rls::ast::File Parse(T&& in) {
 
 	try {
 		auto root = tao::pegtl::parse_tree::parse<
-			grammar::rls_file, selector
+			grammar::rls_file, selector, tao::pegtl::nothing, rls_control
 		>(in);
 
 		if (!root) {
