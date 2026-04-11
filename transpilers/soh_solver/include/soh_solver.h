@@ -1,11 +1,10 @@
 #pragma once
 
-#include <string>
-
 #include "ast.h"
+#include "output.h"
 
 namespace rls::transpilers::soh_solver {
 
-std::string Transpile(const rls::ast::File& file);
+void Transpile(const rls::ast::Project& project, rls::OutputWriter& out);
 
 } // namespace rls::transpilers::soh_solver
