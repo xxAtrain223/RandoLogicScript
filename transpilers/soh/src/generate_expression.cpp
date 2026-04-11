@@ -17,7 +17,18 @@ static std::string GenerateExpression(const rls::ast::Identifier& node) {
 }
 
 static std::string GenerateExpression(const rls::ast::KeywordExpr& node) {
-	return "";
+    switch (node.keyword) {
+    case rls::ast::Keyword::IsChild:
+        return "logic->IsChild";
+    case rls::ast::Keyword::IsAdult:
+        return "logic->IsAdult";
+    case rls::ast::Keyword::AtDay:
+        return "logic->AtDay";
+    case rls::ast::Keyword::AtNight:
+        return "logic->AtNight";
+    default:
+        return "";
+    }
 }
 
 static std::string GenerateExpression(const rls::ast::UnaryExpr& node) {

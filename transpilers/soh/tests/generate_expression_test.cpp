@@ -12,6 +12,38 @@ rls::ast::ExprPtr sourceToExpression(const std::string& source, const std::strin
 		: nullptr;
 }
 
+TEST(SohExpressions, IsChildIsAdultKeywords) {
+	auto expr = sourceToExpression(
+		"define test():\n"
+		"    is_child\n",
+		"test");
+	EXPECT_EQ(GenerateExpression(expr),
+		"logic->IsChild");
+
+	expr = sourceToExpression(
+		"define test():\n"
+		"    is_adult\n",
+		"test");
+	EXPECT_EQ(GenerateExpression(expr),
+		"logic->IsAdult");
+}
+
+TEST(SohExpressions, AtDayAtNightKeywords) {
+	auto expr = sourceToExpression(
+		"define test():\n"
+		"    at_day\n",
+		"test");
+	EXPECT_EQ(GenerateExpression(expr),
+		"logic->AtDay");
+
+	expr = sourceToExpression(
+		"define test():\n"
+		"    at_night\n",
+		"test");
+	EXPECT_EQ(GenerateExpression(expr),
+		"logic->AtNight");
+}
+
 TEST(SohExpressions, BoolLiteral) {
 	auto expr = sourceToExpression(
 		"define test():\n"
