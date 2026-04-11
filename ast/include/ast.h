@@ -345,7 +345,7 @@ using Decl = std::variant<RegionDecl, ExtendRegionDecl, DefineDecl, EnemyDecl>;
 
 // == Diagnostics ==============================================================
 
-enum class DiagnosticLevel { Error, Warning };
+enum class DiagnosticLevel { Error, Warning, Info };
 
 /// A diagnostic message produced during parsing or semantic analysis.
 struct Diagnostic {

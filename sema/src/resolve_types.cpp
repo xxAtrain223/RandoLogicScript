@@ -1,4 +1,5 @@
 #include "resolve_types.h"
+#include "type_helpers.h"
 
 #include <format>
 #include <string>
@@ -96,39 +97,6 @@ static const std::unordered_map<std::string, HostSignature>& enemyBuiltins() {
 		{"can_get_drop", {T::Bool, {{T::Enemy, true}, {T::Distance, false}, {T::Bool, false}}}},
 	};
 	return table;
-}
-
-// == Helpers ==================================================================
-
-static std::string_view typeName(ast::Type t) {
-	switch (t) {
-	case ast::Type::Bool:       return "Bool";
-	case ast::Type::Int:        return "Int";
-	case ast::Type::Item:       return "Item";
-	case ast::Type::Enemy:      return "Enemy";
-	case ast::Type::Distance:   return "Distance";
-	case ast::Type::Trick:      return "Trick";
-	case ast::Type::Setting:    return "Setting";
-	case ast::Type::Region:     return "Region";
-	case ast::Type::Check:      return "Check";
-	case ast::Type::Logic:      return "Logic";
-	case ast::Type::Scene:      return "Scene";
-	case ast::Type::Dungeon:    return "Dungeon";
-	case ast::Type::Area:       return "Area";
-	case ast::Type::Trial:      return "Trial";
-	case ast::Type::WaterLevel: return "WaterLevel";
-	case ast::Type::Void:       return "Void";
-	case ast::Type::Error:      return "<error>";
-	}
-	return "<unknown>";
-}
-
-/// Returns true if the type can be implicitly used where Bool is expected.
-/// Int and Setting both have truthiness (zero/non-zero).
-static bool isBoolCompatible(ast::Type t) {
-	return t == ast::Type::Bool
-		|| t == ast::Type::Int
-		|| t == ast::Type::Setting;
 }
 
 // == Step 4: Scope for parameters ============================================
@@ -651,45 +619,20 @@ struct ExprResolver {
 
 // == Step 7: Topological ordering of defines =================================
 
-/// Recursively walk an expression tree and collect the names of any
-/// user-defined functions (defines) that it calls.
+/// Collect all call names from an expression tree, then filter to only
+/// those that are user-defined functions (defines).
 static void collectDefineCalls(
 	const ast::Expr& expr,
 	const std::unordered_map<std::string, const ast::DefineDecl*>& defines,
 	std::unordered_set<std::string>& out)
 {
-	std::visit([&](const auto& node) {
-		using N = std::decay_t<decltype(node)>;
-		if constexpr (std::is_same_v<N, ast::UnaryExpr>) {
-			collectDefineCalls(*node.operand, defines, out);
-		} else if constexpr (std::is_same_v<N, ast::BinaryExpr>) {
-			collectDefineCalls(*node.left, defines, out);
-			collectDefineCalls(*node.right, defines, out);
-		} else if constexpr (std::is_same_v<N, ast::TernaryExpr>) {
-			collectDefineCalls(*node.condition, defines, out);
-			collectDefineCalls(*node.thenBranch, defines, out);
-			collectDefineCalls(*node.elseBranch, defines, out);
-		} else if constexpr (std::is_same_v<N, ast::CallExpr>) {
-			if (defines.contains(node.function)) {
-				out.insert(node.function);
-			}
-			for (const auto& arg : node.args) {
-				collectDefineCalls(*arg.value, defines, out);
-			}
-		} else if constexpr (std::is_same_v<N, ast::SharedBlock>) {
-			for (const auto& branch : node.branches) {
-				collectDefineCalls(*branch.condition, defines, out);
-			}
-		} else if constexpr (std::is_same_v<N, ast::AnyAgeBlock>) {
-			collectDefineCalls(*node.body, defines, out);
-		} else if constexpr (std::is_same_v<N, ast::MatchExpr>) {
-			for (const auto& arm : node.arms) {
-				collectDefineCalls(*arm.body, defines, out);
-			}
+	std::unordered_set<std::string> allCalls;
+	collectCallNames(expr, allCalls);
+	for (auto& name : allCalls) {
+		if (defines.contains(name)) {
+			out.insert(std::move(name));
 		}
-		// Leaf nodes (BoolLiteral, IntLiteral, Identifier, KeywordExpr)
-		// have no child expressions.
-	}, expr.node);
+	}
 }
 
 /// DFS helper for topological sort. Post-order traversal ensures callees

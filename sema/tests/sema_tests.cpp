@@ -563,7 +563,11 @@ TEST(Analyze, PopulatesDeclMaps) {
 
 	auto diags = analyze(project);
 
-	EXPECT_TRUE(diags.empty());
+	// Filter out validation warnings (e.g. unused defines) — only check for errors.
+	size_t errors = 0;
+	for (const auto& d : diags)
+		if (d.level == DiagnosticLevel::Error) ++errors;
+	EXPECT_EQ(errors, 0u);
 	EXPECT_EQ(project.RegionDecls.size(), 1u);
 	EXPECT_EQ(project.DefineDecls.size(), 1u);
 	EXPECT_EQ(project.EnemyDecls.size(), 1u);
