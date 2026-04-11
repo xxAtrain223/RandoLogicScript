@@ -26,6 +26,10 @@ static std::string GenerateExpression(const rls::ast::KeywordExpr& node) {
         return "logic->AtDay";
     case rls::ast::Keyword::AtNight:
         return "logic->AtNight";
+    case rls::ast::Keyword::IsVanilla:
+        return "logic->IsVanilla()";
+    case rls::ast::Keyword::IsMq:
+        return "logic->IsMQ()";
     default:
         return "";
     }
@@ -72,7 +76,9 @@ static std::string GenerateExpression(const rls::ast::BinaryExpr& node) {
 }
 
 static std::string GenerateExpression(const rls::ast::TernaryExpr& node) {
-	return "";
+	return GenerateExpression(node.condition) + " ? " +
+           GenerateExpression(node.thenBranch) + " : " +
+           GenerateExpression(node.elseBranch);
 }
 
 static std::string GenerateExpression(const rls::ast::CallExpr& node) {

@@ -12,38 +12,6 @@ rls::ast::ExprPtr sourceToExpression(const std::string& source, const std::strin
 		: nullptr;
 }
 
-TEST(SohExpressions, IsChildIsAdultKeywords) {
-	auto expr = sourceToExpression(
-		"define test():\n"
-		"    is_child\n",
-		"test");
-	EXPECT_EQ(GenerateExpression(expr),
-		"logic->IsChild");
-
-	expr = sourceToExpression(
-		"define test():\n"
-		"    is_adult\n",
-		"test");
-	EXPECT_EQ(GenerateExpression(expr),
-		"logic->IsAdult");
-}
-
-TEST(SohExpressions, AtDayAtNightKeywords) {
-	auto expr = sourceToExpression(
-		"define test():\n"
-		"    at_day\n",
-		"test");
-	EXPECT_EQ(GenerateExpression(expr),
-		"logic->AtDay");
-
-	expr = sourceToExpression(
-		"define test():\n"
-		"    at_night\n",
-		"test");
-	EXPECT_EQ(GenerateExpression(expr),
-		"logic->AtNight");
-}
-
 TEST(SohExpressions, BoolLiteral) {
 	auto expr = sourceToExpression(
 		"define test():\n"
@@ -97,6 +65,54 @@ TEST(SohExpressions, Identifier) {
 		"test");
 	EXPECT_EQ(GenerateExpression(expr),
 		"item");
+}
+
+TEST(SohExpressions, IsChildIsAdultKeywords) {
+	auto expr = sourceToExpression(
+		"define test():\n"
+		"    is_child\n",
+		"test");
+	EXPECT_EQ(GenerateExpression(expr),
+		"logic->IsChild");
+
+	expr = sourceToExpression(
+		"define test():\n"
+		"    is_adult\n",
+		"test");
+	EXPECT_EQ(GenerateExpression(expr),
+		"logic->IsAdult");
+}
+
+TEST(SohExpressions, AtDayAtNightKeywords) {
+	auto expr = sourceToExpression(
+		"define test():\n"
+		"    at_day\n",
+		"test");
+	EXPECT_EQ(GenerateExpression(expr),
+		"logic->AtDay");
+
+	expr = sourceToExpression(
+		"define test():\n"
+		"    at_night\n",
+		"test");
+	EXPECT_EQ(GenerateExpression(expr),
+		"logic->AtNight");
+}
+
+TEST(SohExpressions, IsVanillaIsMqKeywords) {
+	auto expr = sourceToExpression(
+		"define test():\n"
+		"    is_vanilla\n",
+		"test");
+	EXPECT_EQ(GenerateExpression(expr),
+		"logic->IsVanilla()");
+
+	expr = sourceToExpression(
+		"define test():\n"
+		"    is_mq\n",
+		"test");
+	EXPECT_EQ(GenerateExpression(expr),
+		"logic->IsMQ()");
 }
 
 TEST(SohExpressions, UnaryNot) {
@@ -199,5 +215,32 @@ TEST(SohExpressions, BinaryArithmetic) {
 		"    8 / 2\n",
 		"test")),
 		"8 / 2");
+}
+
+TEST(SohExpressions, TernarySimple) {
+	auto expr = sourceToExpression(
+		"define test():\n"
+		"    true ? 1 : 2\n",
+		"test");
+	EXPECT_EQ(GenerateExpression(expr),
+		"true ? 1 : 2");
+}
+
+TEST(SohExpressions, TernaryWithIdentifier) {
+	auto expr = sourceToExpression(
+		"define test(item: Item):\n"
+		"    item is RG_SILVER_GAUNTLETS ? 1 : 0\n",
+		"test");
+	EXPECT_EQ(GenerateExpression(expr),
+		"item == RG_SILVER_GAUNTLETS ? 1 : 0");
+}
+
+TEST(SohExpressions, TernaryNestedRightAssociative) {
+	auto expr = sourceToExpression(
+		"define test():\n"
+		"    1 ? 2 ? 3 : 4 : 5\n",
+		"test");
+	EXPECT_EQ(GenerateExpression(expr),
+		"1 ? 2 ? 3 : 4 : 5");
 }
 
