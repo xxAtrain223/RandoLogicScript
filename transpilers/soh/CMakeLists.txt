@@ -13,5 +13,6 @@ if(BUILD_TESTING)
     )
 
     rls_add_gtest(soh_tests ${soh_test_sources})
-    target_link_libraries(soh_tests PRIVATE soh)
+    target_link_libraries(soh_tests PRIVATE soh parser sema)
+    target_include_directories(soh_tests PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/src")
 endif()

@@ -5,6 +5,7 @@
 #include <optional>
 #include <string>
 #include <unordered_map>
+#include <map>
 #include <utility>
 #include <variant>
 #include <vector>
@@ -347,6 +348,15 @@ using Decl = std::variant<RegionDecl, ExtendRegionDecl, DefineDecl, EnemyDecl>;
 
 enum class DiagnosticLevel { Error, Warning, Info };
 
+inline std::string levelToString(rls::ast::DiagnosticLevel level) {
+	switch (level) {
+	case rls::ast::DiagnosticLevel::Error:   return "error";
+	case rls::ast::DiagnosticLevel::Warning: return "warning";
+	case rls::ast::DiagnosticLevel::Info:    return "info";
+	}
+	return "unknown";
+}
+
 /// A diagnostic message produced during parsing or semantic analysis.
 struct Diagnostic {
 	DiagnosticLevel level;
@@ -392,7 +402,7 @@ struct Project {
 
 	std::unordered_map<std::string, const RegionDecl*> RegionDecls;
 	std::unordered_multimap<std::string, const ExtendRegionDecl*> ExtendRegionDecls;
-	std::unordered_map<std::string, const DefineDecl*> DefineDecls;
+	std::map<std::string, const DefineDecl*> DefineDecls;
 	std::unordered_map<std::string, const EnemyDecl*> EnemyDecls;
 
 	template <typename T>

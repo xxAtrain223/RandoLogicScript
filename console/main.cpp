@@ -28,15 +28,6 @@ static void printUsage(const char* program) {
         << "  -h, --help                Show this help message.\n";
 }
 
-static std::string levelToString(rls::ast::DiagnosticLevel level) {
-    switch (level) {
-        case rls::ast::DiagnosticLevel::Error:   return "error";
-        case rls::ast::DiagnosticLevel::Warning: return "warning";
-        case rls::ast::DiagnosticLevel::Info:    return "info";
-    }
-    return "unknown";
-}
-
 static void printDiagnostic(const rls::ast::Diagnostic& d) {
     if (!d.span.file.empty()) {
         std::cerr << d.span.file;

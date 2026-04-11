@@ -623,7 +623,7 @@ struct ExprResolver {
 /// those that are user-defined functions (defines).
 static void collectDefineCalls(
 	const ast::Expr& expr,
-	const std::unordered_map<std::string, const ast::DefineDecl*>& defines,
+	const std::map<std::string, const ast::DefineDecl*>& defines,
 	std::unordered_set<std::string>& out)
 {
 	std::unordered_set<std::string> allCalls;
@@ -674,7 +674,7 @@ static void topoSortDfs(
 /// Returns define names in dependency order: callees before callers.
 /// Emits an error diagnostic if a cycle is detected.
 static std::vector<std::string> topoSortDefines(
-	const std::unordered_map<std::string, const ast::DefineDecl*>& defines,
+	const std::map<std::string, const ast::DefineDecl*>& defines,
 	std::vector<ast::Diagnostic>& diags)
 {
 	// Build call graph: name → set of defines it calls.
