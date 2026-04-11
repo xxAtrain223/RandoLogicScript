@@ -1,4 +1,5 @@
 #include "generate_functions.h"
+#include "generate_expression.h"
 
 #include <sstream>
 
@@ -27,64 +28,6 @@ const std::string& translateFunctionName(const rls::ast::CallExpr& callExpr) {
     return funcNameMap.at(callExpr.function);
 }
 
-std::string expressionToString(const ast::ExprPtr& expr) {
-    return std::visit(
-        [&](const auto& node) -> std::string {
-            using T = std::decay_t<decltype(node)>;
-            if constexpr (std::is_same_v<T, rls::ast::BoolLiteral>) {
-                return node.value ? "true" : "false";
-            }
-            else if constexpr (std::is_same_v<T, rls::ast::IntLiteral>) {
-                return std::to_string(node.value);
-            }
-            else if constexpr (std::is_same_v<T, rls::ast::Identifier>) {
-                return node.name;
-            }
-            else if constexpr (std::is_same_v<T, rls::ast::UnaryExpr>) {
-                switch (node.op) {
-                case rls::ast::UnaryOp::Not:
-                    return "!" + expressionToString(node.operand);
-                default:
-                    return "";
-                }
-            }
-            else if constexpr (std::is_same_v<T, rls::ast::BinaryExpr>) {
-                switch (node.op) {
-                case rls::ast::BinaryOp::And:
-                    return expressionToString(node.left) + " && " + expressionToString(node.right);
-                case rls::ast::BinaryOp::Or:
-                    return expressionToString(node.left) + " || " + expressionToString(node.right);
-                case rls::ast::BinaryOp::Eq:
-                    return expressionToString(node.left) + " == " + expressionToString(node.right);
-                case rls::ast::BinaryOp::NotEq:
-                    return expressionToString(node.left) + " != " + expressionToString(node.right);
-                case rls::ast::BinaryOp::Lt:
-                    return expressionToString(node.left) + " < " + expressionToString(node.right);
-                case rls::ast::BinaryOp::LtEq:
-                    return expressionToString(node.left) + " <= " + expressionToString(node.right);
-                case rls::ast::BinaryOp::Gt:
-                    return expressionToString(node.left) + " > " + expressionToString(node.right);
-                case rls::ast::BinaryOp::GtEq:
-                    return expressionToString(node.left) + " >= " + expressionToString(node.right);
-                case rls::ast::BinaryOp::Add:
-                    return expressionToString(node.left) + " + " + expressionToString(node.right);
-                case rls::ast::BinaryOp::Sub:
-                    return expressionToString(node.left) + " - " + expressionToString(node.right);
-                case rls::ast::BinaryOp::Mul:
-                    return expressionToString(node.left) + " * " + expressionToString(node.right);
-                case rls::ast::BinaryOp::Div:
-                    return expressionToString(node.left) + " / " + expressionToString(node.right);
-                default:
-                    return "";
-                }
-            }
-            else {
-                return "";
-            }
-        },
-        expr->node);
-}
-
 std::string functionSignature(const rls::ast::Project& p, const rls::ast::DefineDecl* decl) {
     std::ostringstream sig;
     sig << nodeType(p, decl->body.get()) << " " << decl->name << "(";
@@ -92,7 +35,7 @@ std::string functionSignature(const rls::ast::Project& p, const rls::ast::Define
         const auto& param = decl->params[i];
         sig << "const " << nodeType(p, &param) << " " << param.name;
         if (param.defaultValue != nullptr) {
-            sig << " = " + expressionToString(param.defaultValue);
+            sig << " = " + GenerateExpression(param.defaultValue);
         }
         if (i < decl->params.size() - 1) {
             sig << ", ";
@@ -126,7 +69,7 @@ void GenerateFunctionDefinitionsSource(const rls::ast::Project& p, rls::OutputWr
         source << "\n";
         
         source << functionSignature(p, decl) << " {\n";
-        source << "    return " << expressionToString(decl->body) << ";\n";
+        source << "    return " << GenerateExpression(decl->body) << ";\n";
         source << "}\n";
     }
 }
