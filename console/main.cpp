@@ -9,6 +9,7 @@
 #include "output.h"
 #include "parser.h"
 #include "sema.h"
+#include "ap.h"
 #include "soh.h"
 
 namespace fs = std::filesystem;
@@ -23,7 +24,7 @@ static void printUsage(const char* program) {
         << "Options:\n"
         << "  -t, --transpiler <name> -o, --output <dir>\n"
         << "                            Transpiler and output directory pair (may be repeated).\n"
-        << "                            Available transpilers: soh\n"
+        << "                            Available transpilers: soh, ap\n"
         << "  -h, --help                Show this help message.\n";
 }
 
@@ -87,6 +88,8 @@ static bool runTranspiler(const TranspilerConfig& config, const rls::ast::Projec
 
     if (config.name == "soh") {
         rls::transpilers::soh::Transpile(project, writer);
+    } else if (config.name == "ap") {
+        rls::transpilers::ap::Transpile(project, writer);
     } else {
         std::cerr << "error: unknown transpiler '" << config.name << "'\n";
         return false;
