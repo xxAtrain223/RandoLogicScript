@@ -220,17 +220,41 @@ static std::string GenerateExpression(const rls::ast::AnyAgeBlock& node) {
 }
 
 static std::string GenerateExpression(const rls::ast::MatchExpr& node) {
-	return "";
+	std::ostringstream oss;
+	oss << "rls::match(";
+
+	for (size_t i = 0; i < node.arms.size(); i++) {
+		const auto& arm = node.arms[i];
+
+		if (i > 0) oss << ", ";
+
+		// Condition lambda: [&]{ return discriminant == P1 || discriminant == P2; }
+		oss << "[&]{return ";
+		for (size_t j = 0; j < arm.patterns.size(); j++) {
+			if (j > 0) oss << " || ";
+			oss << node.discriminant << " == " << arm.patterns[j];
+		}
+		oss << ";}, ";
+
+		// Body lambda: [&]{ return <body_expression>; }
+		oss << "[&]{return " << GenerateExpression(arm.body) << ";}, ";
+
+		// Fallthrough flag
+		oss << (arm.fallthrough ? "true" : "false");
+	}
+
+	oss << ")";
+	return oss.str();
 }
 
 static std::string GenerateExpression(const rls::ast::Expr::Variant& node) {
-    return std::visit([&](const auto& node) {
+	return std::visit([&](const auto& node) {
 		return GenerateExpression(node);
 	}, node);
 }
 
 std::string GenerateExpression(const rls::ast::ExprPtr& expr) {
-    return GenerateExpression(expr->node);
+	return GenerateExpression(expr->node);
 }
 
 }

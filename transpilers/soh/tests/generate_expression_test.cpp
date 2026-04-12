@@ -599,6 +599,88 @@ TEST(SohExpressions, SharedBlockFromHereOnly) {
 		"SpiritShared(RR_SPIRIT_TEMPLE_SUN_BLOCK_CHEST_LEDGE, []{return true;}, true)");
 }
 
+// == Match expression =========================================================
+
+TEST(SohExpressions, MatchSingleArm) {
+	auto expr = sourceToExpression(
+		"define test(distance: Distance):\n"
+		"    match distance {\n"
+		"        ED_CLOSE: can_use(RG_KOKIRI_SWORD)\n"
+		"    }\n",
+		"test");
+	EXPECT_EQ(GenerateExpression(expr),
+		"rls::match("
+		"[&]{return distance == ED_CLOSE;}, "
+		"[&]{return logic->CanUse(RG_KOKIRI_SWORD);}, false)");
+}
+
+TEST(SohExpressions, MatchMultipleArmsNoFallthrough) {
+	auto expr = sourceToExpression(
+		"define test(distance: Distance):\n"
+		"    match distance {\n"
+		"        ED_CLOSE: can_use(RG_KOKIRI_SWORD)\n"
+		"        ED_FAR: can_use(RG_FAIRY_BOW)\n"
+		"    }\n",
+		"test");
+	EXPECT_EQ(GenerateExpression(expr),
+		"rls::match("
+		"[&]{return distance == ED_CLOSE;}, "
+		"[&]{return logic->CanUse(RG_KOKIRI_SWORD);}, false, "
+		"[&]{return distance == ED_FAR;}, "
+		"[&]{return logic->CanUse(RG_FAIRY_BOW);}, false)");
+}
+
+TEST(SohExpressions, MatchWithFallthrough) {
+	auto expr = sourceToExpression(
+		"define test(distance: Distance):\n"
+		"    match distance {\n"
+		"        ED_CLOSE: can_use(RG_KOKIRI_SWORD) or\n"
+		"        ED_HOOKSHOT: can_use(RG_HOOKSHOT) or\n"
+		"        ED_FAR: can_use(RG_FAIRY_BOW)\n"
+		"    }\n",
+		"test");
+	EXPECT_EQ(GenerateExpression(expr),
+		"rls::match("
+		"[&]{return distance == ED_CLOSE;}, "
+		"[&]{return logic->CanUse(RG_KOKIRI_SWORD);}, true, "
+		"[&]{return distance == ED_HOOKSHOT;}, "
+		"[&]{return logic->CanUse(RG_HOOKSHOT);}, true, "
+		"[&]{return distance == ED_FAR;}, "
+		"[&]{return logic->CanUse(RG_FAIRY_BOW);}, false)");
+}
+
+TEST(SohExpressions, MatchMultiValueArm) {
+	auto expr = sourceToExpression(
+		"define test(distance: Distance):\n"
+		"    match distance {\n"
+		"        ED_CLOSE or ED_SHORT_JUMPSLASH: can_use(RG_KOKIRI_SWORD)\n"
+		"    }\n",
+		"test");
+	EXPECT_EQ(GenerateExpression(expr),
+		"rls::match("
+		"[&]{return distance == ED_CLOSE || distance == ED_SHORT_JUMPSLASH;}, "
+		"[&]{return logic->CanUse(RG_KOKIRI_SWORD);}, false)");
+}
+
+TEST(SohExpressions, MatchComplexCanHitSwitch) {
+	auto expr = sourceToExpression(
+		"define test(distance = ED_CLOSE, inWater = false):\n"
+		"    match distance {\n"
+		"        ED_SHORT_JUMPSLASH: can_use(RG_KOKIRI_SWORD) or\n"
+		"        ED_BOMB_THROW: not inWater and can_use(RG_BOMB_BAG) or\n"
+		"        ED_FAR: can_use(RG_FAIRY_BOW)\n"
+		"    }\n",
+		"test");
+	EXPECT_EQ(GenerateExpression(expr),
+		"rls::match("
+		"[&]{return distance == ED_SHORT_JUMPSLASH;}, "
+		"[&]{return logic->CanUse(RG_KOKIRI_SWORD);}, true, "
+		"[&]{return distance == ED_BOMB_THROW;}, "
+		"[&]{return !inWater && logic->CanUse(RG_BOMB_BAG);}, true, "
+		"[&]{return distance == ED_FAR;}, "
+		"[&]{return logic->CanUse(RG_FAIRY_BOW);}, false)");
+}
+
 TEST(SohExpressions, SharedBlockFromHereWithExternalCondition) {
 	auto expr = sourceToRegionExpression(
 		"region RR_SPIRIT_TEMPLE_STATUE_ROOM_CHILD {\n"
