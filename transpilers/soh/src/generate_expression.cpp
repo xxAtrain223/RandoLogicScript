@@ -216,7 +216,7 @@ static std::string GenerateExpression(const rls::ast::SharedBlock& node) {
 }
 
 static std::string GenerateExpression(const rls::ast::AnyAgeBlock& node) {
-	return "";
+	return "AnyAgeTime([]{return " + GenerateExpression(node.body) + ";})";
 }
 
 static std::string GenerateExpression(const rls::ast::MatchExpr& node) {

@@ -434,6 +434,42 @@ TEST(SohExpressions, CallDefinedFunctions) {
 		"CanHitSwitch(ED_BOOMERANG)");
 }
 
+TEST(SohExpressions, AnyAgeBlockSimple) {
+	auto expr = sourceToExpression(
+		"define test():\n"
+		"    any_age { true }\n",
+		"test");
+	EXPECT_EQ(GenerateExpression(expr),
+		"AnyAgeTime([]{return true;})");
+}
+
+TEST(SohExpressions, AnyAgeBlockWithCall) {
+	auto expr = sourceToExpression(
+		"define test():\n"
+		"    any_age { can_use(RG_HOOKSHOT) }\n",
+		"test");
+	EXPECT_EQ(GenerateExpression(expr),
+		"AnyAgeTime([]{return logic->CanUse(RG_HOOKSHOT);})");
+}
+
+TEST(SohExpressions, AnyAgeBlockWithCompoundCondition) {
+	auto expr = sourceToExpression(
+		"define test():\n"
+		"    any_age { has(RG_HOOKSHOT) or has(RG_BOOMERANG) }\n",
+		"test");
+	EXPECT_EQ(GenerateExpression(expr),
+		"AnyAgeTime([]{return logic->HasItem(RG_HOOKSHOT) || logic->HasItem(RG_BOOMERANG);})");
+}
+
+TEST(SohExpressions, AnyAgeBlockWithExternalCondition) {
+	auto expr = sourceToExpression(
+		"define test():\n"
+		"    any_age { can_kill(RE_ARMOS) } and can_use(RG_STICKS)\n",
+		"test");
+	EXPECT_EQ(GenerateExpression(expr),
+		"AnyAgeTime([]{return logic->CanKillEnemy(RE_ARMOS);}) && logic->CanUse(RG_STICKS)");
+}
+
 TEST(SohExpressions, SharedBlockSingleBranch) {
 	auto expr = sourceToExpression(
 		"define test():\n"
