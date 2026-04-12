@@ -765,6 +765,138 @@ TEST(ResolveTypes, SharedBlockBool) {
 	EXPECT_EQ(project.getType(findRegionEntry(project)), Type::Bool);
 }
 
+TEST(ResolveTypes, SharedBlockFromHereResolvesRegionName) {
+	auto [project, diags] = resolveFromSource(
+		"region RR_SPIRIT_TEMPLE_STATUE_ROOM {\n"
+		"    scene: SCENE_SPIRIT_TEMPLE\n"
+		"    locations {\n"
+		"        RC_TEST_LOC: shared {\n"
+		"            from here: true\n"
+		"            from RR_OTHER: false\n"
+		"        }\n"
+		"    }\n"
+		"}\n");
+	EXPECT_TRUE(diags.empty());
+
+	const auto* expr = findRegionEntry(project, "RR_SPIRIT_TEMPLE_STATUE_ROOM");
+	ASSERT_NE(expr, nullptr);
+	ASSERT_TRUE(std::holds_alternative<SharedBlock>(expr->node));
+	const auto& shared = std::get<SharedBlock>(expr->node);
+	ASSERT_EQ(shared.branches.size(), 2u);
+
+	// "from here:" should be resolved to the enclosing region name
+	ASSERT_TRUE(shared.branches[0].region.has_value());
+	EXPECT_EQ(shared.branches[0].region.value(), "RR_SPIRIT_TEMPLE_STATUE_ROOM");
+
+	// "from RR_OTHER:" should remain unchanged
+	ASSERT_TRUE(shared.branches[1].region.has_value());
+	EXPECT_EQ(shared.branches[1].region.value(), "RR_OTHER");
+}
+
+TEST(ResolveTypes, SharedBlockFromHereMultipleBranches) {
+	auto [project, diags] = resolveFromSource(
+		"region RR_MY_REGION {\n"
+		"    scene: SCENE_TEST\n"
+		"    locations {\n"
+		"        RC_LOC: shared {\n"
+		"            from here: true\n"
+		"            from RR_ROOM_A: false\n"
+		"            from RR_ROOM_B: true\n"
+		"        }\n"
+		"    }\n"
+		"}\n");
+	EXPECT_TRUE(diags.empty());
+
+	const auto* expr = findRegionEntry(project, "RR_MY_REGION");
+	ASSERT_NE(expr, nullptr);
+	ASSERT_TRUE(std::holds_alternative<SharedBlock>(expr->node));
+	const auto& shared = std::get<SharedBlock>(expr->node);
+	ASSERT_EQ(shared.branches.size(), 3u);
+
+	// Only the "from here:" branch should be resolved
+	ASSERT_TRUE(shared.branches[0].region.has_value());
+	EXPECT_EQ(shared.branches[0].region.value(), "RR_MY_REGION");
+	EXPECT_EQ(shared.branches[1].region.value(), "RR_ROOM_A");
+	EXPECT_EQ(shared.branches[2].region.value(), "RR_ROOM_B");
+}
+
+TEST(ResolveTypes, SharedBlockFromHereInExtendRegion) {
+	auto [project, diags] = resolveFromSource(
+		"region RR_BASE {\n"
+		"    scene: SCENE_TEST\n"
+		"}\n"
+		"extend region RR_BASE {\n"
+		"    locations {\n"
+		"        RC_LOC: shared {\n"
+		"            from here: true\n"
+		"        }\n"
+		"    }\n"
+		"}\n");
+	EXPECT_TRUE(diags.empty());
+
+	// Find the entry in the extend region's sections
+	auto range = project.ExtendRegionDecls.equal_range("RR_BASE");
+	ASSERT_NE(range.first, range.second);
+	const auto& sections = range.first->second->sections;
+	ASSERT_FALSE(sections.empty());
+	ASSERT_FALSE(sections[0].entries.empty());
+	const auto* expr = sections[0].entries[0].condition.get();
+	ASSERT_NE(expr, nullptr);
+	ASSERT_TRUE(std::holds_alternative<SharedBlock>(expr->node));
+	const auto& shared = std::get<SharedBlock>(expr->node);
+	ASSERT_EQ(shared.branches.size(), 1u);
+
+	// "from here:" in an extend region should resolve to that region's name
+	ASSERT_TRUE(shared.branches[0].region.has_value());
+	EXPECT_EQ(shared.branches[0].region.value(), "RR_BASE");
+}
+
+TEST(ResolveTypes, SharedBlockFromHereAnyAge) {
+	auto [project, diags] = resolveFromSource(
+		"region RR_SUN_BLOCK {\n"
+		"    scene: SCENE_SPIRIT_TEMPLE\n"
+		"    events {\n"
+		"        LOGIC_SUN_TORCH: shared any_age {\n"
+		"            from here: true\n"
+		"        }\n"
+		"    }\n"
+		"}\n");
+	EXPECT_TRUE(diags.empty());
+
+	const auto* expr = findRegionEntry(project, "RR_SUN_BLOCK");
+	ASSERT_NE(expr, nullptr);
+	ASSERT_TRUE(std::holds_alternative<SharedBlock>(expr->node));
+	const auto& shared = std::get<SharedBlock>(expr->node);
+	EXPECT_TRUE(shared.anyAge);
+	ASSERT_EQ(shared.branches.size(), 1u);
+	ASSERT_TRUE(shared.branches[0].region.has_value());
+	EXPECT_EQ(shared.branches[0].region.value(), "RR_SUN_BLOCK");
+}
+
+TEST(ResolveTypes, SharedBlockFromHereInExit) {
+	auto [project, diags] = resolveFromSource(
+		"region RR_SPIRIT_TEMPLE_CHILD {\n"
+		"    scene: SCENE_SPIRIT_TEMPLE\n"
+		"    exits {\n"
+		"        RR_DESERT_COLOSSUS: shared {\n"
+		"            from here: can_use(RG_HOOKSHOT)\n"
+		"            from RR_SPIRIT_TEMPLE_ADULT: true\n"
+		"        }\n"
+		"    }\n"
+		"}\n");
+	EXPECT_TRUE(diags.empty());
+
+	const auto* expr = findRegionEntry(project, "RR_SPIRIT_TEMPLE_CHILD");
+	ASSERT_NE(expr, nullptr);
+	ASSERT_TRUE(std::holds_alternative<SharedBlock>(expr->node));
+	const auto& shared = std::get<SharedBlock>(expr->node);
+	ASSERT_EQ(shared.branches.size(), 2u);
+
+	ASSERT_TRUE(shared.branches[0].region.has_value());
+	EXPECT_EQ(shared.branches[0].region.value(), "RR_SPIRIT_TEMPLE_CHILD");
+	EXPECT_EQ(shared.branches[1].region.value(), "RR_SPIRIT_TEMPLE_ADULT");
+}
+
 // -- Any-age block ------------------------------------------------------------
 
 TEST(ResolveTypes, AnyAgeBlockBool) {

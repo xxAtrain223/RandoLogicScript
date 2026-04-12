@@ -2,6 +2,7 @@
 #include "type_helpers.h"
 
 #include <format>
+#include <functional>
 #include <string>
 #include <type_traits>
 #include <unordered_map>
@@ -820,6 +821,64 @@ std::vector<ast::Diagnostic> resolveTypes(ast::Project& project) {
 			for (const auto& section : decl->sections) {
 				for (const auto& entry : section.entries) {
 					resolver.resolveExpr(*entry.condition);
+				}
+			}
+		}
+	}
+
+	// Resolve shared from here
+	{
+		std::function<void(const std::string&, const rls::ast::ExprPtr&)> populateHere = [&](const std::string& region, const rls::ast::ExprPtr& expr) {
+			std::visit([&](auto& node) -> void {
+				using T = std::decay_t<decltype(node)>;
+				if constexpr (std::is_same_v<T, ast::UnaryExpr>) {
+					populateHere(region, node.operand);
+				}
+				else if constexpr (std::is_same_v<T, ast::BinaryExpr>) {
+					populateHere(region, node.left);
+					populateHere(region, node.right);
+				}
+				else if constexpr (std::is_same_v<T, ast::TernaryExpr>) {
+					populateHere(region, node.condition);
+					populateHere(region, node.thenBranch);
+					populateHere(region, node.elseBranch);
+				}
+				else if constexpr (std::is_same_v<T, ast::CallExpr>) {
+					for (auto& arg : node.args) {
+						populateHere(region, arg.value);
+					}
+				}
+				else if constexpr (std::is_same_v<T, ast::SharedBlock>) {
+					for (auto& branch : node.branches) {
+						if (branch.region == std::nullopt) {
+							branch.region = region;
+						}
+						populateHere(region, branch.condition);
+					}
+				}
+				else if constexpr (std::is_same_v<T, ast::AnyAgeBlock>) {
+					populateHere(region, node.body);
+				}
+				else if constexpr (std::is_same_v<T, ast::MatchExpr>) {
+					for (auto& arm : node.arms) {
+						populateHere(region, arm.body);
+					}
+				}
+			}, expr->node);
+		};
+
+		for (auto& [name, region] : project.RegionDecls) {
+			for (auto& section : region->body.sections) {
+				for (auto& entry : section.entries) {
+					populateHere(name, entry.condition);
+				}
+			}
+		}
+
+		for (auto& [name, region] : project.ExtendRegionDecls) {
+			for (auto& section : region->sections) {
+				for (auto& entry : section.entries) {
+					populateHere(name, entry.condition);
 				}
 			}
 		}
