@@ -12,6 +12,28 @@ rls::ast::ExprPtr sourceToExpression(const std::string& source, const std::strin
 		: nullptr;
 }
 
+rls::ast::ExprPtr sourceToRegionExpression(
+	const std::string& source,
+	const std::string& regionName,
+	rls::ast::SectionKind sectionKind,
+	const std::string& entryName)
+{
+	auto project = resolveFromSource(source);
+	const auto it = project.RegionDecls.find(regionName);
+	if (it == project.RegionDecls.end()) return nullptr;
+
+	auto* region = const_cast<rls::ast::RegionDecl*>(it->second);
+	for (auto& section : region->body.sections) {
+		if (section.kind != sectionKind) continue;
+		for (auto& entry : section.entries) {
+			if (entry.name == entryName) {
+				return std::move(entry.condition);
+			}
+		}
+	}
+	return nullptr;
+}
+
 TEST(SohExpressions, BoolLiteral) {
 	auto expr = sourceToExpression(
 		"define test():\n"
@@ -410,4 +432,186 @@ TEST(SohExpressions, CallDefinedFunctions) {
 		"    CanHitSwitch(ED_BOOMERANG)\n",
 		"test")),
 		"CanHitSwitch(ED_BOOMERANG)");
+}
+
+TEST(SohExpressions, SharedBlockSingleBranch) {
+	auto expr = sourceToExpression(
+		"define test():\n"
+		"    shared {\n"
+		"        from RR_ROOM_A: has(RG_HOOKSHOT)\n"
+		"    }\n",
+		"test");
+	EXPECT_EQ(GenerateExpression(expr),
+		"SpiritShared(RR_ROOM_A, []{return logic->HasItem(RG_HOOKSHOT);}, false)");
+}
+
+TEST(SohExpressions, SharedBlockTwoBranches) {
+	auto expr = sourceToExpression(
+		"define test():\n"
+		"    shared {\n"
+		"        from RR_ROOM_A: has(RG_HOOKSHOT)\n"
+		"        from RR_ROOM_B: can_use(RG_FAIRY_BOW)\n"
+		"    }\n",
+		"test");
+	EXPECT_EQ(GenerateExpression(expr),
+		"SpiritShared(RR_ROOM_A, []{return logic->HasItem(RG_HOOKSHOT);}, false, "
+		"RR_ROOM_B, []{return logic->CanUse(RG_FAIRY_BOW);})");
+}
+
+TEST(SohExpressions, SharedBlockThreeBranches) {
+	auto expr = sourceToExpression(
+		"define test():\n"
+		"    shared {\n"
+		"        from RR_ROOM_A: can_use(RG_HOOKSHOT)\n"
+		"        from RR_ROOM_B: can_use(RG_FAIRY_BOW)\n"
+		"        from RR_ROOM_C: can_use(RG_LONGSHOT)\n"
+		"    }\n",
+		"test");
+	EXPECT_EQ(GenerateExpression(expr),
+		"SpiritShared(RR_ROOM_A, []{return logic->CanUse(RG_HOOKSHOT);}, false, "
+		"RR_ROOM_B, []{return logic->CanUse(RG_FAIRY_BOW);}, "
+		"RR_ROOM_C, []{return logic->CanUse(RG_LONGSHOT);})");
+}
+
+TEST(SohExpressions, SharedBlockAnyAge) {
+	auto expr = sourceToExpression(
+		"define test():\n"
+		"    shared any_age {\n"
+		"        from RR_ROOM_A: true\n"
+		"    }\n",
+		"test");
+	EXPECT_EQ(GenerateExpression(expr),
+		"SpiritShared(RR_ROOM_A, []{return true;}, true)");
+}
+
+TEST(SohExpressions, SharedBlockAnyAgeMultipleBranches) {
+	auto expr = sourceToExpression(
+		"define test():\n"
+		"    shared any_age {\n"
+		"        from RR_ROOM_A: has(RG_HOOKSHOT)\n"
+		"        from RR_ROOM_B: can_use(RG_FAIRY_BOW)\n"
+		"    }\n",
+		"test");
+	EXPECT_EQ(GenerateExpression(expr),
+		"SpiritShared(RR_ROOM_A, []{return logic->HasItem(RG_HOOKSHOT);}, true, "
+		"RR_ROOM_B, []{return logic->CanUse(RG_FAIRY_BOW);})");
+}
+
+TEST(SohExpressions, SharedBlockComplexConditions) {
+	auto expr = sourceToExpression(
+		"define test():\n"
+		"    shared {\n"
+		"        from RR_ROOM_A:\n"
+		"            can_use(RG_HOOKSHOT) or can_use(RG_BOOMERANG)\n"
+		"        from RR_ROOM_B:\n"
+		"            can_get_drop(RE_GOLD_SKULLTULA,\n"
+		"                trick(RT_SPIRIT_WEST_LEDGE) ? ED_BOOMERANG : ED_HOOKSHOT)\n"
+		"    }\n",
+		"test");
+	EXPECT_EQ(GenerateExpression(expr),
+		"SpiritShared(RR_ROOM_A, []{return logic->CanUse(RG_HOOKSHOT) || logic->CanUse(RG_BOOMERANG);}, false, "
+		"RR_ROOM_B, []{return logic->CanGetEnemyDrop(RE_GOLD_SKULLTULA, ctx->GetTrickOption(RT_SPIRIT_WEST_LEDGE) ? ED_BOOMERANG : ED_HOOKSHOT);})");
+}
+
+TEST(SohExpressions, SharedBlockWithExternalCondition) {
+	auto expr = sourceToExpression(
+		"define test():\n"
+		"    has(RG_OPEN_CHEST) and shared {\n"
+		"        from RR_ROOM_A: has(RG_HOOKSHOT)\n"
+		"        from RR_ROOM_B: can_use(RG_FAIRY_BOW)\n"
+		"    }\n",
+		"test");
+	EXPECT_EQ(GenerateExpression(expr),
+		"logic->HasItem(RG_OPEN_CHEST) && "
+		"SpiritShared(RR_ROOM_A, []{return logic->HasItem(RG_HOOKSHOT);}, false, "
+		"RR_ROOM_B, []{return logic->CanUse(RG_FAIRY_BOW);})");
+}
+
+TEST(SohExpressions, SharedBlockFromHere) {
+	auto expr = sourceToRegionExpression(
+		"region RR_SPIRIT_TEMPLE_STATUE_ROOM_CHILD {\n"
+		"    scene: SCENE_SPIRIT_TEMPLE\n"
+		"    locations {\n"
+		"        RC_TEST_LOCATION: shared {\n"
+		"            from here: has(RG_HOOKSHOT)\n"
+		"            from RR_OTHER_ROOM: can_use(RG_FAIRY_BOW)\n"
+		"        }\n"
+		"    }\n"
+		"}\n",
+		"RR_SPIRIT_TEMPLE_STATUE_ROOM_CHILD",
+		rls::ast::SectionKind::Locations,
+		"RC_TEST_LOCATION");
+	EXPECT_EQ(GenerateExpression(expr),
+		"SpiritShared(RR_SPIRIT_TEMPLE_STATUE_ROOM_CHILD, []{return logic->HasItem(RG_HOOKSHOT);}, false, "
+		"RR_OTHER_ROOM, []{return logic->CanUse(RG_FAIRY_BOW);})");
+}
+
+TEST(SohExpressions, SharedBlockFromHereOnly) {
+	auto expr = sourceToRegionExpression(
+		"region RR_SPIRIT_TEMPLE_SUN_BLOCK_CHEST_LEDGE {\n"
+		"    scene: SCENE_SPIRIT_TEMPLE\n"
+		"    events {\n"
+		"        LOGIC_SPIRIT_SUN_BLOCK_TORCH: shared any_age {\n"
+		"            from here: true\n"
+		"        }\n"
+		"    }\n"
+		"}\n",
+		"RR_SPIRIT_TEMPLE_SUN_BLOCK_CHEST_LEDGE",
+		rls::ast::SectionKind::Events,
+		"LOGIC_SPIRIT_SUN_BLOCK_TORCH");
+	EXPECT_EQ(GenerateExpression(expr),
+		"SpiritShared(RR_SPIRIT_TEMPLE_SUN_BLOCK_CHEST_LEDGE, []{return true;}, true)");
+}
+
+TEST(SohExpressions, SharedBlockFromHereWithExternalCondition) {
+	auto expr = sourceToRegionExpression(
+		"region RR_SPIRIT_TEMPLE_STATUE_ROOM_CHILD {\n"
+		"    scene: SCENE_SPIRIT_TEMPLE\n"
+		"    locations {\n"
+		"        RC_SPIRIT_TEMPLE_MAP_CHEST: has(RG_OPEN_CHEST) and shared {\n"
+		"            from here:\n"
+		"                has(RG_HOOKSHOT)\n"
+		"                or (trick(RT_SPIRIT_MAP_CHEST) and can_use(RG_FAIRY_BOW))\n"
+		"            from RR_SPIRIT_TEMPLE_STATUE_ROOM:\n"
+		"                can_use(RG_DINS_FIRE)\n"
+		"        }\n"
+		"    }\n"
+		"}\n",
+		"RR_SPIRIT_TEMPLE_STATUE_ROOM_CHILD",
+		rls::ast::SectionKind::Locations,
+		"RC_SPIRIT_TEMPLE_MAP_CHEST");
+	EXPECT_EQ(GenerateExpression(expr),
+		"logic->HasItem(RG_OPEN_CHEST) && "
+		"SpiritShared(RR_SPIRIT_TEMPLE_STATUE_ROOM_CHILD, "
+		"[]{return logic->HasItem(RG_HOOKSHOT) || ctx->GetTrickOption(RT_SPIRIT_MAP_CHEST) && logic->CanUse(RG_FAIRY_BOW);}, false, "
+		"RR_SPIRIT_TEMPLE_STATUE_ROOM, "
+		"[]{return logic->CanUse(RG_DINS_FIRE);})");
+}
+
+TEST(SohExpressions, SharedBlockFromHereThreeBranches) {
+	auto expr = sourceToRegionExpression(
+		"region RR_SPIRIT_TEMPLE_STATUE_ROOM_CHILD {\n"
+		"    scene: SCENE_SPIRIT_TEMPLE\n"
+		"    locations {\n"
+		"        RC_SPIRIT_TEMPLE_GS_LOBBY: shared {\n"
+		"            from here:\n"
+		"                can_get_drop(RE_GOLD_SKULLTULA, ED_LONGSHOT)\n"
+		"            from RR_SPIRIT_TEMPLE_INNER_WEST_HAND:\n"
+		"                can_get_drop(RE_GOLD_SKULLTULA,\n"
+		"                    trick(RT_SPIRIT_WEST_LEDGE) ? ED_BOOMERANG : ED_HOOKSHOT)\n"
+		"            from RR_SPIRIT_TEMPLE_GS_LEDGE:\n"
+		"                can_kill(RE_GOLD_SKULLTULA)\n"
+		"        }\n"
+		"    }\n"
+		"}\n",
+		"RR_SPIRIT_TEMPLE_STATUE_ROOM_CHILD",
+		rls::ast::SectionKind::Locations,
+		"RC_SPIRIT_TEMPLE_GS_LOBBY");
+	EXPECT_EQ(GenerateExpression(expr),
+		"SpiritShared(RR_SPIRIT_TEMPLE_STATUE_ROOM_CHILD, "
+		"[]{return logic->CanGetEnemyDrop(RE_GOLD_SKULLTULA, ED_LONGSHOT);}, false, "
+		"RR_SPIRIT_TEMPLE_INNER_WEST_HAND, "
+		"[]{return logic->CanGetEnemyDrop(RE_GOLD_SKULLTULA, ctx->GetTrickOption(RT_SPIRIT_WEST_LEDGE) ? ED_BOOMERANG : ED_HOOKSHOT);}, "
+		"RR_SPIRIT_TEMPLE_GS_LEDGE, "
+		"[]{return logic->CanKillEnemy(RE_GOLD_SKULLTULA);})");
 }

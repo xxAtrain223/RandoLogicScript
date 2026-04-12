@@ -198,7 +198,21 @@ static std::string GenerateExpression(const rls::ast::CallExpr& node) {
 }
 
 static std::string GenerateExpression(const rls::ast::SharedBlock& node) {
-	return "";
+    std::ostringstream oss;
+
+    const auto& firstBranch = node.branches[0];
+    oss << "SpiritShared(" << firstBranch.region.value_or("") << ", "
+        << "[]{return " << GenerateExpression(firstBranch.condition) << ";}, "
+        << (node.anyAge ? "true" : "false");
+
+    for (int i = 1; i < node.branches.size(); i++) {
+        oss << ", " << node.branches[i].region.value_or("") << ", "
+            << "[]{return " << GenerateExpression(node.branches[i].condition) << ";}";
+    }
+
+    oss << ")";
+
+	return oss.str();
 }
 
 static std::string GenerateExpression(const rls::ast::AnyAgeBlock& node) {
