@@ -545,12 +545,17 @@ enemy RE_GOLD_SKULLTULA {
             ED_BOMB_THROW: can_use(RG_BOMB_BAG) or
             ED_BOOMERANG: can_use(RG_BOOMERANG) or can_use(RG_DINS_FIRE) or
             ED_HOOKSHOT: can_use(RG_HOOKSHOT) or
-            ED_LONGSHOT: can_use(RG_LONGSHOT)
-                or (wallOrFloor and can_use(RG_BOMBCHU_5)) or
+            ED_LONGSHOT: can_use(RG_LONGSHOT) or
+                (wallOrFloor and can_use(RG_BOMBCHU_5)) or
             ED_FAR: can_use(RG_FAIRY_SLINGSHOT) or can_use(RG_FAIRY_BOW)
         }
     drop:
-        kill and match distance {
+        match distance {
+            ED_CLOSE or
+            ED_SHORT_JUMPSLASH or
+            ED_MASTER_SWORD_JUMPSLASH or
+            ED_LONG_JUMPSLASH or
+            ED_BOMB_THROW or
             ED_BOOMERANG: can_use(RG_BOOMERANG) or
             ED_HOOKSHOT: can_use(RG_HOOKSHOT) or
             ED_LONGSHOT: can_use(RG_LONGSHOT)
