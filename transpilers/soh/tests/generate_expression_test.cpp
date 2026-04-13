@@ -162,6 +162,66 @@ TEST(SohExpressions, BinaryAndOr) {
 		"true || false");
 }
 
+TEST(SohExpressions, BinaryPrecedenceParens) {
+	auto expr = sourceToExpression(
+		"define test(a: Bool, b: Bool, c: Bool):\n"
+		"    (a or b) and c\n",
+		"test");
+	EXPECT_EQ(GenerateExpression(expr),
+		"(a || b) && c");
+
+	expr = sourceToExpression(
+		"define test(a: Bool, b: Bool, c: Bool):\n"
+		"    a and (b or c)\n",
+		"test");
+	EXPECT_EQ(GenerateExpression(expr),
+		"a && (b || c)");
+
+	expr = sourceToExpression(
+		"define test(a: Bool, b: Bool, c: Bool):\n"
+		"    a and b or c\n",
+		"test");
+	EXPECT_EQ(GenerateExpression(expr),
+		"a && b || c");
+
+	expr = sourceToExpression(
+		"define test(a: Int, b: Int, c: Int):\n"
+		"    (a + b) * c\n",
+		"test");
+	EXPECT_EQ(GenerateExpression(expr),
+		"(a + b) * c");
+
+	expr = sourceToExpression(
+		"define test(a: Int, b: Int, c: Int):\n"
+		"    a - (b - c)\n",
+		"test");
+	EXPECT_EQ(GenerateExpression(expr),
+		"a - (b - c)");
+
+	expr = sourceToExpression(
+		"define test(a: Int, b: Int, c: Int):\n"
+		"    a - b - c\n",
+		"test");
+	EXPECT_EQ(GenerateExpression(expr),
+		"a - b - c");
+}
+
+TEST(SohExpressions, UnaryNotPrecedenceParens) {
+	auto expr = sourceToExpression(
+		"define test(a: Bool, b: Bool):\n"
+		"    not (a or b)\n",
+		"test");
+	EXPECT_EQ(GenerateExpression(expr),
+		"!(a || b)");
+
+	expr = sourceToExpression(
+		"define test(a: Bool, b: Bool):\n"
+		"    not (a and b)\n",
+		"test");
+	EXPECT_EQ(GenerateExpression(expr),
+		"!(a && b)");
+}
+
 TEST(SohExpressions, BinaryComparisons) {
 	EXPECT_EQ(GenerateExpression(sourceToExpression(
 		"define test():\n"

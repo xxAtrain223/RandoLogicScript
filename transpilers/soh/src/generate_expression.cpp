@@ -38,10 +38,56 @@ static std::string GenerateExpression(const rls::ast::KeywordExpr& node) {
     }
 }
 
+// Returns the C++ operator precedence for an expression node.
+// Lower values bind tighter. Non-compound nodes return 0 (tightest).
+static int GetCppPrecedence(const rls::ast::ExprPtr& expr) {
+	if (auto* bin = std::get_if<rls::ast::BinaryExpr>(&expr->node)) {
+		switch (bin->op) {
+		case rls::ast::BinaryOp::Mul:
+		case rls::ast::BinaryOp::Div:
+            return 5;
+		case rls::ast::BinaryOp::Add:
+		case rls::ast::BinaryOp::Sub:
+            return 6;
+		case rls::ast::BinaryOp::Lt:
+		case rls::ast::BinaryOp::LtEq:
+		case rls::ast::BinaryOp::Gt:
+		case rls::ast::BinaryOp::GtEq:
+            return 9;
+		case rls::ast::BinaryOp::Eq:
+		case rls::ast::BinaryOp::NotEq:
+            return 10;
+		case rls::ast::BinaryOp::And:
+            return 14;
+		case rls::ast::BinaryOp::Or:
+            return 15;
+		default: return 0;
+		}
+	}
+	if (std::holds_alternative<rls::ast::TernaryExpr>(expr->node)) {
+		return 16;
+	}
+	return 0;
+}
+
+// Generates an expression, wrapping in parentheses when the child's C++
+// precedence is looser than the parent's (or equal on the right side of
+// a left-associative operator).
+static std::string GenerateChildExpression(
+	const rls::ast::ExprPtr& expr, int parentPrec, bool isRightChild = false)
+{
+	auto result = GenerateExpression(expr);
+	int childPrec = GetCppPrecedence(expr);
+	if (childPrec > parentPrec || (isRightChild && childPrec == parentPrec)) {
+		return "(" + result + ")";
+	}
+	return result;
+}
+
 static std::string GenerateExpression(const rls::ast::UnaryExpr& node) {
 	switch (node.op) {
 	case rls::ast::UnaryOp::Not:
-		return "!" + GenerateExpression(node.operand);
+		return "!" + GenerateChildExpression(node.operand, 3);
 	default:
 		return "";
 	}
@@ -50,38 +96,38 @@ static std::string GenerateExpression(const rls::ast::UnaryExpr& node) {
 static std::string GenerateExpression(const rls::ast::BinaryExpr& node) {
     switch (node.op) {
     case rls::ast::BinaryOp::And:
-        return GenerateExpression(node.left) + " && " + GenerateExpression(node.right);
+        return GenerateChildExpression(node.left, 14) + " && " + GenerateChildExpression(node.right, 14, true);
     case rls::ast::BinaryOp::Or:
-        return GenerateExpression(node.left) + " || " + GenerateExpression(node.right);
+        return GenerateChildExpression(node.left, 15) + " || " + GenerateChildExpression(node.right, 15, true);
     case rls::ast::BinaryOp::Eq:
-        return GenerateExpression(node.left) + " == " + GenerateExpression(node.right);
+        return GenerateChildExpression(node.left, 10) + " == " + GenerateChildExpression(node.right, 10, true);
     case rls::ast::BinaryOp::NotEq:
-        return GenerateExpression(node.left) + " != " + GenerateExpression(node.right);
+        return GenerateChildExpression(node.left, 10) + " != " + GenerateChildExpression(node.right, 10, true);
     case rls::ast::BinaryOp::Lt:
-        return GenerateExpression(node.left) + " < " + GenerateExpression(node.right);
+        return GenerateChildExpression(node.left, 9) + " < " + GenerateChildExpression(node.right, 9, true);
     case rls::ast::BinaryOp::LtEq:
-        return GenerateExpression(node.left) + " <= " + GenerateExpression(node.right);
+        return GenerateChildExpression(node.left, 9) + " <= " + GenerateChildExpression(node.right, 9, true);
     case rls::ast::BinaryOp::Gt:
-        return GenerateExpression(node.left) + " > " + GenerateExpression(node.right);
+        return GenerateChildExpression(node.left, 9) + " > " + GenerateChildExpression(node.right, 9, true);
     case rls::ast::BinaryOp::GtEq:
-        return GenerateExpression(node.left) + " >= " + GenerateExpression(node.right);
+        return GenerateChildExpression(node.left, 9) + " >= " + GenerateChildExpression(node.right, 9, true);
     case rls::ast::BinaryOp::Add:
-        return GenerateExpression(node.left) + " + " + GenerateExpression(node.right);
+        return GenerateChildExpression(node.left, 6) + " + " + GenerateChildExpression(node.right, 6, true);
     case rls::ast::BinaryOp::Sub:
-        return GenerateExpression(node.left) + " - " + GenerateExpression(node.right);
+        return GenerateChildExpression(node.left, 6) + " - " + GenerateChildExpression(node.right, 6, true);
     case rls::ast::BinaryOp::Mul:
-        return GenerateExpression(node.left) + " * " + GenerateExpression(node.right);
+        return GenerateChildExpression(node.left, 5) + " * " + GenerateChildExpression(node.right, 5, true);
     case rls::ast::BinaryOp::Div:
-        return GenerateExpression(node.left) + " / " + GenerateExpression(node.right);
+        return GenerateChildExpression(node.left, 5) + " / " + GenerateChildExpression(node.right, 5, true);
     default:
         return "";
     }
 }
 
 static std::string GenerateExpression(const rls::ast::TernaryExpr& node) {
-	return GenerateExpression(node.condition) + " ? " +
-           GenerateExpression(node.thenBranch) + " : " +
-           GenerateExpression(node.elseBranch);
+	return GenerateChildExpression(node.condition, 15) + " ? " +
+		   GenerateExpression(node.thenBranch) + " : " +
+		   GenerateExpression(node.elseBranch);
 }
 
 using AT = rls::ast::Type;
