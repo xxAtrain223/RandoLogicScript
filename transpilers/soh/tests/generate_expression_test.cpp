@@ -440,10 +440,10 @@ TEST(SohExpressions, CallEnemyFunctions) {
 		"    can_get_drop(RE_GOLD_SKULLTULA) or\n"
 		"    can_avoid(RE_GOLD_SKULLTULA)\n",
 		"test")),
-		"logic->CanKillEnemy(RE_GOLD_SKULLTULA, ED_CLOSE, false) || "
-		"logic->CanPassEnemy(RE_GOLD_SKULLTULA) || "
-		"logic->CanGetEnemyDrop(RE_GOLD_SKULLTULA) || "
-		"logic->CanAvoidEnemy(RE_GOLD_SKULLTULA)");
+		"CanKillEnemy(RE_GOLD_SKULLTULA, ED_CLOSE, false) || "
+		"CanPassEnemy(RE_GOLD_SKULLTULA) || "
+		"CanGetEnemyDrop(RE_GOLD_SKULLTULA) || "
+		"CanAvoidEnemy(RE_GOLD_SKULLTULA)");
 }
 
 TEST(SohExpressions, CallDefinedFunctions) {
@@ -527,7 +527,7 @@ TEST(SohExpressions, AnyAgeBlockWithExternalCondition) {
 		"    any_age { can_kill(RE_ARMOS) } and can_use(RG_STICKS)\n",
 		"test");
 	EXPECT_EQ(GenerateExpression(expr),
-		"AnyAgeTime([]{return logic->CanKillEnemy(RE_ARMOS);}) && logic->CanUse(RG_STICKS)");
+		"AnyAgeTime([]{return CanKillEnemy(RE_ARMOS);}) && logic->CanUse(RG_STICKS)");
 }
 
 TEST(SohExpressions, SharedBlockSingleBranch) {
@@ -606,7 +606,7 @@ TEST(SohExpressions, SharedBlockComplexConditions) {
 		"test");
 	EXPECT_EQ(GenerateExpression(expr),
 		"SpiritShared(RR_ROOM_A, []{return logic->CanUse(RG_HOOKSHOT) || logic->CanUse(RG_BOOMERANG);}, false, "
-		"RR_ROOM_B, []{return logic->CanGetEnemyDrop(RE_GOLD_SKULLTULA, ctx->GetTrickOption(RT_SPIRIT_WEST_LEDGE) ? ED_BOOMERANG : ED_HOOKSHOT);})");
+		"RR_ROOM_B, []{return CanGetEnemyDrop(RE_GOLD_SKULLTULA, ctx->GetTrickOption(RT_SPIRIT_WEST_LEDGE) ? ED_BOOMERANG : ED_HOOKSHOT);})");
 }
 
 TEST(SohExpressions, SharedBlockWithExternalCondition) {
@@ -787,9 +787,9 @@ TEST(SohExpressions, SharedBlockFromHereThreeBranches) {
 		"RC_SPIRIT_TEMPLE_GS_LOBBY");
 	EXPECT_EQ(GenerateExpression(expr),
 		"SpiritShared(RR_SPIRIT_TEMPLE_STATUE_ROOM_CHILD, "
-		"[]{return logic->CanGetEnemyDrop(RE_GOLD_SKULLTULA, ED_LONGSHOT);}, false, "
+		"[]{return CanGetEnemyDrop(RE_GOLD_SKULLTULA, ED_LONGSHOT);}, false, "
 		"RR_SPIRIT_TEMPLE_INNER_WEST_HAND, "
-		"[]{return logic->CanGetEnemyDrop(RE_GOLD_SKULLTULA, ctx->GetTrickOption(RT_SPIRIT_WEST_LEDGE) ? ED_BOOMERANG : ED_HOOKSHOT);}, "
+		"[]{return CanGetEnemyDrop(RE_GOLD_SKULLTULA, ctx->GetTrickOption(RT_SPIRIT_WEST_LEDGE) ? ED_BOOMERANG : ED_HOOKSHOT);}, "
 		"RR_SPIRIT_TEMPLE_GS_LEDGE, "
-		"[]{return logic->CanKillEnemy(RE_GOLD_SKULLTULA);})");
+		"[]{return CanKillEnemy(RE_GOLD_SKULLTULA);})");
 }

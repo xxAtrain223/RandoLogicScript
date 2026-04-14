@@ -159,10 +159,10 @@ static const FunctionRegistryItem* GetFunction(const std::string& name) {
         { "can_plant_bean", { "CanPlantBean", true, { { AT::Region, "region", "" }, { AT::Item, "bean", "" } } } },
         { "triforce_pieces", { "logic->GetSaveContext()->ship.quest.data.randomizer.triforcePiecesCollected", false, { } } },
         { "big_poes", { "logic->BigPoes", false, { } } },
-        { "can_kill", { "logic->CanKillEnemy", true, { { AT::Enemy, "enemy", "" }, { AT::Distance, "distance", "ED_CLOSE" }, { AT::Bool, "wallOrFloor", "true" }, { AT::Int, "quantity", "1" }, { AT::Bool, "timer", "false" }, { AT::Bool, "inWater", "false" } } } },
-        { "can_pass", { "logic->CanPassEnemy", true, { { AT::Enemy, "enemy", "" }, { AT::Distance, "distance", "ED_CLOSE" }, { AT::Bool, "wallOrFloor", "true" } } } },
-        { "can_get_drop", { "logic->CanGetEnemyDrop", true, { { AT::Enemy, "enemy", "" }, { AT::Distance, "distance", "ED_CLOSE" }, { AT::Bool, "aboveLink", "true" } } } },
-        { "can_avoid", { "logic->CanAvoidEnemy", true, { { AT::Enemy, "enemy", "" }, { AT::Bool, "grounded", "false" }, { AT::Int, "quantity", "1" } } } }
+        { "can_kill", { "CanKillEnemy", true, { { AT::Enemy, "enemy", "" }, { AT::Distance, "distance", "ED_CLOSE" }, { AT::Bool, "wallOrFloor", "true" }, { AT::Int, "quantity", "1" }, { AT::Bool, "timer", "false" }, { AT::Bool, "inWater", "false" } } } },
+        { "can_pass", { "CanPassEnemy", true, { { AT::Enemy, "enemy", "" }, { AT::Distance, "distance", "ED_CLOSE" }, { AT::Bool, "wallOrFloor", "true" } } } },
+        { "can_get_drop", { "CanGetEnemyDrop", true, { { AT::Enemy, "enemy", "" }, { AT::Distance, "distance", "ED_CLOSE" }, { AT::Bool, "aboveLink", "true" } } } },
+        { "can_avoid", { "CanAvoidEnemy", true, { { AT::Enemy, "enemy", "" }, { AT::Bool, "grounded", "false" }, { AT::Int, "quantity", "1" } } } }
     };
 
     if (auto it = functions.find(name); it != functions.end()) {
