@@ -403,7 +403,7 @@ enum class Type {
 struct Project {
 	std::vector<File> files;
 
-	std::unordered_map<std::string, const RegionDecl*> RegionDecls;
+	std::map<std::string, const RegionDecl*> RegionDecls;
 	std::unordered_multimap<std::string, const ExtendRegionDecl*> ExtendRegionDecls;
 	std::map<std::string, const DefineDecl*> DefineDecls;
 	std::unordered_map<std::string, const EnemyDecl*> EnemyDecls;
