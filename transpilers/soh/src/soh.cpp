@@ -3,10 +3,12 @@
 #include "generate_enemies.h"
 #include "generate_functions.h"
 #include "generate_regions.h"
+#include "generate_runtime.h"
 
 namespace rls::transpilers::soh {
 
 void Transpile(const rls::ast::Project& project, rls::OutputWriter& out) {
+	GenerateRuntimeHeaders(out);
 	GenerateFunctionDefinitionsHeader(project, out);
 	GenerateFunctionDefinitionsSource(project, out);
 	GenerateEnemiesHeader(project, out);

@@ -1,0 +1,7 @@
+#pragma once
+
+namespace rls::transpilers::soh::detail {
+
+inline constexpr char kRlsMatchContent[] = R"__rls__(@RLS_MATCH_CONTENT@)__rls__";
+
+} // namespace rls::transpilers::soh::detail
