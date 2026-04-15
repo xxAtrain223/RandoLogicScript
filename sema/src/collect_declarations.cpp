@@ -19,12 +19,12 @@ std::vector<ast::Diagnostic> collectDeclarations(ast::Project& project) {
 				using T = std::decay_t<decltype(d)>;
 
 				if constexpr (std::is_same_v<T, ast::RegionDecl>) {
-					auto [it, inserted] = project.RegionDecls.try_emplace(d.name, &d);
+					auto [it, inserted] = project.RegionDecls.try_emplace(d.key, &d);
 					if (!inserted) {
 						diagnostics.push_back({
 							ast::DiagnosticLevel::Error,
 							std::format("duplicate region '{}' (first declared at {}:{})",
-								d.name,
+								d.key,
 								it->second->span.file,
 								it->second->span.start.line),
 							d.span

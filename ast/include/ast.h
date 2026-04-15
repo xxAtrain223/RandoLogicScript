@@ -248,17 +248,20 @@ struct Section {
 
 /// Region body: properties and sections shared by `region` and `extend region`.
 struct RegionBody {
+	std::string name;
 	std::optional<std::string> scene;
 	TimePasses timePasses = TimePasses::Auto;
 	std::vector<std::string> areas;
 	std::vector<Section> sections;
 
 	RegionBody(
+		std::string name,
 		std::optional<std::string> scene,
 		TimePasses timePasses,
 		std::vector<std::string> areas,
 		std::vector<Section> sections)
-		: scene(std::move(scene)),
+		: name(std::move(name)),
+		  scene(std::move(scene)),
 		  timePasses(timePasses),
 		  areas(std::move(areas)),
 		  sections(std::move(sections)) {}
@@ -284,14 +287,14 @@ struct EnemyField {
 
 // == Top-level declarations ===================================================
 
-/// `region RR_NAME { ... }`
+/// `region RR_KEY { name: "Display Name" scene: SCENE_ID ... }`
 struct RegionDecl {
-	std::string name;
+	std::string key;
 	RegionBody body;
 	Span span;
 
-	RegionDecl(std::string name, RegionBody body, Span span = {})
-		: name(std::move(name)),
+	RegionDecl(std::string key, RegionBody body, Span span = {})
+		: key(std::move(key)),
 		  body(std::move(body)),
 		  span(span) {}
 };

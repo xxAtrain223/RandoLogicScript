@@ -19,7 +19,7 @@ static File makeRegionFile(const std::string& path, const std::string& regionNam
 	f.path = path;
 	f.declarations.emplace_back(RegionDecl(
 		regionName,
-		RegionBody(scene, TimePasses::Auto, {}, {}),
+		RegionBody("Test", scene, TimePasses::Auto, {}, {}),
 		span
 	));
 	return f;
@@ -114,7 +114,7 @@ TEST(CollectDeclarations, SingleRegion) {
 	EXPECT_TRUE(diags.empty());
 	ASSERT_EQ(project.RegionDecls.size(), 1u);
 	ASSERT_TRUE(project.RegionDecls.contains("RR_TEST"));
-	EXPECT_EQ(project.RegionDecls.at("RR_TEST")->name, "RR_TEST");
+	EXPECT_EQ(project.RegionDecls.at("RR_TEST")->key, "RR_TEST");
 }
 
 TEST(CollectDeclarations, SingleDefine) {
@@ -174,7 +174,7 @@ TEST(CollectDeclarations, MixedDeclsInOneFile) {
 	f.path = "mixed.rls";
 
 	f.declarations.emplace_back(RegionDecl(
-		"RR_TEST", RegionBody("SCENE_TEST", TimePasses::Auto, {}, {})
+		"RR_TEST", RegionBody("Test", "SCENE_TEST", TimePasses::Auto, {}, {})
 	));
 	f.declarations.emplace_back(DefineDecl(
 		"helper", {}, makeExpr(BoolLiteral{true})
@@ -268,10 +268,10 @@ TEST(CollectDeclarations, DuplicateRegionInSameFile) {
 	Span span1{"bad.rls", {1, 1}, {3, 1}};
 	Span span2{"bad.rls", {5, 1}, {7, 1}};
 	f.declarations.emplace_back(RegionDecl(
-		"RR_DUP", RegionBody("SCENE_A", TimePasses::Auto, {}, {}), span1
+		"RR_DUP", RegionBody("Dup A", "SCENE_A", TimePasses::Auto, {}, {}), span1
 	));
 	f.declarations.emplace_back(RegionDecl(
-		"RR_DUP", RegionBody("SCENE_B", TimePasses::Auto, {}, {}), span2
+		"RR_DUP", RegionBody("Dup B", "SCENE_B", TimePasses::Auto, {}, {}), span2
 	));
 	project.files.push_back(std::move(f));
 
@@ -363,6 +363,7 @@ TEST(CollectDeclarations, ParsedRegion) {
 	Project project;
 	project.files.push_back(rls::parser::ParseString(
 		"region RR_SPIRIT_TEMPLE_FOYER {\n"
+		"    name: \"Spirit Temple Foyer\"\n"
 		"    scene: SCENE_SPIRIT_TEMPLE\n"
 		"    exits {\n"
 		"        RR_SPIRIT_TEMPLE_ENTRYWAY: always\n"
@@ -376,7 +377,7 @@ TEST(CollectDeclarations, ParsedRegion) {
 	EXPECT_TRUE(diags.empty());
 	ASSERT_EQ(project.RegionDecls.size(), 1u);
 	const auto* r = project.RegionDecls.at("RR_SPIRIT_TEMPLE_FOYER");
-	EXPECT_EQ(r->name, "RR_SPIRIT_TEMPLE_FOYER");
+	EXPECT_EQ(r->key, "RR_SPIRIT_TEMPLE_FOYER");
 	EXPECT_EQ(r->body.scene.value(), "SCENE_SPIRIT_TEMPLE");
 	ASSERT_EQ(r->body.sections.size(), 1u);
 	EXPECT_EQ(r->body.sections[0].kind, SectionKind::Exits);
@@ -435,12 +436,14 @@ TEST(CollectDeclarations, ParsedMultiFileProject) {
 
 	project.files.push_back(rls::parser::ParseString(
 		"region RR_FOYER {\n"
+		"    name: \"Foyer\"\n"
 		"    scene: SCENE_SPIRIT_TEMPLE\n"
 		"    exits {\n"
 		"        RR_ENTRYWAY: always\n"
 		"    }\n"
 		"}\n"
 		"region RR_STATUE {\n"
+		"    name: \"Statue\"\n"
 		"    scene: SCENE_SPIRIT_TEMPLE\n"
 		"}\n",
 		"spirit_temple.rls"
@@ -495,6 +498,7 @@ TEST(CollectDeclarations, ParsedDuplicateRegionAcrossFiles) {
 
 	project.files.push_back(rls::parser::ParseString(
 		"region RR_FOYER {\n"
+		"    name: \"Foyer\"\n"
 		"    scene: SCENE_SPIRIT_TEMPLE\n"
 		"}\n",
 		"a.rls"
@@ -502,6 +506,7 @@ TEST(CollectDeclarations, ParsedDuplicateRegionAcrossFiles) {
 
 	project.files.push_back(rls::parser::ParseString(
 		"region RR_FOYER {\n"
+		"    name: \"Foyer\"\n"
 		"    scene: SCENE_FOREST_TEMPLE\n"
 		"}\n",
 		"b.rls"
@@ -543,6 +548,7 @@ TEST(Analyze, PopulatesDeclMaps) {
 	Project project;
 	project.files.push_back(rls::parser::ParseString(
 		"region RR_FOYER {\n"
+		"    name: \"Foyer\"\n"
 		"    scene: SCENE_SPIRIT_TEMPLE\n"
 		"    exits {\n"
 		"        RR_ENTRYWAY: always\n"

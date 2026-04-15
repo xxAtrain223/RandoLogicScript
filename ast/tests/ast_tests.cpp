@@ -249,6 +249,7 @@ TEST(DeclTests, RegionDecl) {
 	RegionDecl region(
 		"RR_SPIRIT_TEMPLE_FOYER",
 		RegionBody(
+			"Spirit Temple Foyer",
 			"SCENE_SPIRIT_TEMPLE",
 			TimePasses::Auto,
 			{},
@@ -256,7 +257,8 @@ TEST(DeclTests, RegionDecl) {
 		)
 	);
 
-	EXPECT_EQ(region.name, "RR_SPIRIT_TEMPLE_FOYER");
+	EXPECT_EQ(region.key, "RR_SPIRIT_TEMPLE_FOYER");
+	EXPECT_EQ(region.body.name, "Spirit Temple Foyer");
 	ASSERT_TRUE(region.body.scene.has_value());
 	EXPECT_EQ(region.body.scene.value(), "SCENE_SPIRIT_TEMPLE");
 	EXPECT_EQ(region.body.timePasses, TimePasses::Auto);
@@ -270,6 +272,7 @@ TEST(DeclTests, RegionWithTimePasses) {
 	RegionDecl region(
 		"RR_HC_GARDEN",
 		RegionBody(
+			"Hyrule Castle Garden",
 			"SCENE_CASTLE_COURTYARD_GUARDS_DAY",
 			TimePasses::No,
 			{"RA_CASTLE_GROUNDS"},
@@ -403,7 +406,7 @@ TEST(FileTests, FileWithMixedDeclarations) {
 	// Add a region
 	file.declarations.emplace_back(RegionDecl(
 		"RR_TEST_REGION",
-		RegionBody("SCENE_TEST", TimePasses::Auto, {}, {})
+		RegionBody("Test Region", "SCENE_TEST", TimePasses::Auto, {}, {})
 	));
 
 	// Add a define
@@ -439,7 +442,7 @@ TEST(ProjectTests, AllDeclarationsAcrossFiles) {
 	file1.path = "spirit_temple.rls";
 	file1.declarations.emplace_back(RegionDecl(
 		"RR_SPIRIT_TEMPLE_FOYER",
-		RegionBody("SCENE_SPIRIT_TEMPLE", TimePasses::Auto, {}, {})
+		RegionBody("Spirit Temple Foyer", "SCENE_SPIRIT_TEMPLE", TimePasses::Auto, {}, {})
 	));
 
 	// File 2: one define + one enemy

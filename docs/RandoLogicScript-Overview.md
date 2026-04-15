@@ -34,6 +34,7 @@ A region defines a scene, events, locations, and exits. Each entry is `Name: con
 
 ```RLS
 region RR_SPIRIT_TEMPLE_FOYER {
+    name: "Spirit Temple Foyer"
     scene: SCENE_SPIRIT_TEMPLE
 
     events {

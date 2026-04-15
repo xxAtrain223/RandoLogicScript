@@ -111,37 +111,39 @@ TEST(DeclSection, ExitsWithComplexExprs) {
 // == Region properties ========================================================
 
 TEST(DeclRegionProps, SceneOnly) {
-	EXPECT_TRUE(matches<region_props>("scene: SCENE_SPIRIT_TEMPLE"));
+	EXPECT_TRUE(matches<region_props>("name: \"Test\"\nscene: SCENE_SPIRIT_TEMPLE"));
 }
 
 TEST(DeclRegionProps, MissingSceneFails) {
 	EXPECT_FALSE(matches<region_props>(""));
 	EXPECT_FALSE(matches<region_props>("time_passes"));
 	EXPECT_FALSE(matches<region_props>("areas: AREA_A"));
+	EXPECT_FALSE(matches<region_props>("scene: SCENE_SPIRIT_TEMPLE"));
 }
 
 TEST(DeclRegionProps, TimePasses) {
-	EXPECT_TRUE(matches<region_props>("scene: SCENE_SPIRIT_TEMPLE\n  time_passes"));
+	EXPECT_TRUE(matches<region_props>("name: \"Test\"\nscene: SCENE_SPIRIT_TEMPLE\n  time_passes"));
 }
 
 TEST(DeclRegionProps, NoTimePasses) {
-	EXPECT_TRUE(matches<region_props>("scene: SCENE_SPIRIT_TEMPLE\n  no_time_passes"));
+	EXPECT_TRUE(matches<region_props>("name: \"Test\"\nscene: SCENE_SPIRIT_TEMPLE\n  no_time_passes"));
 }
 
 TEST(DeclRegionProps, AreasOnly) {
-	EXPECT_TRUE(matches<region_props>("scene: SCENE_SPIRIT_TEMPLE\n  areas: AREA_SPIRIT_TEMPLE"));
+	EXPECT_TRUE(matches<region_props>("name: \"Test\"\nscene: SCENE_SPIRIT_TEMPLE\n  areas: AREA_SPIRIT_TEMPLE"));
 }
 
 TEST(DeclRegionProps, AreasMultiple) {
-	EXPECT_TRUE(matches<region_props>("scene: SCENE_SPIRIT_TEMPLE\n  areas: AREA_A, AREA_B, AREA_C"));
+	EXPECT_TRUE(matches<region_props>("name: \"Test\"\nscene: SCENE_SPIRIT_TEMPLE\n  areas: AREA_A, AREA_B, AREA_C"));
 }
 
 TEST(DeclRegionProps, SceneAndTimePasses) {
-	EXPECT_TRUE(matches<region_props>("scene: SCENE_SPIRIT_TEMPLE\n  time_passes"));
+	EXPECT_TRUE(matches<region_props>("name: \"Test\"\nscene: SCENE_SPIRIT_TEMPLE\n  time_passes"));
 }
 
 TEST(DeclRegionProps, AllThree) {
 	EXPECT_TRUE(matches<region_props>(
+		"name: \"Test\"\n"
 		"scene: SCENE_SPIRIT_TEMPLE\n"
 		"  time_passes\n"
 		"  areas: AREA_A, AREA_B"
@@ -151,7 +153,7 @@ TEST(DeclRegionProps, AllThree) {
 // == Region declaration =======================================================
 
 TEST(DeclRegion, Empty) {
-	EXPECT_TRUE(matches<region_decl>("region RR_TEST {\n  scene: SCENE_TEST\n}"));
+	EXPECT_TRUE(matches<region_decl>("region RR_TEST {\n  name: \"Test\"\n  scene: SCENE_TEST\n}"));
 }
 
 TEST(DeclRegion, MissingSceneFails) {
@@ -161,6 +163,7 @@ TEST(DeclRegion, MissingSceneFails) {
 TEST(DeclRegion, WithScene) {
 	EXPECT_TRUE(matches<region_decl>(
 		"region RR_SPIRIT_TEMPLE_FOYER {\n"
+		"  name: \"Spirit Temple Foyer\"\n"
 		"  scene: SCENE_SPIRIT_TEMPLE\n"
 		"}"
 	));
@@ -169,6 +172,7 @@ TEST(DeclRegion, WithScene) {
 TEST(DeclRegion, WithSceneAndTimePasses) {
 	EXPECT_TRUE(matches<region_decl>(
 		"region RR_SPIRIT_TEMPLE_FOYER {\n"
+		"  name: \"Spirit Temple Foyer\"\n"
 		"  scene: SCENE_SPIRIT_TEMPLE\n"
 		"  time_passes\n"
 		"}"
@@ -178,6 +182,7 @@ TEST(DeclRegion, WithSceneAndTimePasses) {
 TEST(DeclRegion, WithSections) {
 	EXPECT_TRUE(matches<region_decl>(
 		"region RR_SPIRIT_TEMPLE_FOYER {\n"
+		"  name: \"Spirit Temple Foyer\"\n"
 		"  scene: SCENE_SPIRIT_TEMPLE\n"
 		"  locations {\n"
 		"    RC_SPIRIT_TEMPLE_LOBBY_POT_1: can_break_pots()\n"
@@ -193,6 +198,7 @@ TEST(DeclRegion, WithSections) {
 TEST(DeclRegion, MultipleSections) {
 	EXPECT_TRUE(matches<region_decl>(
 		"region RR_SPIRIT_TEMPLE_CHILD_SIDE {\n"
+		"  name: \"Spirit Temple Child Side\"\n"
 		"  scene: SCENE_SPIRIT_TEMPLE\n"
 		"  events {\n"
 		"    SPIRIT_NUT_ACCESS: can_break_pots()\n"
@@ -210,6 +216,7 @@ TEST(DeclRegion, MultipleSections) {
 TEST(DeclRegion, NoTimePasses) {
 	EXPECT_TRUE(matches<region_decl>(
 		"region RR_TEST {\n"
+		"  name: \"Test\"\n"
 		"  scene: SCENE_TEST\n"
 		"  no_time_passes\n"
 		"}"
@@ -219,6 +226,7 @@ TEST(DeclRegion, NoTimePasses) {
 TEST(DeclRegion, WithAreas) {
 	EXPECT_TRUE(matches<region_decl>(
 		"region RR_TEST {\n"
+		"  name: \"Test\"\n"
 		"  scene: SCENE_FOO\n"
 		"  areas: AREA_A, AREA_B\n"
 		"}"
@@ -353,7 +361,7 @@ TEST(DeclEnemy, FieldWithTypedParams) {
 // == Declaration (top-level choice) ===========================================
 
 TEST(DeclDeclaration, Region) {
-	EXPECT_TRUE(matches<declaration>("region RR_TEST {\n  scene: SCENE_TEST\n}"));
+	EXPECT_TRUE(matches<declaration>("region RR_TEST {\n  name: \"Test\"\n  scene: SCENE_TEST\n}"));
 }
 
 TEST(DeclDeclaration, Extend) {
@@ -383,7 +391,7 @@ TEST(DeclFile, CommentOnly) {
 }
 
 TEST(DeclFile, SingleRegion) {
-	EXPECT_TRUE(matches<rls_file>("region RR_TEST {\n  scene: SCENE_TEST\n}"));
+	EXPECT_TRUE(matches<rls_file>("region RR_TEST {\n  name: \"Test\"\n  scene: SCENE_TEST\n}"));
 }
 
 TEST(DeclFile, SingleDefine) {
@@ -395,6 +403,7 @@ TEST(DeclFile, MultipleDeclarations) {
 		"# Spirit Temple\n"
 		"\n"
 		"region RR_SPIRIT_TEMPLE_FOYER {\n"
+		"  name: \"Spirit Temple Foyer\"\n"
 		"  scene: SCENE_SPIRIT_TEMPLE\n"
 		"  locations {\n"
 		"    RC_SPIRIT_TEMPLE_LOBBY_POT_1: can_break_pots()\n"
@@ -405,6 +414,7 @@ TEST(DeclFile, MultipleDeclarations) {
 		"}\n"
 		"\n"
 		"region RR_SPIRIT_TEMPLE_CHILD {\n"
+		"  name: \"Spirit Temple Child\"\n"
 		"  scene: SCENE_SPIRIT_TEMPLE\n"
 		"  events {\n"
 		"    SPIRIT_NUT_ACCESS: can_break_pots()\n"
@@ -424,6 +434,7 @@ TEST(DeclFile, MixedDeclarations) {
 		"}\n"
 		"\n"
 		"region RR_TEST {\n"
+		"  name: \"Test\"\n"
 		"  scene: SCENE_FOO\n"
 		"  exits {\n"
 		"    RR_OTHER: can_kill(RE_ARMOS)\n"
@@ -445,6 +456,7 @@ TEST(DeclFile, WithCommentsBetweenDecls) {
 		"\n"
 		"# regions\n"
 		"region RR_TEST {\n"
+		"  name: \"Test\"\n"
 		"  scene: SCENE_TEST\n"
 		"}\n"
 	));
@@ -457,6 +469,7 @@ TEST(DeclRealistic, SpiritTempleExcerpt) {
 		"# spirit_temple.rls\n"
 		"\n"
 		"region RR_SPIRIT_TEMPLE_ENTRYWAY {\n"
+		"  name: \"Spirit Temple Entryway\"\n"
 		"  scene: SCENE_SPIRIT_TEMPLE\n"
 		"  exits {\n"
 		"    RR_DESERT_COLOSSUS: always\n"
@@ -464,6 +477,7 @@ TEST(DeclRealistic, SpiritTempleExcerpt) {
 		"}\n"
 		"\n"
 		"region RR_SPIRIT_TEMPLE_FOYER {\n"
+		"  name: \"Spirit Temple Foyer\"\n"
 		"  scene: SCENE_SPIRIT_TEMPLE\n"
 		"  locations {\n"
 		"    RC_SPIRIT_TEMPLE_LOBBY_POT_1: can_break_pots()\n"
@@ -525,6 +539,7 @@ TEST(DeclRealistic, ExtendWithPots) {
 TEST(DeclRealistic, SharedInRegionExit) {
 	EXPECT_TRUE(matches<rls_file>(
 		"region RR_TEST {\n"
+		"  name: \"Test\"\n"
 		"  scene: SCENE_TEST\n"
 		"  exits {\n"
 		"    RR_TARGET: shared {\n"
@@ -539,6 +554,7 @@ TEST(DeclRealistic, SharedInRegionExit) {
 TEST(DeclRealistic, AnyAgeInRegionExit) {
 	EXPECT_TRUE(matches<rls_file>(
 		"region RR_TEST {\n"
+		"  name: \"Test\"\n"
 		"  scene: SCENE_TEST\n"
 		"  exits {\n"
 		"    RR_TARGET: any_age { has(RG_HOOKSHOT) or has(RG_BOOMERANG) }\n"

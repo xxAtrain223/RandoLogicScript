@@ -46,6 +46,7 @@ static size_t countWarnings(const std::vector<Diagnostic>& diags) {
 TEST(ValidateDeclarations, ExtendRegionTargetExists_Ok) {
 	auto [project, diags] = validateFromSource(
 		"region RR_FOYER {\n"
+		"    name: \"Foyer\"\n"
 		"    scene: SCENE_SPIRIT_TEMPLE\n"
 		"}\n"
 		"extend region RR_FOYER {\n"
@@ -81,6 +82,7 @@ TEST(ValidateDeclarations, ExtendRegionMultipleMissing) {
 TEST(ValidateDeclarations, ExtendRegionSomeValidSomeMissing) {
 	auto [project, diags] = validateFromSource(
 		"region RR_FOYER {\n"
+		"    name: \"Foyer\"\n"
 		"    scene: SCENE_SPIRIT_TEMPLE\n"
 		"}\n"
 		"extend region RR_FOYER {\n"
@@ -96,6 +98,7 @@ TEST(ValidateDeclarations, ExtendRegionSomeValidSomeMissing) {
 TEST(ValidateDeclarations, ExtendRegionMultipleExtendsOnSameValidRegion) {
 	auto [project, diags] = validateFromSource(
 		"region RR_FOYER {\n"
+		"    name: \"Foyer\"\n"
 		"    scene: SCENE_SPIRIT_TEMPLE\n"
 		"}\n"
 		"extend region RR_FOYER {\n"
@@ -139,6 +142,7 @@ TEST(ValidateDeclarations, AnalyzeExtendTargetExists_Ok) {
 	Project project;
 	project.files.push_back(rls::parser::ParseString(
 		"region RR_FOYER {\n"
+		"    name: \"Foyer\"\n"
 		"    scene: SCENE_SPIRIT_TEMPLE\n"
 		"}\n"
 		"extend region RR_FOYER {\n"
@@ -227,6 +231,7 @@ TEST(ValidateDeclarations, MixedEnemiesOneValid) {
 TEST(ValidateDeclarations, NoDuplicateEntries_Ok) {
 	auto [project, diags] = validateFromSource(
 		"region RR_FOYER {\n"
+		"    name: \"Foyer\"\n"
 		"    scene: SCENE_SPIRIT_TEMPLE\n"
 		"    locations {\n"
 		"        RC_POT_A: always\n"
@@ -239,6 +244,7 @@ TEST(ValidateDeclarations, NoDuplicateEntries_Ok) {
 TEST(ValidateDeclarations, DuplicateLocationInBaseRegion) {
 	auto [project, diags] = validateFromSource(
 		"region RR_FOYER {\n"
+		"    name: \"Foyer\"\n"
 		"    scene: SCENE_SPIRIT_TEMPLE\n"
 		"    locations {\n"
 		"        RC_POT: always\n"
@@ -253,6 +259,7 @@ TEST(ValidateDeclarations, DuplicateLocationInBaseRegion) {
 TEST(ValidateDeclarations, DuplicateAcrossBaseAndExtend) {
 	auto [project, diags] = validateFromSource(
 		"region RR_FOYER {\n"
+		"    name: \"Foyer\"\n"
 		"    scene: SCENE_SPIRIT_TEMPLE\n"
 		"    locations {\n"
 		"        RC_POT: always\n"
@@ -270,6 +277,7 @@ TEST(ValidateDeclarations, DuplicateAcrossBaseAndExtend) {
 TEST(ValidateDeclarations, DuplicateAcrossTwoExtends) {
 	auto [project, diags] = validateFromSource(
 		"region RR_FOYER {\n"
+		"    name: \"Foyer\"\n"
 		"    scene: SCENE_SPIRIT_TEMPLE\n"
 		"}\n"
 		"extend region RR_FOYER {\n"
@@ -289,6 +297,7 @@ TEST(ValidateDeclarations, DuplicateAcrossTwoExtends) {
 TEST(ValidateDeclarations, DuplicateExitInRegion) {
 	auto [project, diags] = validateFromSource(
 		"region RR_FOYER {\n"
+		"    name: \"Foyer\"\n"
 		"    scene: SCENE_SPIRIT_TEMPLE\n"
 		"    exits {\n"
 		"        RR_LOBBY: always\n"
@@ -302,6 +311,7 @@ TEST(ValidateDeclarations, DuplicateExitInRegion) {
 TEST(ValidateDeclarations, DuplicateEventInRegion) {
 	auto [project, diags] = validateFromSource(
 		"region RR_FOYER {\n"
+		"    name: \"Foyer\"\n"
 		"    scene: SCENE_SPIRIT_TEMPLE\n"
 		"    events {\n"
 		"        LOGIC_FLAG: always\n"
@@ -315,12 +325,14 @@ TEST(ValidateDeclarations, DuplicateEventInRegion) {
 TEST(ValidateDeclarations, SameNameInDifferentRegions_Ok) {
 	auto [project, diags] = validateFromSource(
 		"region RR_FOYER {\n"
+		"    name: \"Foyer\"\n"
 		"    scene: SCENE_SPIRIT_TEMPLE\n"
 		"    locations {\n"
 		"        RC_POT: always\n"
 		"    }\n"
 		"}\n"
 		"region RR_LOBBY {\n"
+		"    name: \"Lobby\"\n"
 		"    scene: SCENE_SPIRIT_TEMPLE\n"
 		"    locations {\n"
 		"        RC_POT: always\n"
@@ -332,6 +344,7 @@ TEST(ValidateDeclarations, SameNameInDifferentRegions_Ok) {
 TEST(ValidateDeclarations, MultipleDuplicatesInOneRegion) {
 	auto [project, diags] = validateFromSource(
 		"region RR_FOYER {\n"
+		"    name: \"Foyer\"\n"
 		"    scene: SCENE_SPIRIT_TEMPLE\n"
 		"    locations {\n"
 		"        RC_POT_A: always\n"
@@ -348,6 +361,7 @@ TEST(ValidateDeclarations, MultipleDuplicatesInOneRegion) {
 TEST(ValidateDeclarations, EntryConditionBool_Ok) {
 	auto [project, diags] = validateFromSource(
 		"region RR_FOYER {\n"
+		"    name: \"Foyer\"\n"
 		"    scene: SCENE_SPIRIT_TEMPLE\n"
 		"    locations {\n"
 		"        RC_POT: always\n"
@@ -362,6 +376,7 @@ TEST(ValidateDeclarations, EntryConditionBool_Ok) {
 TEST(ValidateDeclarations, EntryConditionInt_Ok) {
 	auto [project, diags] = validateFromSource(
 		"region RR_FOYER {\n"
+		"    name: \"Foyer\"\n"
 		"    scene: SCENE_SPIRIT_TEMPLE\n"
 		"    locations {\n"
 		"        RC_POT: hearts()\n"
@@ -373,6 +388,7 @@ TEST(ValidateDeclarations, EntryConditionInt_Ok) {
 TEST(ValidateDeclarations, EntryConditionNonBool) {
 	auto [project, diags] = validateFromSource(
 		"region RR_FOYER {\n"
+		"    name: \"Foyer\"\n"
 		"    scene: SCENE_SPIRIT_TEMPLE\n"
 		"    locations {\n"
 		"        RC_POT: RG_HOOKSHOT\n"
@@ -387,6 +403,7 @@ TEST(ValidateDeclarations, EntryConditionNonBool) {
 TEST(ValidateDeclarations, EntryConditionNonBoolInExtend) {
 	auto [project, diags] = validateFromSource(
 		"region RR_FOYER {\n"
+		"    name: \"Foyer\"\n"
 		"    scene: SCENE_SPIRIT_TEMPLE\n"
 		"}\n"
 		"extend region RR_FOYER {\n"
@@ -402,6 +419,7 @@ TEST(ValidateDeclarations, EntryConditionNonBoolInExtend) {
 TEST(ValidateDeclarations, EntryConditionNonBoolExit) {
 	auto [project, diags] = validateFromSource(
 		"region RR_FOYER {\n"
+		"    name: \"Foyer\"\n"
 		"    scene: SCENE_SPIRIT_TEMPLE\n"
 		"    exits {\n"
 		"        RR_LOBBY: RG_HOOKSHOT\n"
@@ -414,6 +432,7 @@ TEST(ValidateDeclarations, EntryConditionNonBoolExit) {
 TEST(ValidateDeclarations, EntryConditionNonBoolEvent) {
 	auto [project, diags] = validateFromSource(
 		"region RR_FOYER {\n"
+		"    name: \"Foyer\"\n"
 		"    scene: SCENE_SPIRIT_TEMPLE\n"
 		"    events {\n"
 		"        LOGIC_FLAG: RG_HOOKSHOT\n"
@@ -426,6 +445,7 @@ TEST(ValidateDeclarations, EntryConditionNonBoolEvent) {
 TEST(ValidateDeclarations, EntryConditionSettingBoolCompatible_Ok) {
 	auto [project, diags] = validateFromSource(
 		"region RR_FOYER {\n"
+		"    name: \"Foyer\"\n"
 		"    scene: SCENE_SPIRIT_TEMPLE\n"
 		"    locations {\n"
 		"        RC_POT: setting(RSK_SHUFFLE_POTS)\n"
@@ -437,6 +457,7 @@ TEST(ValidateDeclarations, EntryConditionSettingBoolCompatible_Ok) {
 TEST(ValidateDeclarations, MultipleNonBoolConditions) {
 	auto [project, diags] = validateFromSource(
 		"region RR_FOYER {\n"
+		"    name: \"Foyer\"\n"
 		"    scene: SCENE_SPIRIT_TEMPLE\n"
 		"    locations {\n"
 		"        RC_POT_A: RG_HOOKSHOT\n"
@@ -451,12 +472,14 @@ TEST(ValidateDeclarations, MultipleNonBoolConditions) {
 TEST(ValidateDeclarations, AllRegionsReachable_Ok) {
 	auto [project, diags] = validateFromSource(
 		"region RR_ROOT {\n"
+		"    name: \"Root\"\n"
 		"    scene: SCENE_LINKS_HOUSE\n"
 		"    exits {\n"
 		"        RR_FIELD: always\n"
 		"    }\n"
 		"}\n"
 		"region RR_FIELD {\n"
+		"    name: \"Field\"\n"
 		"    scene: SCENE_HYRULE_FIELD\n"
 		"}\n");
 	EXPECT_EQ(countWarnings(diags), 0u);
@@ -465,9 +488,11 @@ TEST(ValidateDeclarations, AllRegionsReachable_Ok) {
 TEST(ValidateDeclarations, UnreachableRegion) {
 	auto [project, diags] = validateFromSource(
 		"region RR_ROOT {\n"
+		"    name: \"Root\"\n"
 		"    scene: SCENE_LINKS_HOUSE\n"
 		"}\n"
 		"region RR_ISLAND {\n"
+		"    name: \"Island\"\n"
 		"    scene: SCENE_UNKNOWN\n"
 		"}\n");
 	ASSERT_EQ(countWarnings(diags), 1u);
@@ -478,18 +503,21 @@ TEST(ValidateDeclarations, UnreachableRegion) {
 TEST(ValidateDeclarations, ReachableThroughChain) {
 	auto [project, diags] = validateFromSource(
 		"region RR_ROOT {\n"
+		"    name: \"Root\"\n"
 		"    scene: SCENE_LINKS_HOUSE\n"
 		"    exits {\n"
 		"        RR_FIELD: always\n"
 		"    }\n"
 		"}\n"
 		"region RR_FIELD {\n"
+		"    name: \"Field\"\n"
 		"    scene: SCENE_HYRULE_FIELD\n"
 		"    exits {\n"
 		"        RR_VILLAGE: always\n"
 		"    }\n"
 		"}\n"
 		"region RR_VILLAGE {\n"
+		"    name: \"Village\"\n"
 		"    scene: SCENE_KAKARIKO\n"
 		"}\n");
 	EXPECT_EQ(countWarnings(diags), 0u);
@@ -498,6 +526,7 @@ TEST(ValidateDeclarations, ReachableThroughChain) {
 TEST(ValidateDeclarations, ReachableViaExtendExit) {
 	auto [project, diags] = validateFromSource(
 		"region RR_ROOT {\n"
+		"    name: \"Root\"\n"
 		"    scene: SCENE_LINKS_HOUSE\n"
 		"}\n"
 		"extend region RR_ROOT {\n"
@@ -506,6 +535,7 @@ TEST(ValidateDeclarations, ReachableViaExtendExit) {
 		"    }\n"
 		"}\n"
 		"region RR_FIELD {\n"
+		"    name: \"Field\"\n"
 		"    scene: SCENE_HYRULE_FIELD\n"
 		"}\n");
 	EXPECT_EQ(countWarnings(diags), 0u);
@@ -514,12 +544,15 @@ TEST(ValidateDeclarations, ReachableViaExtendExit) {
 TEST(ValidateDeclarations, MultipleUnreachableRegions) {
 	auto [project, diags] = validateFromSource(
 		"region RR_ROOT {\n"
+		"    name: \"Root\"\n"
 		"    scene: SCENE_LINKS_HOUSE\n"
 		"}\n"
 		"region RR_ISLAND_A {\n"
+		"    name: \"Island A\"\n"
 		"    scene: SCENE_UNKNOWN\n"
 		"}\n"
 		"region RR_ISLAND_B {\n"
+		"    name: \"Island B\"\n"
 		"    scene: SCENE_UNKNOWN\n"
 		"}\n");
 	EXPECT_EQ(countWarnings(diags), 2u);
@@ -528,6 +561,7 @@ TEST(ValidateDeclarations, MultipleUnreachableRegions) {
 TEST(ValidateDeclarations, NoRootRegion_SkipsCheck) {
 	auto [project, diags] = validateFromSource(
 		"region RR_FIELD {\n"
+		"    name: \"Field\"\n"
 		"    scene: SCENE_HYRULE_FIELD\n"
 		"}\n");
 	// No RR_ROOT → check is skipped, no unreachable warnings.
@@ -541,6 +575,7 @@ TEST(ValidateDeclarations, DefineUsedInRegion_Ok) {
 		"define can_smash():\n"
 		"    has(RG_MEGATON_HAMMER) or has(RG_HOOKSHOT)\n"
 		"region RR_ROOT {\n"
+		"    name: \"Root\"\n"
 		"    scene: SCENE_LINKS_HOUSE\n"
 		"    locations {\n"
 		"        RC_POT: can_smash()\n"
@@ -572,6 +607,7 @@ TEST(ValidateDeclarations, DefineUsedByAnotherDefine_Ok) {
 		"define outer():\n"
 		"    inner()\n"
 		"region RR_ROOT {\n"
+		"    name: \"Root\"\n"
 		"    scene: SCENE_LINKS_HOUSE\n"
 		"    locations {\n"
 		"        RC_POT: outer()\n"
@@ -601,6 +637,7 @@ TEST(ValidateDeclarations, DefineUsedInExtendRegion_Ok) {
 		"define can_smash():\n"
 		"    has(RG_MEGATON_HAMMER)\n"
 		"region RR_ROOT {\n"
+		"    name: \"Root\"\n"
 		"    scene: SCENE_LINKS_HOUSE\n"
 		"}\n"
 		"extend region RR_ROOT {\n"

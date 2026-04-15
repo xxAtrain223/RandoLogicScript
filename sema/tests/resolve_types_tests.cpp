@@ -71,6 +71,7 @@ static const Expr* findRegionEntry(const Project& project,
 TEST(ResolveTypes, BoolLiteral) {
 	auto [project, diags] = resolveFromSource(
 		"region RR_TEST {\n"
+		"    name: \"Test\"\n"
 		"    scene: SCENE_TEST\n"
 		"    locations { TEST_LOC: true }\n"
 		"}\n");
@@ -81,6 +82,7 @@ TEST(ResolveTypes, BoolLiteral) {
 TEST(ResolveTypes, IntLiteral) {
 	auto [project, diags] = resolveFromSource(
 		"region RR_TEST {\n"
+		"    name: \"Test\"\n"
 		"    scene: SCENE_TEST\n"
 		"    locations { TEST_LOC: 42 }\n"
 		"}\n");
@@ -91,6 +93,7 @@ TEST(ResolveTypes, IntLiteral) {
 TEST(ResolveTypes, KeywordExpr) {
 	auto [project, diags] = resolveFromSource(
 		"region RR_TEST {\n"
+		"    name: \"Test\"\n"
 		"    scene: SCENE_TEST\n"
 		"    locations { TEST_LOC: is_child }\n"
 		"}\n");
@@ -101,6 +104,7 @@ TEST(ResolveTypes, KeywordExpr) {
 TEST(ResolveTypes, IdentifierEnum) {
 	auto [project, diags] = resolveFromSource(
 		"region RR_TEST {\n"
+		"    name: \"Test\"\n"
 		"    scene: SCENE_TEST\n"
 		"    locations { TEST_LOC: RG_HOOKSHOT }\n"
 		"}\n");
@@ -111,6 +115,7 @@ TEST(ResolveTypes, IdentifierEnum) {
 TEST(ResolveTypes, IdentifierUnknown) {
 	auto [project, diags] = resolveFromSource(
 		"region RR_TEST {\n"
+		"    name: \"Test\"\n"
 		"    scene: SCENE_TEST\n"
 		"    locations { TEST_LOC: distance }\n"
 		"}\n");
@@ -124,6 +129,7 @@ TEST(ResolveTypes, IdentifierUnknown) {
 TEST(ResolveTypes, UnaryNotBool) {
 	auto [project, diags] = resolveFromSource(
 		"region RR_TEST {\n"
+		"    name: \"Test\"\n"
 		"    scene: SCENE_TEST\n"
 		"    locations { TEST_LOC: not true }\n"
 		"}\n");
@@ -135,6 +141,7 @@ TEST(ResolveTypes, UnaryNotIntImplicitConvert) {
 	// not 42 — Int is bool-compatible, so no error.
 	auto [project, diags] = resolveFromSource(
 		"region RR_TEST {\n"
+		"    name: \"Test\"\n"
 		"    scene: SCENE_TEST\n"
 		"    locations { TEST_LOC: not 42 }\n"
 		"}\n");
@@ -146,6 +153,7 @@ TEST(ResolveTypes, UnaryNotTypeMismatch) {
 	// not RG_HOOKSHOT — Item is not bool-compatible.
 	auto [project, diags] = resolveFromSource(
 		"region RR_TEST {\n"
+		"    name: \"Test\"\n"
 		"    scene: SCENE_TEST\n"
 		"    locations { TEST_LOC: not RG_HOOKSHOT }\n"
 		"}\n");
@@ -158,6 +166,7 @@ TEST(ResolveTypes, UnaryNotTypeMismatch) {
 TEST(ResolveTypes, BinaryAndBool) {
 	auto [project, diags] = resolveFromSource(
 		"region RR_TEST {\n"
+		"    name: \"Test\"\n"
 		"    scene: SCENE_TEST\n"
 		"    locations { TEST_LOC: true and false }\n"
 		"}\n");
@@ -169,6 +178,7 @@ TEST(ResolveTypes, BinaryOrIntImplicit) {
 	// 42 or true — Int on left is bool-compatible.
 	auto [project, diags] = resolveFromSource(
 		"region RR_TEST {\n"
+		"    name: \"Test\"\n"
 		"    scene: SCENE_TEST\n"
 		"    locations { TEST_LOC: 42 or true }\n"
 		"}\n");
@@ -180,6 +190,7 @@ TEST(ResolveTypes, BinaryAndTypeMismatch) {
 	// RG_HOOKSHOT and true — Item is not bool-compatible.
 	auto [project, diags] = resolveFromSource(
 		"region RR_TEST {\n"
+		"    name: \"Test\"\n"
 		"    scene: SCENE_TEST\n"
 		"    locations { TEST_LOC: RG_HOOKSHOT and true }\n"
 		"}\n");
@@ -193,6 +204,7 @@ TEST(ResolveTypes, EqualitySameType) {
 	// RG_HOOKSHOT == RG_FAIRY_BOW  (both Item)
 	auto [project, diags] = resolveFromSource(
 		"region RR_TEST {\n"
+		"    name: \"Test\"\n"
 		"    scene: SCENE_TEST\n"
 		"    locations { TEST_LOC: RG_HOOKSHOT == RG_FAIRY_BOW }\n"
 		"}\n");
@@ -204,6 +216,7 @@ TEST(ResolveTypes, EqualityTypeMismatch) {
 	// RG_HOOKSHOT == RE_ARMOS  (Item vs Enemy)
 	auto [project, diags] = resolveFromSource(
 		"region RR_TEST {\n"
+		"    name: \"Test\"\n"
 		"    scene: SCENE_TEST\n"
 		"    locations { TEST_LOC: RG_HOOKSHOT == RE_ARMOS }\n"
 		"}\n");
@@ -215,6 +228,7 @@ TEST(ResolveTypes, OrderingInts) {
 	// 3 >= 1
 	auto [project, diags] = resolveFromSource(
 		"region RR_TEST {\n"
+		"    name: \"Test\"\n"
 		"    scene: SCENE_TEST\n"
 		"    locations { TEST_LOC: 3 >= 1 }\n"
 		"}\n");
@@ -226,6 +240,7 @@ TEST(ResolveTypes, OrderingNonInt) {
 	// RG_HOOKSHOT > RG_FAIRY_BOW  — Item is not Int.
 	auto [project, diags] = resolveFromSource(
 		"region RR_TEST {\n"
+		"    name: \"Test\"\n"
 		"    scene: SCENE_TEST\n"
 		"    locations { TEST_LOC: RG_HOOKSHOT > RG_FAIRY_BOW }\n"
 		"}\n");
@@ -238,6 +253,7 @@ TEST(ResolveTypes, ArithmeticInts) {
 	// 3 + 1
 	auto [project, diags] = resolveFromSource(
 		"region RR_TEST {\n"
+		"    name: \"Test\"\n"
 		"    scene: SCENE_TEST\n"
 		"    locations { TEST_LOC: 3 + 1 }\n"
 		"}\n");
@@ -249,6 +265,7 @@ TEST(ResolveTypes, ArithmeticNonInt) {
 	// true + 1
 	auto [project, diags] = resolveFromSource(
 		"region RR_TEST {\n"
+		"    name: \"Test\"\n"
 		"    scene: SCENE_TEST\n"
 		"    locations { TEST_LOC: true + 1 }\n"
 		"}\n");
@@ -262,6 +279,7 @@ TEST(ResolveTypes, TernaryOk) {
 	// true ? ED_CLOSE : ED_FAR
 	auto [project, diags] = resolveFromSource(
 		"region RR_TEST {\n"
+		"    name: \"Test\"\n"
 		"    scene: SCENE_TEST\n"
 		"    locations { TEST_LOC: true ? ED_CLOSE : ED_FAR }\n"
 		"}\n");
@@ -273,6 +291,7 @@ TEST(ResolveTypes, TernaryBranchMismatch) {
 	// true ? ED_CLOSE : RG_HOOKSHOT
 	auto [project, diags] = resolveFromSource(
 		"region RR_TEST {\n"
+		"    name: \"Test\"\n"
 		"    scene: SCENE_TEST\n"
 		"    locations { TEST_LOC: true ? ED_CLOSE : RG_HOOKSHOT }\n"
 		"}\n");
@@ -284,6 +303,7 @@ TEST(ResolveTypes, TernaryBoolCompatibleBranchesUnify) {
 	// true ? 1 : false  →  Int + Bool both bool-compatible → Bool
 	auto [project, diags] = resolveFromSource(
 		"region RR_TEST {\n"
+		"    name: \"Test\"\n"
 		"    scene: SCENE_TEST\n"
 		"    locations { TEST_LOC: true ? 1 : false }\n"
 		"}\n");
@@ -298,6 +318,7 @@ TEST(ResolveTypes, TernaryCondNotBool) {
 	// RG_HOOKSHOT ? 1 : 2
 	auto [project, diags] = resolveFromSource(
 		"region RR_TEST {\n"
+		"    name: \"Test\"\n"
 		"    scene: SCENE_TEST\n"
 		"    locations { TEST_LOC: RG_HOOKSHOT ? 1 : 2 }\n"
 		"}\n");
@@ -313,6 +334,7 @@ TEST(ResolveTypes, HostCallHas) {
 	// has(RG_HOOKSHOT)
 	auto [project, diags] = resolveFromSource(
 		"region RR_TEST {\n"
+		"    name: \"Test\"\n"
 		"    scene: SCENE_TEST\n"
 		"    locations { TEST_LOC: has(RG_HOOKSHOT) }\n"
 		"}\n");
@@ -324,6 +346,7 @@ TEST(ResolveTypes, HostCallSetting) {
 	// setting(RSK_SUNLIGHT_ARROWS)
 	auto [project, diags] = resolveFromSource(
 		"region RR_TEST {\n"
+		"    name: \"Test\"\n"
 		"    scene: SCENE_TEST\n"
 		"    locations { TEST_LOC: setting(RSK_SUNLIGHT_ARROWS) }\n"
 		"}\n");
@@ -335,6 +358,7 @@ TEST(ResolveTypes, HostCallReturnsInt) {
 	// hearts()
 	auto [project, diags] = resolveFromSource(
 		"region RR_TEST {\n"
+		"    name: \"Test\"\n"
 		"    scene: SCENE_TEST\n"
 		"    locations { TEST_LOC: hearts() }\n"
 		"}\n");
@@ -346,6 +370,7 @@ TEST(ResolveTypes, HostCallWrongArgType) {
 	// has(RE_ARMOS) — Enemy where Item expected.
 	auto [project, diags] = resolveFromSource(
 		"region RR_TEST {\n"
+		"    name: \"Test\"\n"
 		"    scene: SCENE_TEST\n"
 		"    locations { TEST_LOC: has(RE_ARMOS) }\n"
 		"}\n");
@@ -359,6 +384,7 @@ TEST(ResolveTypes, HostCallTooFewArgs) {
 	// has() — missing required arg.
 	auto [project, diags] = resolveFromSource(
 		"region RR_TEST {\n"
+		"    name: \"Test\"\n"
 		"    scene: SCENE_TEST\n"
 		"    locations { TEST_LOC: has() }\n"
 		"}\n");
@@ -370,6 +396,7 @@ TEST(ResolveTypes, HostCallTooManyArgs) {
 	// has(RG_HOOKSHOT, RG_FAIRY_BOW) — too many.
 	auto [project, diags] = resolveFromSource(
 		"region RR_TEST {\n"
+		"    name: \"Test\"\n"
 		"    scene: SCENE_TEST\n"
 		"    locations { TEST_LOC: has(RG_HOOKSHOT, RG_FAIRY_BOW) }\n"
 		"}\n");
@@ -381,6 +408,7 @@ TEST(ResolveTypes, HostCallOptionalArgOmitted) {
 	// check_price() — 0 args, optional Check param.
 	auto [project, diags] = resolveFromSource(
 		"region RR_TEST {\n"
+		"    name: \"Test\"\n"
 		"    scene: SCENE_TEST\n"
 		"    locations { TEST_LOC: check_price() }\n"
 		"}\n");
@@ -392,6 +420,7 @@ TEST(ResolveTypes, HostCallOptionalArgProvided) {
 	// check_price(RC_SPIRIT_CHEST)
 	auto [project, diags] = resolveFromSource(
 		"region RR_TEST {\n"
+		"    name: \"Test\"\n"
 		"    scene: SCENE_TEST\n"
 		"    locations { TEST_LOC: check_price(RC_SPIRIT_CHEST) }\n"
 		"}\n");
@@ -403,6 +432,7 @@ TEST(ResolveTypes, HostCallMultipleArgs) {
 	// keys(SCENE_SPIRIT_TEMPLE, 3)
 	auto [project, diags] = resolveFromSource(
 		"region RR_TEST {\n"
+		"    name: \"Test\"\n"
 		"    scene: SCENE_TEST\n"
 		"    locations { TEST_LOC: keys(SCENE_SPIRIT_TEMPLE, 3) }\n"
 		"}\n");
@@ -416,6 +446,7 @@ TEST(ResolveTypes, EnemyBuiltinOk) {
 	// can_kill(RE_ARMOS)
 	auto [project, diags] = resolveFromSource(
 		"region RR_TEST {\n"
+		"    name: \"Test\"\n"
 		"    scene: SCENE_TEST\n"
 		"    locations { TEST_LOC: can_kill(RE_ARMOS) }\n"
 		"}\n");
@@ -427,6 +458,7 @@ TEST(ResolveTypes, EnemyBuiltinWithOptionalArgs) {
 	// can_kill(RE_ARMOS, ED_CLOSE) — optional distance arg.
 	auto [project, diags] = resolveFromSource(
 		"region RR_TEST {\n"
+		"    name: \"Test\"\n"
 		"    scene: SCENE_TEST\n"
 		"    locations { TEST_LOC: can_kill(RE_ARMOS, ED_CLOSE) }\n"
 		"}\n");
@@ -438,6 +470,7 @@ TEST(ResolveTypes, EnemyBuiltinAllArgs) {
 	// can_kill(RE_ARMOS, ED_CLOSE, true, 1, false, false)
 	auto [project, diags] = resolveFromSource(
 		"region RR_TEST {\n"
+		"    name: \"Test\"\n"
 		"    scene: SCENE_TEST\n"
 		"    locations { TEST_LOC: can_kill(RE_ARMOS, ED_CLOSE, true, 1, false, false) }\n"
 		"}\n");
@@ -449,6 +482,7 @@ TEST(ResolveTypes, EnemyBuiltinNotEnemy) {
 	// can_kill(RG_HOOKSHOT) — Item, not Enemy.
 	auto [project, diags] = resolveFromSource(
 		"region RR_TEST {\n"
+		"    name: \"Test\"\n"
 		"    scene: SCENE_TEST\n"
 		"    locations { TEST_LOC: can_kill(RG_HOOKSHOT) }\n"
 		"}\n");
@@ -460,6 +494,7 @@ TEST(ResolveTypes, EnemyBuiltinNoArgs) {
 	// can_kill() — missing Enemy arg.
 	auto [project, diags] = resolveFromSource(
 		"region RR_TEST {\n"
+		"    name: \"Test\"\n"
 		"    scene: SCENE_TEST\n"
 		"    locations { TEST_LOC: can_kill() }\n"
 		"}\n");
@@ -471,6 +506,7 @@ TEST(ResolveTypes, EnemyBuiltinTooManyArgs) {
 	// can_kill with 7 args — one too many.
 	auto [project, diags] = resolveFromSource(
 		"region RR_TEST {\n"
+		"    name: \"Test\"\n"
 		"    scene: SCENE_TEST\n"
 		"    locations { TEST_LOC: can_kill(RE_ARMOS, false, false, false, false, false, false) }\n"
 		"}\n");
@@ -482,6 +518,7 @@ TEST(ResolveTypes, EnemyBuiltinWrongOptionalArgType) {
 	// can_kill(RE_ARMOS, RG_HOOKSHOT) — second arg should be Distance.
 	auto [project, diags] = resolveFromSource(
 		"region RR_TEST {\n"
+		"    name: \"Test\"\n"
 		"    scene: SCENE_TEST\n"
 		"    locations { TEST_LOC: can_kill(RE_ARMOS, RG_HOOKSHOT) }\n"
 		"}\n");
@@ -493,6 +530,7 @@ TEST(ResolveTypes, EnemyBuiltinCanPassSignature) {
 	// can_pass(RE_ARMOS, ED_CLOSE, true) — all 3 args.
 	auto [project, diags] = resolveFromSource(
 		"region RR_TEST {\n"
+		"    name: \"Test\"\n"
 		"    scene: SCENE_TEST\n"
 		"    locations { TEST_LOC: can_pass(RE_ARMOS, ED_CLOSE, true) }\n"
 		"}\n");
@@ -503,6 +541,7 @@ TEST(ResolveTypes, EnemyBuiltinCanAvoidSignature) {
 	// can_avoid(RE_ARMOS, false, 2) — all 3 args.
 	auto [project, diags] = resolveFromSource(
 		"region RR_TEST {\n"
+		"    name: \"Test\"\n"
 		"    scene: SCENE_TEST\n"
 		"    locations { TEST_LOC: can_avoid(RE_ARMOS, false, 2) }\n"
 		"}\n");
@@ -513,6 +552,7 @@ TEST(ResolveTypes, EnemyBuiltinCanGetDropSignature) {
 	// can_get_drop(RE_ARMOS, ED_CLOSE, false) — all 3 args.
 	auto [project, diags] = resolveFromSource(
 		"region RR_TEST {\n"
+		"    name: \"Test\"\n"
 		"    scene: SCENE_TEST\n"
 		"    locations { TEST_LOC: can_get_drop(RE_ARMOS, ED_CLOSE, false) }\n"
 		"}\n");
@@ -524,6 +564,7 @@ TEST(ResolveTypes, EnemyBuiltinCanGetDropSignature) {
 TEST(ResolveTypes, UnknownFunction) {
 	auto [project, diags] = resolveFromSource(
 		"region RR_TEST {\n"
+		"    name: \"Test\"\n"
 		"    scene: SCENE_TEST\n"
 		"    locations { TEST_LOC: nonexistent_func() }\n"
 		"}\n");
@@ -538,6 +579,7 @@ TEST(ResolveTypes, UserDefineCallResolvesReturnType) {
 	auto [project, diags] = resolveFromSource(
 		"define has_explosives(): true\n"
 		"region RR_TEST {\n"
+		"    name: \"Test\"\n"
 		"    scene: SCENE_TEST\n"
 		"    locations { TEST_LOC: has_explosives() }\n"
 		"}\n");
@@ -551,6 +593,7 @@ TEST(ResolveTypes, DefineCallArgTypeMatch) {
 	auto [project, diags] = resolveFromSource(
 		"define foo(x: Item): has(x)\n"
 		"region RR_TEST {\n"
+		"    name: \"Test\"\n"
 		"    scene: SCENE_TEST\n"
 		"    locations { TEST_LOC: foo(RG_HOOKSHOT) }\n"
 		"}\n");
@@ -563,6 +606,7 @@ TEST(ResolveTypes, DefineCallArgTypeMismatch) {
 	auto [project, diags] = resolveFromSource(
 		"define foo(x: Item): has(x)\n"
 		"region RR_TEST {\n"
+		"    name: \"Test\"\n"
 		"    scene: SCENE_TEST\n"
 		"    locations { TEST_LOC: foo(RE_ARMOS) }\n"
 		"}\n");
@@ -577,6 +621,7 @@ TEST(ResolveTypes, DefineCallTooFewArgs) {
 	auto [project, diags] = resolveFromSource(
 		"define foo(x: Item): has(x)\n"
 		"region RR_TEST {\n"
+		"    name: \"Test\"\n"
 		"    scene: SCENE_TEST\n"
 		"    locations { TEST_LOC: foo() }\n"
 		"}\n");
@@ -591,6 +636,7 @@ TEST(ResolveTypes, DefineCallTooManyArgs) {
 	auto [project, diags] = resolveFromSource(
 		"define foo(x: Item): has(x)\n"
 		"region RR_TEST {\n"
+		"    name: \"Test\"\n"
 		"    scene: SCENE_TEST\n"
 		"    locations { TEST_LOC: foo(RG_HOOKSHOT, RG_FAIRY_BOW) }\n"
 		"}\n");
@@ -605,6 +651,7 @@ TEST(ResolveTypes, DefineCallWithDefaultOmitted) {
 	auto [project, diags] = resolveFromSource(
 		"define foo(x: Item, d = ED_CLOSE): has(x)\n"
 		"region RR_TEST {\n"
+		"    name: \"Test\"\n"
 		"    scene: SCENE_TEST\n"
 		"    locations { TEST_LOC: foo(RG_HOOKSHOT) }\n"
 		"}\n");
@@ -617,6 +664,7 @@ TEST(ResolveTypes, DefineCallWithDefaultProvided) {
 	auto [project, diags] = resolveFromSource(
 		"define foo(x: Item, d = ED_CLOSE): has(x)\n"
 		"region RR_TEST {\n"
+		"    name: \"Test\"\n"
 		"    scene: SCENE_TEST\n"
 		"    locations { TEST_LOC: foo(RG_HOOKSHOT, ED_FAR) }\n"
 		"}\n");
@@ -629,6 +677,7 @@ TEST(ResolveTypes, DefineCallDefaultArgWrongType) {
 	auto [project, diags] = resolveFromSource(
 		"define foo(x: Item, d = ED_CLOSE): has(x)\n"
 		"region RR_TEST {\n"
+		"    name: \"Test\"\n"
 		"    scene: SCENE_TEST\n"
 		"    locations { TEST_LOC: foo(RG_HOOKSHOT, true) }\n"
 		"}\n");
@@ -643,6 +692,7 @@ TEST(ResolveTypes, DefineCallErrorArgNoCascade) {
 	auto [project, diags] = resolveFromSource(
 		"define foo(x: Item): has(x)\n"
 		"region RR_TEST {\n"
+		"    name: \"Test\"\n"
 		"    scene: SCENE_TEST\n"
 		"    locations { TEST_LOC: foo(unknown_id) }\n"
 		"}\n");
@@ -658,6 +708,7 @@ TEST(ResolveTypes, DefineCallWithRangeArgCount) {
 	auto [project, diags] = resolveFromSource(
 		"define foo(x: Item, d = ED_CLOSE): has(x)\n"
 		"region RR_TEST {\n"
+		"    name: \"Test\"\n"
 		"    scene: SCENE_TEST\n"
 		"    locations { TEST_LOC: foo() }\n"
 		"}\n");
@@ -674,6 +725,7 @@ TEST(ResolveTypes, DefineOrderingCalleeFirst) {
 		"define foo(): bar()\n"
 		"define bar(): true\n"
 		"region RR_TEST {\n"
+		"    name: \"Test\"\n"
 		"    scene: SCENE_TEST\n"
 		"    locations { TEST_LOC: foo() }\n"
 		"}\n");
@@ -688,6 +740,7 @@ TEST(ResolveTypes, DefineOrderingTransitive) {
 		"define b(): c()\n"
 		"define c(): RG_HOOKSHOT\n"
 		"region RR_TEST {\n"
+		"    name: \"Test\"\n"
 		"    scene: SCENE_TEST\n"
 		"    locations { TEST_LOC: a() }\n"
 		"}\n");
@@ -701,6 +754,7 @@ TEST(ResolveTypes, DefineOrderingIndependentDefines) {
 		"define foo(): true\n"
 		"define bar(): 42\n"
 		"region RR_TEST {\n"
+		"    name: \"Test\"\n"
 		"    scene: SCENE_TEST\n"
 		"    locations { TEST_LOC: true }\n"
 		"}\n");
@@ -715,6 +769,7 @@ TEST(ResolveTypes, DefineCycleDetected) {
 		"define foo(): bar()\n"
 		"define bar(): foo()\n"
 		"region RR_TEST {\n"
+		"    name: \"Test\"\n"
 		"    scene: SCENE_TEST\n"
 		"    locations { TEST_LOC: true }\n"
 		"}\n");
@@ -738,6 +793,7 @@ TEST(ResolveTypes, DefineOrderingDefaultValueDep) {
 		"define foo(x = bar()): x\n"
 		"define bar(): RG_HOOKSHOT\n"
 		"region RR_TEST {\n"
+		"    name: \"Test\"\n"
 		"    scene: SCENE_TEST\n"
 		"    locations { TEST_LOC: true }\n"
 		"}\n");
@@ -753,6 +809,7 @@ TEST(ResolveTypes, DefineOrderingDefaultValueDep) {
 TEST(ResolveTypes, SharedBlockBool) {
 	auto [project, diags] = resolveFromSource(
 		"region RR_TEST {\n"
+		"    name: \"Test\"\n"
 		"    scene: SCENE_TEST\n"
 		"    locations {\n"
 		"        TEST_LOC: shared {\n"
@@ -768,6 +825,7 @@ TEST(ResolveTypes, SharedBlockBool) {
 TEST(ResolveTypes, SharedBlockFromHereResolvesRegionName) {
 	auto [project, diags] = resolveFromSource(
 		"region RR_SPIRIT_TEMPLE_STATUE_ROOM {\n"
+		"    name: \"Spirit Temple Statue Room\"\n"
 		"    scene: SCENE_SPIRIT_TEMPLE\n"
 		"    locations {\n"
 		"        RC_TEST_LOC: shared {\n"
@@ -796,6 +854,7 @@ TEST(ResolveTypes, SharedBlockFromHereResolvesRegionName) {
 TEST(ResolveTypes, SharedBlockFromHereMultipleBranches) {
 	auto [project, diags] = resolveFromSource(
 		"region RR_MY_REGION {\n"
+		"    name: \"My Region\"\n"
 		"    scene: SCENE_TEST\n"
 		"    locations {\n"
 		"        RC_LOC: shared {\n"
@@ -823,6 +882,7 @@ TEST(ResolveTypes, SharedBlockFromHereMultipleBranches) {
 TEST(ResolveTypes, SharedBlockFromHereInExtendRegion) {
 	auto [project, diags] = resolveFromSource(
 		"region RR_BASE {\n"
+		"    name: \"Base\"\n"
 		"    scene: SCENE_TEST\n"
 		"}\n"
 		"extend region RR_BASE {\n"
@@ -854,6 +914,7 @@ TEST(ResolveTypes, SharedBlockFromHereInExtendRegion) {
 TEST(ResolveTypes, SharedBlockFromHereAnyAge) {
 	auto [project, diags] = resolveFromSource(
 		"region RR_SUN_BLOCK {\n"
+		"    name: \"Sun Block\"\n"
 		"    scene: SCENE_SPIRIT_TEMPLE\n"
 		"    events {\n"
 		"        LOGIC_SUN_TORCH: shared any_age {\n"
@@ -876,6 +937,7 @@ TEST(ResolveTypes, SharedBlockFromHereAnyAge) {
 TEST(ResolveTypes, SharedBlockFromHereInExit) {
 	auto [project, diags] = resolveFromSource(
 		"region RR_SPIRIT_TEMPLE_CHILD {\n"
+		"    name: \"Spirit Temple Child\"\n"
 		"    scene: SCENE_SPIRIT_TEMPLE\n"
 		"    exits {\n"
 		"        RR_DESERT_COLOSSUS: shared {\n"
@@ -902,6 +964,7 @@ TEST(ResolveTypes, SharedBlockFromHereInExit) {
 TEST(ResolveTypes, AnyAgeBlockBool) {
 	auto [project, diags] = resolveFromSource(
 		"region RR_TEST {\n"
+		"    name: \"Test\"\n"
 		"    scene: SCENE_TEST\n"
 		"    locations { TEST_LOC: any_age { true } }\n"
 		"}\n");
@@ -913,6 +976,7 @@ TEST(ResolveTypes, AnyAgeBlockNonBool) {
 	// any_age { RG_HOOKSHOT } — body is Item, not Bool.
 	auto [project, diags] = resolveFromSource(
 		"region RR_TEST {\n"
+		"    name: \"Test\"\n"
 		"    scene: SCENE_TEST\n"
 		"    locations { TEST_LOC: any_age { RG_HOOKSHOT } }\n"
 		"}\n");
@@ -1043,6 +1107,7 @@ TEST(ResolveTypes, ErrorPoisonSuppressesCascade) {
 	// for the left side being Error; only the "unknown identifier" diagnostic.
 	auto [project, diags] = resolveFromSource(
 		"region RR_TEST {\n"
+		"    name: \"Test\"\n"
 		"    scene: SCENE_TEST\n"
 		"    locations { TEST_LOC: unknown_id and true }\n"
 		"}\n");
@@ -1057,6 +1122,7 @@ TEST(ResolveTypes, ErrorArgDoesNotCascadeInCall) {
 	// but the arg type check (Item vs Error) is suppressed.
 	auto [project, diags] = resolveFromSource(
 		"region RR_TEST {\n"
+		"    name: \"Test\"\n"
 		"    scene: SCENE_TEST\n"
 		"    locations { TEST_LOC: has(unknown_id) }\n"
 		"}\n");
@@ -1070,6 +1136,7 @@ TEST(ResolveTypes, SubExprTypesPopulated) {
 	// has(RG_HOOKSHOT) and can_use(RG_FAIRY_BOW)
 	auto [project, diags] = resolveFromSource(
 		"region RR_TEST {\n"
+		"    name: \"Test\"\n"
 		"    scene: SCENE_TEST\n"
 		"    locations { TEST_LOC: has(RG_HOOKSHOT) and can_use(RG_FAIRY_BOW) }\n"
 		"}\n");
@@ -1096,6 +1163,7 @@ TEST(ResolveTypes, SettingIsComparison) {
 	// → setting() returns Setting, RO_ is Setting, == both Setting → Bool.
 	auto [project, diags] = resolveFromSource(
 		"region RR_TEST {\n"
+		"    name: \"Test\"\n"
 		"    scene: SCENE_TEST\n"
 		"    locations { TEST_LOC: setting(RSK_FOREST) is RO_CLOSED_FOREST_ON }\n"
 		"}\n");
@@ -1107,6 +1175,7 @@ TEST(ResolveTypes, SettingBoolTruthiness) {
 	// setting(RSK_SUNLIGHT_ARROWS) and true — Setting is bool-compatible.
 	auto [project, diags] = resolveFromSource(
 		"region RR_TEST {\n"
+		"    name: \"Test\"\n"
 		"    scene: SCENE_TEST\n"
 		"    locations { TEST_LOC: setting(RSK_SUNLIGHT_ARROWS) and true }\n"
 		"}\n");
@@ -1120,6 +1189,7 @@ TEST(ResolveTypes, CompositeExpression) {
 	// has(RG_HOOKSHOT) or (hearts() >= 3 and trick(RT_SPIRIT_CHILD_CHU))
 	auto [project, diags] = resolveFromSource(
 		"region RR_TEST {\n"
+		"    name: \"Test\"\n"
 		"    scene: SCENE_TEST\n"
 		"    locations { TEST_LOC: has(RG_HOOKSHOT) or (hearts() >= 3 and trick(RT_SPIRIT_CHILD_CHU)) }\n"
 		"}\n");

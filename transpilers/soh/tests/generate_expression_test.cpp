@@ -626,6 +626,7 @@ TEST(SohExpressions, SharedBlockWithExternalCondition) {
 TEST(SohExpressions, SharedBlockFromHere) {
 	auto expr = sourceToRegionExpression(
 		"region RR_SPIRIT_TEMPLE_STATUE_ROOM_CHILD {\n"
+		"    name: \"Spirit Temple Statue Room Child\"\n"
 		"    scene: SCENE_SPIRIT_TEMPLE\n"
 		"    locations {\n"
 		"        RC_TEST_LOCATION: shared {\n"
@@ -645,6 +646,7 @@ TEST(SohExpressions, SharedBlockFromHere) {
 TEST(SohExpressions, SharedBlockFromHereOnly) {
 	auto expr = sourceToRegionExpression(
 		"region RR_SPIRIT_TEMPLE_SUN_BLOCK_CHEST_LEDGE {\n"
+		"    name: \"Spirit Temple Sun Block Chest Ledge\"\n"
 		"    scene: SCENE_SPIRIT_TEMPLE\n"
 		"    events {\n"
 		"        LOGIC_SPIRIT_SUN_BLOCK_TORCH: shared any_age {\n"
@@ -744,6 +746,7 @@ TEST(SohExpressions, MatchComplexCanHitSwitch) {
 TEST(SohExpressions, SharedBlockFromHereWithExternalCondition) {
 	auto expr = sourceToRegionExpression(
 		"region RR_SPIRIT_TEMPLE_STATUE_ROOM_CHILD {\n"
+		"    name: \"Spirit Temple Statue Room Child\"\n"
 		"    scene: SCENE_SPIRIT_TEMPLE\n"
 		"    locations {\n"
 		"        RC_SPIRIT_TEMPLE_MAP_CHEST: has(RG_OPEN_CHEST) and shared {\n"
@@ -769,6 +772,7 @@ TEST(SohExpressions, SharedBlockFromHereWithExternalCondition) {
 TEST(SohExpressions, SharedBlockFromHereThreeBranches) {
 	auto expr = sourceToRegionExpression(
 		"region RR_SPIRIT_TEMPLE_STATUE_ROOM_CHILD {\n"
+		"    name: \"Spirit Temple Statue Room Child\"\n"
 		"    scene: SCENE_SPIRIT_TEMPLE\n"
 		"    locations {\n"
 		"        RC_SPIRIT_TEMPLE_GS_LOBBY: shared {\n"

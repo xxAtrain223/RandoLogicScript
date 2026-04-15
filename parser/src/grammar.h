@@ -100,6 +100,7 @@ struct kw_locations : TAO_PEGTL_STRING("locations") {};
 struct kw_exits : TAO_PEGTL_STRING("exits") {};
 
 // Region properties
+struct kw_name : TAO_PEGTL_STRING("name") {};
 struct kw_scene : TAO_PEGTL_STRING("scene") {};
 struct kw_time_passes : TAO_PEGTL_STRING("time_passes") {};
 struct kw_no_time_passes : TAO_PEGTL_STRING("no_time_passes") {};
@@ -196,6 +197,7 @@ struct reserved : sor<
 	kw<kw_locations>,
 	kw<kw_exits>,
 	// Region properties
+	kw<kw_name>,
 	kw<kw_scene>,
 	kw<kw_areas>,
 	// Boolean literals and aliases
@@ -233,6 +235,11 @@ struct ident : seq<not_at<reserved>, ident_first, star<ident_other>> {};
 
 /// Integer literal: one or more digits.
 struct integer : seq<opt<one<'-'>>, plus<digit>> {};
+
+/// String literal: `"..."` with `\"` and `\\` escape support.
+struct escaped_char : seq<one<'\\'>, one<'"', '\\'>> {};
+struct string_char  : sor<escaped_char, not_one<'"', '\\'>> {};
+struct string_literal : seq<one<'"'>, star<string_char>, must<one<'"'>>> {};
 
 // == Punctuation ==============================================================
 
@@ -439,14 +446,15 @@ struct section : seq<section_kind, must<_, open_brace, _, star<seq<entry, _>>, c
 
 // -- Region -------------------------------------------------------------------
 
-/// region_props = "scene:" IDENT ("time_passes" | "no_time_passes")? ("areas:" ident_list)?
+/// region_props = "name:" STRING "scene:" IDENT ("time_passes" | "no_time_passes")? ("areas:" ident_list)?
 ///
-/// Scene is required; time_passes variant and areas are optional.
-/// Order-sensitive: scene first, then time_passes variant, then areas.
+/// Name and scene are required; time_passes variant and areas are optional.
+/// Order-sensitive: name first, then scene, time_passes variant, areas.
+struct name_prop       : seq<kw<kw_name>, must<_, colon, _, string_literal>> {};
 struct scene_prop      : seq<kw<kw_scene>, must<_, colon, _, ident>> {};
 struct time_prop       : sor<kw<kw_no_time_passes>, kw<kw_time_passes>> {};
 struct areas_prop      : seq<kw<kw_areas>, must<_, colon, _, ident_list>> {};
-struct region_props    : seq<scene_prop, _, opt<seq<time_prop, _>>, opt<seq<areas_prop, _>>> {};
+struct region_props    : seq<name_prop, _, scene_prop, _, opt<seq<time_prop, _>>, opt<seq<areas_prop, _>>> {};
 
 /// region_body = region_props section*
 struct region_body : seq<region_props, star<seq<section, _>>> {};

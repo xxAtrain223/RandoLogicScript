@@ -91,7 +91,7 @@ TEST(ParserTests, MissingExprInDefine) {
 }
 
 TEST(ParserTests, MissingCloseBraceInRegion) {
-	const auto file = rls::parser::ParseString("region RR_TEST { scene: SCENE_TEST");
+	const auto file = rls::parser::ParseString("region RR_TEST { name: \"Test\" scene: SCENE_TEST");
 
 	ASSERT_FALSE(file.diagnostics.empty());
 	EXPECT_EQ(file.diagnostics[0].level, DiagnosticLevel::Error);
@@ -134,14 +134,14 @@ TEST(ParserTests, TrailingOrInMatchExpr) {
 
 TEST(ParserTests, ValidSourceReturnsFile) {
 	const auto file =
-		rls::parser::ParseString("region RR_TEST { scene: SCENE_TEST }");
+		rls::parser::ParseString("region RR_TEST { name: \"Test\" scene: SCENE_TEST }");
 
 	EXPECT_TRUE(file.diagnostics.empty());
 	ASSERT_EQ(file.declarations.size(), 1u);
 	const auto* region =
 		std::get_if<rls::ast::RegionDecl>(&file.declarations[0]);
 	ASSERT_NE(region, nullptr);
-	EXPECT_EQ(region->name, "RR_TEST");
+	EXPECT_EQ(region->key, "RR_TEST");
 	EXPECT_EQ(region->body.scene, "SCENE_TEST");
 }
 
@@ -651,9 +651,9 @@ TEST(ParseDefine, ComplexBody) {
 // == Region declaration =======================================================
 
 TEST(ParseRegion, MinimalRegion) {
-	const auto& decl = parseDecl("region RR_TEST { scene: SCENE_TEST }");
+	const auto& decl = parseDecl("region RR_TEST { name: \"Test\" scene: SCENE_TEST }");
 	const auto& region = std::get<RegionDecl>(decl);
-	EXPECT_EQ(region.name, "RR_TEST");
+	EXPECT_EQ(region.key, "RR_TEST");
 	ASSERT_TRUE(region.body.scene.has_value());
 	EXPECT_EQ(*region.body.scene, "SCENE_TEST");
 	EXPECT_EQ(region.body.timePasses, TimePasses::Auto);
@@ -664,6 +664,7 @@ TEST(ParseRegion, MinimalRegion) {
 TEST(ParseRegion, WithTimePasses) {
 	const auto& decl = parseDecl(
 		"region RR_TEST {\n"
+		"  name: \"Test\"\n"
 		"  scene: SCENE_TEST\n"
 		"  time_passes\n"
 		"}"
@@ -675,6 +676,7 @@ TEST(ParseRegion, WithTimePasses) {
 TEST(ParseRegion, WithNoTimePasses) {
 	const auto& decl = parseDecl(
 		"region RR_TEST {\n"
+		"  name: \"Test\"\n"
 		"  scene: SCENE_TEST\n"
 		"  no_time_passes\n"
 		"}"
@@ -686,6 +688,7 @@ TEST(ParseRegion, WithNoTimePasses) {
 TEST(ParseRegion, WithAreas) {
 	const auto& decl = parseDecl(
 		"region RR_TEST {\n"
+		"  name: \"Test\"\n"
 		"  scene: SCENE_TEST\n"
 		"  areas: AREA_A, AREA_B\n"
 		"}"
@@ -699,6 +702,7 @@ TEST(ParseRegion, WithAreas) {
 TEST(ParseRegion, WithSections) {
 	const auto& decl = parseDecl(
 		"region RR_TEST {\n"
+		"  name: \"Test\"\n"
 		"  scene: SCENE_TEST\n"
 		"  events {\n"
 		"    EV_TEST: can_break_pots()\n"
@@ -721,6 +725,7 @@ TEST(ParseRegion, WithSections) {
 TEST(ParseRegion, SectionEntries) {
 	const auto& decl = parseDecl(
 		"region RR_TEST {\n"
+		"  name: \"Test\"\n"
 		"  scene: SCENE_TEST\n"
 		"  locations {\n"
 		"    RC_POT_1: can_break_pots()\n"
@@ -742,6 +747,7 @@ TEST(ParseRegion, SectionEntries) {
 TEST(ParseRegion, EmptySection) {
 	const auto& decl = parseDecl(
 		"region RR_TEST {\n"
+		"  name: \"Test\"\n"
 		"  scene: SCENE_TEST\n"
 		"  events {}\n"
 		"}"
@@ -755,6 +761,7 @@ TEST(ParseRegion, EmptySection) {
 TEST(ParseRegion, FullRegion) {
 	const auto& decl = parseDecl(
 		"region RR_SPIRIT_FOYER {\n"
+		"  name: \"Spirit Foyer\"\n"
 		"  scene: SCENE_SPIRIT_TEMPLE\n"
 		"  time_passes\n"
 		"  areas: AREA_SPIRIT_TEMPLE\n"
@@ -768,7 +775,7 @@ TEST(ParseRegion, FullRegion) {
 		"}"
 	);
 	const auto& region = std::get<RegionDecl>(decl);
-	EXPECT_EQ(region.name, "RR_SPIRIT_FOYER");
+	EXPECT_EQ(region.key, "RR_SPIRIT_FOYER");
 	EXPECT_EQ(*region.body.scene, "SCENE_SPIRIT_TEMPLE");
 	EXPECT_EQ(region.body.timePasses, TimePasses::Yes);
 	ASSERT_EQ(region.body.areas.size(), 1u);
@@ -892,16 +899,18 @@ TEST(ParseEnemy, FieldWithEmptyParams) {
 TEST(ParseFile, MultipleRegions) {
 	const auto file = parse(
 		"region RR_A {\n"
+		"  name: \"A\"\n"
 		"  scene: SCENE_A\n"
 		"}\n"
 		"\n"
 		"region RR_B {\n"
+		"  name: \"B\"\n"
 		"  scene: SCENE_B\n"
 		"}\n"
 	);
 	ASSERT_EQ(file.declarations.size(), 2u);
-	EXPECT_EQ(std::get<RegionDecl>(file.declarations[0]).name, "RR_A");
-	EXPECT_EQ(std::get<RegionDecl>(file.declarations[1]).name, "RR_B");
+	EXPECT_EQ(std::get<RegionDecl>(file.declarations[0]).key, "RR_A");
+	EXPECT_EQ(std::get<RegionDecl>(file.declarations[1]).key, "RR_B");
 }
 
 TEST(ParseFile, MixedDeclarations) {
@@ -914,6 +923,7 @@ TEST(ParseFile, MixedDeclarations) {
 		"}\n"
 		"\n"
 		"region RR_TEST {\n"
+		"  name: \"Test\"\n"
 		"  scene: SCENE_FOO\n"
 		"  exits {\n"
 		"    RR_OTHER: can_kill(RE_ARMOS)\n"
@@ -940,6 +950,7 @@ TEST(ParseFile, WithComments) {
 		"\n"
 		"# regions\n"
 		"region RR_TEST {\n"
+		"  name: \"Test\"\n"
 		"  scene: SCENE_TEST\n"
 		"}\n"
 	);
@@ -951,6 +962,7 @@ TEST(ParseFile, WithComments) {
 TEST(ParseRealistic, SpiritTempleExcerpt) {
 	const auto file = parse(
 		"region RR_SPIRIT_TEMPLE_FOYER {\n"
+		"  name: \"Spirit Temple Foyer\"\n"
 		"  scene: SCENE_SPIRIT_TEMPLE\n"
 		"  locations {\n"
 		"    RC_SPIRIT_TEMPLE_LOBBY_POT_1: can_break_pots()\n"
@@ -966,7 +978,7 @@ TEST(ParseRealistic, SpiritTempleExcerpt) {
 	);
 	ASSERT_EQ(file.declarations.size(), 1u);
 	const auto& region = std::get<RegionDecl>(file.declarations[0]);
-	EXPECT_EQ(region.name, "RR_SPIRIT_TEMPLE_FOYER");
+	EXPECT_EQ(region.key, "RR_SPIRIT_TEMPLE_FOYER");
 	EXPECT_EQ(*region.body.scene, "SCENE_SPIRIT_TEMPLE");
 	ASSERT_EQ(region.body.sections.size(), 2u);
 
@@ -1033,6 +1045,7 @@ TEST(ParseRealistic, EnemyWithParamFields) {
 TEST(ParseRealistic, SharedInRegionExit) {
 	const auto file = parse(
 		"region RR_TEST {\n"
+		"  name: \"Test\"\n"
 		"  scene: SCENE_TEST\n"
 		"  exits {\n"
 		"    RR_TARGET: shared {\n"
@@ -1056,6 +1069,7 @@ TEST(ParseRealistic, SharedInRegionExit) {
 TEST(ParseRealistic, AnyAgeInRegionExit) {
 	const auto file = parse(
 		"region RR_TEST {\n"
+		"  name: \"Test\"\n"
 		"  scene: SCENE_TEST\n"
 		"  exits {\n"
 		"    RR_TARGET: any_age { has(RG_HOOKSHOT) or has(RG_BOOMERANG) }\n"

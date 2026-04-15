@@ -35,6 +35,7 @@ using selector = tao::pegtl::parse_tree::selector<
 	tao::pegtl::parse_tree::store_content::on<
 		grammar::ident,
 		grammar::integer,
+		grammar::string_literal,
 		grammar::atom_keyword,
 		grammar::type,
 		grammar::comp_op,
@@ -60,6 +61,7 @@ using selector = tao::pegtl::parse_tree::selector<
 		grammar::enemy_decl,
 		grammar::enemy_field,
 		// Region properties
+		grammar::name_prop,
 		grammar::scene_prop,
 		grammar::areas_prop,
 		// Sections & entries

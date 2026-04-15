@@ -211,6 +211,7 @@ Events, locations, and exits are each `Name: condition` entries. The section hea
 
 ```rls
 region RR_SPIRIT_TEMPLE_FOYER {
+    name: "Spirit Temple Foyer"
     scene: SCENE_SPIRIT_TEMPLE
 
     events {
@@ -239,10 +240,11 @@ Key design choices:
 
 #### Region Properties
 
-Regions support optional properties declared before the section blocks:
+Regions support properties declared before the section blocks:
 
 | Property                         | Syntax                  | Default                 | Notes                                                  |
 | -------------------------------- | ----------------------- | ----------------------- | ------------------------------------------------------ |
+| `name`                           | `name: "Display Name"` | *(required)*            | Human-readable region name for the logic tracker and Archipelago. Supports `\"` and `\\` escapes. |
 | `scene`                          | `scene: SCENE_ID`       | *(required)*            | The scene ID for key counting, variant detection, etc. |
 | `time_passes` / `no_time_passes` | keyword                 | Auto-derived from scene | Whether the game clock advances in this region.        |
 | `areas`                          | `areas: [AREA_ID, ...]` | Auto-derived from scene | The set of hint areas this region belongs to.          |
@@ -251,6 +253,7 @@ Defaults are derived automatically from the `scene` value - most regions don't n
 
 ```rls
 region RR_HC_GARDEN {
+    name: "Hyrule Castle Garden"
     scene: SCENE_CASTLE_COURTYARD_GUARDS_DAY
     no_time_passes
     areas: RA_CASTLE_GROUNDS
@@ -270,6 +273,7 @@ The same location identifier can appear in multiple regions with different condi
 ```rls
 # Each carpenter fight is in its own region, but shares one freed-carpenters location
 region RR_GERUDO_FORTRESS_FIGHT_1 {
+    name: "Gerudo Fortress Fight 1"
     scene: SCENE_THIEVES_HIDEOUT
 
     locations {
@@ -279,6 +283,7 @@ region RR_GERUDO_FORTRESS_FIGHT_1 {
 }
 
 region RR_GERUDO_FORTRESS_FIGHT_2 {
+    name: "Gerudo Fortress Fight 2"
     scene: SCENE_THIEVES_HIDEOUT
 
     locations {
@@ -296,6 +301,7 @@ The `SpiritShared` pattern is one of the most complex constructs. RLS replaces i
 
 ```rls
 region RR_SPIRIT_TEMPLE_STATUE_ROOM_CHILD {
+    name: "Spirit Temple Statue Room (Child)"
     scene: SCENE_SPIRIT_TEMPLE
 
     locations {
@@ -328,6 +334,7 @@ In RLS, this is expressed by adding the `any_age` modifier after `shared`:
 
 ```rls
 region RR_SPIRIT_TEMPLE_SUN_BLOCK_CHEST_LEDGE {
+    name: "Spirit Temple Sun Block Chest Ledge"
     scene: SCENE_SPIRIT_TEMPLE
 
     events {
@@ -366,6 +373,7 @@ The `shared` block:
 
 ```rls
 region RR_SPIRIT_TEMPLE_ENTRYWAY {
+    name: "Spirit Temple Entryway"
     scene: SCENE_SPIRIT_TEMPLE
 
     exits {
@@ -1070,9 +1078,13 @@ file          = (region | extend | define | enemy)* ;
 region        = "region" IDENT "{" region_body "}" ;
 extend        = "extend" "region" IDENT "{" section* "}" ;
 region_body   = region_props section* ;
-region_props  = "scene:" IDENT
+region_props  = "name:" STRING_LITERAL
+                "scene:" IDENT
                 ("time_passes" | "no_time_passes")?
                 ("areas:" ident_list )? ;
+
+STRING_LITERAL = '"' ( ESCAPED_CHAR | [^"\\] )* '"' ;
+ESCAPED_CHAR   = '\\' ( '"' | '\\' ) ;
 
 section       = section_kind "{" entry* "}" ;
 section_kind  = "events" | "locations" | "exits" ;
@@ -1226,6 +1238,7 @@ The migration will be done as **one large PR** rather than incrementally. This a
 # ── Vanilla Regions ─────────────────────────────────────
 
 region RR_SPIRIT_TEMPLE_ENTRYWAY {
+    name: "Spirit Temple Entryway"
     scene: SCENE_SPIRIT_TEMPLE
 
     exits {
@@ -1236,6 +1249,7 @@ region RR_SPIRIT_TEMPLE_ENTRYWAY {
 }
 
 region RR_SPIRIT_TEMPLE_FOYER {
+    name: "Spirit Temple Foyer"
     scene: SCENE_SPIRIT_TEMPLE
 
     events {
@@ -1258,6 +1272,7 @@ region RR_SPIRIT_TEMPLE_FOYER {
 }
 
 region RR_SPIRIT_TEMPLE_CHILD_SIDE_HUB {
+    name: "Spirit Temple Child Side Hub"
     scene: SCENE_SPIRIT_TEMPLE
 
     events {
@@ -1275,6 +1290,7 @@ region RR_SPIRIT_TEMPLE_CHILD_SIDE_HUB {
 }
 
 region RR_SPIRIT_TEMPLE_SWITCH_BRIDGE_SOUTH {
+    name: "Spirit Temple Switch Bridge South"
     scene: SCENE_SPIRIT_TEMPLE
 
     events {
@@ -1295,6 +1311,7 @@ region RR_SPIRIT_TEMPLE_SWITCH_BRIDGE_SOUTH {
 }
 
 region RR_SPIRIT_TEMPLE_STATUE_ROOM_CHILD {
+    name: "Spirit Temple Statue Room (Child)"
     scene: SCENE_SPIRIT_TEMPLE
 
     locations {

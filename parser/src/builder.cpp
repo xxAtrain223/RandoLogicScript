@@ -356,10 +356,11 @@ ast::Section buildSection(const Node& n, Diags& diags) {
 // =============================================================================
 
 ast::RegionDecl buildRegionDecl(const Node& n, Diags& diags) {
-	// children: [ident(name), scene_prop, optional time_prop,
+	// children: [ident(key), name_prop, scene_prop, optional time_prop,
 	//            optional areas_prop, section, section, ...]
-	std::string name(n.children[0]->string_view());
+	std::string key(n.children[0]->string_view());
 
+	std::string name;
 	std::optional<std::string> scene;
 	ast::TimePasses timePasses = ast::TimePasses::Auto;
 	std::vector<std::string> areas;
@@ -367,7 +368,25 @@ ast::RegionDecl buildRegionDecl(const Node& n, Diags& diags) {
 
 	for (size_t i = 1; i < n.children.size(); ++i) {
 		const auto& child = *n.children[i];
-		if (child.is_type<grammar::scene_prop>()) {
+		if (child.is_type<grammar::name_prop>()) {
+			// name_prop children: [string_literal]
+			auto raw = child.children[0]->string_view();
+			// Strip surrounding quotes and process escape sequences
+			if (raw.size() >= 2) {
+				raw.remove_prefix(1);
+				raw.remove_suffix(1);
+			}
+			std::string unescaped;
+			unescaped.reserve(raw.size());
+			for (size_t j = 0; j < raw.size(); ++j) {
+				if (raw[j] == '\\' && j + 1 < raw.size()) {
+					unescaped += raw[++j];
+				} else {
+					unescaped += raw[j];
+				}
+			}
+			name = std::move(unescaped);
+		} else if (child.is_type<grammar::scene_prop>()) {
 			// scene_prop children: [ident(scene_name)]
 			scene = std::string(child.children[0]->string_view());
 		} else if (child.is_type<grammar::time_prop>()) {
@@ -385,8 +404,8 @@ ast::RegionDecl buildRegionDecl(const Node& n, Diags& diags) {
 	}
 
 	return ast::RegionDecl(
-		std::move(name),
-		ast::RegionBody(std::move(scene), timePasses,
+		std::move(key),
+		ast::RegionBody(std::move(name), std::move(scene), timePasses,
 			std::move(areas), std::move(sections)),
 		makeSpan(n));
 }
