@@ -39,5 +39,6 @@ Input paths can be individual `.rls` files or directories (which are recursively
 
 ## Docs
 
-- [Language Overview](docs\RandoLogicScript-Overview.md)
-- [Language Design Doc](docs\RandoLogicScript-Full.md)
+- [Language Overview](docs/RandoLogicScript-Overview.md)
+- [Language Design Doc](docs/RandoLogicScript-Full.md)
+- [Building Guide](docs/BUILDING.md)
