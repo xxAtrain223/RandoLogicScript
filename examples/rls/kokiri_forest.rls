@@ -1,0 +1,61 @@
+region RR_KF_LINKS_HOUSE {
+    name: "KF Link's House"
+    scene: SCENE_LINKS_HOUSE
+    no_time_passes
+
+    locations {
+        RC_KF_LINKS_HOUSE_POT: has(RG_POWER_BRACELET)
+    }
+
+    exits {
+        RR_KF_LINKS_PORCH: always
+    }
+}
+
+region RR_KF_LINKS_PORCH {
+    name: "KF Link's Porch"
+    scene: SCENE_KOKIRI_FOREST
+    no_time_passes
+
+    exits {
+        RR_KF_LINKS_HOUSE: always
+        RR_KOKIRI_FOREST: always
+    }
+}
+
+region RR_KOKIRI_FOREST {
+    name: "Kokiri Forest"
+    scene: SCENE_KOKIRI_FOREST
+    no_time_passes
+
+    events {
+        LOGIC_FAIRY_ACCESS:
+            call_gossip_fairy_except_suns() or (
+                is_child and
+                can_use(RG_MAGIC_BEAN) and 
+                has(RG_KOKIRI_FOREST_BEAN_SOUL) and
+                can_use(RG_SONG_OF_STORMS)
+            )
+        LOGIC_SHOWED_MIDO_SWORD_AND_SHIELD:
+            is_child and
+            has(RG_SPEAK_KOKIRI) and
+            can_use(RG_KOKIRI_SWORD) and
+            can_use(RG_DEKU_SHIELD)
+    }
+
+    exits {
+        RR_KF_BOULDER_LOOP: can_use(RG_CRAWL)
+        RR_KF_LINKS_PORCH: is_child ? can_climb_ladder() : (has(RG_CLIMB) or can_use(RG_HOVER_BOOTS))
+        RR_KF_MIDOS_HOUSE: always
+        RR_KF_SARIAS_HOUSE: always
+        RR_KF_HOUSE_OF_TWINS: always
+        RR_KF_KNOW_IT_ALL_HOUSE: always
+        RR_KF_KOKIRI_SHOP: always
+        RR_KF_OUTSIDE_DEKU_TREE: flag(LOGIC_SHOWED_MIDO_SWORD_AND_SHIELD) or setting(RSK_FOREST) is RO_CLOSED_FOREST_OFF or
+            (is_adult and (can_pass(RE_BIG_SKULLTULA) or flag(LOGIC_FOREST_TEMPLE_CLEAR)))
+        RR_KF_OUTSIDE_LOST_WOODS: has(RG_CLIMB) or can_use(RG_HOOKSHOT) or
+            (is_adult and (can_plant_bean(RR_KOKIRI_FOREST, RG_KOKIRI_FOREST_BEAN_SOUL) or trick(RT_UNINTUITIVE_JUMPS)))
+        RR_KF_RUPEE_ALCOVE: is_adult and can_plant_bean(RR_KOKIRI_FOREST, RG_KOKIRI_FOREST_BEAN_SOUL)
+        RR_LW_BRIDGE_FROM_FOREST: is_adult or setting(RSK_FOREST) is not RO_CLOSED_FOREST_ON or flag(LOGIC_DEKU_TREE_CLEAR)
+    }
+}

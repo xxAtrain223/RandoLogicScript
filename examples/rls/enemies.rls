@@ -1,0 +1,27 @@
+enemy RE_GOLD_SKULLTULA {
+    kill(distance, wallOrFloor): match distance {
+        ED_CLOSE:                  can_use(RG_MEGATON_HAMMER) or
+        ED_SHORT_JUMPSLASH:        can_use(RG_KOKIRI_SWORD) or
+        ED_MASTER_SWORD_JUMPSLASH: can_use(RG_MASTER_SWORD) or
+        ED_LONG_JUMPSLASH:         can_use(RG_BIGGORON_SWORD) or can_use(RG_STICKS) or
+        ED_BOMB_THROW:             can_use(RG_BOMB_BAG) or
+        ED_BOOMERANG:              can_use(RG_BOOMERANG) or can_use(RG_DINS_FIRE) or
+        ED_HOOKSHOT:               can_use(RG_HOOKSHOT) or
+        ED_LONGSHOT:               can_use(RG_LONGSHOT) or (wallOrFloor and can_use(RG_BOMBCHU_5)) or
+        ED_FAR:                    can_use(RG_FAIRY_SLINGSHOT) or can_use(RG_FAIRY_BOW)
+    }
+    drop(distance): match distance {
+        ED_CLOSE or
+        ED_SHORT_JUMPSLASH or
+        ED_MASTER_SWORD_JUMPSLASH or
+        ED_LONG_JUMPSLASH or
+        ED_BOMB_THROW or
+        ED_BOOMERANG:
+            can_use(RG_BOOMERANG) or
+        ED_HOOKSHOT:
+            can_use(RG_HOOKSHOT) or
+        ED_LONGSHOT:
+            can_use(RG_LONGSHOT)
+        # RANDOTODO double check all jumpslash kills that might be out of jump/backflip range
+    }
+}

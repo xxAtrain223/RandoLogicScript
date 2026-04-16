@@ -1,0 +1,20 @@
+define call_gossip_fairy_except_suns():
+    can_use(RG_ZELDAS_LULLABY) or
+    can_use(RG_EPONAS_SONG) or
+    can_use(RG_SONG_OF_TIME)
+
+define can_cut_shrubs():
+    can_use(RG_KOKIRI_SWORD) or can_use(RG_BOOMERANG) or has_explosives() or has(RG_GORONS_BRACELET) or
+    can_use(RG_MASTER_SWORD) or can_use(RG_MEGATON_HAMMER) or can_use(RG_BIGGORON_SWORD) or can_use(RG_GIANTS_KNIFE)
+    
+define has_explosives():
+    can_use(RG_BOMB_BAG) or can_use(RG_BOMBCHU_5)
+
+define can_get_night_time_gs():
+    at_night and (can_use(RG_SUNS_SONG) or not setting(RSK_SKULLS_SUNS_SONG))
+
+define can_spawn_soil_skull(bean: Item):
+    is_child and can_use(RG_BOTTLE_WITH_BUGS) and has(bean)
+
+define can_climb_ladder():
+    has(RG_CLIMB) or (trick(RT_HOOKSHOT_LADDERS) and can_use(RG_HOOKSHOT))
