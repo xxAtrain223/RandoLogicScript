@@ -107,6 +107,10 @@ TEST(LexIdentifier, KeywordRegionIsNotIdentifier) {
 	EXPECT_FALSE(matches<ident>("region"));
 }
 
+TEST(LexIdentifier, KeywordExternIsNotIdentifier) {
+	EXPECT_FALSE(matches<ident>("extern"));
+}
+
 TEST(LexIdentifier, KeywordTrueIsNotIdentifier) {
 	EXPECT_FALSE(matches<ident>("true"));
 }
@@ -186,6 +190,10 @@ TEST(LexInteger, AlphaFails) {
 
 TEST(LexKeyword, RegionExact) {
 	EXPECT_TRUE(matches<kw<kw_region>>("region"));
+}
+
+TEST(LexKeyword, ExternExact) {
+	EXPECT_TRUE(matches<kw<kw_extern>>("extern"));
 }
 
 TEST(LexKeyword, RegionFollowedBySpace) {

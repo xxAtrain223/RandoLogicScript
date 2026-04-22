@@ -312,6 +312,20 @@ TEST(DeclDefine, ComplexBody) {
 	));
 }
 
+// == Extern define ============================================================
+
+TEST(DeclExternDefine, NoParams) {
+	EXPECT_TRUE(matches<extern_define_decl>(
+		"extern define has(RG_ITEM)"
+	));
+}
+
+TEST(DeclExternDefine, WithParams) {
+	EXPECT_TRUE(matches<extern_define_decl>(
+		"extern define can_hit_switch(distance: int = ED_CLOSE, inWater = false)"
+	));
+}
+
 // == Enemy ====================================================================
 
 TEST(DeclEnemy, SingleField) {
@@ -372,6 +386,10 @@ TEST(DeclDeclaration, Define) {
 	EXPECT_TRUE(matches<declaration>("define foo(): true"));
 }
 
+TEST(DeclDeclaration, ExternDefine) {
+	EXPECT_TRUE(matches<declaration>("extern define can_use(item)"));
+}
+
 TEST(DeclDeclaration, Enemy) {
 	EXPECT_TRUE(matches<declaration>("enemy RE_TEST { kill: true }"));
 }
@@ -396,6 +414,10 @@ TEST(DeclFile, SingleRegion) {
 
 TEST(DeclFile, SingleDefine) {
 	EXPECT_TRUE(matches<rls_file>("define foo(): true"));
+}
+
+TEST(DeclFile, SingleExternDefine) {
+	EXPECT_TRUE(matches<rls_file>("extern define can_use(item)"));
 }
 
 TEST(DeclFile, MultipleDeclarations) {
@@ -425,6 +447,9 @@ TEST(DeclFile, MultipleDeclarations) {
 
 TEST(DeclFile, MixedDeclarations) {
 	EXPECT_TRUE(matches<rls_file>(
+		"extern define has(item)\n"
+		"extern define can_use(item)\n"
+		"\n"
 		"define has_explosives():\n"
 		"  has(RG_BOMB_BAG) or has(RG_BOMBCHU_5)\n"
 		"\n"

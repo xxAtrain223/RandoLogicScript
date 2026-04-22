@@ -91,6 +91,7 @@ using namespace tao::pegtl;
 // Top-level declarations
 struct kw_region : TAO_PEGTL_STRING("region") {};
 struct kw_extend : TAO_PEGTL_STRING("extend") {};
+struct kw_extern : TAO_PEGTL_STRING("extern") {};
 struct kw_define : TAO_PEGTL_STRING("define") {};
 struct kw_enemy : TAO_PEGTL_STRING("enemy") {};
 
@@ -190,6 +191,7 @@ struct reserved : sor<
 	// Top-level declarations
 	kw<kw_region>,
 	kw<kw_extend>,
+	kw<kw_extern>,
 	kw<kw_define>,
 	kw<kw_enemy>,
 	// Region sections
@@ -481,6 +483,12 @@ struct define_decl : seq<
 	colon, _, expr>
 > {};
 
+/// extern define = "extern" "define" IDENT "(" params? ")"
+struct extern_define_decl : seq<
+	kw<kw_extern>, must<_, kw<kw_define>, _, ident, _,
+	open_paren, _, opt<params>, _, close_paren>
+> {};
+
 // -- Enemy --------------------------------------------------------------------
 
 /// enemy_field_kind = "kill" | "pass" | "drop" | "avoid"
@@ -503,8 +511,8 @@ struct enemy_decl : seq<
 
 // -- Top-level file -----------------------------------------------------------
 
-/// declaration = region | extend | define | enemy
-struct declaration : sor<region_decl, extend_decl, define_decl, enemy_decl> {};
+/// declaration = region | extend | extern define | define | enemy
+struct declaration : sor<region_decl, extend_decl, extern_define_decl, define_decl, enemy_decl> {};
 
 /// file = _ (declaration _)* eof
 /// Named `rls_file` to avoid clashing with any PEGTL or std types.
