@@ -331,6 +331,21 @@ struct DefineDecl {
 		  span(span) {}
 };
 
+/// `extern define name(params)`
+struct ExternDefineDecl {
+	std::string name;
+	std::vector<Param> params;
+	Span span;
+
+	ExternDefineDecl(
+		std::string name,
+		std::vector<Param> params,
+		Span span = {})
+		: name(std::move(name)),
+		  params(std::move(params)),
+		  span(span) {}
+};
+
 /// `enemy RE_NAME { kill: ..., pass: ..., drop: ..., avoid: ... }`
 struct EnemyDecl {
 	std::string name;
@@ -344,8 +359,8 @@ struct EnemyDecl {
 		  span(span) {}
 };
 
-/// A top-level declaration: region, extend region, define, or enemy.
-using Decl = std::variant<RegionDecl, ExtendRegionDecl, DefineDecl, EnemyDecl>;
+/// A top-level declaration: region, extend region, define, extern define, or enemy.
+using Decl = std::variant<RegionDecl, ExtendRegionDecl, DefineDecl, ExternDefineDecl, EnemyDecl>;
 
 // == Diagnostics ==============================================================
 

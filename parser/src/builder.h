@@ -58,6 +58,7 @@ using selector = tao::pegtl::parse_tree::selector<
 		grammar::region_decl,
 		grammar::extend_decl,
 		grammar::define_decl,
+		grammar::extern_define_decl,
 		grammar::enemy_decl,
 		grammar::enemy_field,
 		// Region properties

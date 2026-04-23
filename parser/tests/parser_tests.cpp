@@ -648,6 +648,36 @@ TEST(ParseDefine, ComplexBody) {
 	EXPECT_TRUE(std::holds_alternative<TernaryExpr>(call.args[1].value->node));
 }
 
+// == Extern define declaration ===============================================
+
+TEST(ParseExternDefine, NoParams) {
+	const auto& decl = parseDecl("extern define has(item)");
+	const auto& ext = std::get<ExternDefineDecl>(decl);
+	EXPECT_EQ(ext.name, "has");
+	ASSERT_EQ(ext.params.size(), 1u);
+	EXPECT_EQ(ext.params[0].name, "item");
+	EXPECT_FALSE(ext.params[0].type.has_value());
+	EXPECT_EQ(ext.params[0].defaultValue, nullptr);
+}
+
+TEST(ParseExternDefine, TypedAndDefaultedParams) {
+	const auto& decl = parseDecl("extern define can_hit_switch(distance: int = ED_CLOSE, inWater = false)");
+	const auto& ext = std::get<ExternDefineDecl>(decl);
+	EXPECT_EQ(ext.name, "can_hit_switch");
+	ASSERT_EQ(ext.params.size(), 2u);
+
+	EXPECT_EQ(ext.params[0].name, "distance");
+	ASSERT_TRUE(ext.params[0].type.has_value());
+	EXPECT_EQ(*ext.params[0].type, "int");
+	ASSERT_NE(ext.params[0].defaultValue, nullptr);
+	EXPECT_TRUE(std::holds_alternative<Identifier>(ext.params[0].defaultValue->node));
+
+	EXPECT_EQ(ext.params[1].name, "inWater");
+	EXPECT_FALSE(ext.params[1].type.has_value());
+	ASSERT_NE(ext.params[1].defaultValue, nullptr);
+	EXPECT_TRUE(std::holds_alternative<BoolLiteral>(ext.params[1].defaultValue->node));
+}
+
 // == Region declaration =======================================================
 
 TEST(ParseRegion, MinimalRegion) {
@@ -915,6 +945,8 @@ TEST(ParseFile, MultipleRegions) {
 
 TEST(ParseFile, MixedDeclarations) {
 	const auto file = parse(
+		"extern define has(item)\n"
+		"\n"
 		"define has_explosives():\n"
 		"  has(RG_BOMB_BAG) or has(RG_BOMBCHU_5)\n"
 		"\n"
@@ -936,11 +968,12 @@ TEST(ParseFile, MixedDeclarations) {
 		"  }\n"
 		"}\n"
 	);
-	ASSERT_EQ(file.declarations.size(), 4u);
-	EXPECT_TRUE(std::holds_alternative<DefineDecl>(file.declarations[0]));
-	EXPECT_TRUE(std::holds_alternative<EnemyDecl>(file.declarations[1]));
-	EXPECT_TRUE(std::holds_alternative<RegionDecl>(file.declarations[2]));
-	EXPECT_TRUE(std::holds_alternative<ExtendRegionDecl>(file.declarations[3]));
+	ASSERT_EQ(file.declarations.size(), 5u);
+	EXPECT_TRUE(std::holds_alternative<ExternDefineDecl>(file.declarations[0]));
+	EXPECT_TRUE(std::holds_alternative<DefineDecl>(file.declarations[1]));
+	EXPECT_TRUE(std::holds_alternative<EnemyDecl>(file.declarations[2]));
+	EXPECT_TRUE(std::holds_alternative<RegionDecl>(file.declarations[3]));
+	EXPECT_TRUE(std::holds_alternative<ExtendRegionDecl>(file.declarations[4]));
 }
 
 TEST(ParseFile, WithComments) {

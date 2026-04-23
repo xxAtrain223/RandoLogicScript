@@ -439,6 +439,21 @@ ast::DefineDecl buildDefineDecl(const Node& n, Diags& diags) {
 		std::move(name), std::move(params), std::move(body), makeSpan(n));
 }
 
+ast::ExternDefineDecl buildExternDefineDecl(const Node& n, Diags& diags) {
+	// children: [ident(name), param, param, ...]
+	std::string name(n.children[0]->string_view());
+	std::vector<ast::Param> params;
+
+	for (size_t i = 1; i < n.children.size(); ++i) {
+		if (n.children[i]->is_type<grammar::param>()) {
+			params.push_back(buildParam(*n.children[i], diags));
+		}
+	}
+
+	return ast::ExternDefineDecl(
+		std::move(name), std::move(params), makeSpan(n));
+}
+
 ast::EnemyDecl buildEnemyDecl(const Node& n, Diags& diags) {
 	// children: [ident(name), enemy_field, enemy_field, ...]
 	std::string name(n.children[0]->string_view());
@@ -477,6 +492,7 @@ std::optional<ast::Decl> buildDecl(const Node& n, Diags& diags) {
 	if (n.is_type<grammar::region_decl>()) return buildRegionDecl(n, diags);
 	if (n.is_type<grammar::extend_decl>()) return buildExtendDecl(n, diags);
 	if (n.is_type<grammar::define_decl>()) return buildDefineDecl(n, diags);
+	if (n.is_type<grammar::extern_define_decl>()) return buildExternDefineDecl(n, diags);
 	if (n.is_type<grammar::enemy_decl>())  return buildEnemyDecl(n, diags);
 	emitError(diags, "unhandled declaration node type: " + std::string(n.type), n);
 	return std::nullopt;
