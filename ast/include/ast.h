@@ -335,6 +335,7 @@ struct DefineDecl {
 struct ExternDefineDecl {
 	std::string name;
 	std::vector<Param> params;
+	std::optional<std::string> returnType;
 	Span span;
 
 	ExternDefineDecl(
@@ -343,6 +344,17 @@ struct ExternDefineDecl {
 		Span span = {})
 		: name(std::move(name)),
 		  params(std::move(params)),
+		  returnType(std::nullopt),
+		  span(span) {}
+
+	ExternDefineDecl(
+		std::string name,
+		std::vector<Param> params,
+		std::optional<std::string> returnType,
+		Span span = {})
+		: name(std::move(name)),
+		  params(std::move(params)),
+		  returnType(std::move(returnType)),
 		  span(span) {}
 };
 

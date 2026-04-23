@@ -471,7 +471,7 @@ TEST(CollectDeclarations, ParsedDefine) {
 TEST(CollectDeclarations, ParsedExternDefine) {
 	Project project;
 	project.files.push_back(rls::parser::ParseString(
-		"extern define can_hit_switch(distance: int = ED_CLOSE, inWater = false)\n",
+		"extern define can_hit_switch(distance: Distance = ED_CLOSE, inWater = false) -> Bool\n",
 		"externs.rls"
 	));
 

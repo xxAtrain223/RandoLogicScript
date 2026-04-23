@@ -7,6 +7,7 @@
 // Internal header for direct unit testing.
 #include "collect_declarations.h"
 #include "resolve_types.h"
+#include "type_helpers.h"
 
 using namespace rls::ast;
 using namespace rls::sema;

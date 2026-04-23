@@ -4,6 +4,7 @@
 
 #include "ast.h"
 
+#include <optional>
 #include <string_view>
 #include <type_traits>
 #include <unordered_set>
@@ -41,6 +42,38 @@ inline bool isBoolCompatible(ast::Type t) {
 	return t == ast::Type::Bool
 		|| t == ast::Type::Int
 		|| t == ast::Type::Setting;
+}
+
+/// Parse a type annotation string (e.g. "Distance") to a Type enum value.
+/// Returns nullopt if the annotation is not a recognized type name.
+inline std::optional<ast::Type> typeFromAnnotation(std::string_view annotation) {
+	struct Entry {
+		std::string_view name;
+		ast::Type type;
+	};
+
+	static constexpr Entry table[] = {
+		{"Bool",       ast::Type::Bool},
+		{"Int",        ast::Type::Int},
+		{"Item",       ast::Type::Item},
+		{"Enemy",      ast::Type::Enemy},
+		{"Distance",   ast::Type::Distance},
+		{"Trick",      ast::Type::Trick},
+		{"Setting",    ast::Type::Setting},
+		{"Region",     ast::Type::Region},
+		{"Check",      ast::Type::Check},
+		{"Logic",      ast::Type::Logic},
+		{"Scene",      ast::Type::Scene},
+		{"Dungeon",    ast::Type::Dungeon},
+		{"Area",       ast::Type::Area},
+		{"Trial",      ast::Type::Trial},
+		{"WaterLevel", ast::Type::WaterLevel},
+	};
+
+	for (const auto& [name, type] : table) {
+		if (annotation == name) return type;
+	}
+	return std::nullopt;
 }
 
 /// Recursively walk an expression tree and collect the names of every

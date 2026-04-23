@@ -16,6 +16,8 @@ namespace rls::sema {
 ///   - every region must be reachable from RR_ROOT via exits
 ///   - every define should be referenced somewhere (info)
 ///   - define/extern define signatures must have valid parameter/default shapes
+///   - extern define parameters must be typed (or inferred from defaults)
+///     and extern define return types must be declared and valid
 std::vector<ast::Diagnostic> validateDeclarations(ast::Project& project);
 
 } // namespace rls::sema

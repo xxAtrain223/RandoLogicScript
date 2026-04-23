@@ -252,6 +252,7 @@ struct close_paren   : one<')'> {};
 struct colon         : one<':'> {};
 struct comma         : one<','> {};
 struct question_mark : one<'?'> {};
+struct arrow         : string<'-', '>'> {};
 
 // == Operators ================================================================
 
@@ -483,10 +484,11 @@ struct define_decl : seq<
 	colon, _, expr>
 > {};
 
-/// extern define = "extern" "define" IDENT "(" params? ")"
+/// extern define = "extern" "define" IDENT "(" params? ")" "->" type
 struct extern_define_decl : seq<
 	kw<kw_extern>, must<_, kw<kw_define>, _, ident, _,
-	open_paren, _, opt<params>, _, close_paren>
+	open_paren, _, opt<params>, _, close_paren, _,
+	arrow, _, type>
 > {};
 
 // -- Enemy --------------------------------------------------------------------

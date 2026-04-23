@@ -316,13 +316,19 @@ TEST(DeclDefine, ComplexBody) {
 
 TEST(DeclExternDefine, NoParams) {
 	EXPECT_TRUE(matches<extern_define_decl>(
-		"extern define has(RG_ITEM)"
+		"extern define has(item) -> Bool"
 	));
 }
 
 TEST(DeclExternDefine, WithParams) {
 	EXPECT_TRUE(matches<extern_define_decl>(
-		"extern define can_hit_switch(distance: int = ED_CLOSE, inWater = false)"
+		"extern define can_hit_switch(distance: Distance = ED_CLOSE, inWater = false) -> Bool"
+	));
+}
+
+TEST(DeclExternDefine, MissingReturnTypeFails) {
+	EXPECT_FALSE(matches<extern_define_decl>(
+		"extern define can_hit_switch(distance: Distance = ED_CLOSE, inWater = false)"
 	));
 }
 
@@ -387,7 +393,7 @@ TEST(DeclDeclaration, Define) {
 }
 
 TEST(DeclDeclaration, ExternDefine) {
-	EXPECT_TRUE(matches<declaration>("extern define can_use(item)"));
+	EXPECT_TRUE(matches<declaration>("extern define can_use(item) -> Bool"));
 }
 
 TEST(DeclDeclaration, Enemy) {
@@ -417,7 +423,7 @@ TEST(DeclFile, SingleDefine) {
 }
 
 TEST(DeclFile, SingleExternDefine) {
-	EXPECT_TRUE(matches<rls_file>("extern define can_use(item)"));
+	EXPECT_TRUE(matches<rls_file>("extern define can_use(item) -> Bool"));
 }
 
 TEST(DeclFile, MultipleDeclarations) {
@@ -447,8 +453,8 @@ TEST(DeclFile, MultipleDeclarations) {
 
 TEST(DeclFile, MixedDeclarations) {
 	EXPECT_TRUE(matches<rls_file>(
-		"extern define has(item)\n"
-		"extern define can_use(item)\n"
+		"extern define has(item) -> Bool\n"
+		"extern define can_use(item) -> Bool\n"
 		"\n"
 		"define has_explosives():\n"
 		"  has(RG_BOMB_BAG) or has(RG_BOMBCHU_5)\n"

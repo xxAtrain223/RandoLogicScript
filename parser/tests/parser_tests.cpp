@@ -651,24 +651,26 @@ TEST(ParseDefine, ComplexBody) {
 // == Extern define declaration ===============================================
 
 TEST(ParseExternDefine, NoParams) {
-	const auto& decl = parseDecl("extern define has(item)");
+	const auto& decl = parseDecl("extern define has(item) -> Bool");
 	const auto& ext = std::get<ExternDefineDecl>(decl);
 	EXPECT_EQ(ext.name, "has");
 	ASSERT_EQ(ext.params.size(), 1u);
 	EXPECT_EQ(ext.params[0].name, "item");
 	EXPECT_FALSE(ext.params[0].type.has_value());
 	EXPECT_EQ(ext.params[0].defaultValue, nullptr);
+	ASSERT_TRUE(ext.returnType.has_value());
+	EXPECT_EQ(*ext.returnType, "Bool");
 }
 
 TEST(ParseExternDefine, TypedAndDefaultedParams) {
-	const auto& decl = parseDecl("extern define can_hit_switch(distance: int = ED_CLOSE, inWater = false)");
+	const auto& decl = parseDecl("extern define can_hit_switch(distance: Distance = ED_CLOSE, inWater = false) -> Bool");
 	const auto& ext = std::get<ExternDefineDecl>(decl);
 	EXPECT_EQ(ext.name, "can_hit_switch");
 	ASSERT_EQ(ext.params.size(), 2u);
 
 	EXPECT_EQ(ext.params[0].name, "distance");
 	ASSERT_TRUE(ext.params[0].type.has_value());
-	EXPECT_EQ(*ext.params[0].type, "int");
+	EXPECT_EQ(*ext.params[0].type, "Distance");
 	ASSERT_NE(ext.params[0].defaultValue, nullptr);
 	EXPECT_TRUE(std::holds_alternative<Identifier>(ext.params[0].defaultValue->node));
 
@@ -676,6 +678,8 @@ TEST(ParseExternDefine, TypedAndDefaultedParams) {
 	EXPECT_FALSE(ext.params[1].type.has_value());
 	ASSERT_NE(ext.params[1].defaultValue, nullptr);
 	EXPECT_TRUE(std::holds_alternative<BoolLiteral>(ext.params[1].defaultValue->node));
+	ASSERT_TRUE(ext.returnType.has_value());
+	EXPECT_EQ(*ext.returnType, "Bool");
 }
 
 // == Region declaration =======================================================
@@ -945,7 +949,7 @@ TEST(ParseFile, MultipleRegions) {
 
 TEST(ParseFile, MixedDeclarations) {
 	const auto file = parse(
-		"extern define has(item)\n"
+		"extern define has(item) -> Bool\n"
 		"\n"
 		"define has_explosives():\n"
 		"  has(RG_BOMB_BAG) or has(RG_BOMBCHU_5)\n"

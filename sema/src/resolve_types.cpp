@@ -100,37 +100,6 @@ using Scope = std::unordered_map<std::string, std::optional<ast::Type>>;
 
 
 
-/// Parse a type annotation string (e.g. "Distance") to a Type enum value.
-std::optional<ast::Type> typeFromAnnotation(std::string_view annotation) {
-	struct Entry {
-		std::string_view name;
-		ast::Type type;
-	};
-
-	static constexpr Entry table[] = {
-		{"Bool",       ast::Type::Bool},
-		{"Int",        ast::Type::Int},
-		{"Item",       ast::Type::Item},
-		{"Enemy",      ast::Type::Enemy},
-		{"Distance",   ast::Type::Distance},
-		{"Trick",      ast::Type::Trick},
-		{"Setting",    ast::Type::Setting},
-		{"Region",     ast::Type::Region},
-		{"Check",      ast::Type::Check},
-		{"Logic",      ast::Type::Logic},
-		{"Scene",      ast::Type::Scene},
-		{"Dungeon",    ast::Type::Dungeon},
-		{"Area",       ast::Type::Area},
-		{"Trial",      ast::Type::Trial},
-		{"WaterLevel", ast::Type::WaterLevel},
-	};
-
-	for (const auto& [name, type] : table) {
-		if (annotation == name) return type;
-	}
-	return std::nullopt;
-}
-
 /// Map an EnemyFieldKind to its corresponding built-in function name.
 static const char* enemyFieldBuiltinName(ast::EnemyFieldKind kind) {
 	switch (kind) {

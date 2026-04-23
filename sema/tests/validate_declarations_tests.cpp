@@ -669,7 +669,7 @@ TEST(ValidateDeclarations, DefineUsedInEnemyField_Ok) {
 
 TEST(ValidateDeclarations, ExternDefineTypedDefaults_Ok) {
 	auto [project, diags] = validateFromSource(
-		"extern define can_hit_switch(distance: Distance = ED_CLOSE, inWater: Bool = false)\n"
+		"extern define can_hit_switch(distance: Distance = ED_CLOSE, inWater = false) -> Bool\n"
 		"region RR_ROOT {\n"
 		"    name: \"Root\"\n"
 		"    scene: SCENE_LINKS_HOUSE\n"
@@ -679,7 +679,7 @@ TEST(ValidateDeclarations, ExternDefineTypedDefaults_Ok) {
 
 TEST(ValidateDeclarations, ExternDefineTypedDefaultMismatch) {
 	auto [project, diags] = validateFromSource(
-		"extern define can_hit_switch(distance: Distance = false)\n"
+		"extern define can_hit_switch(distance: Distance = false) -> Bool\n"
 		"region RR_ROOT {\n"
 		"    name: \"Root\"\n"
 		"    scene: SCENE_LINKS_HOUSE\n"
@@ -708,7 +708,7 @@ TEST(ValidateDeclarations, DefineTypedDefaultMismatch) {
 
 TEST(ValidateDeclarations, ExternDefineDuplicateParameterName) {
 	auto [project, diags] = validateFromSource(
-		"extern define can_hit_switch(distance: Distance, distance: Distance)\n"
+		"extern define can_hit_switch(distance: Distance, distance: Distance) -> Bool\n"
 		"region RR_ROOT {\n"
 		"    name: \"Root\"\n"
 		"    scene: SCENE_LINKS_HOUSE\n"
@@ -719,11 +719,51 @@ TEST(ValidateDeclarations, ExternDefineDuplicateParameterName) {
 
 TEST(ValidateDeclarations, ExternDefineRequiredAfterOptionalParam) {
 	auto [project, diags] = validateFromSource(
-		"extern define can_hit_switch(distance: Distance = ED_CLOSE, inWater: Bool)\n"
+		"extern define can_hit_switch(distance: Distance = ED_CLOSE, inWater: Bool) -> Bool\n"
 		"region RR_ROOT {\n"
 		"    name: \"Root\"\n"
 		"    scene: SCENE_LINKS_HOUSE\n"
 		"}\n");
 	ASSERT_EQ(countErrors(diags), 1u);
 	EXPECT_NE(diags[0].message.find("cannot follow optional parameters"), std::string::npos);
+}
+
+TEST(ValidateDeclarations, ExternDefineMissingReturnTypeManualAst) {
+	Project project;
+	File file;
+	file.path = "externs.rls";
+	file.declarations.emplace_back(ExternDefineDecl(
+		"can_hit_switch",
+		std::vector<Param>{}
+	));
+	project.files.push_back(std::move(file));
+
+	collectDeclarations(project);
+	resolveTypes(project);
+	auto diags = validateDeclarations(project);
+
+	ASSERT_EQ(countErrors(diags), 1u);
+	EXPECT_NE(diags[0].message.find("must declare a return type"), std::string::npos);
+}
+
+TEST(ValidateDeclarations, ExternDefineUnknownReturnType) {
+	auto [project, diags] = validateFromSource(
+		"extern define can_hit_switch(distance = ED_CLOSE) -> NotAType\n"
+		"region RR_ROOT {\n"
+		"    name: \"Root\"\n"
+		"    scene: SCENE_LINKS_HOUSE\n"
+		"}\n");
+	ASSERT_EQ(countErrors(diags), 1u);
+	EXPECT_NE(diags[0].message.find("unknown return type annotation 'NotAType'"), std::string::npos);
+}
+
+TEST(ValidateDeclarations, ExternDefineUntypedParamWithoutDefault) {
+	auto [project, diags] = validateFromSource(
+		"extern define can_hit_switch(distance) -> Bool\n"
+		"region RR_ROOT {\n"
+		"    name: \"Root\"\n"
+		"    scene: SCENE_LINKS_HOUSE\n"
+		"}\n");
+	ASSERT_EQ(countErrors(diags), 1u);
+	EXPECT_NE(diags[0].message.find("must have a type annotation or a default value"), std::string::npos);
 }

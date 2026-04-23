@@ -440,18 +440,21 @@ ast::DefineDecl buildDefineDecl(const Node& n, Diags& diags) {
 }
 
 ast::ExternDefineDecl buildExternDefineDecl(const Node& n, Diags& diags) {
-	// children: [ident(name), param, param, ...]
+	// children: [ident(name), param, param, ..., type(returnType)]
 	std::string name(n.children[0]->string_view());
 	std::vector<ast::Param> params;
+	std::optional<std::string> returnType;
 
 	for (size_t i = 1; i < n.children.size(); ++i) {
 		if (n.children[i]->is_type<grammar::param>()) {
 			params.push_back(buildParam(*n.children[i], diags));
+		} else if (n.children[i]->is_type<grammar::type>()) {
+			returnType = std::string(n.children[i]->string_view());
 		}
 	}
 
 	return ast::ExternDefineDecl(
-		std::move(name), std::move(params), makeSpan(n));
+		std::move(name), std::move(params), std::move(returnType), makeSpan(n));
 }
 
 ast::EnemyDecl buildEnemyDecl(const Node& n, Diags& diags) {

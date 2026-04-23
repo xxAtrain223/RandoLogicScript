@@ -229,6 +229,7 @@ static void checkFunctionSignatures(
 	ast::Project& project, std::vector<ast::Diagnostic>& diags)
 {
 	auto validateParams = [&](const std::string& kind,
+		bool isExtern,
 		const std::string& name,
 		const std::vector<ast::Param>& params,
 		const ast::Span& declSpan) {
@@ -258,6 +259,33 @@ static void checkFunctionSignatures(
 				});
 			}
 
+			if (isExtern && !param.type && !param.defaultValue) {
+				diags.push_back({
+					ast::DiagnosticLevel::Error,
+					std::format(
+						"extern define '{}' parameter '{}' must have a type annotation or a default value",
+						name,
+						param.name),
+					declSpan
+				});
+				continue;
+			}
+
+			if (isExtern && !param.type && param.defaultValue) {
+				auto defaultType = project.getType(param.defaultValue.get());
+				if (!defaultType || *defaultType == ast::Type::Error) {
+					diags.push_back({
+						ast::DiagnosticLevel::Error,
+						std::format(
+							"extern define '{}' parameter '{}' needs an explicit type or an inferrable default",
+							name,
+							param.name),
+						param.defaultValue->span
+					});
+				}
+				continue;
+			}
+
 			if (!param.type || !param.defaultValue) continue;
 
 			auto paramType = project.getType(&param);
@@ -283,10 +311,30 @@ static void checkFunctionSignatures(
 	};
 
 	for (const auto& [name, decl] : project.DefineDecls) {
-		validateParams("define", name, decl->params, decl->span);
+		validateParams("define", false, name, decl->params, decl->span);
 	}
 	for (const auto& [name, decl] : project.ExternDefineDecls) {
-		validateParams("extern define", name, decl->params, decl->span);
+		validateParams("extern define", true, name, decl->params, decl->span);
+
+		if (!decl->returnType) {
+			diags.push_back({
+				ast::DiagnosticLevel::Error,
+				std::format("extern define '{}' must declare a return type", name),
+				decl->span
+			});
+			continue;
+		}
+
+		if (!typeFromAnnotation(*decl->returnType)) {
+			diags.push_back({
+				ast::DiagnosticLevel::Error,
+				std::format(
+					"unknown return type annotation '{}' for extern define '{}'",
+					*decl->returnType,
+					name),
+				decl->span
+			});
+		}
 	}
 }
 
