@@ -53,7 +53,7 @@ static std::string withHostExterns(const std::string& source) {
 		"extern define setting(opt: Setting) -> Setting\n"
 		"extern define trick(rule: Trick) -> Bool\n"
 		"extern define hearts() -> Int\n"
-		"extern define check_price(chk: Check) -> Int\n"
+		"extern define check_price(chk: Check = RC_UNKNOWN_CHECK) -> Int\n"
 		+ source;
 }
 
@@ -453,6 +453,42 @@ TEST(ResolveTypes, HostCallMultipleArgs) {
 	EXPECT_EQ(project.getType(findRegionEntry(project)), Type::Bool);
 }
 
+TEST(ResolveTypes, HostCallNamedArgsReordered) {
+	// keys(amount: 3, sc: SCENE_SPIRIT_TEMPLE)
+	auto [project, diags] = resolveFromSource(
+		"region RR_TEST {\n"
+		"    name: \"Test\"\n"
+		"    scene: SCENE_TEST\n"
+		"    locations { TEST_LOC: keys(amount: 3, sc: SCENE_SPIRIT_TEMPLE) }\n"
+		"}\n");
+	EXPECT_TRUE(diags.empty());
+	EXPECT_EQ(project.getType(findRegionEntry(project)), Type::Bool);
+}
+
+TEST(ResolveTypes, HostCallUnknownNamedArg) {
+	// has(itm: RG_HOOKSHOT) — unknown named arg.
+	auto [project, diags] = resolveFromSource(
+		"region RR_TEST {\n"
+		"    name: \"Test\"\n"
+		"    scene: SCENE_TEST\n"
+		"    locations { TEST_LOC: has(itm: RG_HOOKSHOT) }\n"
+		"}\n");
+	EXPECT_EQ(countErrors(diags), 1u);
+	EXPECT_NE(diags[0].message.find("unknown named argument 'itm'"), std::string::npos);
+}
+
+TEST(ResolveTypes, HostCallDuplicateNamedArg) {
+	// has(item: RG_HOOKSHOT, item: RG_FAIRY_BOW) — duplicate named arg.
+	auto [project, diags] = resolveFromSource(
+		"region RR_TEST {\n"
+		"    name: \"Test\"\n"
+		"    scene: SCENE_TEST\n"
+		"    locations { TEST_LOC: has(item: RG_HOOKSHOT, item: RG_FAIRY_BOW) }\n"
+		"}\n");
+	EXPECT_EQ(countErrors(diags), 1u);
+	EXPECT_NE(diags[0].message.find("duplicate argument for parameter 'item'"), std::string::npos);
+}
+
 // -- Enemy built-in calls -----------------------------------------------------
 
 TEST(ResolveTypes, EnemyBuiltinOk) {
@@ -728,6 +764,62 @@ TEST(ResolveTypes, DefineCallWithRangeArgCount) {
 	EXPECT_EQ(countErrors(diags), 1u);
 	EXPECT_NE(diags[0].message.find("expects 1-2 argument(s), got 0"),
 		std::string::npos);
+}
+
+TEST(ResolveTypes, DefineCallNamedArgsReordered) {
+	// define foo(x: Item, d = ED_CLOSE): has(x)
+	// Call: foo(d: ED_FAR, x: RG_HOOKSHOT) — named + reordered.
+	auto [project, diags] = resolveFromSource(
+		"define foo(x: Item, d = ED_CLOSE): has(x)\n"
+		"region RR_TEST {\n"
+		"    name: \"Test\"\n"
+		"    scene: SCENE_TEST\n"
+		"    locations { TEST_LOC: foo(d: ED_FAR, x: RG_HOOKSHOT) }\n"
+		"}\n");
+	EXPECT_TRUE(diags.empty());
+	EXPECT_EQ(project.getType(findRegionEntry(project)), Type::Bool);
+}
+
+TEST(ResolveTypes, DefineCallUnknownNamedArg) {
+	// define foo(x: Item): has(x)
+	// Call: foo(y: RG_HOOKSHOT) — unknown named arg.
+	auto [project, diags] = resolveFromSource(
+		"define foo(x: Item): has(x)\n"
+		"region RR_TEST {\n"
+		"    name: \"Test\"\n"
+		"    scene: SCENE_TEST\n"
+		"    locations { TEST_LOC: foo(y: RG_HOOKSHOT) }\n"
+		"}\n");
+	EXPECT_EQ(countErrors(diags), 1u);
+	EXPECT_NE(diags[0].message.find("unknown named argument 'y'"), std::string::npos);
+}
+
+TEST(ResolveTypes, DefineCallDuplicateNamedArg) {
+	// define foo(x: Item): has(x)
+	// Call: foo(x: RG_HOOKSHOT, x: RG_FAIRY_BOW) — duplicate named arg.
+	auto [project, diags] = resolveFromSource(
+		"define foo(x: Item): has(x)\n"
+		"region RR_TEST {\n"
+		"    name: \"Test\"\n"
+		"    scene: SCENE_TEST\n"
+		"    locations { TEST_LOC: foo(x: RG_HOOKSHOT, x: RG_FAIRY_BOW) }\n"
+		"}\n");
+	EXPECT_EQ(countErrors(diags), 1u);
+	EXPECT_NE(diags[0].message.find("duplicate argument for parameter 'x'"), std::string::npos);
+}
+
+TEST(ResolveTypes, DefineCallMissingRequiredNamedArg) {
+	// define foo(x: Item, d = ED_CLOSE): has(x)
+	// Call: foo(d: ED_FAR) — missing required x.
+	auto [project, diags] = resolveFromSource(
+		"define foo(x: Item, d = ED_CLOSE): has(x)\n"
+		"region RR_TEST {\n"
+		"    name: \"Test\"\n"
+		"    scene: SCENE_TEST\n"
+		"    locations { TEST_LOC: foo(d: ED_FAR) }\n"
+		"}\n");
+	EXPECT_EQ(countErrors(diags), 1u);
+	EXPECT_NE(diags[0].message.find("missing required argument(s): x"), std::string::npos);
 }
 
 // -- Define ordering (Step 7) -------------------------------------------------

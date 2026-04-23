@@ -155,6 +155,13 @@ struct ExprResolver {
 
 	using T = ast::Type;
 
+	struct ArgBindingResult {
+		std::vector<std::optional<size_t>> argToParam;
+		std::vector<bool> paramBound;
+		bool hasNamedArgs = false;
+		bool hasError = false;
+	};
+
 	// -- Node handlers -------------------------------------------------------
 
 	ast::Type resolve(const ast::BoolLiteral&, const ast::Expr&) {
@@ -351,20 +358,84 @@ struct ExprResolver {
 		return result;
 	}
 
-	template <typename GetParamType>
-	bool validateFunctionCallArgs(
+	template <typename IsParamRequired, typename GetParamName>
+	ArgBindingResult bindFunctionCallArgs(
 		const std::string& function,
-		size_t required,
 		size_t nParams,
-		const std::vector<T>& argTypes,
 		const ast::CallExpr& node,
 		const ast::Expr& expr,
-		GetParamType&& getParamType)
+		IsParamRequired&& isParamRequired,
+		GetParamName&& getParamName)
 	{
-		size_t nArgs = argTypes.size();
+		ArgBindingResult result;
+		result.argToParam.resize(node.args.size());
+		result.paramBound.assign(nParams, false);
+
+		std::unordered_map<std::string, size_t> paramIndexByName;
+		for (size_t i = 0; i < nParams; ++i) {
+			paramIndexByName.emplace(getParamName(i), i);
+		}
+
+		size_t nextPositionalParam = 0;
+		bool hadTooManyArgs = false;
+
+		for (size_t argIndex = 0; argIndex < node.args.size(); ++argIndex) {
+			const auto& arg = node.args[argIndex];
+			if (arg.name) {
+				result.hasNamedArgs = true;
+				auto it = paramIndexByName.find(*arg.name);
+				if (it == paramIndexByName.end()) {
+					result.hasError = true;
+					diags.push_back({
+						ast::DiagnosticLevel::Error,
+						std::format("'{}' unknown named argument '{}'",
+							function, *arg.name),
+						arg.value->span
+					});
+					continue;
+				}
+
+				size_t paramIndex = it->second;
+				if (result.paramBound[paramIndex]) {
+					result.hasError = true;
+					diags.push_back({
+						ast::DiagnosticLevel::Error,
+						std::format("'{}' duplicate argument for parameter '{}'",
+							function, *arg.name),
+						arg.value->span
+					});
+					continue;
+				}
+
+				result.paramBound[paramIndex] = true;
+				result.argToParam[argIndex] = paramIndex;
+				continue;
+			}
+
+			while (nextPositionalParam < nParams && result.paramBound[nextPositionalParam]) {
+				++nextPositionalParam;
+			}
+
+			if (nextPositionalParam >= nParams) {
+				hadTooManyArgs = true;
+				result.hasError = true;
+				continue;
+			}
+
+			result.paramBound[nextPositionalParam] = true;
+			result.argToParam[argIndex] = nextPositionalParam;
+			++nextPositionalParam;
+		}
+
+		size_t required = 0;
+		for (size_t i = 0; i < nParams; ++i) {
+			if (isParamRequired(i)) ++required;
+		}
+
+		size_t nArgs = node.args.size();
 		bool argCountOk = nArgs >= required && nArgs <= nParams;
 
-		if (!argCountOk) {
+		if (!result.hasNamedArgs && !argCountOk) {
 			auto count = required == nParams
 				? std::format("{}", required)
 				: std::format("{}-{}", required, nParams);
@@ -374,26 +445,74 @@ struct ExprResolver {
 					function, count, nArgs),
 				expr.span
 			});
-			return false;
+			result.hasError = true;
 		}
 
-		for (size_t i = 0; i < nArgs; ++i) {
-			if (argTypes[i] == T::Error) continue;
+		if (result.hasNamedArgs && hadTooManyArgs) {
+			auto count = required == nParams
+				? std::format("{}", required)
+				: std::format("{}-{}", required, nParams);
+			diags.push_back({
+				ast::DiagnosticLevel::Error,
+				std::format("'{}' expects {} argument(s), got {}",
+					function, count, nArgs),
+				expr.span
+			});
+			result.hasError = true;
+		}
 
-			auto paramType = getParamType(i);
+		if (result.hasNamedArgs && !result.hasError) {
+			std::vector<std::string> missingRequired;
+			for (size_t i = 0; i < nParams; ++i) {
+				if (isParamRequired(i) && !result.paramBound[i]) {
+					missingRequired.push_back(getParamName(i));
+				}
+			}
+
+			if (!missingRequired.empty()) {
+				std::string missing = missingRequired.front();
+				for (size_t i = 1; i < missingRequired.size(); ++i) {
+					missing += ", ";
+					missing += missingRequired[i];
+				}
+				diags.push_back({
+					ast::DiagnosticLevel::Error,
+					std::format("'{}' missing required argument(s): {}",
+						function, missing),
+					expr.span
+				});
+				result.hasError = true;
+			}
+		}
+
+		return result;
+	}
+
+	template <typename GetParamType>
+	void validateBoundArgTypes(
+		const std::string& function,
+		const std::vector<T>& argTypes,
+		const ArgBindingResult& binding,
+		const ast::CallExpr& node,
+		GetParamType&& getParamType)
+	{
+		for (size_t argIndex = 0; argIndex < argTypes.size(); ++argIndex) {
+			if (argTypes[argIndex] == T::Error) continue;
+			if (!binding.argToParam[argIndex]) continue;
+
+			size_t paramIndex = *binding.argToParam[argIndex];
+			auto paramType = getParamType(paramIndex);
 			if (!paramType) continue;
-			if (argTypes[i] == *paramType) continue;
+			if (argTypes[argIndex] == *paramType) continue;
 
 			diags.push_back({
 				ast::DiagnosticLevel::Error,
 				std::format("'{}' argument {} expected {}, got {}",
-					function, i + 1,
-					typeName(*paramType), typeName(argTypes[i])),
-				node.args[i].value->span
+					function, argIndex + 1,
+					typeName(*paramType), typeName(argTypes[argIndex])),
+				node.args[argIndex].value->span
 			});
 		}
-
-		return true;
 	}
 
 	std::optional<T> resolveExternParamType(const ast::ExternDefineDecl& ext, size_t index) {
@@ -434,18 +553,19 @@ struct ExprResolver {
 			it != project.ExternDefineDecls.end()) {
 			const auto& ext = *it->second;
 
-			size_t required = 0;
-			for (const auto& p : ext.params) {
-				if (!p.defaultValue) ++required;
-			}
-
-			validateFunctionCallArgs(
+			auto binding = bindFunctionCallArgs(
 				node.function,
-				required,
 				ext.params.size(),
-				argTypes,
 				node,
 				expr,
+				[&](size_t i) { return !ext.params[i].defaultValue; },
+				[&](size_t i) -> const std::string& { return ext.params[i].name; });
+
+			validateBoundArgTypes(
+				node.function,
+				argTypes,
+				binding,
+				node,
 				[&](size_t i) { return resolveExternParamType(ext, i); });
 
 			if (!ext.returnType) {
@@ -462,19 +582,19 @@ struct ExprResolver {
 			it != project.DefineDecls.end()) {
 			const auto& def = *it->second;
 
-			// Count required params (those without defaults).
-			size_t required = 0;
-			for (const auto& p : def.params) {
-				if (!p.defaultValue) ++required;
-			}
-
-			validateFunctionCallArgs(
+			auto binding = bindFunctionCallArgs(
 				node.function,
-				required,
 				def.params.size(),
-				argTypes,
 				node,
 				expr,
+				[&](size_t i) { return !def.params[i].defaultValue; },
+				[&](size_t i) -> const std::string& { return def.params[i].name; });
+
+			validateBoundArgTypes(
+				node.function,
+				argTypes,
+				binding,
+				node,
 				[&](size_t i) { return project.getType(&def.params[i]); });
 
 			// Return the define's body type if available.

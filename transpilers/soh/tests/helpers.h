@@ -54,7 +54,7 @@ inline std::string withHostExterns(const std::string& source) {
 		"extern define hearts() -> Int\n"
 		"extern define effective_health() -> Int\n"
 		"extern define trial_skipped(key: Trial) -> Bool\n"
-		"extern define check_price(chk: Check) -> Int\n"
+		"extern define check_price(chk: Check = RC_UNKNOWN_CHECK) -> Int\n"
 		"extern define can_plant_bean(reg: Region, bean: Item) -> Bool\n"
 		"extern define triforce_pieces() -> Int\n"
 		"extern define big_poes() -> Int\n"
