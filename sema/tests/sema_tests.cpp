@@ -36,6 +36,15 @@ static File makeDefineFile(const std::string& path, const std::string& name,
 	return f;
 }
 
+/// Build a minimal File containing a single ExternDefineDecl.
+static File makeExternDefineFile(const std::string& path, const std::string& name,
+                                 Span span = {}) {
+	File f;
+	f.path = path;
+	f.declarations.emplace_back(ExternDefineDecl(name, {}, span));
+	return f;
+}
+
 /// Build a minimal File containing a single EnemyDecl.
 static File makeEnemyFile(const std::string& path, const std::string& name,
                           Span span = {}) {
@@ -88,6 +97,7 @@ TEST(CollectDeclarations, EmptyProject) {
 	EXPECT_TRUE(project.RegionDecls.empty());
 	EXPECT_TRUE(project.ExtendRegionDecls.empty());
 	EXPECT_TRUE(project.DefineDecls.empty());
+	EXPECT_TRUE(project.ExternDefineDecls.empty());
 	EXPECT_TRUE(project.EnemyDecls.empty());
 }
 
@@ -127,6 +137,18 @@ TEST(CollectDeclarations, SingleDefine) {
 	ASSERT_EQ(project.DefineDecls.size(), 1u);
 	ASSERT_TRUE(project.DefineDecls.contains("has_explosives"));
 	EXPECT_EQ(project.DefineDecls.at("has_explosives")->name, "has_explosives");
+}
+
+TEST(CollectDeclarations, SingleExternDefine) {
+	Project project;
+	project.files.push_back(makeExternDefineFile("a.rls", "can_hit_switch"));
+
+	auto diags = collectDeclarations(project);
+
+	EXPECT_TRUE(diags.empty());
+	ASSERT_EQ(project.ExternDefineDecls.size(), 1u);
+	ASSERT_TRUE(project.ExternDefineDecls.contains("can_hit_switch"));
+	EXPECT_EQ(project.ExternDefineDecls.at("can_hit_switch")->name, "can_hit_switch");
 }
 
 TEST(CollectDeclarations, SingleEnemy) {
@@ -261,6 +283,46 @@ TEST(CollectDeclarations, DuplicateEnemyError) {
 	EXPECT_NE(diags[0].message.find("duplicate enemy 'RE_ARMOS'"), std::string::npos);
 }
 
+TEST(CollectDeclarations, DuplicateExternDefineError) {
+	Project project;
+	Span span1{"externs.rls", {1, 1}, {1, 40}};
+	Span span2{"externs2.rls", {3, 1}, {3, 40}};
+	project.files.push_back(makeExternDefineFile("externs.rls", "can_hit_switch", span1));
+	project.files.push_back(makeExternDefineFile("externs2.rls", "can_hit_switch", span2));
+
+	auto diags = collectDeclarations(project);
+
+	ASSERT_EQ(countErrors(diags), 1u);
+	EXPECT_NE(diags[0].message.find("duplicate extern define 'can_hit_switch'"), std::string::npos);
+	EXPECT_EQ(diags[0].span.file, "externs2.rls");
+}
+
+TEST(CollectDeclarations, DefineExternCollisionError) {
+	Project project;
+	project.files.push_back(makeDefineFile("helpers.rls", "can_hit_switch"));
+	project.files.push_back(makeExternDefineFile("externs.rls", "can_hit_switch"));
+
+	auto diags = collectDeclarations(project);
+
+	ASSERT_EQ(countErrors(diags), 1u);
+	EXPECT_NE(diags[0].message.find("duplicate function 'can_hit_switch'"), std::string::npos);
+	EXPECT_EQ(project.DefineDecls.size(), 1u);
+	EXPECT_EQ(project.ExternDefineDecls.size(), 0u);
+}
+
+TEST(CollectDeclarations, ExternDefineCollisionError) {
+	Project project;
+	project.files.push_back(makeExternDefineFile("externs.rls", "can_hit_switch"));
+	project.files.push_back(makeDefineFile("helpers.rls", "can_hit_switch"));
+
+	auto diags = collectDeclarations(project);
+
+	ASSERT_EQ(countErrors(diags), 1u);
+	EXPECT_NE(diags[0].message.find("duplicate function 'can_hit_switch'"), std::string::npos);
+	EXPECT_EQ(project.DefineDecls.size(), 0u);
+	EXPECT_EQ(project.ExternDefineDecls.size(), 1u);
+}
+
 TEST(CollectDeclarations, DuplicateRegionInSameFile) {
 	Project project;
 	File f;
@@ -320,17 +382,20 @@ TEST(CollectDeclarations, IdempotentOnRerun) {
 	Project project;
 	project.files.push_back(makeRegionFile("a.rls", "RR_TEST", "SCENE_TEST"));
 	project.files.push_back(makeDefineFile("b.rls", "helper"));
+	project.files.push_back(makeExternDefineFile("c.rls", "has"));
 
 	auto diags1 = collectDeclarations(project);
 	EXPECT_TRUE(diags1.empty());
 	EXPECT_EQ(project.RegionDecls.size(), 1u);
 	EXPECT_EQ(project.DefineDecls.size(), 1u);
+	EXPECT_EQ(project.ExternDefineDecls.size(), 1u);
 
 	// Run again — should produce the same result, not accumulate.
 	auto diags2 = collectDeclarations(project);
 	EXPECT_TRUE(diags2.empty());
 	EXPECT_EQ(project.RegionDecls.size(), 1u);
 	EXPECT_EQ(project.DefineDecls.size(), 1u);
+	EXPECT_EQ(project.ExternDefineDecls.size(), 1u);
 }
 
 // == Pointer stability ========================================================
@@ -339,6 +404,7 @@ TEST(CollectDeclarations, PointersRefToOriginalDecl) {
 	Project project;
 	project.files.push_back(makeRegionFile("a.rls", "RR_TEST", "SCENE_TEST"));
 	project.files.push_back(makeDefineFile("b.rls", "helper"));
+	project.files.push_back(makeExternDefineFile("c.rls", "has"));
 	project.files.push_back(makeEnemyFile("c.rls", "RE_FOO"));
 
 	collectDeclarations(project);
@@ -352,8 +418,12 @@ TEST(CollectDeclarations, PointersRefToOriginalDecl) {
 	const auto& fileDefine = std::get<DefineDecl>(project.files[1].declarations[0]);
 	EXPECT_EQ(definePtr, &fileDefine);
 
+	const auto* externDefinePtr = project.ExternDefineDecls.at("has");
+	const auto& fileExternDefine = std::get<ExternDefineDecl>(project.files[2].declarations[0]);
+	EXPECT_EQ(externDefinePtr, &fileExternDefine);
+
 	const auto* enemyPtr = project.EnemyDecls.at("RE_FOO");
-	const auto& fileEnemy = std::get<EnemyDecl>(project.files[2].declarations[0]);
+	const auto& fileEnemy = std::get<EnemyDecl>(project.files[3].declarations[0]);
 	EXPECT_EQ(enemyPtr, &fileEnemy);
 }
 
@@ -396,6 +466,20 @@ TEST(CollectDeclarations, ParsedDefine) {
 	EXPECT_TRUE(diags.empty());
 	ASSERT_EQ(project.DefineDecls.size(), 1u);
 	EXPECT_TRUE(project.DefineDecls.contains("has_explosives"));
+}
+
+TEST(CollectDeclarations, ParsedExternDefine) {
+	Project project;
+	project.files.push_back(rls::parser::ParseString(
+		"extern define can_hit_switch(distance: int = ED_CLOSE, inWater = false)\n",
+		"externs.rls"
+	));
+
+	auto diags = collectDeclarations(project);
+
+	EXPECT_TRUE(diags.empty());
+	ASSERT_EQ(project.ExternDefineDecls.size(), 1u);
+	EXPECT_TRUE(project.ExternDefineDecls.contains("can_hit_switch"));
 }
 
 TEST(CollectDeclarations, ParsedEnemy) {
