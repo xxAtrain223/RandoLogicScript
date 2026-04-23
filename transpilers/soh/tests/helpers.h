@@ -43,10 +43,28 @@ inline void printDiagnostic(const rls::ast::Diagnostic& d) {
 	ADD_FAILURE() << msg.str();
 }
 
+inline std::string withHostExterns(const std::string& source) {
+	return
+		"extern define has(item: Item) -> Bool\n"
+		"extern define can_use(item: Item) -> Bool\n"
+		"extern define keys(sc: Scene, amount: Int) -> Bool\n"
+		"extern define flag(key: Logic) -> Bool\n"
+		"extern define setting(key: Setting) -> Setting\n"
+		"extern define trick(key: Trick) -> Bool\n"
+		"extern define hearts() -> Int\n"
+		"extern define effective_health() -> Int\n"
+		"extern define trial_skipped(key: Trial) -> Bool\n"
+		"extern define check_price(chk: Check) -> Int\n"
+		"extern define can_plant_bean(reg: Region, bean: Item) -> Bool\n"
+		"extern define triforce_pieces() -> Int\n"
+		"extern define big_poes() -> Int\n"
+		+ source;
+}
+
 inline rls::ast::Project resolveFromSource(
 	const std::string& source)
 {
-	auto file = rls::parser::ParseString(source);
+	auto file = rls::parser::ParseString(withHostExterns(source));
 
 	for (const auto& d : file.diagnostics) {
 		if (d.level == rls::ast::DiagnosticLevel::Error)

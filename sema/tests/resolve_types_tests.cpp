@@ -45,12 +45,24 @@ TEST(EnumPrefix, PrefixOnly)  { EXPECT_EQ(typeFromIdentifier("RG_"), Type::Item)
 
 // == resolveTypes (Steps 2-3) =================================================
 
+static std::string withHostExterns(const std::string& source) {
+	return
+		"extern define has(item: Item) -> Bool\n"
+		"extern define can_use(item: Item) -> Bool\n"
+		"extern define keys(sc: Scene, amount: Int) -> Bool\n"
+		"extern define setting(opt: Setting) -> Setting\n"
+		"extern define trick(rule: Trick) -> Bool\n"
+		"extern define hearts() -> Int\n"
+		"extern define check_price(chk: Check) -> Int\n"
+		+ source;
+}
+
 /// Parse RLS source, collect declarations, and resolve types.
 static std::pair<Project, std::vector<Diagnostic>> resolveFromSource(
 	const std::string& source)
 {
 	Project project;
-	project.files.push_back(rls::parser::ParseString(source));
+	project.files.push_back(rls::parser::ParseString(withHostExterns(source)));
 	collectDeclarations(project);
 	auto diags = resolveTypes(project);
 	return {std::move(project), std::move(diags)};

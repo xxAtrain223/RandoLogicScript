@@ -17,7 +17,7 @@ std::optional<ast::Type> typeFromIdentifier(std::string_view name);
 ///
 /// Currently handles:
 ///   - Enum-prefixed identifiers (Step 1)
-///   - Host function call validation (Step 2)
+///   - Call validation via enemy built-ins + extern define + define resolution (Step 2)
 ///   - Bottom-up expression typing for all node types (Step 3)
 ///   - Parameter scope for define and enemy field bodies (Step 4)
 std::vector<ast::Diagnostic> resolveTypes(ast::Project& project);

@@ -44,7 +44,7 @@ std::optional<ast::Type> typeFromIdentifier(std::string_view name) {
 	return std::nullopt;
 }
 
-// == Step 2: Host function signatures ========================================
+// == Step 2: Built-in function signatures ====================================
 
 struct HostParam {
 	ast::Type type;
@@ -55,26 +55,6 @@ struct HostSignature {
 	ast::Type returnType;
 	std::vector<HostParam> params;
 };
-
-static const std::unordered_map<std::string, HostSignature>& hostFunctions() {
-	using T = ast::Type;
-	static const std::unordered_map<std::string, HostSignature> table = {
-		{"has",              {T::Bool, {{T::Item, true}}}},
-		{"can_use",          {T::Bool, {{T::Item, true}}}},
-		{"keys",             {T::Bool, {{T::Scene, true}, {T::Int, true}}}},
-		{"flag",             {T::Bool, {{T::Logic, true}}}},
-		{"setting",          {T::Setting, {{T::Setting, true}}}},
-		{"trick",            {T::Bool, {{T::Trick, true}}}},
-		{"hearts",           {T::Int, {}}},
-		{"effective_health", {T::Int, {}}},
-		{"trial_skipped",    {T::Bool, {{T::Trial, true}}}},
-		{"check_price",      {T::Int, {{T::Check, false}}}},
-		{"can_plant_bean",   {T::Bool, {{T::Region, true}, {T::Item, true}}}},
-		{"triforce_pieces",  {T::Int, {}}},
-		{"big_poes",         {T::Int, {}}},
-	};
-	return table;
-}
 
 /// Enemy built-in function signatures.
 /// These take an Enemy as first arg and dispatch to enemy declarations.
@@ -173,19 +153,7 @@ struct ExprResolver {
 	Scope& scope;
 	std::vector<ast::Diagnostic>& diags;
 
-	/// Recursively resolve the type of an expression.
-	ast::Type resolveExpr(const ast::Expr& expr) {
-		if (auto cached = project.getType(&expr)) {
-			return *cached;
-		}
-
-		auto result = std::visit(
-			[&](auto& node) { return resolve(node, expr); },
-			expr.node);
-
-		project.setType(&expr, result);
-		return result;
-	}
+	using T = ast::Type;
 
 	// -- Node handlers -------------------------------------------------------
 
@@ -369,9 +337,84 @@ struct ExprResolver {
 		return T::Error;
 	}
 
-	ast::Type resolve(const ast::CallExpr& node, const ast::Expr& expr) {
-		using T = ast::Type;
+	/// Recursively resolve the type of an expression.
+	ast::Type resolveExpr(const ast::Expr& expr) {
+		if (auto cached = project.getType(&expr)) {
+			return *cached;
+		}
 
+		auto result = std::visit(
+			[&](auto& node) { return resolve(node, expr); },
+			expr.node);
+
+		project.setType(&expr, result);
+		return result;
+	}
+
+	template <typename GetParamType>
+	bool validateFunctionCallArgs(
+		const std::string& function,
+		size_t required,
+		size_t nParams,
+		const std::vector<T>& argTypes,
+		const ast::CallExpr& node,
+		const ast::Expr& expr,
+		GetParamType&& getParamType)
+	{
+		size_t nArgs = argTypes.size();
+		bool argCountOk = nArgs >= required && nArgs <= nParams;
+
+		if (!argCountOk) {
+			auto count = required == nParams
+				? std::format("{}", required)
+				: std::format("{}-{}", required, nParams);
+			diags.push_back({
+				ast::DiagnosticLevel::Error,
+				std::format("'{}' expects {} argument(s), got {}",
+					function, count, nArgs),
+				expr.span
+			});
+			return false;
+		}
+
+		for (size_t i = 0; i < nArgs; ++i) {
+			if (argTypes[i] == T::Error) continue;
+
+			auto paramType = getParamType(i);
+			if (!paramType) continue;
+			if (argTypes[i] == *paramType) continue;
+
+			diags.push_back({
+				ast::DiagnosticLevel::Error,
+				std::format("'{}' argument {} expected {}, got {}",
+					function, i + 1,
+					typeName(*paramType), typeName(argTypes[i])),
+				node.args[i].value->span
+			});
+		}
+
+		return true;
+	}
+
+	std::optional<T> resolveExternParamType(const ast::ExternDefineDecl& ext, size_t index) {
+		std::optional<T> paramType = project.getType(&ext.params[index]);
+		if (!paramType && ext.params[index].type) {
+			if (auto t = typeFromAnnotation(*ext.params[index].type)) {
+				paramType = *t;
+				project.setType(&ext.params[index], *t);
+			}
+		}
+		if (!paramType && ext.params[index].defaultValue) {
+			auto inferredType = resolveExpr(*ext.params[index].defaultValue);
+			if (inferredType != T::Error) {
+				paramType = inferredType;
+				project.setType(&ext.params[index], inferredType);
+			}
+		}
+		return paramType;
+	}
+
+	ast::Type resolve(const ast::CallExpr& node, const ast::Expr& expr) {
 		// Resolve all argument types first.
 		std::vector<T> argTypes;
 		argTypes.reserve(node.args.size());
@@ -386,11 +429,32 @@ struct ExprResolver {
 				node, expr, diags);
 		}
 
-		// Host functions.
-		auto& hosts = hostFunctions();
-		if (auto it = hosts.find(node.function); it != hosts.end()) {
-			return validateCallArgs(node.function, it->second, argTypes,
-				node, expr, diags);
+		// Extern-defined host functions.
+		if (auto it = project.ExternDefineDecls.find(node.function);
+			it != project.ExternDefineDecls.end()) {
+			const auto& ext = *it->second;
+
+			size_t required = 0;
+			for (const auto& p : ext.params) {
+				if (!p.defaultValue) ++required;
+			}
+
+			validateFunctionCallArgs(
+				node.function,
+				required,
+				ext.params.size(),
+				argTypes,
+				node,
+				expr,
+				[&](size_t i) { return resolveExternParamType(ext, i); });
+
+			if (!ext.returnType) {
+				return T::Error;
+			}
+			if (auto returnType = typeFromAnnotation(*ext.returnType)) {
+				return *returnType;
+			}
+			return T::Error;
 		}
 
 		// User-defined functions (define declarations).
@@ -404,38 +468,14 @@ struct ExprResolver {
 				if (!p.defaultValue) ++required;
 			}
 
-			size_t nArgs = argTypes.size();
-			size_t nParams = def.params.size();
-			bool argCountOk = nArgs >= required && nArgs <= nParams;
-
-			if (!argCountOk) {
-				auto count = required == nParams
-					? std::format("{}", required)
-					: std::format("{}-{}", required, nParams);
-				diags.push_back({
-					ast::DiagnosticLevel::Error,
-					std::format("'{}' expects {} argument(s), got {}",
-						node.function, count, nArgs),
-					expr.span
-				});
-			}
-
-			// Check each provided arg against its param type.
-			for (size_t i = 0; argCountOk && i < nArgs; ++i) {
-				if (argTypes[i] == T::Error) continue;
-
-				auto paramType = project.getType(&def.params[i]);
-				if (!paramType) continue;
-				if (argTypes[i] == *paramType) continue;
-
-				diags.push_back({
-					ast::DiagnosticLevel::Error,
-					std::format("'{}' argument {} expected {}, got {}",
-						node.function, i + 1,
-						typeName(*paramType), typeName(argTypes[i])),
-					node.args[i].value->span
-				});
-			}
+			validateFunctionCallArgs(
+				node.function,
+				required,
+				def.params.size(),
+				argTypes,
+				node,
+				expr,
+				[&](size_t i) { return project.getType(&def.params[i]); });
 
 			// Return the define's body type if available.
 			if (auto bodyType = project.getType(def.body.get())) {
