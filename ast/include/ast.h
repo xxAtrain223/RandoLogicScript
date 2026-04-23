@@ -421,6 +421,7 @@ struct Project {
 	std::map<std::string, const RegionDecl*> RegionDecls;
 	std::unordered_multimap<std::string, const ExtendRegionDecl*> ExtendRegionDecls;
 	std::map<std::string, const DefineDecl*> DefineDecls;
+	std::map<std::string, const ExternDefineDecl*> ExternDefineDecls;
 	std::unordered_map<std::string, const EnemyDecl*> EnemyDecls;
 
 	template <typename T>

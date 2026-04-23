@@ -353,6 +353,27 @@ TEST(DeclTests, DefineWithTypedParam) {
 	EXPECT_EQ(define.params[0].defaultValue, nullptr);
 }
 
+TEST(DeclTests, ExternDefineDecl) {
+	// extern define can_hit_switch(distance: int = ED_CLOSE, inWater = false)
+	std::vector<Param> params;
+	params.emplace_back("distance", std::optional<std::string>{"int"}, makeExpr(Identifier{"ED_CLOSE"}));
+	params.emplace_back("inWater", std::nullopt, makeExpr(BoolLiteral{false}));
+
+	ExternDefineDecl ext(
+		"can_hit_switch",
+		std::move(params)
+	);
+
+	EXPECT_EQ(ext.name, "can_hit_switch");
+	ASSERT_EQ(ext.params.size(), 2u);
+	ASSERT_TRUE(ext.params[0].type.has_value());
+	EXPECT_EQ(*ext.params[0].type, "int");
+	ASSERT_NE(ext.params[0].defaultValue, nullptr);
+	EXPECT_TRUE(std::holds_alternative<Identifier>(ext.params[0].defaultValue->node));
+	ASSERT_NE(ext.params[1].defaultValue, nullptr);
+	EXPECT_TRUE(std::holds_alternative<BoolLiteral>(ext.params[1].defaultValue->node));
+}
+
 TEST(DeclTests, EnemyDecl) {
 	// enemy RE_IRON_KNUCKLE { kill: ..., pass: never }
 	std::vector<EnemyField> fields;
@@ -461,6 +482,35 @@ TEST(ProjectTests, AllDeclarationsAcrossFiles) {
 	ASSERT_EQ(project.files.size(), 2u);
 	EXPECT_EQ(project.files[0].path, "spirit_temple.rls");
 	EXPECT_EQ(project.files[1].path, "enemies.rls");
+}
+
+TEST(ProjectTests, ExternDefineMapStoresMetadata) {
+	Project project;
+
+	File file;
+	file.path = "externs.rls";
+
+	std::vector<Param> params;
+	params.emplace_back("distance", std::optional<std::string>{"int"}, makeExpr(Identifier{"ED_CLOSE"}));
+	params.emplace_back("inWater", std::nullopt, makeExpr(BoolLiteral{false}));
+
+	Span declSpan{"externs.rls", {2, 1}, {2, 64}};
+	file.declarations.emplace_back(ExternDefineDecl("can_hit_switch", std::move(params), declSpan));
+	project.files.push_back(std::move(file));
+
+	const auto& ext = std::get<ExternDefineDecl>(project.files[0].declarations[0]);
+	project.ExternDefineDecls.emplace(ext.name, &ext);
+
+	ASSERT_TRUE(project.ExternDefineDecls.contains("can_hit_switch"));
+	const auto* mapped = project.ExternDefineDecls.at("can_hit_switch");
+	ASSERT_NE(mapped, nullptr);
+	EXPECT_EQ(mapped->span.file, "externs.rls");
+	EXPECT_EQ(mapped->span.start.line, 2u);
+	ASSERT_EQ(mapped->params.size(), 2u);
+	ASSERT_TRUE(mapped->params[0].type.has_value());
+	EXPECT_EQ(*mapped->params[0].type, "int");
+	ASSERT_NE(mapped->params[0].defaultValue, nullptr);
+	EXPECT_TRUE(std::holds_alternative<Identifier>(mapped->params[0].defaultValue->node));
 }
 
 // == Type side table ==========================================================
