@@ -4,6 +4,7 @@
 #include <algorithm>
 #include <format>
 #include <queue>
+#include <unordered_map>
 #include <unordered_set>
 
 namespace rls::sema {
@@ -222,6 +223,73 @@ static void checkUnusedDefines(
 	}
 }
 
+/// Check 7: Define/extern signatures must have valid parameter shapes and
+/// typed defaults must match annotated parameter types.
+static void checkFunctionSignatures(
+	ast::Project& project, std::vector<ast::Diagnostic>& diags)
+{
+	auto validateParams = [&](const std::string& kind,
+		const std::string& name,
+		const std::vector<ast::Param>& params,
+		const ast::Span& declSpan) {
+		std::unordered_set<std::string> seenNames;
+		bool seenDefault = false;
+
+		for (const auto& param : params) {
+			if (!seenNames.insert(param.name).second) {
+				diags.push_back({
+					ast::DiagnosticLevel::Error,
+					std::format(
+						"duplicate parameter '{}' in {} '{}'",
+						param.name, kind, name),
+					declSpan
+				});
+			}
+
+			if (param.defaultValue) {
+				seenDefault = true;
+			} else if (seenDefault) {
+				diags.push_back({
+					ast::DiagnosticLevel::Error,
+					std::format(
+						"required parameter '{}' cannot follow optional parameters in {} '{}'",
+						param.name, kind, name),
+					declSpan
+				});
+			}
+
+			if (!param.type || !param.defaultValue) continue;
+
+			auto paramType = project.getType(&param);
+			auto defaultType = project.getType(param.defaultValue.get());
+			if (!paramType || !defaultType) continue;
+			if (*paramType == ast::Type::Error || *defaultType == ast::Type::Error) {
+				continue;
+			}
+			if (*paramType != *defaultType) {
+				diags.push_back({
+					ast::DiagnosticLevel::Error,
+					std::format(
+						"default value for parameter '{}' in {} '{}' has type {}, expected {}",
+						param.name,
+						kind,
+						name,
+						typeName(*defaultType),
+						typeName(*paramType)),
+					param.defaultValue->span
+				});
+			}
+		}
+	};
+
+	for (const auto& [name, decl] : project.DefineDecls) {
+		validateParams("define", name, decl->params, decl->span);
+	}
+	for (const auto& [name, decl] : project.ExternDefineDecls) {
+		validateParams("extern define", name, decl->params, decl->span);
+	}
+}
+
 std::vector<ast::Diagnostic> validateDeclarations(ast::Project& project) {
 	std::vector<ast::Diagnostic> diags;
 
@@ -231,6 +299,7 @@ std::vector<ast::Diagnostic> validateDeclarations(ast::Project& project) {
 	checkEntryConditionTypes(project, diags);
 	checkRegionReachability(project, diags);
 	checkUnusedDefines(project, diags);
+	checkFunctionSignatures(project, diags);
 
 	return diags;
 }

@@ -15,6 +15,7 @@ namespace rls::sema {
 ///   - entry conditions must be Bool-compatible
 ///   - every region must be reachable from RR_ROOT via exits
 ///   - every define should be referenced somewhere (info)
+///   - define/extern define signatures must have valid parameter/default shapes
 std::vector<ast::Diagnostic> validateDeclarations(ast::Project& project);
 
 } // namespace rls::sema

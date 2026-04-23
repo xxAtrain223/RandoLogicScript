@@ -664,3 +664,66 @@ TEST(ValidateDeclarations, DefineUsedInEnemyField_Ok) {
 	}
 	EXPECT_EQ(unusedInfos, 0u);
 }
+
+// == Function signature validation ============================================
+
+TEST(ValidateDeclarations, ExternDefineTypedDefaults_Ok) {
+	auto [project, diags] = validateFromSource(
+		"extern define can_hit_switch(distance: Distance = ED_CLOSE, inWater: Bool = false)\n"
+		"region RR_ROOT {\n"
+		"    name: \"Root\"\n"
+		"    scene: SCENE_LINKS_HOUSE\n"
+		"}\n");
+	EXPECT_EQ(countErrors(diags), 0u);
+}
+
+TEST(ValidateDeclarations, ExternDefineTypedDefaultMismatch) {
+	auto [project, diags] = validateFromSource(
+		"extern define can_hit_switch(distance: Distance = false)\n"
+		"region RR_ROOT {\n"
+		"    name: \"Root\"\n"
+		"    scene: SCENE_LINKS_HOUSE\n"
+		"}\n");
+	ASSERT_EQ(countErrors(diags), 1u);
+	EXPECT_NE(diags[0].message.find("default value for parameter 'distance'"), std::string::npos);
+	EXPECT_NE(diags[0].message.find("expected Distance"), std::string::npos);
+}
+
+TEST(ValidateDeclarations, DefineTypedDefaultMismatch) {
+	auto [project, diags] = validateFromSource(
+		"define foo(distance: Distance = false):\n"
+		"    distance == ED_CLOSE\n");
+	ASSERT_EQ(countErrors(diags), 1u);
+	bool found = false;
+	for (const auto& d : diags) {
+		if (d.level != DiagnosticLevel::Error) continue;
+		if (d.message.find("default value for parameter 'distance'") != std::string::npos
+			&& d.message.find("expected Distance") != std::string::npos) {
+			found = true;
+			break;
+		}
+	}
+	EXPECT_TRUE(found);
+}
+
+TEST(ValidateDeclarations, ExternDefineDuplicateParameterName) {
+	auto [project, diags] = validateFromSource(
+		"extern define can_hit_switch(distance: Distance, distance: Distance)\n"
+		"region RR_ROOT {\n"
+		"    name: \"Root\"\n"
+		"    scene: SCENE_LINKS_HOUSE\n"
+		"}\n");
+	ASSERT_EQ(countErrors(diags), 1u);
+	EXPECT_NE(diags[0].message.find("duplicate parameter 'distance'"), std::string::npos);
+}
+
+TEST(ValidateDeclarations, ExternDefineRequiredAfterOptionalParam) {
+	auto [project, diags] = validateFromSource(
+		"extern define can_hit_switch(distance: Distance = ED_CLOSE, inWater: Bool)\n"
+		"region RR_ROOT {\n"
+		"    name: \"Root\"\n"
+		"    scene: SCENE_LINKS_HOUSE\n"
+		"}\n");
+	ASSERT_EQ(countErrors(diags), 1u);
+	EXPECT_NE(diags[0].message.find("cannot follow optional parameters"), std::string::npos);
+}

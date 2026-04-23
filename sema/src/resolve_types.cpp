@@ -728,10 +728,10 @@ std::vector<ast::Diagnostic> resolveTypes(ast::Project& project) {
 		const auto* decl = project.DefineDecls.at(name);
 		Scope scope;
 		for (const auto& param : decl->params) {
+			std::optional<ast::Type> annotatedType;
 			if (param.type) {
 				if (auto t = typeFromAnnotation(*param.type)) {
-					scope[param.name] = *t;
-					project.setType(&param, *t);
+					annotatedType = *t;
 				} else {
 					diags.push_back({
 						ast::DiagnosticLevel::Error,
@@ -741,19 +741,26 @@ std::vector<ast::Diagnostic> resolveTypes(ast::Project& project) {
 							*param.type, param.name),
 						decl->span
 					});
-					scope[param.name] = std::nullopt;
 				}
-			} else if (param.defaultValue) {
+			}
+
+			std::optional<ast::Type> defaultType;
+			if (param.defaultValue) {
 				Scope noScope;
 				ExprResolver defaultResolver{project, noScope, diags};
-				auto defaultType =
+				auto resolvedDefaultType =
 					defaultResolver.resolveExpr(*param.defaultValue);
-				if (defaultType != ast::Type::Error) {
-					scope[param.name] = defaultType;
-					project.setType(&param, defaultType);
-				} else {
-					scope[param.name] = std::nullopt;
+				if (resolvedDefaultType != ast::Type::Error) {
+					defaultType = resolvedDefaultType;
 				}
+			}
+
+			if (annotatedType) {
+				scope[param.name] = *annotatedType;
+				project.setType(&param, *annotatedType);
+			} else if (defaultType) {
+				scope[param.name] = *defaultType;
+				project.setType(&param, *defaultType);
 			} else {
 				// No annotation, no default — type unknown
 				// until body-usage inference.
@@ -762,6 +769,44 @@ std::vector<ast::Diagnostic> resolveTypes(ast::Project& project) {
 		}
 		ExprResolver resolver{project, scope, diags};
 		resolver.resolveExpr(*decl->body);
+	}
+
+	// Resolve extern define parameter annotations/defaults.
+	for (const auto& [name, decl] : project.ExternDefineDecls) {
+		for (const auto& param : decl->params) {
+			std::optional<ast::Type> annotatedType;
+			if (param.type) {
+				if (auto t = typeFromAnnotation(*param.type)) {
+					annotatedType = *t;
+				} else {
+					diags.push_back({
+						ast::DiagnosticLevel::Error,
+						std::format(
+							"unknown type annotation '{}' "
+							"for parameter '{}'",
+							*param.type, param.name),
+						decl->span
+					});
+				}
+			}
+
+			std::optional<ast::Type> defaultType;
+			if (param.defaultValue) {
+				Scope noScope;
+				ExprResolver defaultResolver{project, noScope, diags};
+				auto resolvedDefaultType =
+					defaultResolver.resolveExpr(*param.defaultValue);
+				if (resolvedDefaultType != ast::Type::Error) {
+					defaultType = resolvedDefaultType;
+				}
+			}
+
+			if (annotatedType) {
+				project.setType(&param, *annotatedType);
+			} else if (defaultType) {
+				project.setType(&param, *defaultType);
+			}
+		}
 	}
 
 	// Resolve enemy field bodies.
