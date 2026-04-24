@@ -68,6 +68,18 @@ static std::pair<Project, std::vector<Diagnostic>> resolveFromSource(
 	return {std::move(project), std::move(diags)};
 }
 
+/// Same as resolveFromSource(), but returns collect + resolve diagnostics.
+static std::pair<Project, std::vector<Diagnostic>> resolveFromSourceWithCollectDiags(
+	const std::string& source)
+{
+	Project project;
+	project.files.push_back(rls::parser::ParseString(withHostExterns(source)));
+	auto diags = collectDeclarations(project);
+	auto resolveDiags = resolveTypes(project);
+	diags.insert(diags.end(), resolveDiags.begin(), resolveDiags.end());
+	return {std::move(project), std::move(diags)};
+}
+
 /// Find the first region entry condition by region name.
 static const Expr* findRegionEntry(const Project& project,
 	const std::string& regionName = "RR_TEST")
@@ -465,6 +477,18 @@ TEST(ResolveTypes, HostCallNamedArgsReordered) {
 	EXPECT_EQ(project.getType(findRegionEntry(project)), Type::Bool);
 }
 
+TEST(ResolveTypes, HostCallMixedArgs) {
+	// keys(SCENE_SPIRIT_TEMPLE, amount: 3)
+	auto [project, diags] = resolveFromSource(
+		"region RR_TEST {\n"
+		"    name: \"Test\"\n"
+		"    scene: SCENE_TEST\n"
+		"    locations { TEST_LOC: keys(SCENE_SPIRIT_TEMPLE, amount: 3) }\n"
+		"}\n");
+	EXPECT_TRUE(diags.empty());
+	EXPECT_EQ(project.getType(findRegionEntry(project)), Type::Bool);
+}
+
 TEST(ResolveTypes, HostCallUnknownNamedArg) {
 	// has(itm: RG_HOOKSHOT) — unknown named arg.
 	auto [project, diags] = resolveFromSource(
@@ -487,6 +511,18 @@ TEST(ResolveTypes, HostCallDuplicateNamedArg) {
 		"}\n");
 	EXPECT_EQ(countErrors(diags), 1u);
 	EXPECT_NE(diags[0].message.find("duplicate argument for parameter 'item'"), std::string::npos);
+}
+
+TEST(ResolveTypes, HostCallMissingRequiredNamedArg) {
+	// keys(amount: 3) — missing required sc.
+	auto [project, diags] = resolveFromSource(
+		"region RR_TEST {\n"
+		"    name: \"Test\"\n"
+		"    scene: SCENE_TEST\n"
+		"    locations { TEST_LOC: keys(amount: 3) }\n"
+		"}\n");
+	EXPECT_EQ(countErrors(diags), 1u);
+	EXPECT_NE(diags[0].message.find("missing required argument(s): sc"), std::string::npos);
 }
 
 // -- Enemy built-in calls -----------------------------------------------------
@@ -620,6 +656,27 @@ TEST(ResolveTypes, UnknownFunction) {
 	EXPECT_EQ(countErrors(diags), 1u);
 	EXPECT_NE(diags[0].message.find("unknown function 'nonexistent_func'"), std::string::npos);
 	EXPECT_EQ(project.getType(findRegionEntry(project)), Type::Error);
+}
+
+TEST(ResolveTypes, DefineExternNameCollisionError) {
+	auto [project, diags] = resolveFromSourceWithCollectDiags(
+		"define can_hit_switch(): true\n"
+		"extern define can_hit_switch(distance: Distance = ED_CLOSE) -> Bool\n"
+		"region RR_TEST {\n"
+		"    name: \"Test\"\n"
+		"    scene: SCENE_TEST\n"
+		"    locations { TEST_LOC: true }\n"
+		"}\n");
+
+	bool found = false;
+	for (const auto& d : diags) {
+		if (d.level == DiagnosticLevel::Error
+			&& d.message.find("duplicate function 'can_hit_switch'") != std::string::npos) {
+			found = true;
+			break;
+		}
+	}
+	EXPECT_TRUE(found);
 }
 
 // -- User define calls --------------------------------------------------------

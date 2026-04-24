@@ -423,6 +423,15 @@ TEST(SohExpressions, CallHostFunctions) {
 		"big_poes()");
 }
 
+TEST(SohExpressions, CallExternDefineReorderedAndDefaultedArgs) {
+	EXPECT_EQ(GenerateExpression(sourceToExpression(
+		"extern define host_custom(item: Item, distance: Distance = ED_CLOSE, enabled: Bool = false) -> Bool\n"
+		"define test():\n"
+		"    host_custom(distance: ED_FAR, item: RG_HOOKSHOT) and host_custom(RG_FAIRY_BOW)\n",
+		"test")),
+		"host_custom(RG_HOOKSHOT, ED_FAR, false) && host_custom(RG_FAIRY_BOW, ED_CLOSE, false)");
+}
+
 TEST(SohExpressions, CallEnemyFunctions) {
 	EXPECT_EQ(GenerateExpression(sourceToExpression(
 		"enemy RE_GOLD_SKULLTULA {\n"

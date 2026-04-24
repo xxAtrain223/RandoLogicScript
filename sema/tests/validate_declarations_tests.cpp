@@ -757,6 +757,30 @@ TEST(ValidateDeclarations, ExternDefineUnknownReturnType) {
 	EXPECT_NE(diags[0].message.find("unknown return type annotation 'NotAType'"), std::string::npos);
 }
 
+TEST(ValidateDeclarations, AnalyzeReportsDuplicateExternDefineDeclaration) {
+	Project project;
+	project.files.push_back(rls::parser::ParseString(
+		"extern define can_hit_switch(distance: Distance = ED_CLOSE) -> Bool\n",
+		"externs_a.rls"
+	));
+	project.files.push_back(rls::parser::ParseString(
+		"extern define can_hit_switch(distance: Distance = ED_FAR) -> Bool\n",
+		"externs_b.rls"
+	));
+
+	auto diags = analyze(project);
+
+	bool found = false;
+	for (const auto& d : diags) {
+		if (d.level == DiagnosticLevel::Error
+			&& d.message.find("duplicate extern define 'can_hit_switch'") != std::string::npos) {
+			found = true;
+			break;
+		}
+	}
+	EXPECT_TRUE(found);
+}
+
 TEST(ValidateDeclarations, ExternDefineUntypedParamWithoutDefault) {
 	auto [project, diags] = validateFromSource(
 		"extern define can_hit_switch(distance) -> Bool\n"

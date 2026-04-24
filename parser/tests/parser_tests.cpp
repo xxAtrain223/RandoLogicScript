@@ -980,6 +980,32 @@ TEST(ParseFile, MixedDeclarations) {
 	EXPECT_TRUE(std::holds_alternative<ExtendRegionDecl>(file.declarations[4]));
 }
 
+TEST(ParseFile, ExternDefineCallNamedArgsPreserved) {
+	const auto file = parse(
+		"extern define keys(sc: Scene, amount: Int) -> Bool\n"
+		"define can_open_spirit():\n"
+		"  keys(amount: 3, sc: SCENE_SPIRIT_TEMPLE)\n"
+	);
+
+	ASSERT_EQ(file.declarations.size(), 2u);
+	ASSERT_TRUE(std::holds_alternative<DefineDecl>(file.declarations[1]));
+	const auto& def = std::get<DefineDecl>(file.declarations[1]);
+	ASSERT_TRUE(std::holds_alternative<CallExpr>(def.body->node));
+	const auto& call = std::get<CallExpr>(def.body->node);
+	EXPECT_EQ(call.function, "keys");
+	ASSERT_EQ(call.args.size(), 2u);
+
+	ASSERT_TRUE(call.args[0].name.has_value());
+	EXPECT_EQ(*call.args[0].name, "amount");
+	ASSERT_TRUE(call.args[1].name.has_value());
+	EXPECT_EQ(*call.args[1].name, "sc");
+
+	ASSERT_TRUE(std::holds_alternative<IntLiteral>(call.args[0].value->node));
+	EXPECT_EQ(std::get<IntLiteral>(call.args[0].value->node).value, 3);
+	ASSERT_TRUE(std::holds_alternative<Identifier>(call.args[1].value->node));
+	EXPECT_EQ(std::get<Identifier>(call.args[1].value->node).name, "SCENE_SPIRIT_TEMPLE");
+}
+
 TEST(ParseFile, WithComments) {
 	const auto file = parse(
 		"# helpers\n"
