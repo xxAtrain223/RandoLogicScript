@@ -72,7 +72,7 @@ Since the language is transpiled (never interpreted at runtime), the syntax is f
 
 ### 3.1 File Structure
 
-Each `.rls` file contains any combination of top-level declarations - `region`, `extend region`, `define`, and `enemy`. A file typically corresponds to one dungeon or overworld area, but can also be a pure library (e.g. `stdlib/enemies.rls` containing only `enemy` declarations).
+Each `.rls` file contains any combination of top-level declarations - `region`, `extend region`, `define`, `extern define`, and `enemy`. A file typically corresponds to one dungeon or overworld area, but can also be a pure library (e.g. `stdlib/enemies.rls` containing only `enemy` declarations).
 
 The transpiler processes all `.rls` files in the project together. All top-level declarations are globally visible - there is no `import` mechanism. The transpiler derives dependencies from usage during semantic analysis.
 
@@ -117,7 +117,7 @@ RLS does not require type annotations in most cases - the transpiler infers type
 
 1. **Enum identifiers are self-typing.** Every enum prefix maps to a unique type: `RG_*` → `Item`, `RE_*` → `Enemy`, `ED_*` → `Distance`, `RT_*` → `Trick`, `RSK_*`/`RO_*` → `Setting`, etc. The transpiler resolves the type from the enum registry. Passing `has(RE_ARMOS)` is a type error - `RE_ARMOS` is an `Enemy`, not an `Item`.
 
-2. **Host functions have known signatures.** `has()` takes an `Item`, `keys()` takes a `Scene` and an `int`, `trick()` takes a `Trick`. The transpiler validates arguments against these signatures.
+2. **Host-call signatures are declared with `extern define`.** For example, `extern define has(item: Item) -> bool`, `extern define keys(scene: Scene, n: int) -> int`, and `extern define trick(key: Trick) -> bool`. The transpiler validates arguments against these declared signatures.
 
 3. **`match` arms provide type context.** `match distance { ED_CLOSE: ... }` tells the transpiler the discriminant is `Distance`. If a call site passes a non-`Distance` value, it's a type error.
 
@@ -673,13 +673,22 @@ This shows multi-value arms (`ED_CLOSE or ED_SHORT_JUMPSLASH:`), fallthrough acc
 
 ## 5. Standard Library
 
-The RLS standard library is split into two categories: **host functions** that require interaction with the SoH engine, SaveContext, or other C++ internals, and **RLS-definable functions** that are pure logic expressible entirely within the RLS language.
+The RLS standard library is split into two categories: **host functions**, declared in RLS via `extern define` and backed by target-specific runtime calls, and **RLS-definable functions** that are pure logic expressible entirely within the RLS language.
 
-### 5.1 Host Functions
+### 5.1 Host Functions (`extern define`)
 
-These functions map to C++ `Logic` / `Context` methods and cannot be expressed in RLS alone. The transpiler knows the mapping and generates the correct C++ calls. For the Python target, these map to the corresponding `LogicHelpers` functions.
+Host-call signatures are declared directly in RLS using `extern define`. These declarations provide the canonical function name, parameter list (including defaults), and return type used by semantic analysis and call validation. The transpiler then maps each declared function to target-specific runtime calls (C++ `Logic` / `Context` methods, Python `LogicHelpers`, etc.).
 
-#### Core Functions
+```rls
+extern define has(item: Item) -> bool
+extern define can_use(item: Item) -> bool
+extern define keys(scene: Scene, n: int) -> int
+extern define setting(key: Setting) -> int
+```
+
+`extern define` names share the same global function namespace as `define` names, so duplicate names are invalid.
+
+#### Core Host Functions
 
 | RLS function    | C++ method                   | Notes                                 |
 | ---------------- | ---------------------------- | ------------------------------------- |
@@ -1073,7 +1082,7 @@ The transpiler bridges these differences:
 ## 7. Grammar (EBNF Sketch)
 
 ```ebnf
-file          = (region | extend | define | enemy)* ;
+file          = (region | extend | define | extern_define | enemy)* ;
 
 region        = "region" IDENT "{" region_body "}" ;
 extend        = "extend" "region" IDENT "{" section* "}" ;
@@ -1091,6 +1100,7 @@ section_kind  = "events" | "locations" | "exits" ;
 entry         = IDENT ":" expr ;
 
 define        = "define" IDENT "(" params? ")" ":" expr ;
+extern_define = "extern" "define" IDENT "(" params? ")" "->" type ;
 
 enemy         = "enemy" IDENT "{" enemy_field+ "}" ;
 enemy_field   = ("kill" | "pass" | "drop" | "avoid") ("(" params? ")")? ":" expr ;
@@ -1139,7 +1149,7 @@ Key differences from the existing `LogicExpression` parser:
 - `shared { from ... }` and `any_age { ... }` as first-class expression blocks.
 - `match <value> { ... }` expressions with trailing `or` for fallthrough accumulation.
 - `enemy` declarations as top-level bestiary entries.
-- File-level structure (`region`, `extend`, `define`, `enemy`).
+- File-level structure (`region`, `extend`, `define`, `extern define`, `enemy`).
 
 ---
 

@@ -75,6 +75,14 @@ extend region RR_SPIRIT_TEMPLE_FOYER {
 
 ## Conditions & Built-In Functions
 
+Host-call signatures are declared with `extern define`, and calls are validated against those declarations. Conditions then use those function names as normal expressions.
+
+```RLS
+extern define has(item: Item) -> bool
+extern define can_use(item: Item) -> bool
+extern define keys(scene: Scene, n: int) -> int
+```
+
 Conditions are boolean expressions using short function names that the transpiler maps to C++ methods:
 
 | RLS                                         | C++                                                  |
@@ -106,6 +114,8 @@ define has_explosives():
 define spirit_explosive_key_logic():
     keys(SCENE_SPIRIT_TEMPLE, has_explosives() ? 1 : 2)
 ```
+
+`define` and `extern define` share one global function namespace, so names must be unique across both.
 
 ---
 
