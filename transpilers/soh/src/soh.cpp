@@ -1,20 +1,18 @@
 #include "soh.h"
 
-#include "generate_enemies.h"
-#include "generate_functions.h"
-#include "generate_regions.h"
-#include "generate_runtime.h"
-
 namespace rls::transpilers::soh {
 
-void Transpile(const rls::ast::Project& project, rls::OutputWriter& out) {
+SohTranspiler::SohTranspiler(const rls::ast::Project& project)
+	: project(project) {}
+
+void SohTranspiler::Transpile(rls::OutputWriter& out) const {
 	GenerateRuntimeHeaders(out);
-	GenerateFunctionDefinitionsHeader(project, out);
-	GenerateFunctionDefinitionsSource(project, out);
-	GenerateEnemiesHeader(project, out);
-	GenerateEnemiesSource(project, out);
-	GenerateRegionsHeader(project, out);
-	GenerateRegionsSource(project, out);
+	GenerateFunctionDefinitionsHeader(out);
+	GenerateFunctionDefinitionsSource(out);
+	GenerateEnemiesHeader(out);
+	GenerateEnemiesSource(out);
+	GenerateRegionsHeader(out);
+	GenerateRegionsSource(out);
 }
 
 } // namespace rls::transpilers::soh

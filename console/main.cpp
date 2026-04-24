@@ -78,7 +78,7 @@ static bool runTranspiler(const TranspilerConfig& config, const rls::ast::Projec
     DirectoryWriter writer(config.outputDir);
 
     if (config.name == "soh") {
-        rls::transpilers::soh::Transpile(project, writer);
+        rls::transpilers::soh::SohTranspiler(project).Transpile(writer);
     } else if (config.name == "ap") {
         rls::transpilers::ap::Transpile(project, writer);
     } else {
