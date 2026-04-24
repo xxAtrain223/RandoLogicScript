@@ -1,7 +1,56 @@
 #include "soh.h"
 
 #include <format>
+#include <optional>
 #include <sstream>
+#include <unordered_map>
+
+namespace {
+
+struct EnemyHelperParam {
+    std::string name;
+    std::optional<std::string> defaultValue;
+};
+
+struct EnemyHelperMetadata {
+    std::string emittedName;
+    std::vector<EnemyHelperParam> params;
+};
+
+const EnemyHelperMetadata* getEnemyHelperMetadata(const std::string& name) {
+    static const std::unordered_map<std::string, EnemyHelperMetadata> helpers = {
+        { "can_kill", { "CanKillEnemy", {
+            { "enemy", std::nullopt },
+            { "distance", "ED_CLOSE" },
+            { "wallOrFloor", "true" },
+            { "quantity", "1" },
+            { "timer", "false" },
+            { "inWater", "false" },
+        } } },
+        { "can_pass", { "CanPassEnemy", {
+            { "enemy", std::nullopt },
+            { "distance", "ED_CLOSE" },
+            { "wallOrFloor", "true" },
+        } } },
+        { "can_get_drop", { "CanGetEnemyDrop", {
+            { "enemy", std::nullopt },
+            { "distance", "ED_CLOSE" },
+            { "aboveLink", "false" },
+        } } },
+        { "can_avoid", { "CanAvoidEnemy", {
+            { "enemy", std::nullopt },
+            { "grounded", "false" },
+            { "quantity", "1" },
+        } } },
+    };
+
+    if (auto it = helpers.find(name); it != helpers.end()) {
+        return &it->second;
+    }
+    return nullptr;
+}
+
+} // namespace
 
 namespace rls::transpilers::soh {
 
@@ -129,117 +178,149 @@ std::string SohTranspiler::GenerateExpression(const rls::ast::TernaryExpr& node)
 		   GenerateExpression(node.elseBranch);
 }
 
-using AT = rls::ast::Type;
-
-struct FunctionRegistryItemParam {
-    AT type;
-    std::string name;
-    std::string defaultValue;
-};
-
-struct FunctionRegistryItem {
-    std::string output;
-    bool isFunction;
-    std::vector<FunctionRegistryItemParam> parameters;
-};
-
-static const FunctionRegistryItem* GetFunction(const std::string& name) {
-    static std::unordered_map<std::string, FunctionRegistryItem> functions = {
-        { "has", { "logic->HasItem", true, { { AT::Item, "itemName", ""}}}},
-        { "can_use", { "logic->CanUse", true, { { AT::Item, "itemName", "" } } } },
-        { "keys", { "logic->SmallKeys", true, { { AT::Scene, "scene", "" }, { AT::Int, "requiredAmount", "" } } } },
-        { "flag", { "logic->Get", true, { { AT::Logic, "logicVal", "" } } } },
-        { "setting", { "ctx->GetOption", true, { { AT::Logic, "key", "" } } } },
-        { "trick", { "ctx->GetTrickOption", true, { { AT::Logic, "key", "" } } } },
-        { "hearts", { "logic->Hearts", true, { } } },
-        { "effective_health", { "logic->EffectiveHealth", true, { } } },
-        { "trial_skipped", { "ctx->GetTrial({0})->IsSkipped()", false, { { AT::Trial, "key", "" } } } },
-        { "check_price", { "GetCheckPrice", true, { { AT::Check, "check", "RC_UNKNOWN_CHECK" } } } },
-        { "can_plant_bean", { "CanPlantBean", true, { { AT::Region, "region", "" }, { AT::Item, "bean", "" } } } },
-        { "triforce_pieces", { "logic->GetSaveContext()->ship.quest.data.randomizer.triforcePiecesCollected", false, { } } },
-        { "big_poes", { "logic->BigPoes", false, { } } },
-        { "can_kill", { "CanKillEnemy", true, { { AT::Enemy, "enemy", "" }, { AT::Distance, "distance", "ED_CLOSE" }, { AT::Bool, "wallOrFloor", "true" }, { AT::Int, "quantity", "1" }, { AT::Bool, "timer", "false" }, { AT::Bool, "inWater", "false" } } } },
-        { "can_pass", { "CanPassEnemy", true, { { AT::Enemy, "enemy", "" }, { AT::Distance, "distance", "ED_CLOSE" }, { AT::Bool, "wallOrFloor", "true" } } } },
-        { "can_get_drop", { "CanGetEnemyDrop", true, { { AT::Enemy, "enemy", "" }, { AT::Distance, "distance", "ED_CLOSE" }, { AT::Bool, "aboveLink", "true" } } } },
-        { "can_avoid", { "CanAvoidEnemy", true, { { AT::Enemy, "enemy", "" }, { AT::Bool, "grounded", "false" }, { AT::Int, "quantity", "1" } } } }
-    };
-
-    if (auto it = functions.find(name); it != functions.end()) {
-        return &it->second;
-    }
-
-    return nullptr;
-}
-
 std::string SohTranspiler::GenerateExpression(const rls::ast::CallExpr& node) const {
-    std::ostringstream oss;
-
-    if (const auto* func = GetFunction(node.function)) {
-        // Resolve arguments: map positional and named args to registry positions
-        std::vector<std::optional<std::string>> resolvedArgs(func->parameters.size());
-
-        int positionalIndex = 0;
-        for (const auto& arg : node.args) {
-            if (arg.name.has_value()) {
-                for (int j = 0; j < func->parameters.size(); j++) {
-                    if (arg.name.value() == func->parameters[j].name) {
-                        resolvedArgs[j] = GenerateExpression(arg.value);
-                        break;
-                    }
-                }
-            } else {
-                if (positionalIndex < static_cast<int>(func->parameters.size())) {
-                    resolvedArgs[positionalIndex] = GenerateExpression(arg.value);
-                }
-                positionalIndex++;
-            }
+    // Resolves call arguments into parameter slots using sema-compatible
+    // named/positional binding order. Unknown/duplicate args should have been
+    // reported by sema already, so this function only maps what it can.
+    auto resolveByNames = [&](const std::vector<std::string>& paramNames) {
+        std::vector<std::optional<std::string>> resolved(paramNames.size());
+        std::vector<bool> bound(paramNames.size(), false);
+        std::unordered_map<std::string, size_t> indexByName;
+        for (size_t i = 0; i < paramNames.size(); ++i) {
+            indexByName.emplace(paramNames[i], i);
         }
 
-        // Find the last explicitly provided argument
-        int lastProvidedIndex = -1;
-        for (int i = static_cast<int>(resolvedArgs.size()) - 1; i >= 0; i--) {
-            if (resolvedArgs[i].has_value()) {
-                lastProvidedIndex = i;
+        size_t nextPositional = 0;
+        for (const auto& arg : node.args) {
+            if (arg.name) {
+                auto it = indexByName.find(*arg.name);
+                if (it == indexByName.end()) {
+                    continue;
+                }
+                size_t i = it->second;
+                if (bound[i]) {
+                    continue;
+                }
+                resolved[i] = GenerateExpression(arg.value);
+                bound[i] = true;
+                continue;
+            }
+
+            while (nextPositional < paramNames.size() && bound[nextPositional]) {
+                ++nextPositional;
+            }
+            if (nextPositional >= paramNames.size()) {
+                continue;
+            }
+
+            resolved[nextPositional] = GenerateExpression(arg.value);
+            bound[nextPositional] = true;
+            ++nextPositional;
+        }
+
+        return resolved;
+    };
+
+    // Emits a direct function-style call from a final ordered argument list.
+    auto emitCall = [](const std::string& functionName, const std::vector<std::string>& args) {
+        std::ostringstream oss;
+        oss << functionName << "(";
+        for (size_t i = 0; i < args.size(); ++i) {
+            if (i > 0) {
+                oss << ", ";
+            }
+            oss << args[i];
+        }
+        oss << ")";
+        return oss.str();
+    };
+
+    // Enemy built-ins keep a dedicated C++ helper mapping.
+    if (const auto* enemy = getEnemyHelperMetadata(node.function)) {
+        std::vector<std::string> paramNames;
+        paramNames.reserve(enemy->params.size());
+        for (const auto& p : enemy->params) {
+            paramNames.push_back(p.name);
+        }
+
+        auto resolved = resolveByNames(paramNames);
+        int lastProvided = -1;
+        for (int i = static_cast<int>(resolved.size()) - 1; i >= 0; --i) {
+            if (resolved[i].has_value()) {
+                lastProvided = i;
                 break;
             }
         }
 
-        // Apply placeholder replacements in the output template
-        std::string output = func->output;
-        for (int i = 0; i <= lastProvidedIndex; i++) {
-            std::string placeholder = "{" + std::to_string(i) + "}";
-            std::string replacement = resolvedArgs[i].value_or(func->parameters[i].defaultValue);
-            size_t pos = 0;
-            while ((pos = output.find(placeholder, pos)) != std::string::npos) {
-                output.replace(pos, placeholder.size(), replacement);
-                pos += replacement.size();
+        std::vector<std::string> emittedArgs;
+        for (int i = 0; i <= lastProvided; ++i) {
+            if (resolved[i]) {
+                emittedArgs.push_back(*resolved[i]);
+                continue;
+            }
+            if (enemy->params[i].defaultValue) {
+                emittedArgs.push_back(*enemy->params[i].defaultValue);
             }
         }
-        oss << output;
 
-        if (func->isFunction) {
-            oss << "(";
-            for (int i = 0; i <= lastProvidedIndex; i++) {
-                if (i > 0) {
-                    oss << ", ";
-                }
-                oss << resolvedArgs[i].value_or(func->parameters[i].defaultValue);
-            }
-            oss << ")";
-        }
-    }
-    else {
-        oss << node.function << "(";
-        for (int i = 0; i < node.args.size(); i++) {
-            if (i > 0) {
-                oss << ", ";
-            }
-            oss << GenerateExpression(node.args[i].value);
-        }
-        oss << ")";
+        return emitCall(enemy->emittedName, emittedArgs);
     }
 
-    return oss.str();
+    // Extern-defined host calls emit by declared function name with resolved
+    // argument order and declaration defaults.
+    if (auto it = project.ExternDefineDecls.find(node.function); it != project.ExternDefineDecls.end()) {
+        const auto& ext = *it->second;
+        std::vector<std::string> paramNames;
+        paramNames.reserve(ext.params.size());
+        for (const auto& p : ext.params) {
+            paramNames.push_back(p.name);
+        }
+
+        auto resolved = resolveByNames(paramNames);
+        std::vector<std::string> emittedArgs;
+        emittedArgs.reserve(ext.params.size());
+        for (size_t i = 0; i < ext.params.size(); ++i) {
+            if (resolved[i]) {
+                emittedArgs.push_back(*resolved[i]);
+                continue;
+            }
+            if (ext.params[i].defaultValue) {
+                emittedArgs.push_back(GenerateExpression(ext.params[i].defaultValue));
+            }
+        }
+
+        return emitCall(node.function, emittedArgs);
+    }
+
+    // User-defined calls use the same binding/default expansion rules so call
+    // emission is canonical across define + extern define.
+    if (auto it = project.DefineDecls.find(node.function); it != project.DefineDecls.end()) {
+        const auto& def = *it->second;
+        std::vector<std::string> paramNames;
+        paramNames.reserve(def.params.size());
+        for (const auto& p : def.params) {
+            paramNames.push_back(p.name);
+        }
+
+        auto resolved = resolveByNames(paramNames);
+        std::vector<std::string> emittedArgs;
+        emittedArgs.reserve(def.params.size());
+        for (size_t i = 0; i < def.params.size(); ++i) {
+            if (resolved[i]) {
+                emittedArgs.push_back(*resolved[i]);
+                continue;
+            }
+            if (def.params[i].defaultValue) {
+                emittedArgs.push_back(GenerateExpression(def.params[i].defaultValue));
+            }
+        }
+
+        return emitCall(node.function, emittedArgs);
+    }
+
+    // Unknown calls are blocked earlier in sema; emit empty as a defensive
+    // fallback so generation does not invent passthrough call forms.
+    return "";
 }
 
 std::string SohTranspiler::GenerateExpression(const rls::ast::SharedBlock& node) const {
