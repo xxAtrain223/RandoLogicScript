@@ -1,8 +1,11 @@
 #include "helpers.h"
-#include "generate_expression.h"
 
-using rls::transpilers::soh::GenerateExpression;
 using namespace rls::transpilers::soh_tests;
+
+static std::string GenerateExpression(const rls::ast::ExprPtr& expr) {
+	rls::ast::Project project;
+	return rls::transpilers::soh::SohTranspiler(project).GenerateExpression(expr);
+}
 
 rls::ast::ExprPtr sourceToExpression(const std::string& source, const std::string& defineName) {
 	auto project = resolveFromSource(source);

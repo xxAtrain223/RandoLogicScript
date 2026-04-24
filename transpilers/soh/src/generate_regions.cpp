@@ -1,5 +1,4 @@
 #include "soh.h"
-#include "generate_expression.h"
 
 #include <functional>
 
@@ -25,21 +24,33 @@ void WriteEntries(const std::vector<rls::ast::Section>& sections,
     }
 }
 
-void WriteEvents(std::ostream& source, const std::vector<rls::ast::Section>& sections) {
+void WriteEvents(
+	const SohTranspiler& transpiler,
+	std::ostream& source,
+	const std::vector<rls::ast::Section>& sections)
+{
     WriteEntries(sections, rls::ast::SectionKind::Events, [&](const rls::ast::Entry& entry){
-        source << "    EVENT_ACCESS(" << entry.name << ", " << GenerateExpression(entry.condition) << "),\n";
+        source << "    EVENT_ACCESS(" << entry.name << ", " << transpiler.GenerateExpression(entry.condition) << "),\n";
     });
 }
 
-void WriteLocations(std::ostream& source, const std::vector<rls::ast::Section>& sections) {
+void WriteLocations(
+	const SohTranspiler& transpiler,
+	std::ostream& source,
+	const std::vector<rls::ast::Section>& sections)
+{
     WriteEntries(sections, rls::ast::SectionKind::Locations, [&](const rls::ast::Entry& entry){
-        source << "    LOCATION(" << entry.name << ", " << GenerateExpression(entry.condition) << "),\n";
+        source << "    LOCATION(" << entry.name << ", " << transpiler.GenerateExpression(entry.condition) << "),\n";
     });
 }
 
-void WriteExits(std::ostream& source, const std::vector<rls::ast::Section>& sections) {
+void WriteExits(
+	const SohTranspiler& transpiler,
+	std::ostream& source,
+	const std::vector<rls::ast::Section>& sections)
+{
     WriteEntries(sections, rls::ast::SectionKind::Exits, [&](const rls::ast::Entry& entry){
-        source << "    ENTRANCE(" << entry.name << ", " << GenerateExpression(entry.condition) << "),\n";
+        source << "    ENTRANCE(" << entry.name << ", " << transpiler.GenerateExpression(entry.condition) << "),\n";
     });
 }
 
@@ -61,19 +72,19 @@ void SohTranspiler::GenerateRegionsSource(rls::OutputWriter& out) const {
                << region->body.scene.value() << ", ";
         
         source << "{\n    // Events\n";
-        WriteEvents(source, region->body.sections);
+        WriteEvents(*this, source, region->body.sections);
         for (auto it = extendRegionBegin; it != extendRegionEnd; it++) {
-            WriteEvents(source, it->second->sections);
+            WriteEvents(*this, source, it->second->sections);
         }
         source << "}, {\n    // Locations\n";
-        WriteLocations(source, region->body.sections);
+        WriteLocations(*this, source, region->body.sections);
         for (auto it = extendRegionBegin; it != extendRegionEnd; it++) {
-            WriteLocations(source, it->second->sections);
+            WriteLocations(*this, source, it->second->sections);
         }
         source << "}, {\n    // Exits\n";
-        WriteExits(source, region->body.sections);
+        WriteExits(*this, source, region->body.sections);
         for (auto it = extendRegionBegin; it != extendRegionEnd; it++) {
-            WriteExits(source, it->second->sections);
+            WriteExits(*this, source, it->second->sections);
         }
         source << "});\n\n";
     }

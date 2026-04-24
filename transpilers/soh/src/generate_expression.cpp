@@ -1,25 +1,23 @@
-#include "generate_expression.h"
+#include "soh.h"
 
 #include <format>
 #include <sstream>
 
 namespace rls::transpilers::soh {
 
-std::string GenerateExpression(const rls::ast::Expr::Variant& node);
-
-static std::string GenerateExpression(const rls::ast::BoolLiteral& node) {
+std::string SohTranspiler::GenerateExpression(const rls::ast::BoolLiteral& node) const {
 	return node.value ? "true" : "false";
 }
 
-static std::string GenerateExpression(const rls::ast::IntLiteral& node) {
+std::string SohTranspiler::GenerateExpression(const rls::ast::IntLiteral& node) const {
 	return std::to_string(node.value);
 }
 
-static std::string GenerateExpression(const rls::ast::Identifier& node) {
+std::string SohTranspiler::GenerateExpression(const rls::ast::Identifier& node) const {
 	return node.name;
 }
 
-static std::string GenerateExpression(const rls::ast::KeywordExpr& node) {
+std::string SohTranspiler::GenerateExpression(const rls::ast::KeywordExpr& node) const {
     switch (node.keyword) {
     case rls::ast::Keyword::IsChild:
         return "logic->IsChild";
@@ -40,7 +38,7 @@ static std::string GenerateExpression(const rls::ast::KeywordExpr& node) {
 
 // Returns the C++ operator precedence for an expression node.
 // Lower values bind tighter. Non-compound nodes return 0 (tightest).
-static int GetCppPrecedence(const rls::ast::ExprPtr& expr) {
+int SohTranspiler::GetCppPrecedence(const rls::ast::ExprPtr& expr) const {
 	if (auto* bin = std::get_if<rls::ast::BinaryExpr>(&expr->node)) {
 		switch (bin->op) {
 		case rls::ast::BinaryOp::Mul:
@@ -73,8 +71,9 @@ static int GetCppPrecedence(const rls::ast::ExprPtr& expr) {
 // Generates an expression, wrapping in parentheses when the child's C++
 // precedence is looser than the parent's (or equal on the right side of
 // a left-associative operator).
-static std::string GenerateChildExpression(
-	const rls::ast::ExprPtr& expr, int parentPrec, bool isRightChild = false)
+std::string SohTranspiler::GenerateChildExpression(
+    const rls::ast::ExprPtr& expr, int parentPrec, bool isRightChild)
+    const
 {
 	auto result = GenerateExpression(expr);
 	int childPrec = GetCppPrecedence(expr);
@@ -84,7 +83,7 @@ static std::string GenerateChildExpression(
 	return result;
 }
 
-static std::string GenerateExpression(const rls::ast::UnaryExpr& node) {
+std::string SohTranspiler::GenerateExpression(const rls::ast::UnaryExpr& node) const {
 	switch (node.op) {
 	case rls::ast::UnaryOp::Not:
 		return "!" + GenerateChildExpression(node.operand, 3);
@@ -93,7 +92,7 @@ static std::string GenerateExpression(const rls::ast::UnaryExpr& node) {
 	}
 }
 
-static std::string GenerateExpression(const rls::ast::BinaryExpr& node) {
+std::string SohTranspiler::GenerateExpression(const rls::ast::BinaryExpr& node) const {
     switch (node.op) {
     case rls::ast::BinaryOp::And:
         return GenerateChildExpression(node.left, 14) + " && " + GenerateChildExpression(node.right, 14, true);
@@ -124,7 +123,7 @@ static std::string GenerateExpression(const rls::ast::BinaryExpr& node) {
     }
 }
 
-static std::string GenerateExpression(const rls::ast::TernaryExpr& node) {
+std::string SohTranspiler::GenerateExpression(const rls::ast::TernaryExpr& node) const {
 	return GenerateChildExpression(node.condition, 15) + " ? " +
 		   GenerateExpression(node.thenBranch) + " : " +
 		   GenerateExpression(node.elseBranch);
@@ -172,7 +171,7 @@ static const FunctionRegistryItem* GetFunction(const std::string& name) {
     return nullptr;
 }
 
-static std::string GenerateExpression(const rls::ast::CallExpr& node) {
+std::string SohTranspiler::GenerateExpression(const rls::ast::CallExpr& node) const {
     std::ostringstream oss;
 
     if (const auto* func = GetFunction(node.function)) {
@@ -243,7 +242,7 @@ static std::string GenerateExpression(const rls::ast::CallExpr& node) {
     return oss.str();
 }
 
-static std::string GenerateExpression(const rls::ast::SharedBlock& node) {
+std::string SohTranspiler::GenerateExpression(const rls::ast::SharedBlock& node) const {
     std::ostringstream oss;
 
     const auto& firstBranch = node.branches[0];
@@ -261,11 +260,11 @@ static std::string GenerateExpression(const rls::ast::SharedBlock& node) {
 	return oss.str();
 }
 
-static std::string GenerateExpression(const rls::ast::AnyAgeBlock& node) {
+std::string SohTranspiler::GenerateExpression(const rls::ast::AnyAgeBlock& node) const {
 	return "AnyAgeTime([]{return " + GenerateExpression(node.body) + ";})";
 }
 
-static std::string GenerateExpression(const rls::ast::MatchExpr& node) {
+std::string SohTranspiler::GenerateExpression(const rls::ast::MatchExpr& node) const {
 	std::ostringstream oss;
 	oss << "rls::match(";
 
@@ -293,13 +292,13 @@ static std::string GenerateExpression(const rls::ast::MatchExpr& node) {
 	return oss.str();
 }
 
-static std::string GenerateExpression(const rls::ast::Expr::Variant& node) {
+std::string SohTranspiler::GenerateExpression(const rls::ast::Expr::Variant& node) const {
 	return std::visit([&](const auto& node) {
 		return GenerateExpression(node);
 	}, node);
 }
 
-std::string GenerateExpression(const rls::ast::ExprPtr& expr) {
+std::string SohTranspiler::GenerateExpression(const rls::ast::ExprPtr& expr) const {
 	return GenerateExpression(expr->node);
 }
 

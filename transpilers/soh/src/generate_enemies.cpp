@@ -1,5 +1,4 @@
 #include "soh.h"
-#include "generate_expression.h"
 
 #include <algorithm>
 #include <array>
@@ -131,13 +130,14 @@ static std::string functionDeclaration(const EnemyFunctionDef& def) {
 /// Generate the body expression for a specific enemy's field.
 /// Only called when the enemy has an explicit field of this kind.
 static std::string fieldBody(
+	const SohTranspiler& transpiler,
 	const rls::ast::EnemyDecl& enemy,
 	const EnemyFunctionDef& def)
 {
 	const auto* field = findField(enemy, def.kind);
 
 	if (field) {
-		return GenerateExpression(field->body);
+		return transpiler.GenerateExpression(field->body);
 	}
 
 	// Field not explicitly defined — apply defaults per the spec:
@@ -224,7 +224,7 @@ void SohTranspiler::GenerateEnemiesSource(rls::OutputWriter& out) const {
 
 			if (needsCase) {
 				source << "        case " << enemy->name << ":\n"
-				       << "            return " << fieldBody(*enemy, def) << ";\n";
+				       << "            return " << fieldBody(*this, *enemy, def) << ";\n";
 			}
 		}
 

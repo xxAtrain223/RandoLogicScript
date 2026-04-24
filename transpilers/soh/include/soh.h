@@ -18,8 +18,24 @@ public:
 	void GenerateEnemiesSource(rls::OutputWriter& out) const;
 	void GenerateRegionsHeader(rls::OutputWriter& out) const;
 	void GenerateRegionsSource(rls::OutputWriter& out) const;
+	std::string GenerateExpression(const rls::ast::ExprPtr& expr) const;
 
 private:
+	int GetCppPrecedence(const rls::ast::ExprPtr& expr) const;
+	std::string GenerateChildExpression(const rls::ast::ExprPtr& expr, int parentPrec, bool isRightChild = false) const;
+	std::string GenerateExpression(const rls::ast::BoolLiteral& node) const;
+	std::string GenerateExpression(const rls::ast::IntLiteral& node) const;
+	std::string GenerateExpression(const rls::ast::Identifier& node) const;
+	std::string GenerateExpression(const rls::ast::KeywordExpr& node) const;
+	std::string GenerateExpression(const rls::ast::UnaryExpr& node) const;
+	std::string GenerateExpression(const rls::ast::BinaryExpr& node) const;
+	std::string GenerateExpression(const rls::ast::TernaryExpr& node) const;
+	std::string GenerateExpression(const rls::ast::CallExpr& node) const;
+	std::string GenerateExpression(const rls::ast::SharedBlock& node) const;
+	std::string GenerateExpression(const rls::ast::AnyAgeBlock& node) const;
+	std::string GenerateExpression(const rls::ast::MatchExpr& node) const;
+	std::string GenerateExpression(const rls::ast::Expr::Variant& node) const;
+
 	const rls::ast::Project& project;
 };
 
