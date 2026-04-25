@@ -354,12 +354,16 @@ std::string SohTranspiler::GenerateExpression(const rls::ast::MatchExpr& node) c
 		if (i > 0) oss << ", ";
 
 		// Condition lambda: [&]{ return discriminant == P1 || discriminant == P2; }
-		oss << "[&]{return ";
-		for (size_t j = 0; j < arm.patterns.size(); j++) {
-			if (j > 0) oss << " || ";
-			oss << node.discriminant << " == " << arm.patterns[j];
-		}
-		oss << ";}, ";
+        if (arm.isDefault) {
+            oss << "[&]{return true;}, ";
+        } else {
+            oss << "[&]{return ";
+            for (size_t j = 0; j < arm.patterns.size(); j++) {
+                if (j > 0) oss << " || ";
+                oss << node.discriminant << " == " << arm.patterns[j];
+            }
+            oss << ";}, ";
+        }
 
 		// Body lambda: [&]{ return <body_expression>; }
 		oss << "[&]{return " << GenerateExpression(arm.body) << ";}, ";

@@ -481,6 +481,18 @@ TEST(ExprMatch, PatternWithOr) {
 	));
 }
 
+TEST(ExprMatch, DefaultPattern) {
+	EXPECT_TRUE(matches<match_expr>(
+		"match distance { _: true }"
+	));
+}
+
+TEST(ExprMatch, DefaultPatternWithOr) {
+	EXPECT_TRUE(matches<match_expr>(
+		"match distance { ED_CLOSE or _: true }"
+	));
+}
+
 TEST(ExprMatch, TrailingOr) {
 	EXPECT_TRUE(matches<match_expr>(
 		"match distance {\n"

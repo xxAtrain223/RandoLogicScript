@@ -1262,6 +1262,50 @@ TEST(ResolveTypes, MatchDiscriminantInferred) {
 	EXPECT_EQ(project.getType(project.DefineDecls.at("foo")->body.get()), Type::Bool);
 }
 
+TEST(ResolveTypes, MatchDefaultArmAllowed) {
+	auto [project, diags] = resolveFromSource(
+		"define foo(d: Distance):\n"
+		"    match d {\n"
+		"        ED_CLOSE: true\n"
+		"        _: false\n"
+		"    }\n");
+	EXPECT_TRUE(diags.empty());
+	EXPECT_EQ(project.getType(project.DefineDecls.at("foo")->body.get()), Type::Bool);
+}
+
+TEST(ResolveTypes, MatchDefaultArmMustBeLast) {
+	auto [project, diags] = resolveFromSource(
+		"define foo(d: Distance):\n"
+		"    match d {\n"
+		"        _: true\n"
+		"        ED_CLOSE: false\n"
+		"    }\n");
+	EXPECT_EQ(countErrors(diags), 1u);
+	EXPECT_NE(diags[0].message.find("match wildcard '_' arm must be last"),
+		std::string::npos);
+}
+
+TEST(ResolveTypes, MatchDefaultPatternMustBeStandalone) {
+	auto [project, diags] = resolveFromSource(
+		"define foo(d: Distance):\n"
+		"    match d {\n"
+		"        ED_CLOSE or _: true\n"
+		"    }\n");
+	EXPECT_EQ(countErrors(diags), 1u);
+	EXPECT_NE(diags[0].message.find("match wildcard '_' must be a standalone pattern"),
+		std::string::npos);
+}
+
+TEST(ResolveTypes, MatchOnlyDefaultDoesNotInferDiscriminant) {
+	auto [project, diags] = resolveFromSource(
+		"define foo(d):\n"
+		"    match d {\n"
+		"        _: true\n"
+		"    }\n");
+	EXPECT_TRUE(diags.empty());
+	EXPECT_EQ(project.getType(project.DefineDecls.at("foo")->body.get()), Type::Bool);
+}
+
 // -- Error poisoning ----------------------------------------------------------
 
 TEST(ResolveTypes, ErrorPoisonSuppressesCascade) {

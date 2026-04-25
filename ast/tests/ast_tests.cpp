@@ -171,24 +171,33 @@ TEST(ExprTests, AnyAgeBlock) {
 TEST(ExprTests, MatchExpr) {
 	// match distance { ED_CLOSE: expr or, ED_FAR: expr }
 	std::vector<MatchArm> arms;
-	arms.emplace_back(std::vector<std::string>{"ED_CLOSE"}, makeExpr(BoolLiteral{true}), true);
-	arms.emplace_back(std::vector<std::string>{"ED_FAR"}, makeExpr(BoolLiteral{false}), false);
+	arms.emplace_back(std::vector<std::string>{"ED_CLOSE"}, false, makeExpr(BoolLiteral{true}), true);
+	arms.emplace_back(std::vector<std::string>{"ED_FAR"}, false, makeExpr(BoolLiteral{false}), false);
 
 	auto expr = makeExpr(MatchExpr("distance", std::move(arms)));
 	ASSERT_TRUE(std::holds_alternative<MatchExpr>(expr->node));
 	const auto& m = std::get<MatchExpr>(expr->node);
 	EXPECT_EQ(m.discriminant, "distance");
 	ASSERT_EQ(m.arms.size(), 2u);
+	EXPECT_FALSE(m.arms[0].isDefault);
+	EXPECT_FALSE(m.arms[1].isDefault);
 	EXPECT_TRUE(m.arms[0].fallthrough);
 	EXPECT_FALSE(m.arms[1].fallthrough);
 }
 
 TEST(ExprTests, MatchArmMultiplePatterns) {
 	// ED_CLOSE or ED_SHORT_JUMPSLASH: body
-	MatchArm arm({"ED_CLOSE", "ED_SHORT_JUMPSLASH"}, makeExpr(BoolLiteral{true}), false);
+	MatchArm arm({"ED_CLOSE", "ED_SHORT_JUMPSLASH"}, false, makeExpr(BoolLiteral{true}), false);
 	EXPECT_EQ(arm.patterns.size(), 2u);
 	EXPECT_EQ(arm.patterns[0], "ED_CLOSE");
 	EXPECT_EQ(arm.patterns[1], "ED_SHORT_JUMPSLASH");
+	EXPECT_FALSE(arm.isDefault);
+}
+
+TEST(ExprTests, MatchArmDefault) {
+	MatchArm arm({}, true, makeExpr(BoolLiteral{true}), false);
+	EXPECT_TRUE(arm.isDefault);
+	EXPECT_TRUE(arm.patterns.empty());
 }
 
 // == Span tracking ============================================================

@@ -509,6 +509,7 @@ TEST(ParseExpr, MatchSingleArm) {
 	const auto& m = std::get<MatchExpr>(e.node);
 	EXPECT_EQ(m.discriminant, "distance");
 	ASSERT_EQ(m.arms.size(), 1u);
+	EXPECT_FALSE(m.arms[0].isDefault);
 	ASSERT_EQ(m.arms[0].patterns.size(), 1u);
 	EXPECT_EQ(m.arms[0].patterns[0], "ED_CLOSE");
 	EXPECT_FALSE(m.arms[0].fallthrough);
@@ -536,9 +537,22 @@ TEST(ParseExpr, MatchArmWithOrPatterns) {
 	);
 	ASSERT_TRUE(std::holds_alternative<MatchExpr>(e.node));
 	const auto& arm = std::get<MatchExpr>(e.node).arms[0];
+	EXPECT_FALSE(arm.isDefault);
 	ASSERT_EQ(arm.patterns.size(), 2u);
 	EXPECT_EQ(arm.patterns[0], "A");
 	EXPECT_EQ(arm.patterns[1], "B");
+}
+
+TEST(ParseExpr, MatchDefaultArm) {
+	const auto& e = parseExpr(
+		"match x {\n"
+		"  _: true\n"
+		"}"
+	);
+	ASSERT_TRUE(std::holds_alternative<MatchExpr>(e.node));
+	const auto& arm = std::get<MatchExpr>(e.node).arms[0];
+	EXPECT_TRUE(arm.isDefault);
+	EXPECT_TRUE(arm.patterns.empty());
 }
 
 TEST(ParseExpr, MatchArmFallthrough) {

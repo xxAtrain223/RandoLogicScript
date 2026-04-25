@@ -656,7 +656,29 @@ struct ExprResolver {
 		// --- Arm patterns: all must be the same enum type ---------------
 		std::optional<T> patternType;
 
-		for (const auto& arm : node.arms) {
+		for (size_t armIndex = 0; armIndex < node.arms.size(); ++armIndex) {
+			const auto& arm = node.arms[armIndex];
+
+			if (arm.isDefault) {
+				if (!arm.patterns.empty()) {
+					diags.push_back({
+						ast::DiagnosticLevel::Error,
+						"match wildcard '_' must be a standalone pattern",
+						expr.span
+					});
+				}
+
+				if (armIndex + 1 != node.arms.size()) {
+					diags.push_back({
+						ast::DiagnosticLevel::Error,
+						"match wildcard '_' arm must be last",
+						expr.span
+					});
+				}
+
+				continue;
+			}
+
 			for (const auto& pattern : arm.patterns) {
 				if (auto t = typeFromIdentifier(pattern)) {
 					if (!patternType) {

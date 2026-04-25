@@ -275,9 +275,14 @@ ast::ExprPtr buildExpr(const Node& n, Diags& diags) {
 
 			// Patterns
 			std::vector<std::string> patterns;
+			bool isDefault = false;
 			const auto& patNode = *armNode.children[0];
 			for (const auto& p : patNode.children) {
-				patterns.emplace_back(std::string(p->string_view()));
+				if (p->is_type<grammar::match_default>()) {
+					isDefault = true;
+				} else {
+					patterns.emplace_back(std::string(p->string_view()));
+				}
 			}
 
 			// Body
@@ -288,7 +293,7 @@ ast::ExprPtr buildExpr(const Node& n, Diags& diags) {
 				armNode.children.back()->is_type<grammar::trailing_or>();
 
 			arms.emplace_back(
-				std::move(patterns), std::move(body), fallthrough);
+				std::move(patterns), isDefault, std::move(body), fallthrough);
 		}
 
 		return ast::makeExpr(

@@ -750,6 +750,22 @@ TEST(SohExpressions, MatchMultiValueArm) {
 		"[&]{return can_use(RG_KOKIRI_SWORD);}, false)");
 }
 
+TEST(SohExpressions, MatchDefaultArm) {
+	auto expr = sourceToExpression(
+		"define test(distance: Distance):\n"
+		"    match distance {\n"
+		"        ED_CLOSE: can_use(RG_KOKIRI_SWORD)\n"
+		"        _: can_use(RG_FAIRY_BOW)\n"
+		"    }\n",
+		"test");
+	EXPECT_EQ(GenerateExpression(expr),
+		"rls::match("
+		"[&]{return distance == ED_CLOSE;}, "
+		"[&]{return can_use(RG_KOKIRI_SWORD);}, false, "
+		"[&]{return true;}, "
+		"[&]{return can_use(RG_FAIRY_BOW);}, false)");
+}
+
 TEST(SohExpressions, MatchComplexCanHitSwitch) {
 	auto expr = sourceToExpression(
 		"define test(distance = ED_CLOSE, inWater = false):\n"

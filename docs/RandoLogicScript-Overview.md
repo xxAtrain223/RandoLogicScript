@@ -141,6 +141,17 @@ define can_hit_switch(distance = ED_CLOSE, inWater = false):
 
 `or` before a colon is a multi-value pattern: `ED_CLOSE or ED_SHORT_JUMPSLASH:` matches either.
 
+`_` is a wildcard catch-all arm in `match`:
+
+```RLS
+match distance {
+    ED_CLOSE: can_use(RG_KOKIRI_SWORD)
+    _: can_use(RG_FAIRY_BOW)
+}
+```
+
+`_` must be standalone (`_:`), must be the final arm, and is optional.
+
 ---
 
 ## Enemy Declarations

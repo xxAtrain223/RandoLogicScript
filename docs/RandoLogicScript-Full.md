@@ -429,7 +429,24 @@ match <value> {
 }
 ```
 
-Each arm is `Pattern: body`. The `match` expression evaluates the first arm whose pattern equals `<value>` and returns its body. If no arm matches, the `match` expression evaluates to `false`.
+Each arm is `Pattern: body`. The `match` expression evaluates the first arm whose pattern equals `<value>` and returns its body. `_` is a wildcard that matches anything. If no arm matches and there is no `_` arm, the `match` expression evaluates to the default value for the body type.
+
+#### Default Arm (`_`)
+
+`_` provides an explicit catch-all arm:
+
+```rls
+match distance {
+    ED_CLOSE: can_use(RG_KOKIRI_SWORD)
+    _: can_use(RG_FAIRY_BOW)
+}
+```
+
+Rules:
+
+- `_` must be a standalone pattern (`_:`).
+- `_` must be the final arm.
+- `_` is optional.
 
 #### Fallthrough with Trailing `or`
 

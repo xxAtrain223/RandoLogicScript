@@ -34,6 +34,7 @@ using selector = tao::pegtl::parse_tree::selector<
 	// -- Leaf / token nodes (store matched text) ------------------------------
 	tao::pegtl::parse_tree::store_content::on<
 		grammar::ident,
+		grammar::match_default,
 		grammar::integer,
 		grammar::string_literal,
 		grammar::atom_keyword,
@@ -100,6 +101,7 @@ using selector = tao::pegtl::parse_tree::selector<
 		grammar::paren_expr,
 		grammar::match_ternary,
 		grammar::match_or_expr,
+		grammar::match_single_pattern,
 		grammar::arg,
 		grammar::declaration
 	>

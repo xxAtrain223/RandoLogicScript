@@ -381,12 +381,18 @@ struct expr : ternary {};
 
 // -- Match expressions (defined here because match arms need and_expr) --------
 
-/// match_pattern = IDENT ("or" IDENT)*
-struct match_pattern : list<ident, seq<_, kw<kw_or>, _>> {};
+/// match_default = "_"
+struct match_default : one<'_'> {};
+
+/// match_single_pattern = "_" | IDENT
+struct match_single_pattern : sor<match_default, ident> {};
+
+/// match_pattern = match_single_pattern ("or" match_single_pattern)*
+struct match_pattern : list<match_single_pattern, seq<_, kw<kw_or>, _>> {};
 
 /// Lookahead: the start of the next match arm (pattern followed by ":").
 /// Used to distinguish a trailing "or" (fallthrough) from a binary "or".
-struct next_arm_head : seq<_, ident, star<seq<_, kw<kw_or>, _, ident>>, _, colon> {};
+struct next_arm_head : seq<_, match_pattern, _, colon> {};
 
 /// trailing_or = "or" at(next_arm_head)
 /// A trailing "or" is a fallthrough marker — it's the "or" keyword followed
