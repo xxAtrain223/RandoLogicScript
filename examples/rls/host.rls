@@ -1,0 +1,6 @@
+extern define has(item: Item) -> Bool
+extern define can_use(item: Item) -> Bool
+extern define flag(key: Logic) -> Bool
+extern define setting(key: Setting) -> Setting
+extern define trick(key: Trick) -> Bool
+extern define can_plant_bean(reg: Region, bean: Item) -> Bool

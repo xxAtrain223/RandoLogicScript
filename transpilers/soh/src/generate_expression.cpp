@@ -1,6 +1,5 @@
 #include "soh.h"
 
-#include <format>
 #include <optional>
 #include <sstream>
 #include <unordered_map>
@@ -266,7 +265,7 @@ std::string SohTranspiler::GenerateExpression(const rls::ast::CallExpr& node) co
         return emitCall(enemy->emittedName, emittedArgs);
     }
 
-    // Extern-defined host calls emit by declared function name with resolved
+    // Extern-defined calls emit by declared function name with resolved
     // argument order and declaration defaults.
     if (auto it = project.ExternDefineDecls.find(node.function); it != project.ExternDefineDecls.end()) {
         const auto& ext = *it->second;

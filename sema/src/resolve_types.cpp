@@ -44,23 +44,23 @@ std::optional<ast::Type> typeFromIdentifier(std::string_view name) {
 	return std::nullopt;
 }
 
-// == Step 2: Built-in function signatures ====================================
+// == Step 2: Enemy built-in signatures =======================================
 
-struct HostParam {
+struct EnemyBuiltinParam {
 	ast::Type type;
 	bool required;
 };
 
-struct HostSignature {
+struct EnemyBuiltinSignature {
 	ast::Type returnType;
-	std::vector<HostParam> params;
+	std::vector<EnemyBuiltinParam> params;
 };
 
 /// Enemy built-in function signatures.
 /// These take an Enemy as first arg and dispatch to enemy declarations.
-static const std::unordered_map<std::string, HostSignature>& enemyBuiltins() {
+static const std::unordered_map<std::string, EnemyBuiltinSignature>& enemyBuiltins() {
 	using T = ast::Type;
-	static const std::unordered_map<std::string, HostSignature> table = {
+	static const std::unordered_map<std::string, EnemyBuiltinSignature> table = {
 		// can_kill(enemy, distance = ED_CLOSE, wallOrFloor = true, quantity = 1, timer = false, inWater = false)
 		{"can_kill",     {T::Bool, {{T::Enemy, true}, {T::Distance, false}, {T::Bool, false}, {T::Int, false}, {T::Bool, false}, {T::Bool, false}}}},
 		// can_pass(enemy, distance = ED_CLOSE, wallOrFloor = true)
@@ -91,10 +91,10 @@ static const char* enemyFieldBuiltinName(ast::EnemyFieldKind kind) {
 	return nullptr;
 }
 
-/// Validate a call's arguments against a known signature.
+/// Validate an enemy built-in call's positional arguments.
 /// Returns the signature's return type.
-static ast::Type validateCallArgs(
-	const std::string& function, const HostSignature& sig,
+static ast::Type validateEnemyBuiltinCallArgs(
+	const std::string& function, const EnemyBuiltinSignature& sig,
 	const std::vector<ast::Type>& argTypes,
 	const ast::CallExpr& node, const ast::Expr& expr,
 	std::vector<ast::Diagnostic>& diags)
@@ -544,7 +544,7 @@ struct ExprResolver {
 		// Enemy built-in functions (can_kill, can_pass, etc.).
 		auto& enemies = enemyBuiltins();
 		if (auto it = enemies.find(node.function); it != enemies.end()) {
-			return validateCallArgs(node.function, it->second, argTypes,
+			return validateEnemyBuiltinCallArgs(node.function, it->second, argTypes,
 				node, expr, diags);
 		}
 
