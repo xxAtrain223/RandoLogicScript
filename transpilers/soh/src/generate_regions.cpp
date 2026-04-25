@@ -60,6 +60,8 @@ void SohTranspiler::GenerateRegionsSource(rls::OutputWriter& out) const {
            << "#include \"regions.gen.h\"\n"
 		   << "#include \"functions.gen.h\"\n"
 		   << "\n"
+           << "using namespace Rando;\n"
+           << "\n"
 		   << "void RegisterRegions() {\n"
            << "\n";
     
