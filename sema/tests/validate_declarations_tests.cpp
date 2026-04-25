@@ -161,71 +161,6 @@ TEST(ValidateDeclarations, AnalyzeExtendTargetExists_Ok) {
 	}
 }
 
-// == Enemy must have 'kill' field =============================================
-
-TEST(ValidateDeclarations, EnemyWithKill_Ok) {
-	auto [project, diags] = validateFromSource(
-		"enemy RE_WOLFOS {\n"
-		"    kill: always\n"
-		"}\n");
-	EXPECT_TRUE(diags.empty());
-}
-
-TEST(ValidateDeclarations, EnemyWithAllFields_Ok) {
-	auto [project, diags] = validateFromSource(
-		"enemy RE_WOLFOS {\n"
-		"    kill: always\n"
-		"    pass: always\n"
-		"    drop: always\n"
-		"    avoid: always\n"
-		"}\n");
-	EXPECT_TRUE(diags.empty());
-}
-
-TEST(ValidateDeclarations, EnemyMissingKill) {
-	auto [project, diags] = validateFromSource(
-		"enemy RE_WOLFOS {\n"
-		"    pass: always\n"
-		"}\n");
-	ASSERT_EQ(countErrors(diags), 1u);
-	EXPECT_NE(diags[0].message.find("RE_WOLFOS"), std::string::npos);
-	EXPECT_NE(diags[0].message.find("'kill'"), std::string::npos);
-}
-
-TEST(ValidateDeclarations, EnemyOnlyPassDropAvoid_MissingKill) {
-	auto [project, diags] = validateFromSource(
-		"enemy RE_WOLFOS {\n"
-		"    pass: always\n"
-		"    drop: always\n"
-		"    avoid: always\n"
-		"}\n");
-	ASSERT_EQ(countErrors(diags), 1u);
-	EXPECT_NE(diags[0].message.find("'kill'"), std::string::npos);
-}
-
-TEST(ValidateDeclarations, MultipleEnemiesMissingKill) {
-	auto [project, diags] = validateFromSource(
-		"enemy RE_WOLFOS {\n"
-		"    pass: always\n"
-		"}\n"
-		"enemy RE_STALFOS {\n"
-		"    drop: always\n"
-		"}\n");
-	EXPECT_EQ(countErrors(diags), 2u);
-}
-
-TEST(ValidateDeclarations, MixedEnemiesOneValid) {
-	auto [project, diags] = validateFromSource(
-		"enemy RE_WOLFOS {\n"
-		"    kill: always\n"
-		"}\n"
-		"enemy RE_STALFOS {\n"
-		"    pass: always\n"
-		"}\n");
-	ASSERT_EQ(countErrors(diags), 1u);
-	EXPECT_NE(diags[0].message.find("RE_STALFOS"), std::string::npos);
-}
-
 // == Duplicate entries in merged region =======================================
 
 TEST(ValidateDeclarations, NoDuplicateEntries_Ok) {
@@ -646,23 +581,6 @@ TEST(ValidateDeclarations, DefineUsedInExtendRegion_Ok) {
 		"    }\n"
 		"}\n");
 	EXPECT_EQ(countWarnings(diags), 0u);
-}
-
-TEST(ValidateDeclarations, DefineUsedInEnemyField_Ok) {
-	auto [project, diags] = validateFromSource(
-		"define can_smash():\n"
-		"    has(RG_MEGATON_HAMMER)\n"
-		"enemy RE_WOLFOS {\n"
-		"    kill: can_smash()\n"
-		"}\n");
-	size_t unusedInfos = 0;
-	for (const auto& d : diags) {
-		if (d.level == DiagnosticLevel::Info
-			&& d.message.find("never used") != std::string::npos) {
-			++unusedInfos;
-		}
-	}
-	EXPECT_EQ(unusedInfos, 0u);
 }
 
 // == Function signature validation ============================================

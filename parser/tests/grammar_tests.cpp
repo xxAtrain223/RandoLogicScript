@@ -275,23 +275,6 @@ TEST(LexKeyword, NoTimePassesExact) {
 	EXPECT_TRUE(matches<kw<kw_no_time_passes>>("no_time_passes"));
 }
 
-// Verify all enemy field keywords
-TEST(LexKeyword, EnemyFieldKill) {
-	EXPECT_TRUE(matches<kw<kw_kill>>("kill"));
-}
-
-TEST(LexKeyword, EnemyFieldPass) {
-	EXPECT_TRUE(matches<kw<kw_pass>>("pass"));
-}
-
-TEST(LexKeyword, EnemyFieldDrop) {
-	EXPECT_TRUE(matches<kw<kw_drop>>("drop"));
-}
-
-TEST(LexKeyword, EnemyFieldAvoid) {
-	EXPECT_TRUE(matches<kw<kw_avoid>>("avoid"));
-}
-
 // == Punctuation ==============================================================
 
 TEST(LexPunctuation, OpenBrace) {
@@ -369,7 +352,7 @@ TEST(LexOperator, Slash) {
 // Ensure every keyword in the `keyword` rule matches
 TEST(LexKeywordList, AllKeywordsRecognized) {
 	const std::string keywords[] = {
-		"region", "extend", "define", "enemy",
+		"region", "extend", "define",
 		"events", "locations", "exits",
 		"scene", "areas",
 		"time_passes", "no_time_passes",
@@ -380,7 +363,6 @@ TEST(LexKeywordList, AllKeywordsRecognized) {
 		"is_vanilla", "is_mq",
 		"shared", "from", "here",
 		"match",
-		"kill", "pass", "drop", "avoid",
 	};
 
 	for (const auto& kw : keywords) {

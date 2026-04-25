@@ -462,46 +462,11 @@ ast::ExternDefineDecl buildExternDefineDecl(const Node& n, Diags& diags) {
 		std::move(name), std::move(params), std::move(returnType), makeSpan(n));
 }
 
-ast::EnemyDecl buildEnemyDecl(const Node& n, Diags& diags) {
-	// children: [ident(name), enemy_field, enemy_field, ...]
-	std::string name(n.children[0]->string_view());
-	std::vector<ast::EnemyField> fields;
-
-	for (size_t i = 1; i < n.children.size(); ++i) {
-		const auto& fieldNode = *n.children[i];
-		// enemy_field children: [enemy_field_kind, param, ..., body_expr]
-
-		ast::EnemyFieldKind kind;
-		auto s = fieldNode.children[0]->string_view();
-		if (s == "kill")       kind = ast::EnemyFieldKind::Kill;
-		else if (s == "pass")  kind = ast::EnemyFieldKind::Pass;
-		else if (s == "drop")  kind = ast::EnemyFieldKind::Drop;
-		else                   kind = ast::EnemyFieldKind::Avoid;
-
-		std::vector<ast::Param> params;
-		ast::ExprPtr body;
-
-		for (size_t j = 1; j < fieldNode.children.size(); ++j) {
-			if (fieldNode.children[j]->is_type<grammar::param>()) {
-				params.push_back(buildParam(*fieldNode.children[j], diags));
-			} else {
-				body = buildExpr(*fieldNode.children[j], diags);
-			}
-		}
-
-		fields.emplace_back(kind, std::move(params), std::move(body),
-			makeSpan(fieldNode));
-	}
-
-	return ast::EnemyDecl(std::move(name), std::move(fields), makeSpan(n));
-}
-
 std::optional<ast::Decl> buildDecl(const Node& n, Diags& diags) {
 	if (n.is_type<grammar::region_decl>()) return buildRegionDecl(n, diags);
 	if (n.is_type<grammar::extend_decl>()) return buildExtendDecl(n, diags);
 	if (n.is_type<grammar::define_decl>()) return buildDefineDecl(n, diags);
 	if (n.is_type<grammar::extern_define_decl>()) return buildExternDefineDecl(n, diags);
-	if (n.is_type<grammar::enemy_decl>())  return buildEnemyDecl(n, diags);
 	emitError(diags, "unhandled declaration node type: " + std::string(n.type), n);
 	return std::nullopt;
 }

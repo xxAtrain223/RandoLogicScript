@@ -873,75 +873,6 @@ TEST(ParseExtend, MultipleSections) {
 	ASSERT_EQ(ext.sections.size(), 2u);
 }
 
-// == Enemy declaration ========================================================
-
-TEST(ParseEnemy, SingleField) {
-	const auto& decl = parseDecl(
-		"enemy RE_ARMOS {\n"
-		"  kill: can_use(RG_KOKIRI_SWORD)\n"
-		"}"
-	);
-	const auto& enemy = std::get<EnemyDecl>(decl);
-	EXPECT_EQ(enemy.name, "RE_ARMOS");
-	ASSERT_EQ(enemy.fields.size(), 1u);
-	EXPECT_EQ(enemy.fields[0].kind, EnemyFieldKind::Kill);
-	EXPECT_TRUE(enemy.fields[0].params.empty());
-	EXPECT_TRUE(std::holds_alternative<CallExpr>(enemy.fields[0].body->node));
-}
-
-TEST(ParseEnemy, AllFieldKinds) {
-	const auto& decl = parseDecl(
-		"enemy RE_TEST {\n"
-		"  kill: true\n"
-		"  pass: true\n"
-		"  drop: true\n"
-		"  avoid: true\n"
-		"}"
-	);
-	const auto& enemy = std::get<EnemyDecl>(decl);
-	ASSERT_EQ(enemy.fields.size(), 4u);
-	EXPECT_EQ(enemy.fields[0].kind, EnemyFieldKind::Kill);
-	EXPECT_EQ(enemy.fields[1].kind, EnemyFieldKind::Pass);
-	EXPECT_EQ(enemy.fields[2].kind, EnemyFieldKind::Drop);
-	EXPECT_EQ(enemy.fields[3].kind, EnemyFieldKind::Avoid);
-}
-
-TEST(ParseEnemy, FieldWithParams) {
-	const auto& decl = parseDecl(
-		"enemy RE_BUBBLE {\n"
-		"  kill(distance = ED_CLOSE, wallOrFloor = true): can_use(RG_KOKIRI_SWORD)\n"
-		"}"
-	);
-	const auto& enemy = std::get<EnemyDecl>(decl);
-	ASSERT_EQ(enemy.fields.size(), 1u);
-	ASSERT_EQ(enemy.fields[0].params.size(), 2u);
-	EXPECT_EQ(enemy.fields[0].params[0].name, "distance");
-	ASSERT_NE(enemy.fields[0].params[0].defaultValue, nullptr);
-	EXPECT_EQ(enemy.fields[0].params[1].name, "wallOrFloor");
-}
-
-TEST(ParseEnemy, FieldWithTypedParams) {
-	const auto& decl = parseDecl(
-		"enemy RE_TEST {\n"
-		"  kill(distance: int = ED_CLOSE): true\n"
-		"}"
-	);
-	const auto& enemy = std::get<EnemyDecl>(decl);
-	ASSERT_EQ(enemy.fields[0].params.size(), 1u);
-	ASSERT_TRUE(enemy.fields[0].params[0].type.has_value());
-	EXPECT_EQ(*enemy.fields[0].params[0].type, "int");
-}
-
-TEST(ParseEnemy, FieldWithEmptyParams) {
-	const auto& decl = parseDecl(
-		"enemy RE_TEST {\n"
-		"  kill(): true\n"
-		"}"
-	);
-	const auto& enemy = std::get<EnemyDecl>(decl);
-	EXPECT_TRUE(enemy.fields[0].params.empty());
-}
-
 // == Multi-declaration files ==================================================
 
 TEST(ParseFile, MultipleRegions) {
@@ -968,15 +899,14 @@ TEST(ParseFile, MixedDeclarations) {
 		"define has_explosives():\n"
 		"  has(RG_BOMB_BAG) or has(RG_BOMBCHU_5)\n"
 		"\n"
-		"enemy RE_ARMOS {\n"
-		"  kill: has_explosives()\n"
-		"}\n"
+		"define kill_fn(e: Enemy):\n"
+		"  has_explosives()\n"
 		"\n"
 		"region RR_TEST {\n"
 		"  name: \"Test\"\n"
 		"  scene: SCENE_FOO\n"
 		"  exits {\n"
-		"    RR_OTHER: can_kill(RE_ARMOS)\n"
+		"    RR_OTHER: kill_fn(RE_ARMOS)\n"
 		"  }\n"
 		"}\n"
 		"\n"
@@ -989,7 +919,7 @@ TEST(ParseFile, MixedDeclarations) {
 	ASSERT_EQ(file.declarations.size(), 5u);
 	EXPECT_TRUE(std::holds_alternative<ExternDefineDecl>(file.declarations[0]));
 	EXPECT_TRUE(std::holds_alternative<DefineDecl>(file.declarations[1]));
-	EXPECT_TRUE(std::holds_alternative<EnemyDecl>(file.declarations[2]));
+	EXPECT_TRUE(std::holds_alternative<DefineDecl>(file.declarations[2]));
 	EXPECT_TRUE(std::holds_alternative<RegionDecl>(file.declarations[3]));
 	EXPECT_TRUE(std::holds_alternative<ExtendRegionDecl>(file.declarations[4]));
 }
@@ -1094,29 +1024,6 @@ TEST(ParseRealistic, DefineWithMatch) {
 	EXPECT_TRUE(m.arms[0].fallthrough);
 	EXPECT_TRUE(m.arms[1].fallthrough);
 	EXPECT_FALSE(m.arms[2].fallthrough);
-}
-
-TEST(ParseRealistic, EnemyWithParamFields) {
-	const auto file = parse(
-		"enemy RE_GREEN_BUBBLE {\n"
-		"  kill(distance = ED_CLOSE, wallOrFloor = true):\n"
-		"    can_use(RG_KOKIRI_SWORD) or has_explosives()\n"
-		"  pass(distance = ED_CLOSE, wallOrFloor = false):\n"
-		"    can_use(RG_HOOKSHOT) or can_use(RG_BOOMERANG)\n"
-		"  drop: can_use(RG_KOKIRI_SWORD)\n"
-		"  avoid: true\n"
-		"}\n"
-	);
-	ASSERT_EQ(file.declarations.size(), 1u);
-	const auto& enemy = std::get<EnemyDecl>(file.declarations[0]);
-	EXPECT_EQ(enemy.name, "RE_GREEN_BUBBLE");
-	ASSERT_EQ(enemy.fields.size(), 4u);
-	EXPECT_EQ(enemy.fields[0].kind, EnemyFieldKind::Kill);
-	EXPECT_EQ(enemy.fields[0].params.size(), 2u);
-	EXPECT_EQ(enemy.fields[1].kind, EnemyFieldKind::Pass);
-	EXPECT_EQ(enemy.fields[2].kind, EnemyFieldKind::Drop);
-	EXPECT_TRUE(enemy.fields[2].params.empty());
-	EXPECT_EQ(enemy.fields[3].kind, EnemyFieldKind::Avoid);
 }
 
 TEST(ParseRealistic, SharedInRegionExit) {

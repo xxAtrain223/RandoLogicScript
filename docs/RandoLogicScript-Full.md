@@ -72,7 +72,7 @@ Since the language is transpiled (never interpreted at runtime), the syntax is f
 
 ### 3.1 File Structure
 
-Each `.rls` file contains any combination of top-level declarations - `region`, `extend region`, `define`, `extern define`, and `enemy`. A file typically corresponds to one dungeon or overworld area, but can also be a pure library (e.g. `stdlib/enemies.rls` containing only `enemy` declarations).
+Each `.rls` file contains any combination of top-level declarations - `region`, `extend region`, `define`, and `extern define`. A file typically corresponds to one dungeon or overworld area, but can also be a pure library (e.g. `stdlib/enemies.rls` containing only enemy helper `define` functions).
 
 The transpiler processes all `.rls` files in the project together. All top-level declarations are globally visible - there is no `import` mechanism. The transpiler derives dependencies from usage during semantic analysis.
 
@@ -525,167 +525,6 @@ match distance {
 }
 ```
 
-### 4.9 Enemy Declarations
-
-#### Motivation
-
-The current C++ code scatters knowledge about each enemy across four separate functions - `CanKillEnemy`, `CanPassEnemy`, `CanAvoidEnemy`, and `CanGetEnemyDrop` - each containing a large `switch` statement with 40+ cases.
-
-RLS provides an `enemy` declaration that puts **all knowledge about one enemy in one place**, like a bestiary entry.
-
-#### Syntax
-
-```rls
-enemy <ENEMY_ID> {
-    kill(<params>): <condition>
-    pass(<params>): <condition>
-    drop(<params>): <condition>
-    avoid: <condition>
-}
-```
-
-**Fields:**
-
-| Field   | Meaning                                                   | Default if omitted                                  |
-| ------- | --------------------------------------------------------- | --------------------------------------------------- |
-| `kill`  | Can the player kill this enemy?                           | *(required)*                                        |
-| `pass`  | Can the player get past this enemy without killing it?    | `always` (most enemies can be walked past)          |
-| `drop`  | Can the player collect the enemy's drop after killing it? | Same as `kill` (trivially collected at close range) |
-| `avoid` | Can the player avoid taking damage from this enemy?       | `always` (most enemies are avoidable)               |
-
-The defaults are chosen to minimize boilerplate - most enemies only need a `kill` field. The `pass` default of `always` reflects that most enemies can simply be walked around. The `drop` default matching `kill` reflects that most drops are collected at the same range the enemy was killed.
-
-#### Parameters
-
-Fields can take parameters for situational modifiers:
-
-```rls
-enemy RE_GOLD_SKULLTULA {
-    kill(wallOrFloor = true):
-        match distance {
-            ED_CLOSE: can_use(RG_MEGATON_HAMMER) or
-            ED_SHORT_JUMPSLASH: can_use(RG_KOKIRI_SWORD) or
-            ED_MASTER_SWORD_JUMPSLASH: can_use(RG_MASTER_SWORD) or
-            ED_LONG_JUMPSLASH: can_use(RG_BIGGORON_SWORD) or can_use(RG_STICKS) or
-            ED_BOMB_THROW: can_use(RG_BOMB_BAG) or
-            ED_BOOMERANG: can_use(RG_BOOMERANG) or can_use(RG_DINS_FIRE) or
-            ED_HOOKSHOT: can_use(RG_HOOKSHOT) or
-            ED_LONGSHOT: can_use(RG_LONGSHOT) or
-                (wallOrFloor and can_use(RG_BOMBCHU_5)) or
-            ED_FAR: can_use(RG_FAIRY_SLINGSHOT) or can_use(RG_FAIRY_BOW)
-        }
-    drop:
-        match distance {
-            ED_CLOSE or
-            ED_SHORT_JUMPSLASH or
-            ED_MASTER_SWORD_JUMPSLASH or
-            ED_LONG_JUMPSLASH or
-            ED_BOMB_THROW or
-            ED_BOOMERANG: can_use(RG_BOOMERANG) or
-            ED_HOOKSHOT: can_use(RG_HOOKSHOT) or
-            ED_LONGSHOT: can_use(RG_LONGSHOT)
-        }
-}
-```
-
-The `kill(wallOrFloor = true)` field has a boolean parameter with a default. Call sites like `can_kill(RE_GOLD_SKULLTULA)` use the default; `can_kill(RE_GOLD_SKULLTULA, wallOrFloor: false)` overrides it.
-
-In the `drop` field, `kill` refers to the result of the `kill` field for the same enemy - "the player can kill it, and also...".
-
-#### Wiring to Built-In Functions
-
-The transpiler generates the `can_kill`, `can_pass`, `can_get_drop`, and `can_avoid` built-in functions from `enemy` declarations. These functions are callable anywhere in conditions:
-
-```rls
-# Call sites - these look up the corresponding enemy declaration
-can_kill(RE_ARMOS)                                         # → RE_ARMOS.kill()
-can_kill(RE_GOLD_SKULLTULA, ED_HOOKSHOT)                   # → with distance=ED_HOOKSHOT
-can_kill(RE_STALFOS, ED_CLOSE, quantity: 2, timer: true)   # → with named overrides
-can_pass(RE_GREEN_BUBBLE, ED_CLOSE, false)                 # → with distance + wallOrFloor
-can_get_drop(RE_GOLD_SKULLTULA, ED_LONGSHOT)               # → with distance=ED_LONGSHOT
-```
-
-Call sites pass arguments positionally (matching the field's parameter list) or by name. The first argument after the enemy identifier is always `distance` (from the `match distance` in the field body). Additional parameters declared in the `kill`/`pass`/`drop` fields (e.g. `quantity`, `timer`, `inWater`, `wallOrFloor`) can be passed positionally or with named syntax (`param: value`). Parameters not supplied at the call site use their declared defaults.
-
-The transpiler:
-1. Collects all `enemy` declarations.
-2. For each call to `can_kill(RE_X, ...)`, resolves it to the `kill` field of `enemy RE_X`.
-3. Passes the `distance` argument to the `match` expression inside the field (if present).
-4. Binds any additional arguments (positional or named) to the field's parameters.
-5. Applies field defaults for omitted fields (`pass` → `always`, `drop` → `kill`, `avoid` → `always`).
-6. Generates the appropriate C++ lambda / Python function for each concrete usage.
-
-For the C++ expression tree, `can_kill(RE_ARMOS)` generates a node with `DisplayText = "can_kill(RE_ARMOS)"` whose children are the expanded `kill` body of `enemy RE_ARMOS`.
-
-#### Examples
-
-**Simple enemy - only kill field needed:**
-
-```rls
-enemy RE_IRON_KNUCKLE {
-    kill: can_use_sword() or can_use(RG_MEGATON_HAMMER) or has_explosives()
-    pass: never
-}
-```
-
-Iron Knuckle cannot be passed (`never`) - it blocks the room. No `drop` field, so drop defaults to `kill`. No `avoid` field, so avoid defaults to `always`.
-
-**Enemy with custom pass logic:**
-
-```rls
-enemy RE_GERUDO_GUARD {
-    kill: never
-    pass:
-        trick(RT_PASS_GUARDS_WITH_NOTHING)
-        or has(RG_GERUDO_MEMBERSHIP_CARD)
-        or can_use(RG_FAIRY_BOW) or can_use(RG_HOOKSHOT)
-}
-```
-
-Gerudo Guards can't be killed, only passed. `drop` defaults to `kill` which is `never` - correct, since they don't drop anything.
-
-**Enemy with all fields (including distance dispatch):**
-
-```rls
-enemy RE_ARMOS {
-    kill:
-        blast_or_smash() or can_use(RG_MASTER_SWORD)
-        or can_use(RG_BIGGORON_SWORD) or can_use(RG_STICKS)
-        or can_use(RG_FAIRY_BOW)
-        or ((can_use(RG_NUTS) or can_use(RG_HOOKSHOT) or can_use(RG_BOOMERANG))
-            and (can_use(RG_KOKIRI_SWORD) or can_use(RG_FAIRY_SLINGSHOT)))
-}
-```
-
-Armos only needs `kill` - pass, drop, and avoid all use the defaults.
-
-**Complex enemy with multi-value arms and selective fallthrough:**
-
-```rls
-enemy RE_STALFOS {
-    kill(quantity = 1, timer = false, inWater = false):
-        match distance {
-            ED_CLOSE or
-            ED_SHORT_JUMPSLASH:
-                can_use(RG_MEGATON_HAMMER) or can_use(RG_KOKIRI_SWORD) or
-            ED_MASTER_SWORD_JUMPSLASH: can_use(RG_MASTER_SWORD) or
-            ED_LONG_JUMPSLASH:
-                can_use(RG_BIGGORON_SWORD)
-                or (quantity <= 1 and can_use(RG_STICKS)) or
-            ED_BOMB_THROW:
-                quantity <= 2 and not timer and not inWater
-                and (can_use(RG_NUTS) or hookshot_or_boomerang())
-                and can_use(RG_BOMB_BAG) or
-            ED_BOOMERANG or
-            ED_HOOKSHOT: can_use(RG_BOMBCHU_5) or
-            ED_LONGSHOT or
-            ED_FAR: can_use(RG_FAIRY_BOW)
-        }
-}
-```
-
-This shows multi-value arms (`ED_CLOSE or ED_SHORT_JUMPSLASH:`), fallthrough accumulation (all arms end with trailing `or` except the final arm `ED_FAR` which terminates normally), and field parameters (`quantity`, `timer`, `inWater`) that call sites can override.
-
 ---
 
 ## 5. Standard Library
@@ -788,54 +627,6 @@ define reach_scarecrow():
     scarecrows_song() and can_use(RG_HOOKSHOT)
 ```
 
-#### Enemy & Distance Dispatch Functions
-
-These functions are generated by the transpiler from `enemy` declarations (§4.9) and `match` expressions (§4.8). They are pure logic - they only call `can_use`, `has`, `trick`, and other RLS-definable helpers - and are now fully expressible in RLS.
-
-| Function                   | Generated From                 | C++ Equivalent                                                                |
-| -------------------------- | ------------------------------ | ----------------------------------------------------------------------------- |
-| `can_kill(enemy, ...)`     | `enemy` block `kill` field     | `Logic::CanKillEnemy(enemy, distance, wallOrFloor, quantity, timer, inWater)` |
-| `can_pass(enemy, ...)`     | `enemy` block `pass` field     | `Logic::CanPassEnemy(enemy, distance, wallOrFloor)`                           |
-| `can_get_drop(enemy, ...)` | `enemy` block `drop` field     | `Logic::CanGetEnemyDrop(enemy, distance, aboveLink)`                          |
-| `can_avoid(enemy)`         | `enemy` block `avoid` field    | `Logic::CanAvoidEnemy(enemy)`                                                 |
-| `can_hit_switch(...)`      | `define` with `match distance` | `Logic::CanHitSwitch(distance, inWater)`                                      |
-| `can_break_pots(...)`      | `define` with `match distance` | `Logic::CanBreakPots(distance, wallOrFloor, inWater)`                         |
-
-The per-enemy functions (`can_kill`, `can_pass`, `can_get_drop`, `can_avoid`) are **built-in** - the transpiler wires each call to the corresponding field in the named `enemy` declaration (see §4.9 for the wiring rules and default behavior).
-
-The distance-only functions (`can_hit_switch`, `can_break_pots`) are standard `define` functions that use `match distance` for fallthrough accumulation (see §4.8):
-
-```rls
-# stdlib/combat.rls
-
-define can_hit_switch(distance = ED_CLOSE, inWater = false):
-    match distance {
-        ED_SHORT_JUMPSLASH: can_use(RG_KOKIRI_SWORD) or can_use(RG_MEGATON_HAMMER) or
-        ED_MASTER_SWORD_JUMPSLASH: can_use(RG_MASTER_SWORD) or
-        ED_LONG_JUMPSLASH: can_use(RG_BIGGORON_SWORD) or can_use(RG_STICKS) or
-        ED_BOMB_THROW: not inWater and can_use(RG_BOMB_BAG) or
-        ED_BOOMERANG: can_use(RG_BOOMERANG) or
-        ED_HOOKSHOT: can_use(RG_HOOKSHOT) or can_use(RG_BOMBCHU_5) or
-        ED_LONGSHOT: can_use(RG_LONGSHOT) or
-        ED_FAR: can_use(RG_FAIRY_SLINGSHOT) or can_use(RG_FAIRY_BOW)
-    }
-
-define can_break_pots(distance = ED_CLOSE, wallOrFloor = true, inWater = false):
-    match distance {
-        ED_CLOSE: can_use(RG_MEGATON_HAMMER) or
-        ED_SHORT_JUMPSLASH: can_jumpslash() or
-        ED_BOMB_THROW: not inWater and can_use(RG_BOMB_BAG) or
-        ED_BOOMERANG: can_use(RG_BOOMERANG) or
-        ED_HOOKSHOT:
-            can_use(RG_HOOKSHOT)
-            or (not inWater and can_use(RG_BOMBCHU_5)) or
-        ED_LONGSHOT: can_use(RG_LONGSHOT) or
-        ED_FAR: can_use(RG_FAIRY_SLINGSHOT) or can_use(RG_FAIRY_BOW)
-    }
-```
-
-The `enemy` declarations live in stdlib files (e.g. `stdlib/enemies.rls`) alongside these helpers, making the full combat knowledge base browsable and auditable.
-
 #### Dungeon-Specific Helpers
 
 Dungeon-specific helpers live in their own files:
@@ -865,7 +656,6 @@ define spirit_sun_block_south_ledge():
 The distinction matters for the transpiler:
 - **Host functions** require platform-specific code generation (C++ method calls vs. Python `LogicHelpers` calls).
 - **RLS-definable functions** are transpiled identically on both targets - the transpiler expands or generates them from the RLS source.
-- **Enemy/distance dispatch functions** are generated from `enemy` declarations and `define` functions using `match` expressions - fully RLS-defined.
 
 For the C++ target, `define` functions generate both a callable function (for the solver) and a named expression tree node (for the logic tracker). For Python/Archipelago, they become Python functions.
 
@@ -1099,7 +889,7 @@ The transpiler bridges these differences:
 ## 7. Grammar (EBNF Sketch)
 
 ```ebnf
-file          = (region | extend | define | extern_define | enemy)* ;
+file          = (region | extend | define | extern_define)* ;
 
 region        = "region" IDENT "{" region_body "}" ;
 extend        = "extend" "region" IDENT "{" section* "}" ;
@@ -1118,9 +908,6 @@ entry         = IDENT ":" expr ;
 
 define        = "define" IDENT "(" params? ")" ":" expr ;
 extern_define = "extern" "define" IDENT "(" params? ")" "->" type ;
-
-enemy         = "enemy" IDENT "{" enemy_field+ "}" ;
-enemy_field   = ("kill" | "pass" | "drop" | "avoid") ("(" params? ")")? ":" expr ;
 
 params        = param ("," param)* ;
 param         = IDENT (":" type)? ("=" expr)? ;
@@ -1165,8 +952,7 @@ Key differences from the existing `LogicExpression` parser:
 - `always`/`never`/`is_child`/`is_adult`/`at_day`/`at_night`/`is_vanilla`/`is_mq` as keywords.
 - `shared { from ... }` and `any_age { ... }` as first-class expression blocks.
 - `match <value> { ... }` expressions with trailing `or` for fallthrough accumulation.
-- `enemy` declarations as top-level bestiary entries.
-- File-level structure (`region`, `extend`, `define`, `extern define`, `enemy`).
+- File-level structure (`region`, `extend`, `define`, `extern define`).
 
 ---
 
@@ -1195,7 +981,7 @@ logic/
 ├── stdlib/
 │   ├── helpers.rls                  # has_explosives, blast_or_smash, etc.
 │   ├── combat.rls                   # can_hit_switch, can_break_pots (define + match)
-│   ├── enemies.rls                  # enemy declarations (bestiary)
+│   ├── enemies.rls                  # enemy helper defines (bestiary logic)
 │   └── spirit_helpers.rls           # define functions for Spirit Temple
 ├── overworld/
 │   ├── kokiri_forest.rls
@@ -1400,7 +1186,6 @@ region RR_SPIRIT_TEMPLE_STATUE_ROOM_CHILD {
 | Variant selection                | `ctx->GetDungeon(...)->IsVanilla()`                                                        | `is_vanilla` / `is_mq` keywords                                                         |
 | Logic tracker data               | Runtime parsing of stringified C++                                                         | Transpiler-generated `ExpressionNode` trees                                             |
 | Logic tracker display text       | `CleanConditionString(#condition)`                                                         | RLS source text embedded in generated structs                                          |
-| Enemy combat knowledge           | Scattered across 3 `switch` statements (`CanKillEnemy`, `CanPassEnemy`, `CanGetEnemyDrop`) | `enemy` declarations - all knowledge in one place per enemy                             |
 | Distance fallthrough             | C++ `switch` fallthrough (error-prone, implicit)                                           | `match` with trailing `or` (explicit, per-arm opt-in)                                   |
 | Runtime parser dependency        | `LogicExpression` parser required                                                          | None - can be removed after full migration                                              |
 | Archipelago integration          | Manual Python port, frequent drift                                                         | Auto-generated, matches existing `connect_regions`/`add_locations`/`add_events` pattern |

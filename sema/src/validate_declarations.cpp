@@ -33,25 +33,7 @@ static void checkExtendRegionTargets(
 	}
 }
 
-/// Check 2: Every enemy must have a 'kill' field.
-static void checkEnemyKillFields(
-	ast::Project& project, std::vector<ast::Diagnostic>& diags)
-{
-	for (auto& [name, decl] : project.EnemyDecls) {
-		bool hasKill = std::any_of(
-			decl->fields.begin(), decl->fields.end(),
-			[](const ast::EnemyField& f) { return f.kind == ast::EnemyFieldKind::Kill; });
-		if (!hasKill) {
-			diags.push_back({
-				ast::DiagnosticLevel::Error,
-				std::format("enemy '{}' must have a 'kill' field", name),
-				decl->span
-			});
-		}
-	}
-}
-
-/// Check 3: No duplicate entries across base region + all its extensions
+/// Check 2: No duplicate entries across base region + all its extensions
 ///           within the same SectionKind.
 static void checkDuplicateEntries(
 	ast::Project& project, std::vector<ast::Diagnostic>& diags)
@@ -84,7 +66,7 @@ static void checkDuplicateEntries(
 	}
 }
 
-/// Check 4: Entry conditions must be Bool-compatible.
+/// Check 3: Entry conditions must be Bool-compatible.
 static void checkEntryConditionTypes(
 	ast::Project& project, std::vector<ast::Diagnostic>& diags)
 {
@@ -115,7 +97,7 @@ static void checkEntryConditionTypes(
 	}
 }
 
-/// Check 5: Every region must be reachable from RR_ROOT via exits.
+/// Check 4: Every region must be reachable from RR_ROOT via exits.
 static void checkRegionReachability(
 	ast::Project& project, std::vector<ast::Diagnostic>& diags)
 {
@@ -175,7 +157,7 @@ static void checkRegionReachability(
 	}
 }
 
-/// Check 6: Every define should be referenced somewhere.
+/// Check 5: Every define should be referenced somewhere.
 static void checkUnusedDefines(
 	ast::Project& project, std::vector<ast::Diagnostic>& diags)
 {
@@ -206,12 +188,6 @@ static void checkUnusedDefines(
 			}
 		}
 	}
-	for (auto& [name, decl] : project.EnemyDecls) {
-		for (const auto& field : decl->fields) {
-			collectCallNames(*field.body, usedFunctions);
-		}
-	}
-
 	for (auto& [name, decl] : project.DefineDecls) {
 		if (!usedFunctions.contains(name)) {
 			diags.push_back({
@@ -223,7 +199,7 @@ static void checkUnusedDefines(
 	}
 }
 
-/// Check 7: Define/extern signatures must have valid parameter shapes and
+/// Check 6: Define/extern signatures must have valid parameter shapes and
 /// typed defaults must match annotated parameter types.
 static void checkFunctionSignatures(
 	ast::Project& project, std::vector<ast::Diagnostic>& diags)
@@ -342,7 +318,6 @@ std::vector<ast::Diagnostic> validateDeclarations(ast::Project& project) {
 	std::vector<ast::Diagnostic> diags;
 
 	checkExtendRegionTargets(project, diags);
-	checkEnemyKillFields(project, diags);
 	checkDuplicateEntries(project, diags);
 	checkEntryConditionTypes(project, diags);
 	checkRegionReachability(project, diags);

@@ -44,104 +44,10 @@ std::optional<ast::Type> typeFromIdentifier(std::string_view name) {
 	return std::nullopt;
 }
 
-// == Step 2: Enemy built-in signatures =======================================
-
-struct EnemyBuiltinParam {
-	ast::Type type;
-	bool required;
-};
-
-struct EnemyBuiltinSignature {
-	ast::Type returnType;
-	std::vector<EnemyBuiltinParam> params;
-};
-
-/// Enemy built-in function signatures.
-/// These take an Enemy as first arg and dispatch to enemy declarations.
-static const std::unordered_map<std::string, EnemyBuiltinSignature>& enemyBuiltins() {
-	using T = ast::Type;
-	static const std::unordered_map<std::string, EnemyBuiltinSignature> table = {
-		// can_kill(enemy, distance = ED_CLOSE, wallOrFloor = true, quantity = 1, timer = false, inWater = false)
-		{"can_kill",     {T::Bool, {{T::Enemy, true}, {T::Distance, false}, {T::Bool, false}, {T::Int, false}, {T::Bool, false}, {T::Bool, false}}}},
-		// can_pass(enemy, distance = ED_CLOSE, wallOrFloor = true)
-		{"can_pass",     {T::Bool, {{T::Enemy, true}, {T::Distance, false}, {T::Bool, false}}}},
-		// can_avoid(enemy, grounded = false, quantity = 1)
-		{"can_avoid",    {T::Bool, {{T::Enemy, true}, {T::Bool, false}, {T::Int, false}}}},
-		// can_get_drop(enemy, distance = ED_CLOSE, aboveLink = false)
-		{"can_get_drop", {T::Bool, {{T::Enemy, true}, {T::Distance, false}, {T::Bool, false}}}},
-	};
-	return table;
-}
-
 // == Step 4: Scope for parameters ============================================
 
 /// Maps parameter names to their types. nullopt = not yet inferred.
 using Scope = std::unordered_map<std::string, std::optional<ast::Type>>;
-
-
-
-/// Map an EnemyFieldKind to its corresponding built-in function name.
-static const char* enemyFieldBuiltinName(ast::EnemyFieldKind kind) {
-	switch (kind) {
-	case ast::EnemyFieldKind::Kill:  return "can_kill";
-	case ast::EnemyFieldKind::Pass:  return "can_pass";
-	case ast::EnemyFieldKind::Avoid: return "can_avoid";
-	case ast::EnemyFieldKind::Drop:  return "can_get_drop";
-	}
-	return nullptr;
-}
-
-/// Validate an enemy built-in call's positional arguments.
-/// Returns the signature's return type.
-static ast::Type validateEnemyBuiltinCallArgs(
-	const std::string& function, const EnemyBuiltinSignature& sig,
-	const std::vector<ast::Type>& argTypes,
-	const ast::CallExpr& node, const ast::Expr& expr,
-	std::vector<ast::Diagnostic>& diags)
-{
-	using T = ast::Type;
-
-	size_t required = 0;
-	for (const auto& p : sig.params) {
-		if (p.required) ++required;
-	}
-
-	if (argTypes.size() < required || argTypes.size() > sig.params.size()) {
-		if (required == sig.params.size()) {
-			diags.push_back({
-				ast::DiagnosticLevel::Error,
-				std::format("'{}' expects {} argument(s), got {}",
-					function, required, argTypes.size()),
-				expr.span
-			});
-		} else {
-			diags.push_back({
-				ast::DiagnosticLevel::Error,
-				std::format("'{}' expects {}-{} argument(s), got {}",
-					function, required, sig.params.size(),
-					argTypes.size()),
-				expr.span
-			});
-		}
-		return sig.returnType;
-	}
-
-	// Check each provided argument's type.
-	for (size_t i = 0; i < argTypes.size(); ++i) {
-		if (argTypes[i] == T::Error) continue;
-		if (argTypes[i] != sig.params[i].type) {
-			diags.push_back({
-				ast::DiagnosticLevel::Error,
-				std::format("'{}' argument {} expected {}, got {}",
-					function, i + 1,
-					typeName(sig.params[i].type),
-					typeName(argTypes[i])),
-				node.args[i].value->span
-			});
-		}
-	}
-	return sig.returnType;
-}
 
 // == Step 3: Bottom-up expression typing =====================================
 
@@ -539,13 +445,6 @@ struct ExprResolver {
 		argTypes.reserve(node.args.size());
 		for (auto& arg : node.args) {
 			argTypes.push_back(resolveExpr(*arg.value));
-		}
-
-		// Enemy built-in functions (can_kill, can_pass, etc.).
-		auto& enemies = enemyBuiltins();
-		if (auto it = enemies.find(node.function); it != enemies.end()) {
-			return validateEnemyBuiltinCallArgs(node.function, it->second, argTypes,
-				node, expr, diags);
 		}
 
 		// Extern-defined host functions.
@@ -956,42 +855,6 @@ std::vector<ast::Diagnostic> resolveTypes(ast::Project& project) {
 				project.setType(&param, *annotatedType);
 			} else if (defaultType) {
 				project.setType(&param, *defaultType);
-			}
-		}
-	}
-
-	// Resolve enemy field bodies.
-	for (auto& [name, decl] : project.EnemyDecls) {
-		for (const auto& field : decl->fields) {
-			Scope scope;
-			auto* builtinName = enemyFieldBuiltinName(field.kind);
-			auto& builtins = enemyBuiltins();
-			if (auto it = builtins.find(builtinName);
-				it != builtins.end())
-			{
-				const auto& sig = it->second;
-				// Skip first param (Enemy) — field params
-				// correspond to remaining signature params.
-				for (size_t i = 0; i < field.params.size(); ++i) {
-					size_t sigIdx = i + 1;
-					if (sigIdx < sig.params.size()) {
-						scope[field.params[i].name] =
-							sig.params[sigIdx].type;
-					}
-				}
-			}
-			ExprResolver resolver{project, scope, diags};
-			auto bodyType = resolver.resolveExpr(*field.body);
-			if (bodyType != ast::Type::Error
-				&& !isBoolCompatible(bodyType))
-			{
-				diags.push_back({
-					ast::DiagnosticLevel::Error,
-					std::format(
-						"enemy field '{}' body must be Bool, got {}",
-						builtinName, typeName(bodyType)),
-					field.body->span
-				});
 			}
 		}
 	}

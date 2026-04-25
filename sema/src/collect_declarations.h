@@ -8,9 +8,9 @@ namespace rls::sema {
 
 /// Pass 1: Collect all top-level declarations from every file in the project
 /// into the Project's lookup maps (RegionDecls, ExtendRegionDecls, DefineDecls,
-/// ExternDefineDecls, EnemyDecls).
+/// ExternDefineDecls).
 ///
-/// Reports errors for duplicate region, define, extern define, or enemy names.
+/// Reports errors for duplicate region, define, or extern define names.
 /// Define and extern define share a single function namespace, so a define and
 /// extern define with the same name are also reported as duplicates.
 /// ExtendRegionDecls are accumulated in a multimap (duplicates are valid).

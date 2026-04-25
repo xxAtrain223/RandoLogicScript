@@ -386,38 +386,6 @@ TEST(DeclTests, ExternDefineDecl) {
 	EXPECT_TRUE(std::holds_alternative<BoolLiteral>(ext.params[1].defaultValue->node));
 }
 
-TEST(DeclTests, EnemyDecl) {
-	// enemy RE_IRON_KNUCKLE { kill: ..., pass: never }
-	std::vector<EnemyField> fields;
-	fields.emplace_back(EnemyFieldKind::Kill, std::vector<Param>{}, makeExpr(BoolLiteral{true}));
-	fields.emplace_back(EnemyFieldKind::Pass, std::vector<Param>{}, makeExpr(BoolLiteral{false}));
-
-	EnemyDecl enemy(
-		"RE_IRON_KNUCKLE",
-		std::move(fields)
-	);
-
-	EXPECT_EQ(enemy.name, "RE_IRON_KNUCKLE");
-	ASSERT_EQ(enemy.fields.size(), 2u);
-	EXPECT_EQ(enemy.fields[0].kind, EnemyFieldKind::Kill);
-	EXPECT_EQ(enemy.fields[1].kind, EnemyFieldKind::Pass);
-}
-
-TEST(DeclTests, EnemyFieldWithParams) {
-	// kill(wallOrFloor = true): ...
-	std::vector<Param> params;
-	params.emplace_back("wallOrFloor", std::nullopt, makeExpr(BoolLiteral{true}));
-
-	EnemyField field(
-		EnemyFieldKind::Kill,
-		std::move(params),
-		makeExpr(BoolLiteral{true})
-	);
-
-	ASSERT_EQ(field.params.size(), 1u);
-	EXPECT_EQ(field.params[0].name, "wallOrFloor");
-}
-
 // == File =====================================================================
 
 TEST(FileTests, EmptyFile) {
@@ -449,15 +417,19 @@ TEST(FileTests, FileWithMixedDeclarations) {
 		makeExpr(BoolLiteral{true})
 	));
 
-	// Add an enemy
-	std::vector<EnemyField> fields;
-	fields.emplace_back(EnemyFieldKind::Kill, std::vector<Param>{}, makeExpr(BoolLiteral{true}));
-	file.declarations.emplace_back(EnemyDecl("RE_TEST", std::move(fields)));
+	// Add an extern define
+	std::vector<Param> externParams;
+	externParams.emplace_back("item", std::optional<std::string>{"Item"}, nullptr);
+	file.declarations.emplace_back(ExternDefineDecl(
+		"can_use",
+		std::move(externParams),
+		std::optional<std::string>{"Bool"}
+	));
 
 	ASSERT_EQ(file.declarations.size(), 3u);
 	EXPECT_TRUE(std::holds_alternative<RegionDecl>(file.declarations[0]));
 	EXPECT_TRUE(std::holds_alternative<DefineDecl>(file.declarations[1]));
-	EXPECT_TRUE(std::holds_alternative<EnemyDecl>(file.declarations[2]));
+	EXPECT_TRUE(std::holds_alternative<ExternDefineDecl>(file.declarations[2]));
 }
 
 // == Project ==================================================================
@@ -478,15 +450,17 @@ TEST(ProjectTests, AllDeclarationsAcrossFiles) {
 		RegionBody("Spirit Temple Foyer", "SCENE_SPIRIT_TEMPLE", TimePasses::Auto, {}, {})
 	));
 
-	// File 2: one define + one enemy
+	// File 2: one define + one extern define
 	File file2;
 	file2.path = "enemies.rls";
 	file2.declarations.emplace_back(DefineDecl(
 		"helper", {}, makeExpr(BoolLiteral{true})
 	));
-	std::vector<EnemyField> fields;
-	fields.emplace_back(EnemyFieldKind::Kill, std::vector<Param>{}, makeExpr(BoolLiteral{true}));
-	file2.declarations.emplace_back(EnemyDecl("RE_TEST", std::move(fields)));
+	file2.declarations.emplace_back(ExternDefineDecl(
+		"host_helper",
+		std::vector<Param>{},
+		std::optional<std::string>{"Bool"}
+	));
 
 	project.files.push_back(std::move(file1));
 	project.files.push_back(std::move(file2));

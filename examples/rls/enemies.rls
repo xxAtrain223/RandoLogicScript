@@ -1,5 +1,35 @@
-enemy RE_GOLD_SKULLTULA {
-    kill(distance, wallOrFloor): match distance {
+define can_kill(e: Enemy, distance = ED_CLOSE, wall_or_floor = true, quantity = 1, timer = false, in_water = false):
+    match e {
+        RE_GOLD_SKULLTULA: _can_kill_gold_skulltula(distance, wall_or_floor)
+    }
+
+define can_pass(e: Enemy, distance = ED_CLOSE, wall_or_floor = true):
+    can_kill(e, distance, wall_or_floor) or
+    match e {
+        RE_GOLD_SKULLTULA: always
+    }
+
+define can_avoid(e: Enemy, grounded = false, quantity = 1):
+    can_kill(e, ED_CLOSE, true, quantity) or
+    match e {
+        RE_GOLD_SKULLTULA: always
+    }
+
+define can_get_drop(e: Enemy, distance = ED_CLOSE, above_link = false):
+    can_kill(e, distance) and
+    (
+        distance <= ED_MASTER_SWORD_JUMPSLASH or
+        match e {
+            RE_GOLD_SKULLTULA: _can_get_drop_gold_skulltula(distance)
+            RE_KEESE or
+            RE_FIRE_KEESE or
+            RE_GUAY: always
+            _: above_link or (distance <= ED_BOOMERANG and can_use(RG_BOOMERANG))
+        }
+    )
+
+define _can_kill_gold_skulltula(distance, wall_or_floor):
+    match distance {
         ED_CLOSE:                  can_use(RG_MEGATON_HAMMER) or
         ED_SHORT_JUMPSLASH:        can_use(RG_KOKIRI_SWORD) or
         ED_MASTER_SWORD_JUMPSLASH: can_use(RG_MASTER_SWORD) or
@@ -7,10 +37,12 @@ enemy RE_GOLD_SKULLTULA {
         ED_BOMB_THROW:             can_use(RG_BOMB_BAG) or
         ED_BOOMERANG:              can_use(RG_BOOMERANG) or can_use(RG_DINS_FIRE) or
         ED_HOOKSHOT:               can_use(RG_HOOKSHOT) or
-        ED_LONGSHOT:               can_use(RG_LONGSHOT) or (wallOrFloor and can_use(RG_BOMBCHU_5)) or
+        ED_LONGSHOT:               can_use(RG_LONGSHOT) or (wall_or_floor and can_use(RG_BOMBCHU_5)) or
         ED_FAR:                    can_use(RG_FAIRY_SLINGSHOT) or can_use(RG_FAIRY_BOW)
     }
-    drop(distance): match distance {
+
+define _can_get_drop_gold_skulltula(distance):
+    match distance {
         ED_CLOSE or
         ED_SHORT_JUMPSLASH or
         ED_MASTER_SWORD_JUMPSLASH or
@@ -22,6 +54,4 @@ enemy RE_GOLD_SKULLTULA {
             can_use(RG_HOOKSHOT) or
         ED_LONGSHOT:
             can_use(RG_LONGSHOT)
-        # RANDOTODO double check all jumpslash kills that might be out of jump/backflip range
     }
-}

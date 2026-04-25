@@ -9,8 +9,6 @@ void SohTranspiler::Transpile(rls::OutputWriter& out) const {
 	GenerateRuntimeHeaders(out);
 	GenerateFunctionDefinitionsHeader(out);
 	GenerateFunctionDefinitionsSource(out);
-	GenerateEnemiesHeader(out);
-	GenerateEnemiesSource(out);
 	GenerateRegionsHeader(out);
 	GenerateRegionsSource(out);
 }

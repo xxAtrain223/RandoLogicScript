@@ -332,52 +332,6 @@ TEST(DeclExternDefine, MissingReturnTypeFails) {
 	));
 }
 
-// == Enemy ====================================================================
-
-TEST(DeclEnemy, SingleField) {
-	EXPECT_TRUE(matches<enemy_decl>(
-		"enemy RE_ARMOS {\n"
-		"  kill: can_use(RG_KOKIRI_SWORD)\n"
-		"}"
-	));
-}
-
-TEST(DeclEnemy, AllFields) {
-	EXPECT_TRUE(matches<enemy_decl>(
-		"enemy RE_ARMOS {\n"
-		"  kill: can_use(RG_KOKIRI_SWORD) or has_explosives()\n"
-		"  pass: can_use(RG_HOOKSHOT)\n"
-		"  drop: can_use(RG_KOKIRI_SWORD)\n"
-		"  avoid: true\n"
-		"}"
-	));
-}
-
-TEST(DeclEnemy, FieldWithParams) {
-	EXPECT_TRUE(matches<enemy_decl>(
-		"enemy RE_GREEN_BUBBLE {\n"
-		"  kill(distance = ED_CLOSE, wallOrFloor = true): can_use(RG_KOKIRI_SWORD)\n"
-		"  pass(distance = ED_CLOSE, wallOrFloor = false): can_use(RG_HOOKSHOT)\n"
-		"}"
-	));
-}
-
-TEST(DeclEnemy, FieldWithEmptyParams) {
-	EXPECT_TRUE(matches<enemy_decl>(
-		"enemy RE_TEST {\n"
-		"  kill(): true\n"
-		"}"
-	));
-}
-
-TEST(DeclEnemy, FieldWithTypedParams) {
-	EXPECT_TRUE(matches<enemy_decl>(
-		"enemy RE_TEST {\n"
-		"  kill(distance: int = ED_CLOSE): true\n"
-		"}"
-	));
-}
-
 // == Declaration (top-level choice) ===========================================
 
 TEST(DeclDeclaration, Region) {
@@ -394,10 +348,6 @@ TEST(DeclDeclaration, Define) {
 
 TEST(DeclDeclaration, ExternDefine) {
 	EXPECT_TRUE(matches<declaration>("extern define can_use(item) -> Bool"));
-}
-
-TEST(DeclDeclaration, Enemy) {
-	EXPECT_TRUE(matches<declaration>("enemy RE_TEST { kill: true }"));
 }
 
 // == File =====================================================================
@@ -459,16 +409,14 @@ TEST(DeclFile, MixedDeclarations) {
 		"define has_explosives():\n"
 		"  has(RG_BOMB_BAG) or has(RG_BOMBCHU_5)\n"
 		"\n"
-		"enemy RE_ARMOS {\n"
-		"  kill: can_use(RG_KOKIRI_SWORD) or has_explosives()\n"
-		"  pass: can_use(RG_HOOKSHOT)\n"
-		"}\n"
+		"define kill_fn(e: Enemy):\n"
+		"  can_use(RG_KOKIRI_SWORD) or has_explosives()\n"
 		"\n"
 		"region RR_TEST {\n"
 		"  name: \"Test\"\n"
 		"  scene: SCENE_FOO\n"
 		"  exits {\n"
-		"    RR_OTHER: can_kill(RE_ARMOS)\n"
+		"    RR_OTHER: kill_fn(RE_ARMOS)\n"
 		"  }\n"
 		"}\n"
 		"\n"
@@ -532,19 +480,6 @@ TEST(DeclRealistic, DefineWithMatch) {
 		"    ED_CLOSE: has_explosives() or\n"
 		"    ED_FAR: can_use(RG_FAIRY_SLINGSHOT) or can_use(RG_FAIRY_BOW)\n"
 		"  }\n"
-	));
-}
-
-TEST(DeclRealistic, EnemyWithParamFields) {
-	EXPECT_TRUE(matches<rls_file>(
-		"enemy RE_GREEN_BUBBLE {\n"
-		"  kill(distance = ED_CLOSE, wallOrFloor = true):\n"
-		"    can_use(RG_KOKIRI_SWORD) or has_explosives()\n"
-		"  pass(distance = ED_CLOSE, wallOrFloor = false):\n"
-		"    can_use(RG_HOOKSHOT) or can_use(RG_BOOMERANG)\n"
-		"  drop: can_use(RG_KOKIRI_SWORD)\n"
-		"  avoid: true\n"
-		"}\n"
 	));
 }
 

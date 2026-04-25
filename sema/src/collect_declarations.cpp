@@ -22,7 +22,6 @@ std::vector<ast::Diagnostic> collectDeclarations(ast::Project& project) {
 	project.ExtendRegionDecls.clear();
 	project.DefineDecls.clear();
 	project.ExternDefineDecls.clear();
-	project.EnemyDecls.clear();
 
 	for (auto& file : project.files) {
 		for (auto& decl : file.declarations) {
@@ -62,12 +61,6 @@ std::vector<ast::Diagnostic> collectDeclarations(ast::Project& project) {
 					}
 					else {
 						project.ExternDefineDecls.emplace(d.name, &d);
-					}
-				}
-				else if constexpr (std::is_same_v<T, ast::EnemyDecl>) {
-					auto [it, inserted] = project.EnemyDecls.try_emplace(d.name, &d);
-					if (!inserted) {
-						emitDuplicate("enemy", d.name, it->second->span, d.span);
 					}
 				}
 			}, decl);

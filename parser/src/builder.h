@@ -43,7 +43,6 @@ using selector = tao::pegtl::parse_tree::selector<
 		grammar::mul_div_op,
 		grammar::add_sub_op,
 		grammar::section_kind,
-		grammar::enemy_field_kind,
 		grammar::time_prop,
 		grammar::kw_not,       // marker: unary "not"
 		grammar::kw_any_age,   // marker: any_age in shared blocks
@@ -60,8 +59,6 @@ using selector = tao::pegtl::parse_tree::selector<
 		grammar::extend_decl,
 		grammar::define_decl,
 		grammar::extern_define_decl,
-		grammar::enemy_decl,
-		grammar::enemy_field,
 		// Region properties
 		grammar::name_prop,
 		grammar::scene_prop,

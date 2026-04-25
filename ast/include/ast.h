@@ -55,8 +55,6 @@ enum class SectionKind { Events, Locations, Exits };
 
 enum class TimePasses { Auto, Yes, No };
 
-enum class EnemyFieldKind { Kill, Pass, Drop, Avoid };
-
 // == Expression leaf nodes ====================================================
 
 /// Boolean literal: `true`, `false`, `always`, `never`.
@@ -269,24 +267,6 @@ struct RegionBody {
 		  sections(std::move(sections)) {}
 };
 
-/// One field of an `enemy` declaration: `kill`, `pass`, `drop`, or `avoid`.
-struct EnemyField {
-	EnemyFieldKind kind;
-	std::vector<Param> params;
-	ExprPtr body;
-	Span span;
-
-	EnemyField(
-		EnemyFieldKind kind,
-		std::vector<Param> params,
-		ExprPtr body,
-		Span span = {})
-		: kind(kind),
-		  params(std::move(params)),
-		  body(std::move(body)),
-		  span(span) {}
-};
-
 // == Top-level declarations ===================================================
 
 /// `region RR_KEY { name: "Display Name" scene: SCENE_ID ... }`
@@ -360,21 +340,8 @@ struct ExternDefineDecl {
 		  span(span) {}
 };
 
-/// `enemy RE_NAME { kill: ..., pass: ..., drop: ..., avoid: ... }`
-struct EnemyDecl {
-	std::string name;
-	std::vector<EnemyField> fields;
-	Span span;
-
-	EnemyDecl(std::string name, std::vector<EnemyField> fields,
-	          Span span = {})
-		: name(std::move(name)),
-		  fields(std::move(fields)),
-		  span(span) {}
-};
-
-/// A top-level declaration: region, extend region, define, extern define, or enemy.
-using Decl = std::variant<RegionDecl, ExtendRegionDecl, DefineDecl, ExternDefineDecl, EnemyDecl>;
+/// A top-level declaration: region, extend region, define, or extern define.
+using Decl = std::variant<RegionDecl, ExtendRegionDecl, DefineDecl, ExternDefineDecl>;
 
 // == Diagnostics ==============================================================
 
@@ -436,7 +403,6 @@ struct Project {
 	std::unordered_multimap<std::string, const ExtendRegionDecl*> ExtendRegionDecls;
 	std::map<std::string, const DefineDecl*> DefineDecls;
 	std::map<std::string, const ExternDefineDecl*> ExternDefineDecls;
-	std::unordered_map<std::string, const EnemyDecl*> EnemyDecls;
 
 	template <typename T>
 	void setType(const T* node, Type type) {

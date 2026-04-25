@@ -45,18 +45,6 @@ static File makeExternDefineFile(const std::string& path, const std::string& nam
 	return f;
 }
 
-/// Build a minimal File containing a single EnemyDecl.
-static File makeEnemyFile(const std::string& path, const std::string& name,
-                          Span span = {}) {
-	File f;
-	f.path = path;
-	std::vector<EnemyField> fields;
-	fields.emplace_back(EnemyFieldKind::Kill, std::vector<Param>{},
-	                     makeExpr(BoolLiteral{true}));
-	f.declarations.emplace_back(EnemyDecl(name, std::move(fields), span));
-	return f;
-}
-
 /// Build a minimal File containing a single ExtendRegionDecl.
 static File makeExtendFile(const std::string& path, const std::string& regionName,
                            SectionKind sectionKind, Span span = {}) {
@@ -98,7 +86,6 @@ TEST(CollectDeclarations, EmptyProject) {
 	EXPECT_TRUE(project.ExtendRegionDecls.empty());
 	EXPECT_TRUE(project.DefineDecls.empty());
 	EXPECT_TRUE(project.ExternDefineDecls.empty());
-	EXPECT_TRUE(project.EnemyDecls.empty());
 }
 
 TEST(CollectDeclarations, EmptyFile) {
@@ -151,18 +138,6 @@ TEST(CollectDeclarations, SingleExternDefine) {
 	EXPECT_EQ(project.ExternDefineDecls.at("can_hit_switch")->name, "can_hit_switch");
 }
 
-TEST(CollectDeclarations, SingleEnemy) {
-	Project project;
-	project.files.push_back(makeEnemyFile("a.rls", "RE_ARMOS"));
-
-	auto diags = collectDeclarations(project);
-
-	EXPECT_TRUE(diags.empty());
-	ASSERT_EQ(project.EnemyDecls.size(), 1u);
-	ASSERT_TRUE(project.EnemyDecls.contains("RE_ARMOS"));
-	EXPECT_EQ(project.EnemyDecls.at("RE_ARMOS")->name, "RE_ARMOS");
-}
-
 TEST(CollectDeclarations, SingleExtendRegion) {
 	Project project;
 	project.files.push_back(makeExtendFile("a.rls", "RR_TEST", SectionKind::Locations));
@@ -201,10 +176,6 @@ TEST(CollectDeclarations, MixedDeclsInOneFile) {
 	f.declarations.emplace_back(DefineDecl(
 		"helper", {}, makeExpr(BoolLiteral{true})
 	));
-	std::vector<EnemyField> fields;
-	fields.emplace_back(EnemyFieldKind::Kill, std::vector<Param>{},
-	                     makeExpr(BoolLiteral{true}));
-	f.declarations.emplace_back(EnemyDecl("RE_FOO", std::move(fields)));
 
 	std::vector<Entry> entries;
 	entries.emplace_back("RC_POT", makeExpr(BoolLiteral{true}));
@@ -218,7 +189,6 @@ TEST(CollectDeclarations, MixedDeclsInOneFile) {
 	EXPECT_TRUE(diags.empty());
 	EXPECT_EQ(project.RegionDecls.size(), 1u);
 	EXPECT_EQ(project.DefineDecls.size(), 1u);
-	EXPECT_EQ(project.EnemyDecls.size(), 1u);
 	EXPECT_EQ(project.ExtendRegionDecls.count("RR_TEST"), 1u);
 }
 
@@ -268,19 +238,6 @@ TEST(CollectDeclarations, DuplicateDefineError) {
 	EXPECT_NE(diags[0].message.find("duplicate define 'my_func'"), std::string::npos);
 	// The span on the diagnostic should point to the duplicate (second one)
 	EXPECT_EQ(diags[0].span.file, "other.rls");
-}
-
-TEST(CollectDeclarations, DuplicateEnemyError) {
-	Project project;
-	Span span1{"enemies.rls", {1, 1}, {5, 1}};
-	Span span2{"enemies2.rls", {1, 1}, {5, 1}};
-	project.files.push_back(makeEnemyFile("enemies.rls", "RE_ARMOS", span1));
-	project.files.push_back(makeEnemyFile("enemies2.rls", "RE_ARMOS", span2));
-
-	auto diags = collectDeclarations(project);
-
-	ASSERT_EQ(countErrors(diags), 1u);
-	EXPECT_NE(diags[0].message.find("duplicate enemy 'RE_ARMOS'"), std::string::npos);
 }
 
 TEST(CollectDeclarations, DuplicateExternDefineError) {
@@ -350,30 +307,26 @@ TEST(CollectDeclarations, MultipleDuplicateErrors) {
 	project.files.push_back(makeRegionFile("b.rls", "RR_A", "SCENE_A"));
 	project.files.push_back(makeDefineFile("c.rls", "helper"));
 	project.files.push_back(makeDefineFile("d.rls", "helper"));
-	project.files.push_back(makeEnemyFile("e.rls", "RE_X"));
-	project.files.push_back(makeEnemyFile("f.rls", "RE_X"));
 
 	auto diags = collectDeclarations(project);
 
-	EXPECT_EQ(countErrors(diags), 3u);
+	EXPECT_EQ(countErrors(diags), 2u);
 }
 
 // == Different decl types can share names =====================================
 
 TEST(CollectDeclarations, SameNameDifferentDeclTypes) {
-	// A region, define, and enemy can all be called "SAME_NAME" — they live
-	// in separate namespaces.
+	// A region and define can share the same name — they live in separate
+	// namespaces.
 	Project project;
 	project.files.push_back(makeRegionFile("a.rls", "SAME_NAME", "SCENE_A"));
 	project.files.push_back(makeDefineFile("b.rls", "SAME_NAME"));
-	project.files.push_back(makeEnemyFile("c.rls", "SAME_NAME"));
 
 	auto diags = collectDeclarations(project);
 
 	EXPECT_TRUE(diags.empty());
 	EXPECT_EQ(project.RegionDecls.size(), 1u);
 	EXPECT_EQ(project.DefineDecls.size(), 1u);
-	EXPECT_EQ(project.EnemyDecls.size(), 1u);
 }
 
 // == Idempotency ==============================================================
@@ -405,7 +358,6 @@ TEST(CollectDeclarations, PointersRefToOriginalDecl) {
 	project.files.push_back(makeRegionFile("a.rls", "RR_TEST", "SCENE_TEST"));
 	project.files.push_back(makeDefineFile("b.rls", "helper"));
 	project.files.push_back(makeExternDefineFile("c.rls", "has"));
-	project.files.push_back(makeEnemyFile("c.rls", "RE_FOO"));
 
 	collectDeclarations(project);
 
@@ -421,10 +373,6 @@ TEST(CollectDeclarations, PointersRefToOriginalDecl) {
 	const auto* externDefinePtr = project.ExternDefineDecls.at("has");
 	const auto& fileExternDefine = std::get<ExternDefineDecl>(project.files[2].declarations[0]);
 	EXPECT_EQ(externDefinePtr, &fileExternDefine);
-
-	const auto* enemyPtr = project.EnemyDecls.at("RE_FOO");
-	const auto& fileEnemy = std::get<EnemyDecl>(project.files[3].declarations[0]);
-	EXPECT_EQ(enemyPtr, &fileEnemy);
 }
 
 // == Integration with parser ==================================================
@@ -482,22 +430,6 @@ TEST(CollectDeclarations, ParsedExternDefine) {
 	EXPECT_TRUE(project.ExternDefineDecls.contains("can_hit_switch"));
 }
 
-TEST(CollectDeclarations, ParsedEnemy) {
-	Project project;
-	project.files.push_back(rls::parser::ParseString(
-		"enemy RE_ARMOS {\n"
-		"    kill: blast_or_smash() or can_use(RG_MASTER_SWORD)\n"
-		"}\n",
-		"enemies.rls"
-	));
-
-	auto diags = collectDeclarations(project);
-
-	EXPECT_TRUE(diags.empty());
-	ASSERT_EQ(project.EnemyDecls.size(), 1u);
-	EXPECT_TRUE(project.EnemyDecls.contains("RE_ARMOS"));
-}
-
 TEST(CollectDeclarations, ParsedExtendRegion) {
 	Project project;
 	project.files.push_back(rls::parser::ParseString(
@@ -542,16 +474,6 @@ TEST(CollectDeclarations, ParsedMultiFileProject) {
 	));
 
 	project.files.push_back(rls::parser::ParseString(
-		"enemy RE_ARMOS {\n"
-		"    kill: blast_or_smash()\n"
-		"}\n"
-		"enemy RE_STALFOS {\n"
-		"    kill: can_use(RG_MASTER_SWORD)\n"
-		"}\n",
-		"enemies.rls"
-	));
-
-	project.files.push_back(rls::parser::ParseString(
 		"extend region RR_FOYER {\n"
 		"    locations {\n"
 		"        RC_POT_1: can_break_pots()\n"
@@ -566,15 +488,12 @@ TEST(CollectDeclarations, ParsedMultiFileProject) {
 	EXPECT_TRUE(diags.empty());
 	EXPECT_EQ(project.RegionDecls.size(), 2u);
 	EXPECT_EQ(project.DefineDecls.size(), 2u);
-	EXPECT_EQ(project.EnemyDecls.size(), 2u);
 	EXPECT_EQ(project.ExtendRegionDecls.count("RR_FOYER"), 1u);
 
 	EXPECT_TRUE(project.RegionDecls.contains("RR_FOYER"));
 	EXPECT_TRUE(project.RegionDecls.contains("RR_STATUE"));
 	EXPECT_TRUE(project.DefineDecls.contains("has_explosives"));
 	EXPECT_TRUE(project.DefineDecls.contains("blast_or_smash"));
-	EXPECT_TRUE(project.EnemyDecls.contains("RE_ARMOS"));
-	EXPECT_TRUE(project.EnemyDecls.contains("RE_STALFOS"));
 }
 
 TEST(CollectDeclarations, ParsedDuplicateRegionAcrossFiles) {
@@ -642,9 +561,6 @@ TEST(Analyze, PopulatesDeclMaps) {
 		"}\n"
 		"define has_explosives():\n"
 		"    has(RG_BOMB_BAG) or has(RG_BOMBCHU_5)\n"
-		"enemy RE_ARMOS {\n"
-		"    kill: can_use(RG_BOMB_BAG)\n"
-		"}\n"
 		"extend region RR_FOYER {\n"
 		"    locations {\n"
 		"        RC_POT: has(RG_POWER_BRACELET)\n"
@@ -662,7 +578,6 @@ TEST(Analyze, PopulatesDeclMaps) {
 	EXPECT_EQ(errors, 0u);
 	EXPECT_EQ(project.RegionDecls.size(), 1u);
 	EXPECT_EQ(project.DefineDecls.size(), 1u);
-	EXPECT_EQ(project.EnemyDecls.size(), 1u);
 	EXPECT_EQ(project.ExtendRegionDecls.count("RR_FOYER"), 1u);
 }
 

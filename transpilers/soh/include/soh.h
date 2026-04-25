@@ -14,8 +14,6 @@ public:
 	void GenerateRuntimeHeaders(rls::OutputWriter& out) const;
 	void GenerateFunctionDefinitionsHeader(rls::OutputWriter& out) const;
 	void GenerateFunctionDefinitionsSource(rls::OutputWriter& out) const;
-	void GenerateEnemiesHeader(rls::OutputWriter& out) const;
-	void GenerateEnemiesSource(rls::OutputWriter& out) const;
 	void GenerateRegionsHeader(rls::OutputWriter& out) const;
 	void GenerateRegionsSource(rls::OutputWriter& out) const;
 	std::string GenerateExpression(const rls::ast::ExprPtr& expr) const;

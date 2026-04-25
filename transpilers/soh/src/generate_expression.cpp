@@ -4,53 +4,6 @@
 #include <sstream>
 #include <unordered_map>
 
-namespace {
-
-struct EnemyHelperParam {
-    std::string name;
-    std::optional<std::string> defaultValue;
-};
-
-struct EnemyHelperMetadata {
-    std::string emittedName;
-    std::vector<EnemyHelperParam> params;
-};
-
-const EnemyHelperMetadata* getEnemyHelperMetadata(const std::string& name) {
-    static const std::unordered_map<std::string, EnemyHelperMetadata> helpers = {
-        { "can_kill", { "CanKillEnemy", {
-            { "enemy", std::nullopt },
-            { "distance", "ED_CLOSE" },
-            { "wallOrFloor", "true" },
-            { "quantity", "1" },
-            { "timer", "false" },
-            { "inWater", "false" },
-        } } },
-        { "can_pass", { "CanPassEnemy", {
-            { "enemy", std::nullopt },
-            { "distance", "ED_CLOSE" },
-            { "wallOrFloor", "true" },
-        } } },
-        { "can_get_drop", { "CanGetEnemyDrop", {
-            { "enemy", std::nullopt },
-            { "distance", "ED_CLOSE" },
-            { "aboveLink", "false" },
-        } } },
-        { "can_avoid", { "CanAvoidEnemy", {
-            { "enemy", std::nullopt },
-            { "grounded", "false" },
-            { "quantity", "1" },
-        } } },
-    };
-
-    if (auto it = helpers.find(name); it != helpers.end()) {
-        return &it->second;
-    }
-    return nullptr;
-}
-
-} // namespace
-
 namespace rls::transpilers::soh {
 
 std::string SohTranspiler::GenerateExpression(const rls::ast::BoolLiteral& node) const {
@@ -233,37 +186,6 @@ std::string SohTranspiler::GenerateExpression(const rls::ast::CallExpr& node) co
         oss << ")";
         return oss.str();
     };
-
-    // Enemy built-ins keep a dedicated C++ helper mapping.
-    if (const auto* enemy = getEnemyHelperMetadata(node.function)) {
-        std::vector<std::string> paramNames;
-        paramNames.reserve(enemy->params.size());
-        for (const auto& p : enemy->params) {
-            paramNames.push_back(p.name);
-        }
-
-        auto resolved = resolveByNames(paramNames);
-        int lastProvided = -1;
-        for (int i = static_cast<int>(resolved.size()) - 1; i >= 0; --i) {
-            if (resolved[i].has_value()) {
-                lastProvided = i;
-                break;
-            }
-        }
-
-        std::vector<std::string> emittedArgs;
-        for (int i = 0; i <= lastProvided; ++i) {
-            if (resolved[i]) {
-                emittedArgs.push_back(*resolved[i]);
-                continue;
-            }
-            if (enemy->params[i].defaultValue) {
-                emittedArgs.push_back(*enemy->params[i].defaultValue);
-            }
-        }
-
-        return emitCall(enemy->emittedName, emittedArgs);
-    }
 
     // Extern-defined calls emit by declared function name with resolved
     // argument order and declaration defaults.

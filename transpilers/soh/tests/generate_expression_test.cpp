@@ -434,42 +434,20 @@ TEST(SohExpressions, CallExternDefineReorderedAndDefaultedArgs) {
 
 TEST(SohExpressions, CallEnemyFunctions) {
 	EXPECT_EQ(GenerateExpression(sourceToExpression(
-		"enemy RE_GOLD_SKULLTULA {\n"
-		"    kill(wallOrFloor = true):\n"
-		"        match distance {\n"
-		"            ED_CLOSE: can_use(RG_MEGATON_HAMMER) or\n"
-		"            ED_SHORT_JUMPSLASH: can_use(RG_KOKIRI_SWORD) or\n"
-		"            ED_MASTER_SWORD_JUMPSLASH: can_use(RG_MASTER_SWORD) or\n"
-		"            ED_LONG_JUMPSLASH: can_use(RG_BIGGORON_SWORD) or can_use(RG_STICKS) or\n"
-		"            ED_BOMB_THROW: can_use(RG_BOMB_BAG) or\n"
-		"            ED_BOOMERANG: can_use(RG_BOOMERANG) or can_use(RG_DINS_FIRE) or\n"
-		"            ED_HOOKSHOT: can_use(RG_HOOKSHOT) or\n"
-		"            ED_LONGSHOT: can_use(RG_LONGSHOT) or\n"
-		"                can_use(RG_BOMBCHU_5) or\n"
-		"            ED_FAR: can_use(RG_FAIRY_SLINGSHOT) or can_use(RG_FAIRY_BOW)\n"
-		"        }\n"
-		"    drop:\n"
-		"        match distance {\n"
-		"            ED_CLOSE or\n"
-		"            ED_SHORT_JUMPSLASH or\n"
-		"            ED_MASTER_SWORD_JUMPSLASH or\n"
-		"            ED_LONG_JUMPSLASH or\n"
-		"            ED_BOMB_THROW or\n"
-		"            ED_BOOMERANG: can_use(RG_BOOMERANG) or\n"
-		"            ED_HOOKSHOT: can_use(RG_HOOKSHOT) or\n"
-		"            ED_LONGSHOT: can_use(RG_LONGSHOT)\n"
-		"        }\n"
-		"}\n"
+		"define kill_fn(e: Enemy, distance = ED_CLOSE, wallOrFloor = true): always\n"
+		"define pass_fn(e: Enemy): always\n"
+		"define drop_fn(e: Enemy): always\n"
+		"define avoid_fn(e: Enemy): always\n"
 		"define test():\n"
-		"    can_kill(RE_GOLD_SKULLTULA, ED_CLOSE, wallOrFloor: false) or\n"
-		"    can_pass(RE_GOLD_SKULLTULA) or\n"
-		"    can_get_drop(RE_GOLD_SKULLTULA) or\n"
-		"    can_avoid(RE_GOLD_SKULLTULA)\n",
+		"    kill_fn(RE_GOLD_SKULLTULA, ED_CLOSE, wallOrFloor: false) or\n"
+		"    pass_fn(RE_GOLD_SKULLTULA) or\n"
+		"    drop_fn(RE_GOLD_SKULLTULA) or\n"
+		"    avoid_fn(RE_GOLD_SKULLTULA)\n",
 		"test")),
-		"CanKillEnemy(RE_GOLD_SKULLTULA, ED_CLOSE, false) || "
-		"CanPassEnemy(RE_GOLD_SKULLTULA) || "
-		"CanGetEnemyDrop(RE_GOLD_SKULLTULA) || "
-		"CanAvoidEnemy(RE_GOLD_SKULLTULA)");
+		"kill_fn(RE_GOLD_SKULLTULA, ED_CLOSE, false) || "
+		"pass_fn(RE_GOLD_SKULLTULA) || "
+		"drop_fn(RE_GOLD_SKULLTULA) || "
+		"avoid_fn(RE_GOLD_SKULLTULA)");
 }
 
 TEST(SohExpressions, CallDefinedFunctions) {
@@ -549,11 +527,12 @@ TEST(SohExpressions, AnyAgeBlockWithCompoundCondition) {
 
 TEST(SohExpressions, AnyAgeBlockWithExternalCondition) {
 	auto expr = sourceToExpression(
+		"define kill_fn(e: Enemy): always\n"
 		"define test():\n"
-		"    any_age { can_kill(RE_ARMOS) } and can_use(RG_STICKS)\n",
+		"    any_age { kill_fn(RE_ARMOS) } and can_use(RG_STICKS)\n",
 		"test");
 	EXPECT_EQ(GenerateExpression(expr),
-		"AnyAgeTime([]{return CanKillEnemy(RE_ARMOS);}) && can_use(RG_STICKS)");
+		"AnyAgeTime([]{return kill_fn(RE_ARMOS);}) && can_use(RG_STICKS)");
 }
 
 TEST(SohExpressions, SharedBlockSingleBranch) {
@@ -621,18 +600,19 @@ TEST(SohExpressions, SharedBlockAnyAgeMultipleBranches) {
 
 TEST(SohExpressions, SharedBlockComplexConditions) {
 	auto expr = sourceToExpression(
+		"define drop_fn(e: Enemy, distance: Distance): always\n"
 		"define test():\n"
 		"    shared {\n"
 		"        from RR_ROOM_A:\n"
 		"            can_use(RG_HOOKSHOT) or can_use(RG_BOOMERANG)\n"
 		"        from RR_ROOM_B:\n"
-		"            can_get_drop(RE_GOLD_SKULLTULA,\n"
+		"            drop_fn(RE_GOLD_SKULLTULA,\n"
 		"                trick(RT_SPIRIT_WEST_LEDGE) ? ED_BOOMERANG : ED_HOOKSHOT)\n"
 		"    }\n",
 		"test");
 	EXPECT_EQ(GenerateExpression(expr),
 		"SpiritShared(RR_ROOM_A, []{return can_use(RG_HOOKSHOT) || can_use(RG_BOOMERANG);}, false, "
-		"RR_ROOM_B, []{return CanGetEnemyDrop(RE_GOLD_SKULLTULA, trick(RT_SPIRIT_WEST_LEDGE) ? ED_BOOMERANG : ED_HOOKSHOT);})");
+		"RR_ROOM_B, []{return drop_fn(RE_GOLD_SKULLTULA, trick(RT_SPIRIT_WEST_LEDGE) ? ED_BOOMERANG : ED_HOOKSHOT);})");
 }
 
 TEST(SohExpressions, SharedBlockWithExternalCondition) {
@@ -813,18 +793,20 @@ TEST(SohExpressions, SharedBlockFromHereWithExternalCondition) {
 
 TEST(SohExpressions, SharedBlockFromHereThreeBranches) {
 	auto expr = sourceToRegionExpression(
+		"define drop_fn(e: Enemy, distance: Distance): always\n"
+		"define kill_fn(e: Enemy): always\n"
 		"region RR_SPIRIT_TEMPLE_STATUE_ROOM_CHILD {\n"
 		"    name: \"Spirit Temple Statue Room Child\"\n"
 		"    scene: SCENE_SPIRIT_TEMPLE\n"
 		"    locations {\n"
 		"        RC_SPIRIT_TEMPLE_GS_LOBBY: shared {\n"
 		"            from here:\n"
-		"                can_get_drop(RE_GOLD_SKULLTULA, ED_LONGSHOT)\n"
+		"                drop_fn(RE_GOLD_SKULLTULA, ED_LONGSHOT)\n"
 		"            from RR_SPIRIT_TEMPLE_INNER_WEST_HAND:\n"
-		"                can_get_drop(RE_GOLD_SKULLTULA,\n"
+		"                drop_fn(RE_GOLD_SKULLTULA,\n"
 		"                    trick(RT_SPIRIT_WEST_LEDGE) ? ED_BOOMERANG : ED_HOOKSHOT)\n"
 		"            from RR_SPIRIT_TEMPLE_GS_LEDGE:\n"
-		"                can_kill(RE_GOLD_SKULLTULA)\n"
+		"                kill_fn(RE_GOLD_SKULLTULA)\n"
 		"        }\n"
 		"    }\n"
 		"}\n",
@@ -833,9 +815,9 @@ TEST(SohExpressions, SharedBlockFromHereThreeBranches) {
 		"RC_SPIRIT_TEMPLE_GS_LOBBY");
 	EXPECT_EQ(GenerateExpression(expr),
 		"SpiritShared(RR_SPIRIT_TEMPLE_STATUE_ROOM_CHILD, "
-		"[]{return CanGetEnemyDrop(RE_GOLD_SKULLTULA, ED_LONGSHOT);}, false, "
+		"[]{return drop_fn(RE_GOLD_SKULLTULA, ED_LONGSHOT);}, false, "
 		"RR_SPIRIT_TEMPLE_INNER_WEST_HAND, "
-		"[]{return CanGetEnemyDrop(RE_GOLD_SKULLTULA, trick(RT_SPIRIT_WEST_LEDGE) ? ED_BOOMERANG : ED_HOOKSHOT);}, "
+		"[]{return drop_fn(RE_GOLD_SKULLTULA, trick(RT_SPIRIT_WEST_LEDGE) ? ED_BOOMERANG : ED_HOOKSHOT);}, "
 		"RR_SPIRIT_TEMPLE_GS_LEDGE, "
-		"[]{return CanKillEnemy(RE_GOLD_SKULLTULA);})");
+		"[]{return kill_fn(RE_GOLD_SKULLTULA);})");
 }

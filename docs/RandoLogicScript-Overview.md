@@ -154,32 +154,6 @@ match distance {
 
 ---
 
-## Enemy Declarations
-
-All knowledge about one enemy in one place - replaces scattered `CanKillEnemy`/`CanPassEnemy`/`CanGetEnemyDrop` switches:
-
-```RLS
-enemy RE_GOLD_SKULLTULA {
-    kill(wallOrFloor = true):
-        match distance {
-            ED_CLOSE: can_use(RG_MEGATON_HAMMER) or
-            ED_SHORT_JUMPSLASH: can_use(RG_KOKIRI_SWORD) or
-            # ... arms with fallthrough ...
-            ED_FAR: can_use(RG_FAIRY_SLINGSHOT) or can_use(RG_FAIRY_BOW)
-        }
-    drop:
-        kill and match distance {
-            ED_BOOMERANG: can_use(RG_BOOMERANG) or
-            ED_HOOKSHOT: can_use(RG_HOOKSHOT) or
-            ED_LONGSHOT: can_use(RG_LONGSHOT)
-        }
-}
-```
-
-The transpiler wires `can_kill(RE_GOLD_SKULLTULA, ED_HOOKSHOT)` to the `kill` field above. Omitted fields get defaults: `pass` → `always`, `drop` → same as `kill`, `avoid` → `always`.
-
----
-
 ## Shared Blocks (Replacing SpiritShared)
 
 `shared` blocks replace the `SpiritShared()` callback soup with explicit multi-region access paths:
@@ -217,7 +191,7 @@ logic/
 ├── stdlib/
 │   ├── helpers.rls              # has_explosives, blast_or_smash, etc.
 │   ├── combat.rls               # can_hit_switch, can_break_pots
-│   └── enemies.rls              # enemy declarations (bestiary)
+│   └── enemies.rls              # enemy helper defines (bestiary logic)
 ├── overworld/                    # kokiri_forest.rls, hyrule_field.rls, ...
 ├── dungeons/                     # spirit_temple.rls, forest_temple.rls, ...
 └── shuffle_features/
@@ -235,7 +209,6 @@ logic/
 | Boilerplate          | Lambdas, macros, `logic->` prefixes  | Bare `Name: condition` entries             |
 | Boolean operators    | `&&` / `\|\|` / `!`                  | `and` / `or` / `not`                       |
 | SpiritShared         | 3-region callback soup               | `shared { from ...: ... }`                 |
-| Enemy knowledge      | Scattered across 4 switch statements | `enemy` declarations - one block per enemy |
 | Distance fallthrough | C++ `switch` fallthrough (implicit)  | `match` with trailing `or` (explicit)      |
 | Logic tracker        | Runtime parsing of stringified C++   | Transpiler-generated expression trees      |
 | Archipelago sync     | Manual Python port, frequent drift   | Auto-generated from same source            |

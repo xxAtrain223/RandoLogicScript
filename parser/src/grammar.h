@@ -93,7 +93,6 @@ struct kw_region : TAO_PEGTL_STRING("region") {};
 struct kw_extend : TAO_PEGTL_STRING("extend") {};
 struct kw_extern : TAO_PEGTL_STRING("extern") {};
 struct kw_define : TAO_PEGTL_STRING("define") {};
-struct kw_enemy : TAO_PEGTL_STRING("enemy") {};
 
 // Region sections
 struct kw_events : TAO_PEGTL_STRING("events") {};
@@ -139,12 +138,6 @@ struct kw_here : TAO_PEGTL_STRING("here") {};
 
 // Match expressions
 struct kw_match : TAO_PEGTL_STRING("match") {};
-
-// Enemy fields
-struct kw_kill : TAO_PEGTL_STRING("kill") {};
-struct kw_pass : TAO_PEGTL_STRING("pass") {};
-struct kw_drop : TAO_PEGTL_STRING("drop") {};
-struct kw_avoid : TAO_PEGTL_STRING("avoid") {};
 
 // == Character classes ========================================================
 
@@ -193,7 +186,6 @@ struct reserved : sor<
 	kw<kw_extend>,
 	kw<kw_extern>,
 	kw<kw_define>,
-	kw<kw_enemy>,
 	// Region sections
 	kw<kw_events>,
 	kw<kw_locations>,
@@ -222,12 +214,7 @@ struct reserved : sor<
 	kw<kw_from>,
 	kw<kw_here>,
 	// Match
-	kw<kw_match>,
-	// Enemy fields
-	kw<kw_kill>,
-	kw<kw_pass>,
-	kw<kw_drop>,
-	kw<kw_avoid>
+	kw<kw_match>
 > {};
 
 /// Named identifier: enum values (`RG_HOOKSHOT`), parameters, region names, etc.
@@ -497,30 +484,10 @@ struct extern_define_decl : seq<
 	arrow, _, type>
 > {};
 
-// -- Enemy --------------------------------------------------------------------
-
-/// enemy_field_kind = "kill" | "pass" | "drop" | "avoid"
-struct enemy_field_kind : sor<kw<kw_kill>, kw<kw_pass>, kw<kw_drop>, kw<kw_avoid>> {};
-
-/// enemy_field = enemy_field_kind ("(" params? ")")? ":" expr
-struct enemy_field : seq<
-	enemy_field_kind, must<_,
-	opt<seq<open_paren, must<_, opt<params>, _, close_paren>, _>>,
-	colon, _, expr>
-> {};
-
-/// enemy = "enemy" IDENT "{" enemy_field+ "}"
-struct enemy_decl : seq<
-	kw<kw_enemy>, must<_, ident, _,
-	open_brace, _,
-	plus<seq<enemy_field, _>>,
-	close_brace>
-> {};
-
 // -- Top-level file -----------------------------------------------------------
 
-/// declaration = region | extend | extern define | define | enemy
-struct declaration : sor<region_decl, extend_decl, extern_define_decl, define_decl, enemy_decl> {};
+/// declaration = region | extend | extern define | define
+struct declaration : sor<region_decl, extend_decl, extern_define_decl, define_decl> {};
 
 /// file = _ (declaration _)* eof
 /// Named `rls_file` to avoid clashing with any PEGTL or std types.
