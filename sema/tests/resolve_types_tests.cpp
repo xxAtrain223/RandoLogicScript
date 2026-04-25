@@ -1140,6 +1140,9 @@ TEST(ResolveTypes, MatchDiscriminantInferred) {
 		"        ED_FAR: false\n"
 		"    }\n");
 	EXPECT_TRUE(diags.empty());
+	const auto* decl = project.DefineDecls.at("foo");
+	ASSERT_EQ(decl->params.size(), 1u);
+	EXPECT_EQ(project.getType(&decl->params[0]), Type::Distance);
 	EXPECT_EQ(project.getType(project.DefineDecls.at("foo")->body.get()), Type::Bool);
 }
 
@@ -1185,6 +1188,17 @@ TEST(ResolveTypes, MatchOnlyDefaultDoesNotInferDiscriminant) {
 		"    }\n");
 	EXPECT_TRUE(diags.empty());
 	EXPECT_EQ(project.getType(project.DefineDecls.at("foo")->body.get()), Type::Bool);
+}
+
+TEST(ResolveTypes, ParamInferredFromLogicalContext) {
+	auto [project, diags] = resolveFromSource(
+		"define foo(wall_or_floor):\n"
+		"    wall_or_floor and true\n");
+	EXPECT_TRUE(diags.empty());
+	const auto* decl = project.DefineDecls.at("foo");
+	ASSERT_EQ(decl->params.size(), 1u);
+	EXPECT_EQ(project.getType(&decl->params[0]), Type::Bool);
+	EXPECT_EQ(project.getType(decl->body.get()), Type::Bool);
 }
 
 // -- Error poisoning ----------------------------------------------------------

@@ -18,15 +18,28 @@ define can_avoid(e: Enemy, grounded = false, quantity = 1):
 define can_get_drop(e: Enemy, distance = ED_CLOSE, above_link = false):
     can_kill(e, distance) and
     (
-        distance <= ED_MASTER_SWORD_JUMPSLASH or
+        distance_to_int(distance) <= distance_to_int(ED_MASTER_SWORD_JUMPSLASH) or
         match e {
             RE_GOLD_SKULLTULA: _can_get_drop_gold_skulltula(distance)
             RE_KEESE or
             RE_FIRE_KEESE or
             RE_GUAY: always
-            _: above_link or (distance <= ED_BOOMERANG and can_use(RG_BOOMERANG))
+            _: above_link or (distance_to_int(distance) <= distance_to_int(ED_BOOMERANG) and can_use(RG_BOOMERANG))
         }
     )
+
+define distance_to_int(distance):
+    match distance {
+        ED_CLOSE: 0
+        ED_SHORT_JUMPSLASH: 1
+        ED_MASTER_SWORD_JUMPSLASH: 2
+        ED_LONG_JUMPSLASH: 3
+        ED_BOMB_THROW: 4
+        ED_BOOMERANG: 5
+        ED_HOOKSHOT: 6
+        ED_LONGSHOT: 7
+        ED_FAR: 8
+    }
 
 define _can_kill_gold_skulltula(distance, wall_or_floor):
     match distance {

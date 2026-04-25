@@ -68,6 +68,22 @@ struct ExprResolver {
 		bool hasError = false;
 	};
 
+	bool inferUntypedParamIdentifier(const ast::Expr& expr, T expectedType) {
+		auto* id = std::get_if<ast::Identifier>(&expr.node);
+		if (id == nullptr) {
+			return false;
+		}
+
+		auto it = scope.find(id->name);
+		if (it == scope.end() || it->second.has_value()) {
+			return false;
+		}
+
+		it->second = expectedType;
+		project.setType(&expr, expectedType);
+		return true;
+	}
+
 	// -- Node handlers -------------------------------------------------------
 
 	ast::Type resolve(const ast::BoolLiteral&, const ast::Expr&) {
@@ -104,6 +120,7 @@ struct ExprResolver {
 	}
 
 	ast::Type resolve(const ast::UnaryExpr& node, const ast::Expr& expr) {
+		inferUntypedParamIdentifier(*node.operand, ast::Type::Bool);
 		auto opType = resolveExpr(*node.operand);
 		if (opType != ast::Type::Error && !isBoolCompatible(opType)) {
 			diags.push_back({
@@ -118,8 +135,44 @@ struct ExprResolver {
 
 	ast::Type resolve(const ast::BinaryExpr& node, const ast::Expr& expr) {
 		using T = ast::Type;
+
+		switch (node.op) {
+		case ast::BinaryOp::And:
+		case ast::BinaryOp::Or:
+			inferUntypedParamIdentifier(*node.left, T::Bool);
+			inferUntypedParamIdentifier(*node.right, T::Bool);
+			break;
+
+		case ast::BinaryOp::Lt:
+		case ast::BinaryOp::LtEq:
+		case ast::BinaryOp::Gt:
+		case ast::BinaryOp::GtEq:
+		case ast::BinaryOp::Add:
+		case ast::BinaryOp::Sub:
+		case ast::BinaryOp::Mul:
+		case ast::BinaryOp::Div:
+			inferUntypedParamIdentifier(*node.left, T::Int);
+			inferUntypedParamIdentifier(*node.right, T::Int);
+			break;
+
+		case ast::BinaryOp::Eq:
+		case ast::BinaryOp::NotEq:
+			break;
+		}
+
 		auto leftType = resolveExpr(*node.left);
 		auto rightType = resolveExpr(*node.right);
+
+		if (node.op == ast::BinaryOp::Eq || node.op == ast::BinaryOp::NotEq) {
+			if (leftType == T::Error && rightType != T::Error
+				&& inferUntypedParamIdentifier(*node.left, rightType)) {
+				leftType = rightType;
+			}
+			if (rightType == T::Error && leftType != T::Error
+				&& inferUntypedParamIdentifier(*node.right, leftType)) {
+				rightType = leftType;
+			}
+		}
 
 		switch (node.op) {
 		// Logical: both sides must be bool-compatible.
@@ -211,6 +264,7 @@ struct ExprResolver {
 
 	ast::Type resolve(const ast::TernaryExpr& node, const ast::Expr& expr) {
 		using T = ast::Type;
+		inferUntypedParamIdentifier(*node.condition, T::Bool);
 		auto condType = resolveExpr(*node.condition);
 		auto thenType = resolveExpr(*node.thenBranch);
 		auto elseType = resolveExpr(*node.elseBranch);
@@ -397,18 +451,24 @@ struct ExprResolver {
 	template <typename GetParamType>
 	void validateBoundArgTypes(
 		const std::string& function,
-		const std::vector<T>& argTypes,
+		std::vector<T>& argTypes,
 		const ArgBindingResult& binding,
 		const ast::CallExpr& node,
 		GetParamType&& getParamType)
 	{
 		for (size_t argIndex = 0; argIndex < argTypes.size(); ++argIndex) {
-			if (argTypes[argIndex] == T::Error) continue;
 			if (!binding.argToParam[argIndex]) continue;
 
 			size_t paramIndex = *binding.argToParam[argIndex];
 			auto paramType = getParamType(paramIndex);
 			if (!paramType) continue;
+
+			if (argTypes[argIndex] == T::Error
+				&& inferUntypedParamIdentifier(*node.args[argIndex].value, *paramType)) {
+				argTypes[argIndex] = *paramType;
+			}
+
+			if (argTypes[argIndex] == T::Error) continue;
 			if (argTypes[argIndex] == *paramType) continue;
 
 			diags.push_back({
@@ -515,6 +575,7 @@ struct ExprResolver {
 
 	ast::Type resolve(const ast::SharedBlock& node, const ast::Expr&) {
 		for (auto& branch : node.branches) {
+			inferUntypedParamIdentifier(*branch.condition, ast::Type::Bool);
 			auto branchType = resolveExpr(*branch.condition);
 			if (branchType != ast::Type::Error && !isBoolCompatible(branchType)) {
 				diags.push_back({
@@ -529,6 +590,7 @@ struct ExprResolver {
 	}
 
 	ast::Type resolve(const ast::AnyAgeBlock& node, const ast::Expr&) {
+		inferUntypedParamIdentifier(*node.body, ast::Type::Bool);
 		auto bodyType = resolveExpr(*node.body);
 		if (bodyType != ast::Type::Error && !isBoolCompatible(bodyType)) {
 			diags.push_back({
@@ -819,6 +881,17 @@ std::vector<ast::Diagnostic> resolveTypes(ast::Project& project) {
 		}
 		ExprResolver resolver{project, scope, diags};
 		resolver.resolveExpr(*decl->body);
+
+		for (const auto& param : decl->params) {
+			if (project.getType(&param).has_value()) {
+				continue;
+			}
+
+			auto scopeIt = scope.find(param.name);
+			if (scopeIt != scope.end() && scopeIt->second.has_value()) {
+				project.setType(&param, *scopeIt->second);
+			}
+		}
 	}
 
 	// Resolve extern define parameter annotations/defaults.
