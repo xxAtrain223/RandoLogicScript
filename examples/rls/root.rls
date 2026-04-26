@@ -4,10 +4,24 @@ region RR_ROOT {
     no_time_passes
     areas: RA_LINKS_POCKET
 
+    events {
+        LOGIC_KAKARIKO_GATE_OPEN:                  setting(RSK_KAK_GATE) is RO_KAK_GATE_OPEN
+        LOGIC_TH_COULD_FREE_1_TORCH_CARPENTER:     setting(RSK_GERUDO_FORTRESS) is RO_GF_CARPENTERS_FREE
+        LOGIC_TH_COULD_FREE_DOUBLE_CELL_CARPENTER: setting(RSK_GERUDO_FORTRESS) is RO_GF_CARPENTERS_FREE or setting(RSK_GERUDO_FORTRESS) is RO_GF_CARPENTERS_FAST
+        LOGIC_TH_COULD_FREE_DEAD_END_CARPENTER:    setting(RSK_GERUDO_FORTRESS) is RO_GF_CARPENTERS_FREE or setting(RSK_GERUDO_FORTRESS) is RO_GF_CARPENTERS_FAST
+        LOGIC_TH_COULD_FREE_SLOPE_CARPENTER:       setting(RSK_GERUDO_FORTRESS) is RO_GF_CARPENTERS_FREE or setting(RSK_GERUDO_FORTRESS) is RO_GF_CARPENTERS_FAST
+        LOGIC_TH_RESCUED_ALL_CARPENTERS:           setting(RSK_GERUDO_FORTRESS) is RO_GF_CARPENTERS_FREE
+        LOGIC_FREED_EPONA:                         setting(RSK_SKIP_EPONA_RACE)
+    }
+
     locations {
-        RC_LINKS_POCKET: always
+        RC_LINKS_POCKET:       always
         RC_TRIFORCE_COMPLETED: collected_triforce_pieces() >= required_triforce_pieces()
-        RC_TOT_MASTER_SWORD: setting(RSK_SELECTED_STARTING_AGE) is RO_AGE_ADULT
+        RC_SARIA_SONG_HINT:    can_use(RG_SARIAS_SONG)
+        RC_SONG_FROM_IMPA:     setting(RSK_SKIP_CHILD_ZELDA)
+        RC_HC_MALON_EGG:       setting(RSK_SKIP_CHILD_ZELDA)
+        RC_HC_ZELDAS_LETTER:   setting(RSK_SKIP_CHILD_ZELDA)
+        RC_TOT_MASTER_SWORD:   setting(RSK_SELECTED_STARTING_AGE) is RO_AGE_ADULT
     }
 
     exits {
@@ -22,7 +36,14 @@ region RR_ROOT_EXITS {
     areas: RA_LINKS_POCKET
 
     exits {
-        RR_CHILD_SPAWN: is_child()
+        RR_CHILD_SPAWN:             is_child()
+        RR_ADULT_SPAWN:             is_adult()
+        RR_MINUET_OF_FOREST_WARP:   can_use(RG_MINUET_OF_FOREST)
+        RR_BOLERO_OF_FIRE_WARP:     can_use(RG_BOLERO_OF_FIRE)
+        RR_SERENADE_OF_WATER_WARP:  can_use(RG_SERENADE_OF_WATER)
+        RR_NOCTURNE_OF_SHADOW_WARP: can_use(RG_NOCTURNE_OF_SHADOW)
+        RR_REQUIEM_OF_SPIRIT_WARP:  can_use(RG_REQUIEM_OF_SPIRIT)
+        RR_PRELUDE_OF_LIGHT_WARP:   can_use(RG_PRELUDE_OF_LIGHT)
     }
 }
 
@@ -34,5 +55,82 @@ region RR_CHILD_SPAWN {
 
     exits {
         RR_KF_LINKS_HOUSE: always
+    }
+}
+
+region RR_ADULT_SPAWN {
+    name: "Adult Spawn"
+    scene: SCENE_ID_MAX
+    no_time_passes
+    areas: RA_LINKS_POCKET
+
+    exits {
+        RR_TEMPLE_OF_TIME: always
+    }
+}
+
+region RR_MINUET_OF_FOREST_WARP {
+    name: "Minuet of Forest Warp"
+    scene: SCENE_ID_MAX
+    no_time_passes
+    areas: RA_LINKS_POCKET
+
+    exits {
+        RR_SACRED_FOREST_MEADOW: always
+    }
+}
+
+region RR_BOLERO_OF_FIRE_WARP {
+    name: "Bolero of Fire Warp"
+    scene: SCENE_ID_MAX
+    no_time_passes
+    areas: RA_LINKS_POCKET
+
+    exits {
+        RR_DMC_PAD_ENTRY: always
+    }
+}
+
+region RR_SERENADE_OF_WATER_WARP {
+    name: "Serenade of Water Warp"
+    scene: SCENE_ID_MAX
+    no_time_passes
+    areas: RA_LINKS_POCKET
+
+    exits {
+        RR_LAKE_HYLIA: always
+    }
+}
+
+region RR_REQUIEM_OF_SPIRIT_WARP {
+    name: "Requiem of Spirit Warp"
+    scene: SCENE_ID_MAX
+    no_time_passes
+    areas: RA_LINKS_POCKET
+
+    exits {
+        RR_DESERT_COLOSSUS: always
+    }
+}
+
+region RR_NOCTURNE_OF_SHADOW_WARP {
+    name: "Nocturne of Shadow Warp"
+    scene: SCENE_ID_MAX
+    no_time_passes
+    areas: RA_LINKS_POCKET
+
+    exits {
+        RR_GRAVEYARD_WARP_PAD_REGION: always
+    }
+}
+
+region RR_PRELUDE_OF_LIGHT_WARP {
+    name: "Prelude of Light Warp"
+    scene: SCENE_ID_MAX
+    no_time_passes
+    areas: RA_LINKS_POCKET
+
+    exits {
+        RR_TEMPLE_OF_TIME: always
     }
 }

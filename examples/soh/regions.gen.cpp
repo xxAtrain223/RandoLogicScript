@@ -6,6 +6,24 @@ using namespace Rando;
 
 void RegisterRegions() {
 
+areaTable[RR_ADULT_SPAWN] = Region("Adult Spawn", SCENE_ID_MAX, false, {RA_LINKS_POCKET}, {
+    // Events
+}, {
+    // Locations
+}, {
+    // Exits
+    ENTRANCE(RR_TEMPLE_OF_TIME, true),
+});
+
+areaTable[RR_BOLERO_OF_FIRE_WARP] = Region("Bolero of Fire Warp", SCENE_ID_MAX, false, {RA_LINKS_POCKET}, {
+    // Events
+}, {
+    // Locations
+}, {
+    // Exits
+    ENTRANCE(RR_DMC_PAD_ENTRY, true),
+});
+
 areaTable[RR_CHILD_SPAWN] = Region("Child Spawn", SCENE_ID_MAX, false, {RA_LINKS_POCKET}, {
     // Events
 }, {
@@ -110,12 +128,59 @@ areaTable[RR_KOKIRI_FOREST] = Region("Kokiri Forest", SCENE_KOKIRI_FOREST, {
     ENTRANCE(RR_LW_BRIDGE_FROM_FOREST, is_adult() || setting(RSK_FOREST) != RO_CLOSED_FOREST_ON || flag(LOGIC_DEKU_TREE_CLEAR)),
 });
 
+areaTable[RR_MINUET_OF_FOREST_WARP] = Region("Minuet of Forest Warp", SCENE_ID_MAX, false, {RA_LINKS_POCKET}, {
+    // Events
+}, {
+    // Locations
+}, {
+    // Exits
+    ENTRANCE(RR_SACRED_FOREST_MEADOW, true),
+});
+
+areaTable[RR_NOCTURNE_OF_SHADOW_WARP] = Region("Nocturne of Shadow Warp", SCENE_ID_MAX, false, {RA_LINKS_POCKET}, {
+    // Events
+}, {
+    // Locations
+}, {
+    // Exits
+    ENTRANCE(RR_GRAVEYARD_WARP_PAD_REGION, true),
+});
+
+areaTable[RR_PRELUDE_OF_LIGHT_WARP] = Region("Prelude of Light Warp", SCENE_ID_MAX, false, {RA_LINKS_POCKET}, {
+    // Events
+}, {
+    // Locations
+}, {
+    // Exits
+    ENTRANCE(RR_TEMPLE_OF_TIME, true),
+});
+
+areaTable[RR_REQUIEM_OF_SPIRIT_WARP] = Region("Requiem of Spirit Warp", SCENE_ID_MAX, false, {RA_LINKS_POCKET}, {
+    // Events
+}, {
+    // Locations
+}, {
+    // Exits
+    ENTRANCE(RR_DESERT_COLOSSUS, true),
+});
+
 areaTable[RR_ROOT] = Region("Root", SCENE_ID_MAX, false, {RA_LINKS_POCKET}, {
     // Events
+    EVENT_ACCESS(LOGIC_KAKARIKO_GATE_OPEN, setting(RSK_KAK_GATE) == RO_KAK_GATE_OPEN),
+    EVENT_ACCESS(LOGIC_TH_COULD_FREE_1_TORCH_CARPENTER, setting(RSK_GERUDO_FORTRESS) == RO_GF_CARPENTERS_FREE),
+    EVENT_ACCESS(LOGIC_TH_COULD_FREE_DOUBLE_CELL_CARPENTER, setting(RSK_GERUDO_FORTRESS) == RO_GF_CARPENTERS_FREE || setting(RO_GF_CARPENTERS_FREE) == RO_GF_CARPENTERS_FAST),
+    EVENT_ACCESS(LOGIC_TH_COULD_FREE_DEAD_END_CARPENTER, setting(RSK_GERUDO_FORTRESS) == RO_GF_CARPENTERS_FREE || setting(RO_GF_CARPENTERS_FREE) == RO_GF_CARPENTERS_FAST),
+    EVENT_ACCESS(LOGIC_TH_COULD_FREE_SLOPE_CARPENTER, setting(RSK_GERUDO_FORTRESS) == RO_GF_CARPENTERS_FREE || setting(RO_GF_CARPENTERS_FREE) == RO_GF_CARPENTERS_FAST),
+    EVENT_ACCESS(LOGIC_TH_RESCUED_ALL_CARPENTERS, setting(RSK_GERUDO_FORTRESS) == RO_GF_CARPENTERS_FREE),
+    EVENT_ACCESS(LOGIC_FREED_EPONA, setting(RSK_SKIP_EPONA_RACE)),
 }, {
     // Locations
     LOCATION(RC_LINKS_POCKET, true),
     LOCATION(RC_TRIFORCE_COMPLETED, collected_triforce_pieces() >= required_triforce_pieces()),
+    LOCATION(RC_SARIA_SONG_HINT, can_use(RG_SARIAS_SONG)),
+    LOCATION(RC_SONG_FROM_IMPA, setting(RSK_SKIP_CHILD_ZELDA)),
+    LOCATION(RC_HC_MALON_EGG, setting(RSK_SKIP_CHILD_ZELDA)),
+    LOCATION(RC_HC_ZELDAS_LETTER, setting(RSK_SKIP_CHILD_ZELDA)),
     LOCATION(RC_TOT_MASTER_SWORD, setting(RSK_SELECTED_STARTING_AGE) == RO_AGE_ADULT),
 }, {
     // Exits
@@ -129,6 +194,22 @@ areaTable[RR_ROOT_EXITS] = Region("Root Exits", SCENE_ID_MAX, false, {RA_LINKS_P
 }, {
     // Exits
     ENTRANCE(RR_CHILD_SPAWN, is_child()),
+    ENTRANCE(RR_ADULT_SPAWN, is_adult()),
+    ENTRANCE(RR_MINUET_OF_FOREST_WARP, can_use(RG_MINUET_OF_FOREST)),
+    ENTRANCE(RR_BOLERO_OF_FIRE_WARP, can_use(RG_BOLERO_OF_FIRE)),
+    ENTRANCE(RR_SERENADE_OF_WATER_WARP, can_use(RG_SERENADE_OF_WATER)),
+    ENTRANCE(RR_NOCTURNE_OF_SHADOW_WARP, can_use(RG_NOCTURNE_OF_SHADOW)),
+    ENTRANCE(RR_REQUIEM_OF_SPIRIT_WARP, can_use(RG_REQUIEM_OF_SPIRIT)),
+    ENTRANCE(RR_PRELUDE_OF_LIGHT_WARP, can_use(RG_PRELUDE_OF_LIGHT)),
+});
+
+areaTable[RR_SERENADE_OF_WATER_WARP] = Region("Serenade of Water Warp", SCENE_ID_MAX, false, {RA_LINKS_POCKET}, {
+    // Events
+}, {
+    // Locations
+}, {
+    // Exits
+    ENTRANCE(RR_LAKE_HYLIA, true),
 });
 
 }
