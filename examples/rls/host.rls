@@ -12,3 +12,5 @@ extern define is_vanilla() -> Bool
 extern define is_mq() -> Bool
 extern define required_triforce_pieces() -> Int
 extern define collected_triforce_pieces() -> Int
+extern define check_price(check = RC_UNKNOWN_CHECK) -> Int
+extern define bottle_count() -> Int

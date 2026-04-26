@@ -1,0 +1,19 @@
+extend region RR_KF_LINKS_HOUSE {
+    locations {
+        RC_KF_LINKS_HOUSE_POT: has(RG_POWER_BRACELET)
+    }
+}
+
+extend region RR_KF_HOUSE_OF_TWINS {
+    locations {
+        RC_KF_TWINS_HOUSE_POT_1: has(RG_POWER_BRACELET)
+        RC_KF_TWINS_HOUSE_POT_2: has(RG_POWER_BRACELET)
+    }
+}
+
+extend region RR_KF_KNOW_IT_ALL_HOUSE {
+    locations {
+        RC_KF_BROTHERS_HOUSE_POT_1: has(RG_POWER_BRACELET)
+        RC_KF_BROTHERS_HOUSE_POT_2: has(RG_POWER_BRACELET)
+    }
+}

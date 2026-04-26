@@ -1,0 +1,6 @@
+extend region RR_KF_STORMS_GROTTO {
+    locations {
+        RC_KF_STORMS_GROTTO_BEEHIVE_LEFT:  can_break_lower_beehives()
+        RC_KF_STORMS_GROTTO_BEEHIVE_RIGHT: can_break_lower_beehives()
+    }
+}

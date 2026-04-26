@@ -1,0 +1,18 @@
+extend region RR_KF_OUTSIDE_DEKU_TREE {
+    locations {
+        RC_KF_DEKU_TREE_LEFT_GOSSIP_STONE:  always
+        RC_KF_DEKU_TREE_RIGHT_GOSSIP_STONE: always
+    }
+}
+
+extend region RR_KF_OUTSIDE_LOST_WOODS {
+    locations {
+        RC_KF_GOSSIP_STONE: always
+    }
+}
+
+extend region RR_KF_STORMS_GROTTO {
+    locations {
+        RC_KF_STORMS_GROTTO_GOSSIP_STONE: always
+    }
+}

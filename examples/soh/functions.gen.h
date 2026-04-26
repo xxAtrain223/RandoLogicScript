@@ -8,14 +8,26 @@
 
 bool _can_get_drop_gold_skulltula(const EnemyDistance distance);
 bool _can_kill_gold_skulltula(const EnemyDistance distance, const bool wall_or_floor);
+bool call_gossip_fairy();
 bool call_gossip_fairy_except_suns();
 bool can_avoid(const RandomizerEnemy e, const bool grounded = false, const int quantity = 1);
+bool can_break_lower_beehives();
+bool can_break_upper_beehives();
 bool can_climb_ladder();
 bool can_cut_shrubs();
+bool can_get_deku_baba_nuts();
+bool can_get_deku_baba_sticks();
 bool can_get_drop(const RandomizerEnemy e, const EnemyDistance distance = ED_CLOSE, const bool above_link = false);
 bool can_get_night_time_gs();
+bool can_jumpslash();
+bool can_jumpslash_except_hammer();
 bool can_kill(const RandomizerEnemy e, const EnemyDistance distance = ED_CLOSE, const bool wall_or_floor = true, const int quantity = 1, const bool timer = false, const bool in_water = false);
+bool can_open_storms_grotto();
 bool can_pass(const RandomizerEnemy e, const EnemyDistance distance = ED_CLOSE, const bool wall_or_floor = true);
 bool can_spawn_soil_skull(const RandomizerGet bean);
+bool can_use_sword();
 int distance_to_int(const EnemyDistance distance);
+bool has_bottle();
 bool has_explosives();
+bool hookshot_or_boomerang();
+int wallet_capacity();

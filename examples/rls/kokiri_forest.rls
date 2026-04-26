@@ -2,10 +2,6 @@ region RR_KF_LINKS_HOUSE {
     name: "KF Link's House"
     scene: SCENE_LINKS_HOUSE
 
-    locations {
-        RC_KF_LINKS_HOUSE_POT: has(RG_POWER_BRACELET)
-    }
-
     exits {
         RR_KF_LINKS_PORCH: always
     }
@@ -41,18 +37,150 @@ region RR_KOKIRI_FOREST {
     }
 
     exits {
-        RR_KF_BOULDER_LOOP: can_use(RG_CRAWL)
-        RR_KF_LINKS_PORCH: is_child() ? can_climb_ladder() : (has(RG_CLIMB) or can_use(RG_HOVER_BOOTS))
-        RR_KF_MIDOS_HOUSE: always
-        RR_KF_SARIAS_HOUSE: always
-        RR_KF_HOUSE_OF_TWINS: always
-        RR_KF_KNOW_IT_ALL_HOUSE: always
-        RR_KF_KOKIRI_SHOP: always
-        RR_KF_OUTSIDE_DEKU_TREE: flag(LOGIC_SHOWED_MIDO_SWORD_AND_SHIELD) or setting(RSK_FOREST) is RO_CLOSED_FOREST_OFF or
-            (is_adult() and (can_pass(RE_BIG_SKULLTULA) or flag(LOGIC_FOREST_TEMPLE_CLEAR)))
+        RR_KF_BOULDER_LOOP:       can_use(RG_CRAWL)
+        RR_KF_LINKS_PORCH:        is_child() ? can_climb_ladder() : (has(RG_CLIMB) or can_use(RG_HOVER_BOOTS))
+        RR_KF_MIDOS_HOUSE:        always
+        RR_KF_SARIAS_HOUSE:       always
+        RR_KF_HOUSE_OF_TWINS:     always
+        RR_KF_KNOW_IT_ALL_HOUSE:  always
+        RR_KF_KOKIRI_SHOP:        always
+        RR_KF_OUTSIDE_DEKU_TREE:  flag(LOGIC_SHOWED_MIDO_SWORD_AND_SHIELD) or setting(RSK_FOREST) is RO_CLOSED_FOREST_OFF or
+                                  (is_adult() and (can_pass(RE_BIG_SKULLTULA) or flag(LOGIC_FOREST_TEMPLE_CLEAR)))
         RR_KF_OUTSIDE_LOST_WOODS: has(RG_CLIMB) or can_use(RG_HOOKSHOT) or
-            (is_adult() and (can_plant_bean(RR_KOKIRI_FOREST, RG_KOKIRI_FOREST_BEAN_SOUL) or trick(RT_UNINTUITIVE_JUMPS)))
-        RR_KF_RUPEE_ALCOVE: is_adult() and can_plant_bean(RR_KOKIRI_FOREST, RG_KOKIRI_FOREST_BEAN_SOUL)
+                                  (is_adult() and (can_plant_bean(RR_KOKIRI_FOREST, RG_KOKIRI_FOREST_BEAN_SOUL) or trick(RT_UNINTUITIVE_JUMPS)))
+        RR_KF_RUPEE_ALCOVE:       is_adult() and can_plant_bean(RR_KOKIRI_FOREST, RG_KOKIRI_FOREST_BEAN_SOUL)
         RR_LW_BRIDGE_FROM_FOREST: is_adult() or setting(RSK_FOREST) is not RO_CLOSED_FOREST_ON or flag(LOGIC_DEKU_TREE_CLEAR)
+    }
+}
+
+region RR_KF_BOULDER_LOOP {
+    name: "KF Boulder Loop"
+    scene: SCENE_KOKIRI_FOREST
+
+    locations {
+        RC_KF_KOKIRI_SWORD_CHEST: is_child() and has(RG_OPEN_CHEST)
+    }
+
+    exits {
+        RR_KOKIRI_FOREST: can_use(RG_CRAWL)
+    }
+}
+
+region RR_KF_OUTSIDE_DEKU_TREE {
+    name: "KF Outside Deku Tree"
+    scene: SCENE_KOKIRI_FOREST
+
+    events {
+        LOGIC_STICK_ACCESS:                 can_get_deku_baba_sticks()
+        LOGIC_NUT_ACCESS:                   can_get_deku_baba_nuts()
+        LOGIC_FAIRY_ACCESS:                 call_gossip_fairy_except_suns()
+        LOGIC_SHOWED_MIDO_SWORD_AND_SHIELD:
+            is_child() and
+            has(RG_SPEAK_KOKIRI) and
+            can_use(RG_KOKIRI_SWORD) and
+            can_use(RG_DEKU_SHIELD)
+    }
+
+    exits {
+        RR_DEKU_TREE_ENTRYWAY:
+            is_child() or (
+                setting(RSK_SHUFFLE_DUNGEON_ENTRANCES) is not RO_DUNGEON_ENTRANCE_SHUFFLE_OFF and
+                (setting(RSK_FOREST) is RO_CLOSED_FOREST_OFF or flag(LOGIC_SHOWED_MIDO_SWORD_AND_SHIELD))
+            )
+        RR_KOKIRI_FOREST:
+            (is_adult() and (can_pass(RE_BIG_SKULLTULA) or flag(LOGIC_DEKU_TREE_CLEAR))) or
+            setting(RSK_FOREST) is RO_CLOSED_FOREST_OFF or flag(LOGIC_SHOWED_MIDO_SWORD_AND_SHIELD)
+    }
+}
+
+region RR_KF_MIDOS_HOUSE {
+    name: "KF Mido's House"
+    scene: SCENE_MIDOS_HOUSE
+
+    locations {
+        RC_KF_MIDOS_TOP_LEFT_CHEST:     has(RG_OPEN_CHEST)
+        RC_KF_MIDOS_TOP_RIGHT_CHEST:    has(RG_OPEN_CHEST)
+        RC_KF_MIDOS_BOTTOM_LEFT_CHEST:  has(RG_OPEN_CHEST)
+        RC_KF_MIDOS_BOTTOM_RIGHT_CHEST: has(RG_OPEN_CHEST)
+    }
+
+    exits {
+        RR_KOKIRI_FOREST: always
+    }
+}
+
+region RR_KF_SARIAS_HOUSE {
+    name: "KF Saria's House"
+    scene: SCENE_SARIAS_HOUSE
+
+    exits {
+        RR_KOKIRI_FOREST: always
+    }
+}
+
+region RR_KF_HOUSE_OF_TWINS {
+    name: "KF House of Twins"
+    scene: SCENE_TWINS_HOUSE
+
+    exits {
+        RR_KOKIRI_FOREST: always
+    }
+}
+
+region RR_KF_KNOW_IT_ALL_HOUSE {
+    name: "KF Know It All House"
+    scene: SCENE_KNOW_IT_ALL_BROS_HOUSE
+
+    exits {
+        RR_KOKIRI_FOREST: always
+    }
+}
+
+region RR_KF_KOKIRI_SHOP {
+    name: "KF Kokiri Shop"
+    scene: SCENE_KOKIRI_SHOP
+
+    exits {
+        RR_KOKIRI_FOREST: always
+    }
+}
+
+region RR_KF_OUTSIDE_LOST_WOODS {
+    name: "KF Outside Lost Woods"
+    scene: SCENE_KOKIRI_FOREST
+
+    exits {
+        RR_KOKIRI_FOREST:    always
+        RR_THE_LOST_WOODS:   always
+        RR_KF_RUPEE_ALCOVE:  is_adult() and (can_plant_bean(RR_KOKIRI_FOREST, RG_KOKIRI_FOREST_BEAN_SOUL) or can_use(RG_HOVER_BOOTS))
+        RR_KF_STORMS_GROTTO: can_open_storms_grotto()
+    }
+}
+
+region RR_KF_RUPEE_ALCOVE {
+    name: "KF Alcove"
+    scene: SCENE_KOKIRI_FOREST
+
+    exits {
+        RR_KOKIRI_FOREST: always
+    }
+}
+
+region RR_KF_STORMS_GROTTO {
+    name: "KF Storms Grotto"
+    scene: SCENE_GROTTOS
+
+    events {
+        LOGIC_FAIRY_ACCESS: call_gossip_fairy() or can_use(RG_STICKS)
+        LOGIC_BUG_ACCESS:   can_cut_shrubs()
+        LOGIC_FISH_ACCESS:  always
+    }
+
+    locations {
+        RC_KF_STORMS_GROTTO_CHEST: has(RG_OPEN_CHEST)
+    }
+
+    exits {
+        RR_KF_OUTSIDE_LOST_WOODS: always
     }
 }

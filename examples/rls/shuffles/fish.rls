@@ -1,0 +1,5 @@
+extend region RR_KF_STORMS_GROTTO {
+    locations {
+        RC_KF_STORMS_GROTTO_FISH: has_bottle()
+    }
+}

@@ -6,6 +6,7 @@ extend region RR_KOKIRI_FOREST {
         RC_KF_SOUTH_GRASS_EAST_RUPEE:  is_child()
         RC_KF_NORTH_GRASS_WEST_RUPEE:  is_child()
         RC_KF_NORTH_GRASS_EAST_RUPEE:  is_child()
+
         RC_KF_SARIAS_ROOF_WEST_HEART:  is_child()
         RC_KF_SARIAS_ROOF_EAST_HEART:  is_child()
         RC_KF_SARIAS_ROOF_NORTH_HEART: is_child()
@@ -17,5 +18,45 @@ extend region RR_KOKIRI_FOREST {
         RC_KF_BEAN_RUPEE_5:   is_adult() and (can_plant_bean(RR_KOKIRI_FOREST, RG_KOKIRI_FOREST_BEAN_SOUL) or can_use(RG_HOVER_BOOTS) or can_use(RG_BOOMERANG))
         RC_KF_BEAN_RUPEE_6:   is_adult() and (can_plant_bean(RR_KOKIRI_FOREST, RG_KOKIRI_FOREST_BEAN_SOUL) or can_use(RG_HOVER_BOOTS) or can_use(RG_BOOMERANG))
         RC_KF_BEAN_RED_RUPEE: is_adult() and (can_plant_bean(RR_KOKIRI_FOREST, RG_KOKIRI_FOREST_BEAN_SOUL) or can_use(RG_HOVER_BOOTS) or can_use(RG_BOOMERANG))
+    }
+}
+
+extend region RR_KF_BOULDER_LOOP {
+    locations {
+        RC_KF_BOULDER_RUPEE_1: is_child()
+        RC_KF_BOULDER_RUPEE_2: is_child()
+    }
+}
+
+extend region RR_KF_SARIAS_HOUSE {
+    locations {
+        RC_KF_SARIAS_TOP_LEFT_HEART:     always
+        RC_KF_SARIAS_TOP_RIGHT_HEART:    always
+        RC_KF_SARIAS_BOTTOM_LEFT_HEART:  always
+        RC_KF_SARIAS_BOTTOM_RIGHT_HEART: always
+    }
+}
+
+extend region RR_KF_OUTSIDE_LOST_WOODS {
+    locations {
+        RC_KF_BEAN_RUPEE_1:   is_adult() and can_use(RG_BOOMERANG)
+        RC_KF_BEAN_RUPEE_2:   is_adult() and can_use(RG_BOOMERANG)
+        RC_KF_BEAN_RUPEE_3:   is_adult() and can_use(RG_BOOMERANG)
+        RC_KF_BEAN_RUPEE_4:   is_adult() and can_use(RG_BOOMERANG)
+        RC_KF_BEAN_RUPEE_5:   is_adult() and can_use(RG_BOOMERANG)
+        RC_KF_BEAN_RUPEE_6:   is_adult() and can_use(RG_BOOMERANG)
+        RC_KF_BEAN_RED_RUPEE: is_adult() and can_use(RG_BOOMERANG)
+    }
+}
+
+extend region RR_KF_RUPEE_ALCOVE {
+    locations {
+        RC_KF_BEAN_RUPEE_1:   is_adult() and can_use(RG_HOVER_BOOTS)
+        RC_KF_BEAN_RUPEE_2:   is_adult() and can_use(RG_HOVER_BOOTS)
+        RC_KF_BEAN_RUPEE_3:   is_adult() and can_use(RG_HOVER_BOOTS)
+        RC_KF_BEAN_RUPEE_4:   is_adult() and can_use(RG_HOVER_BOOTS)
+        RC_KF_BEAN_RUPEE_5:   is_adult() and can_use(RG_HOVER_BOOTS)
+        RC_KF_BEAN_RUPEE_6:   is_adult() and can_use(RG_HOVER_BOOTS)
+        RC_KF_BEAN_RED_RUPEE: is_adult() and can_use(RG_HOVER_BOOTS)
     }
 }

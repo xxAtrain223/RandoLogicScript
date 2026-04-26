@@ -10,12 +10,24 @@ bool _can_kill_gold_skulltula(const EnemyDistance distance, const bool wall_or_f
     return rls::match([&]{return distance == ED_CLOSE;}, [&]{return can_use(RG_MEGATON_HAMMER);}, true, [&]{return distance == ED_SHORT_JUMPSLASH;}, [&]{return can_use(RG_KOKIRI_SWORD);}, true, [&]{return distance == ED_MASTER_SWORD_JUMPSLASH;}, [&]{return can_use(RG_MASTER_SWORD);}, true, [&]{return distance == ED_LONG_JUMPSLASH;}, [&]{return can_use(RG_BIGGORON_SWORD) || can_use(RG_STICKS);}, true, [&]{return distance == ED_BOMB_THROW;}, [&]{return can_use(RG_BOMB_BAG);}, true, [&]{return distance == ED_BOOMERANG;}, [&]{return can_use(RG_BOOMERANG) || can_use(RG_DINS_FIRE);}, true, [&]{return distance == ED_HOOKSHOT;}, [&]{return can_use(RG_HOOKSHOT);}, true, [&]{return distance == ED_LONGSHOT;}, [&]{return can_use(RG_LONGSHOT) || wall_or_floor && can_use(RG_BOMBCHU_5);}, true, [&]{return distance == ED_FAR;}, [&]{return can_use(RG_FAIRY_SLINGSHOT) || can_use(RG_FAIRY_BOW);}, false);
 }
 
+bool call_gossip_fairy() {
+    return call_gossip_fairy_except_suns() || can_use(RG_SUNS_SONG);
+}
+
 bool call_gossip_fairy_except_suns() {
     return can_use(RG_ZELDAS_LULLABY) || can_use(RG_EPONAS_SONG) || can_use(RG_SONG_OF_TIME);
 }
 
 bool can_avoid(const RandomizerEnemy e, const bool grounded, const int quantity) {
     return can_kill(e, ED_CLOSE, true, quantity, false, false) || rls::match([&]{return e == RE_GOLD_SKULLTULA;}, [&]{return true;}, false);
+}
+
+bool can_break_lower_beehives() {
+    return can_break_upper_beehives() || can_use(RG_BOMB_BAG);
+}
+
+bool can_break_upper_beehives() {
+    return hookshot_or_boomerang() || trick(RT_BOMBCHU_BEEHIVES) && can_use(RG_BOMBCHU_5) || setting(RSK_SLINGBOW_BREAK_BEEHIVES) && (can_use(RG_FAIRY_BOW) || can_use(RG_FAIRY_SLINGSHOT));
 }
 
 bool can_climb_ladder() {
@@ -26,6 +38,14 @@ bool can_cut_shrubs() {
     return can_use(RG_KOKIRI_SWORD) || can_use(RG_BOOMERANG) || has_explosives() || has(RG_GORONS_BRACELET) || can_use(RG_MASTER_SWORD) || can_use(RG_MEGATON_HAMMER) || can_use(RG_BIGGORON_SWORD) || can_use(RG_GIANTS_KNIFE);
 }
 
+bool can_get_deku_baba_nuts() {
+    return can_jumpslash() || can_use(RG_FAIRY_SLINGSHOT) || can_use(RG_FAIRY_BOW) || has_explosives() || can_use(RG_DINS_FIRE);
+}
+
+bool can_get_deku_baba_sticks() {
+    return can_use_sword() || can_use(RG_BOOMERANG);
+}
+
 bool can_get_drop(const RandomizerEnemy e, const EnemyDistance distance, const bool above_link) {
     return can_kill(e, distance, true, 1, false, false) && (distance_to_int(distance) <= distance_to_int(ED_MASTER_SWORD_JUMPSLASH) || rls::match([&]{return e == RE_GOLD_SKULLTULA;}, [&]{return _can_get_drop_gold_skulltula(distance);}, false, [&]{return e == RE_KEESE || e == RE_FIRE_KEESE || e == RE_GUAY;}, [&]{return true;}, false, [&]{return true;}, [&]{return above_link || distance_to_int(distance) <= distance_to_int(ED_BOOMERANG) && can_use(RG_BOOMERANG);}, false));
 }
@@ -34,8 +54,20 @@ bool can_get_night_time_gs() {
     return at_night() && (can_use(RG_SUNS_SONG) || !setting(RSK_SKULLS_SUNS_SONG));
 }
 
+bool can_jumpslash() {
+    return can_jumpslash_except_hammer() || can_use(RG_MEGATON_HAMMER);
+}
+
+bool can_jumpslash_except_hammer() {
+    return can_use(RG_STICKS) || can_use_sword();
+}
+
 bool can_kill(const RandomizerEnemy e, const EnemyDistance distance, const bool wall_or_floor, const int quantity, const bool timer, const bool in_water) {
     return rls::match([&]{return e == RE_GOLD_SKULLTULA;}, [&]{return _can_kill_gold_skulltula(distance, wall_or_floor);}, false);
+}
+
+bool can_open_storms_grotto() {
+    return can_use(RG_SONG_OF_STORMS) && (has(RG_STONE_OF_AGONY) || trick(RT_GROTTOS_WITHOUT_AGONY));
 }
 
 bool can_pass(const RandomizerEnemy e, const EnemyDistance distance, const bool wall_or_floor) {
@@ -46,10 +78,26 @@ bool can_spawn_soil_skull(const RandomizerGet bean) {
     return is_child() && can_use(RG_BOTTLE_WITH_BUGS) && has(bean);
 }
 
+bool can_use_sword() {
+    return can_use(RG_KOKIRI_SWORD) || can_use(RG_MASTER_SWORD) || can_use(RG_BIGGORON_SWORD);
+}
+
 int distance_to_int(const EnemyDistance distance) {
     return rls::match([&]{return distance == ED_CLOSE;}, [&]{return 0;}, false, [&]{return distance == ED_SHORT_JUMPSLASH;}, [&]{return 1;}, false, [&]{return distance == ED_MASTER_SWORD_JUMPSLASH;}, [&]{return 2;}, false, [&]{return distance == ED_LONG_JUMPSLASH;}, [&]{return 3;}, false, [&]{return distance == ED_BOMB_THROW;}, [&]{return 4;}, false, [&]{return distance == ED_BOOMERANG;}, [&]{return 5;}, false, [&]{return distance == ED_HOOKSHOT;}, [&]{return 6;}, false, [&]{return distance == ED_LONGSHOT;}, [&]{return 7;}, false, [&]{return distance == ED_FAR;}, [&]{return 8;}, false);
 }
 
+bool has_bottle() {
+    return bottle_count() >= 1;
+}
+
 bool has_explosives() {
     return can_use(RG_BOMB_BAG) || can_use(RG_BOMBCHU_5);
+}
+
+bool hookshot_or_boomerang() {
+    return can_use(RG_HOOKSHOT) || can_use(RG_BOOMERANG);
+}
+
+int wallet_capacity() {
+    return has(RG_TYCOON_WALLET) ? 999 : has(RG_GIANT_WALLET) ? 500 : has(RG_ADULT_WALLET) ? 200 : has(RG_CHILD_WALLET) ? 99 : 0;
 }

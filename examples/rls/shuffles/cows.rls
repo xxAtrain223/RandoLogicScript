@@ -1,0 +1,5 @@
+extend region RR_KF_LINKS_HOUSE {
+    locations {
+        RC_KF_LINKS_HOUSE_COW: is_adult() and can_use(RG_EPONAS_SONG) and flag(LOGIC_LINKS_COW)
+    }
+}

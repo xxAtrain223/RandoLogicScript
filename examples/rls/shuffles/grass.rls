@@ -35,3 +35,20 @@ extend region RR_KOKIRI_FOREST {
         RC_KF_ADULT_GRASS_20: is_adult() and can_cut_shrubs() 
     }
 }
+
+extend region RR_KF_BOULDER_LOOP {
+    locations {
+        RC_KF_CHILD_GRASS_MAZE_1: is_child() and can_cut_shrubs()
+        RC_KF_CHILD_GRASS_MAZE_2: is_child() and can_cut_shrubs()
+        RC_KF_CHILD_GRASS_MAZE_3: is_child() and can_cut_shrubs()
+    }
+}
+
+extend region RR_KF_STORMS_GROTTO {
+    locations {
+        RC_KF_STORMS_GROTTO_GRASS_1: can_cut_shrubs()
+        RC_KF_STORMS_GROTTO_GRASS_2: can_cut_shrubs()
+        RC_KF_STORMS_GROTTO_GRASS_3: can_cut_shrubs()
+        RC_KF_STORMS_GROTTO_GRASS_4: can_cut_shrubs()
+    }
+}

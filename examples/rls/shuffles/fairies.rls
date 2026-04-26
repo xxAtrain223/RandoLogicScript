@@ -5,3 +5,26 @@ extend region RR_KOKIRI_FOREST {
         RC_KF_BEAN_SPROUT_FAIRY_3: is_child() and can_use(RG_MAGIC_BEAN) and has(RG_KOKIRI_FOREST_BEAN_SOUL) and can_use(RG_SONG_OF_STORMS)
     }
 }
+
+extend region RR_KF_OUTSIDE_DEKU_TREE {
+    locations {
+        RC_KF_DEKU_TREE_LEFT_GOSSIP_STONE_FAIRY:      call_gossip_fairy_except_suns()
+        RC_KF_DEKU_TREE_LEFT_GOSSIP_STONE_FAIRY_BIG:  can_use(RG_SONG_OF_STORMS)
+        RC_KF_DEKU_TREE_RIGHT_GOSSIP_STONE_FAIRY:     call_gossip_fairy_except_suns()
+        RC_KF_DEKU_TREE_RIGHT_GOSSIP_STONE_FAIRY_BIG: can_use(RG_SONG_OF_STORMS)
+    }
+}
+
+extend region RR_KF_OUTSIDE_LOST_WOODS {
+    locations {
+        RC_KF_GOSSIP_STONE_FAIRY:     call_gossip_fairy_except_suns()
+        RC_KF_GOSSIP_STONE_FAIRY_BIG: can_use(RG_SONG_OF_STORMS)
+    }
+}
+
+extend region RR_KF_STORMS_GROTTO {
+    locations {
+        RC_KF_STORMS_GROTTO_GOSSIP_STONE_FAIRY:     call_gossip_fairy()
+        RC_KF_STORMS_GROTTO_GOSSIP_STONE_FAIRY_BIG: can_use(RG_SONG_OF_STORMS)
+    }
+}

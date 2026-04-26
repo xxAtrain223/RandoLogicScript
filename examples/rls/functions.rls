@@ -3,6 +3,9 @@ define call_gossip_fairy_except_suns():
     can_use(RG_EPONAS_SONG) or
     can_use(RG_SONG_OF_TIME)
 
+define call_gossip_fairy():
+    call_gossip_fairy_except_suns() or can_use(RG_SUNS_SONG)
+
 define can_cut_shrubs():
     can_use(RG_KOKIRI_SWORD) or can_use(RG_BOOMERANG) or has_explosives() or has(RG_GORONS_BRACELET) or
     can_use(RG_MASTER_SWORD) or can_use(RG_MEGATON_HAMMER) or can_use(RG_BIGGORON_SWORD) or can_use(RG_GIANTS_KNIFE)
@@ -18,3 +21,40 @@ define can_spawn_soil_skull(bean: Item):
 
 define can_climb_ladder():
     has(RG_CLIMB) or (trick(RT_HOOKSHOT_LADDERS) and can_use(RG_HOOKSHOT))
+
+define can_use_sword():
+    can_use(RG_KOKIRI_SWORD) or can_use(RG_MASTER_SWORD) or can_use(RG_BIGGORON_SWORD)
+
+define can_get_deku_baba_sticks():
+    can_use_sword() or can_use(RG_BOOMERANG)
+
+define can_jumpslash_except_hammer():
+    can_use(RG_STICKS) or can_use_sword()
+
+define can_jumpslash():
+    can_jumpslash_except_hammer() or can_use(RG_MEGATON_HAMMER)
+
+define can_get_deku_baba_nuts():
+    can_jumpslash() or can_use(RG_FAIRY_SLINGSHOT) or can_use(RG_FAIRY_BOW) or has_explosives() or can_use(RG_DINS_FIRE)
+
+define wallet_capacity():
+    has(RG_TYCOON_WALLET) ? 999 :
+    has(RG_GIANT_WALLET) ? 500 :
+    has(RG_ADULT_WALLET) ? 200 :
+    has(RG_CHILD_WALLET) ? 99 : 0
+
+define can_open_storms_grotto():
+    can_use(RG_SONG_OF_STORMS) and (has(RG_STONE_OF_AGONY) or trick(RT_GROTTOS_WITHOUT_AGONY))
+
+define has_bottle():
+    bottle_count() >= 1
+
+define hookshot_or_boomerang():
+    can_use(RG_HOOKSHOT) or can_use(RG_BOOMERANG)
+
+define can_break_upper_beehives():
+    hookshot_or_boomerang() or (trick(RT_BOMBCHU_BEEHIVES) and can_use(RG_BOMBCHU_5)) or
+    (setting(RSK_SLINGBOW_BREAK_BEEHIVES) and (can_use(RG_FAIRY_BOW) or can_use(RG_FAIRY_SLINGSHOT)))
+
+define can_break_lower_beehives():
+    can_break_upper_beehives() or can_use(RG_BOMB_BAG)

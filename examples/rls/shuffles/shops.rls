@@ -1,0 +1,12 @@
+extend region RR_KF_KOKIRI_SHOP {
+    locations {
+        RC_KF_SHOP_ITEM_1: has(RG_SPEAK_KOKIRI) and check_price() <= wallet_capacity()
+        RC_KF_SHOP_ITEM_2: has(RG_SPEAK_KOKIRI) and check_price() <= wallet_capacity()
+        RC_KF_SHOP_ITEM_3: has(RG_SPEAK_KOKIRI) and check_price() <= wallet_capacity()
+        RC_KF_SHOP_ITEM_4: has(RG_SPEAK_KOKIRI) and check_price() <= wallet_capacity()
+        RC_KF_SHOP_ITEM_5: has(RG_SPEAK_KOKIRI) and check_price() <= wallet_capacity()
+        RC_KF_SHOP_ITEM_6: has(RG_SPEAK_KOKIRI) and check_price() <= wallet_capacity()
+        RC_KF_SHOP_ITEM_7: has(RG_SPEAK_KOKIRI) and check_price() <= wallet_capacity()
+        RC_KF_SHOP_ITEM_8: has(RG_SPEAK_KOKIRI) and check_price() <= wallet_capacity()
+    }
+}
