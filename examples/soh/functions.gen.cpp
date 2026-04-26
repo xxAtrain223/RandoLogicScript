@@ -31,7 +31,7 @@ bool can_get_drop(const RandomizerEnemy e, const EnemyDistance distance, const b
 }
 
 bool can_get_night_time_gs() {
-    return logic->AtNight && (can_use(RG_SUNS_SONG) || !setting(RSK_SKULLS_SUNS_SONG));
+    return at_night() && (can_use(RG_SUNS_SONG) || !setting(RSK_SKULLS_SUNS_SONG));
 }
 
 bool can_kill(const RandomizerEnemy e, const EnemyDistance distance, const bool wall_or_floor, const int quantity, const bool timer, const bool in_water) {
@@ -43,7 +43,7 @@ bool can_pass(const RandomizerEnemy e, const EnemyDistance distance, const bool 
 }
 
 bool can_spawn_soil_skull(const RandomizerGet bean) {
-    return logic->IsChild && can_use(RG_BOTTLE_WITH_BUGS) && has(bean);
+    return is_child() && can_use(RG_BOTTLE_WITH_BUGS) && has(bean);
 }
 
 int distance_to_int(const EnemyDistance distance) {

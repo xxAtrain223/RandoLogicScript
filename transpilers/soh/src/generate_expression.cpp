@@ -21,17 +21,17 @@ std::string SohTranspiler::GenerateExpression(const rls::ast::Identifier& node) 
 std::string SohTranspiler::GenerateExpression(const rls::ast::KeywordExpr& node) const {
     switch (node.keyword) {
     case rls::ast::Keyword::IsChild:
-        return "logic->IsChild";
+        return "is_child()";
     case rls::ast::Keyword::IsAdult:
-        return "logic->IsAdult";
+        return "is_adult()";
     case rls::ast::Keyword::AtDay:
-        return "logic->AtDay";
+        return "at_day()";
     case rls::ast::Keyword::AtNight:
-        return "logic->AtNight";
+        return "at_night()";
     case rls::ast::Keyword::IsVanilla:
-        return "logic->IsVanilla()";
+        return "is_vanilla()";
     case rls::ast::Keyword::IsMq:
-        return "logic->IsMQ()";
+        return "is_mq()";
     default:
         return "";
     }

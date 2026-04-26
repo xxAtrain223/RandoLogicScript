@@ -257,9 +257,9 @@ inline void expectDirectoryMatchesGolden(
 		ASSERT_TRUE(fs::exists(actualPath)) << "Missing actual output: " << actualPath.string();
 		ASSERT_TRUE(fs::exists(expectedPath)) << "Missing golden file: " << expectedPath.string();
 
-		const auto actual = normalizeLineEndings(readTextFile(actualPath));
 		const auto expected = normalizeLineEndings(readTextFile(expectedPath));
-		EXPECT_EQ(actual, expected)
+		const auto actual = normalizeLineEndings(readTextFile(actualPath));
+		EXPECT_EQ(expected, actual)
 			<< "Output mismatch for " << relativePath.generic_string()
 			<< " against golden " << expectedPath.string()
 			<< makeRegenerateNote(regenerateCommand);

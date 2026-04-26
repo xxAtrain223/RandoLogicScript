@@ -112,14 +112,14 @@ TEST(SohExpressions, IsChildIsAdultKeywords) {
 		"    is_child\n",
 		"test");
 	EXPECT_EQ(GenerateExpression(expr),
-		"logic->IsChild");
+		"is_child()");
 
 	expr = sourceToExpression(
 		"define test():\n"
 		"    is_adult\n",
 		"test");
 	EXPECT_EQ(GenerateExpression(expr),
-		"logic->IsAdult");
+		"is_adult()");
 }
 
 TEST(SohExpressions, AtDayAtNightKeywords) {
@@ -128,14 +128,14 @@ TEST(SohExpressions, AtDayAtNightKeywords) {
 		"    at_day\n",
 		"test");
 	EXPECT_EQ(GenerateExpression(expr),
-		"logic->AtDay");
+		"at_day()");
 
 	expr = sourceToExpression(
 		"define test():\n"
 		"    at_night\n",
 		"test");
 	EXPECT_EQ(GenerateExpression(expr),
-		"logic->AtNight");
+		"at_night()");
 }
 
 TEST(SohExpressions, IsVanillaIsMqKeywords) {
@@ -144,14 +144,14 @@ TEST(SohExpressions, IsVanillaIsMqKeywords) {
 		"    is_vanilla\n",
 		"test");
 	EXPECT_EQ(GenerateExpression(expr),
-		"logic->IsVanilla()");
+		"is_vanilla()");
 
 	expr = sourceToExpression(
 		"define test():\n"
 		"    is_mq\n",
 		"test");
 	EXPECT_EQ(GenerateExpression(expr),
-		"logic->IsMQ()");
+		"is_mq()");
 }
 
 TEST(SohExpressions, UnaryNot) {

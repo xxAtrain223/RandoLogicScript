@@ -6,7 +6,7 @@ using namespace Rando;
 
 void RegisterRegions() {
 
-areaTable[RR_CHILD_SPAWN] = Region("Child Spawn", SCENE_ID_MAX, {
+areaTable[RR_CHILD_SPAWN] = Region("Child Spawn", SCENE_ID_MAX, false, {RA_LINKS_POCKET}, {
     // Events
 }, {
     // Locations
@@ -37,80 +37,80 @@ areaTable[RR_KF_LINKS_PORCH] = Region("KF Link's Porch", SCENE_KOKIRI_FOREST, {
 
 areaTable[RR_KOKIRI_FOREST] = Region("Kokiri Forest", SCENE_KOKIRI_FOREST, {
     // Events
-    EVENT_ACCESS(LOGIC_FAIRY_ACCESS, call_gossip_fairy_except_suns() || logic->IsChild && can_use(RG_MAGIC_BEAN) && has(RG_KOKIRI_FOREST_BEAN_SOUL) && can_use(RG_SONG_OF_STORMS)),
-    EVENT_ACCESS(LOGIC_SHOWED_MIDO_SWORD_AND_SHIELD, logic->IsChild && has(RG_SPEAK_KOKIRI) && can_use(RG_KOKIRI_SWORD) && can_use(RG_DEKU_SHIELD)),
+    EVENT_ACCESS(LOGIC_FAIRY_ACCESS, call_gossip_fairy_except_suns() || is_child() && can_use(RG_MAGIC_BEAN) && has(RG_KOKIRI_FOREST_BEAN_SOUL) && can_use(RG_SONG_OF_STORMS)),
+    EVENT_ACCESS(LOGIC_SHOWED_MIDO_SWORD_AND_SHIELD, is_child() && has(RG_SPEAK_KOKIRI) && can_use(RG_KOKIRI_SWORD) && can_use(RG_DEKU_SHIELD)),
 }, {
     // Locations
-    LOCATION(RC_KF_BEAN_SPROUT_FAIRY_1, logic->IsChild && can_use(RG_MAGIC_BEAN) && has(RG_KOKIRI_FOREST_BEAN_SOUL) && can_use(RG_SONG_OF_STORMS)),
-    LOCATION(RC_KF_BEAN_SPROUT_FAIRY_2, logic->IsChild && can_use(RG_MAGIC_BEAN) && has(RG_KOKIRI_FOREST_BEAN_SOUL) && can_use(RG_SONG_OF_STORMS)),
-    LOCATION(RC_KF_BEAN_SPROUT_FAIRY_3, logic->IsChild && can_use(RG_MAGIC_BEAN) && has(RG_KOKIRI_FOREST_BEAN_SOUL) && can_use(RG_SONG_OF_STORMS)),
-    LOCATION(RC_KF_BRIDGE_RUPEE, logic->IsChild),
-    LOCATION(RC_KF_BEHIND_MIDOS_RUPEE, logic->IsChild),
-    LOCATION(RC_KF_SOUTH_GRASS_WEST_RUPEE, logic->IsChild),
-    LOCATION(RC_KF_SOUTH_GRASS_EAST_RUPEE, logic->IsChild),
-    LOCATION(RC_KF_NORTH_GRASS_WEST_RUPEE, logic->IsChild),
-    LOCATION(RC_KF_NORTH_GRASS_EAST_RUPEE, logic->IsChild),
-    LOCATION(RC_KF_SARIAS_ROOF_WEST_HEART, logic->IsChild),
-    LOCATION(RC_KF_SARIAS_ROOF_EAST_HEART, logic->IsChild),
-    LOCATION(RC_KF_SARIAS_ROOF_NORTH_HEART, logic->IsChild),
-    LOCATION(RC_KF_BEAN_RUPEE_1, logic->IsAdult && (can_plant_bean(RR_KOKIRI_FOREST, RG_KOKIRI_FOREST_BEAN_SOUL) || can_use(RG_HOVER_BOOTS) || can_use(RG_BOOMERANG))),
-    LOCATION(RC_KF_BEAN_RUPEE_2, logic->IsAdult && (can_plant_bean(RR_KOKIRI_FOREST, RG_KOKIRI_FOREST_BEAN_SOUL) || can_use(RG_HOVER_BOOTS) || can_use(RG_BOOMERANG))),
-    LOCATION(RC_KF_BEAN_RUPEE_3, logic->IsAdult && (can_plant_bean(RR_KOKIRI_FOREST, RG_KOKIRI_FOREST_BEAN_SOUL) || can_use(RG_HOVER_BOOTS) || can_use(RG_BOOMERANG))),
-    LOCATION(RC_KF_BEAN_RUPEE_4, logic->IsAdult && (can_plant_bean(RR_KOKIRI_FOREST, RG_KOKIRI_FOREST_BEAN_SOUL) || can_use(RG_HOVER_BOOTS) || can_use(RG_BOOMERANG))),
-    LOCATION(RC_KF_BEAN_RUPEE_5, logic->IsAdult && (can_plant_bean(RR_KOKIRI_FOREST, RG_KOKIRI_FOREST_BEAN_SOUL) || can_use(RG_HOVER_BOOTS) || can_use(RG_BOOMERANG))),
-    LOCATION(RC_KF_BEAN_RUPEE_6, logic->IsAdult && (can_plant_bean(RR_KOKIRI_FOREST, RG_KOKIRI_FOREST_BEAN_SOUL) || can_use(RG_HOVER_BOOTS) || can_use(RG_BOOMERANG))),
-    LOCATION(RC_KF_BEAN_RED_RUPEE, logic->IsAdult && (can_plant_bean(RR_KOKIRI_FOREST, RG_KOKIRI_FOREST_BEAN_SOUL) || can_use(RG_HOVER_BOOTS) || can_use(RG_BOOMERANG))),
-    LOCATION(RC_KF_GS_KNOW_IT_ALL_HOUSE, logic->IsChild && can_kill(RE_GOLD_SKULLTULA, ED_CLOSE, true, 1, false, false) && can_get_night_time_gs()),
+    LOCATION(RC_KF_BEAN_SPROUT_FAIRY_1, is_child() && can_use(RG_MAGIC_BEAN) && has(RG_KOKIRI_FOREST_BEAN_SOUL) && can_use(RG_SONG_OF_STORMS)),
+    LOCATION(RC_KF_BEAN_SPROUT_FAIRY_2, is_child() && can_use(RG_MAGIC_BEAN) && has(RG_KOKIRI_FOREST_BEAN_SOUL) && can_use(RG_SONG_OF_STORMS)),
+    LOCATION(RC_KF_BEAN_SPROUT_FAIRY_3, is_child() && can_use(RG_MAGIC_BEAN) && has(RG_KOKIRI_FOREST_BEAN_SOUL) && can_use(RG_SONG_OF_STORMS)),
+    LOCATION(RC_KF_BRIDGE_RUPEE, is_child()),
+    LOCATION(RC_KF_BEHIND_MIDOS_RUPEE, is_child()),
+    LOCATION(RC_KF_SOUTH_GRASS_WEST_RUPEE, is_child()),
+    LOCATION(RC_KF_SOUTH_GRASS_EAST_RUPEE, is_child()),
+    LOCATION(RC_KF_NORTH_GRASS_WEST_RUPEE, is_child()),
+    LOCATION(RC_KF_NORTH_GRASS_EAST_RUPEE, is_child()),
+    LOCATION(RC_KF_SARIAS_ROOF_WEST_HEART, is_child()),
+    LOCATION(RC_KF_SARIAS_ROOF_EAST_HEART, is_child()),
+    LOCATION(RC_KF_SARIAS_ROOF_NORTH_HEART, is_child()),
+    LOCATION(RC_KF_BEAN_RUPEE_1, is_adult() && (can_plant_bean(RR_KOKIRI_FOREST, RG_KOKIRI_FOREST_BEAN_SOUL) || can_use(RG_HOVER_BOOTS) || can_use(RG_BOOMERANG))),
+    LOCATION(RC_KF_BEAN_RUPEE_2, is_adult() && (can_plant_bean(RR_KOKIRI_FOREST, RG_KOKIRI_FOREST_BEAN_SOUL) || can_use(RG_HOVER_BOOTS) || can_use(RG_BOOMERANG))),
+    LOCATION(RC_KF_BEAN_RUPEE_3, is_adult() && (can_plant_bean(RR_KOKIRI_FOREST, RG_KOKIRI_FOREST_BEAN_SOUL) || can_use(RG_HOVER_BOOTS) || can_use(RG_BOOMERANG))),
+    LOCATION(RC_KF_BEAN_RUPEE_4, is_adult() && (can_plant_bean(RR_KOKIRI_FOREST, RG_KOKIRI_FOREST_BEAN_SOUL) || can_use(RG_HOVER_BOOTS) || can_use(RG_BOOMERANG))),
+    LOCATION(RC_KF_BEAN_RUPEE_5, is_adult() && (can_plant_bean(RR_KOKIRI_FOREST, RG_KOKIRI_FOREST_BEAN_SOUL) || can_use(RG_HOVER_BOOTS) || can_use(RG_BOOMERANG))),
+    LOCATION(RC_KF_BEAN_RUPEE_6, is_adult() && (can_plant_bean(RR_KOKIRI_FOREST, RG_KOKIRI_FOREST_BEAN_SOUL) || can_use(RG_HOVER_BOOTS) || can_use(RG_BOOMERANG))),
+    LOCATION(RC_KF_BEAN_RED_RUPEE, is_adult() && (can_plant_bean(RR_KOKIRI_FOREST, RG_KOKIRI_FOREST_BEAN_SOUL) || can_use(RG_HOVER_BOOTS) || can_use(RG_BOOMERANG))),
+    LOCATION(RC_KF_GS_KNOW_IT_ALL_HOUSE, is_child() && can_kill(RE_GOLD_SKULLTULA, ED_CLOSE, true, 1, false, false) && can_get_night_time_gs()),
     LOCATION(RC_KF_GS_BEAN_PATCH, can_spawn_soil_skull(RG_KOKIRI_FOREST_BEAN_SOUL) && can_kill(RE_GOLD_SKULLTULA, ED_CLOSE, true, 1, false, false)),
-    LOCATION(RC_KF_GS_HOUSE_OF_TWINS, logic->IsAdult && can_get_night_time_gs() && (can_get_drop(RE_GOLD_SKULLTULA, ED_BOOMERANG, false) || trick(RT_KF_ADULT_GS) && can_use(RG_HOVER_BOOTS) && can_kill(RE_GOLD_SKULLTULA, ED_SHORT_JUMPSLASH, true, 1, false, false))),
-    LOCATION(RC_KF_CHILD_GRASS_1, logic->IsChild && can_cut_shrubs()),
-    LOCATION(RC_KF_CHILD_GRASS_2, logic->IsChild && can_cut_shrubs()),
-    LOCATION(RC_KF_CHILD_GRASS_3, logic->IsChild && can_cut_shrubs()),
-    LOCATION(RC_KF_CHILD_GRASS_4, logic->IsChild && can_cut_shrubs()),
-    LOCATION(RC_KF_CHILD_GRASS_5, logic->IsChild && can_cut_shrubs()),
-    LOCATION(RC_KF_CHILD_GRASS_6, logic->IsChild && can_cut_shrubs()),
-    LOCATION(RC_KF_CHILD_GRASS_7, logic->IsChild && can_cut_shrubs()),
-    LOCATION(RC_KF_CHILD_GRASS_8, logic->IsChild && can_cut_shrubs()),
-    LOCATION(RC_KF_CHILD_GRASS_9, logic->IsChild && can_cut_shrubs()),
-    LOCATION(RC_KF_CHILD_GRASS_10, logic->IsChild && can_cut_shrubs()),
-    LOCATION(RC_KF_CHILD_GRASS_11, logic->IsChild && can_cut_shrubs()),
-    LOCATION(RC_KF_CHILD_GRASS_12, logic->IsChild && can_cut_shrubs()),
-    LOCATION(RC_KF_ADULT_GRASS_1, logic->IsAdult && can_cut_shrubs()),
-    LOCATION(RC_KF_ADULT_GRASS_2, logic->IsAdult && can_cut_shrubs()),
-    LOCATION(RC_KF_ADULT_GRASS_3, logic->IsAdult && can_cut_shrubs()),
-    LOCATION(RC_KF_ADULT_GRASS_4, logic->IsAdult && can_cut_shrubs()),
-    LOCATION(RC_KF_ADULT_GRASS_5, logic->IsAdult && can_cut_shrubs()),
-    LOCATION(RC_KF_ADULT_GRASS_6, logic->IsAdult && can_cut_shrubs()),
-    LOCATION(RC_KF_ADULT_GRASS_7, logic->IsAdult && can_cut_shrubs()),
-    LOCATION(RC_KF_ADULT_GRASS_8, logic->IsAdult && can_cut_shrubs()),
-    LOCATION(RC_KF_ADULT_GRASS_9, logic->IsAdult && can_cut_shrubs()),
-    LOCATION(RC_KF_ADULT_GRASS_10, logic->IsAdult && can_cut_shrubs()),
-    LOCATION(RC_KF_ADULT_GRASS_11, logic->IsAdult && can_cut_shrubs()),
-    LOCATION(RC_KF_ADULT_GRASS_12, logic->IsAdult && can_cut_shrubs()),
-    LOCATION(RC_KF_ADULT_GRASS_13, logic->IsAdult && can_cut_shrubs()),
-    LOCATION(RC_KF_ADULT_GRASS_14, logic->IsAdult && can_cut_shrubs()),
-    LOCATION(RC_KF_ADULT_GRASS_15, logic->IsAdult && can_cut_shrubs()),
-    LOCATION(RC_KF_ADULT_GRASS_16, logic->IsAdult && can_cut_shrubs()),
-    LOCATION(RC_KF_ADULT_GRASS_17, logic->IsAdult && can_cut_shrubs()),
-    LOCATION(RC_KF_ADULT_GRASS_18, logic->IsAdult && can_cut_shrubs()),
-    LOCATION(RC_KF_ADULT_GRASS_19, logic->IsAdult && can_cut_shrubs()),
-    LOCATION(RC_KF_ADULT_GRASS_20, logic->IsAdult && can_cut_shrubs()),
+    LOCATION(RC_KF_GS_HOUSE_OF_TWINS, is_adult() && can_get_night_time_gs() && (can_get_drop(RE_GOLD_SKULLTULA, ED_BOOMERANG, false) || trick(RT_KF_ADULT_GS) && can_use(RG_HOVER_BOOTS) && can_kill(RE_GOLD_SKULLTULA, ED_SHORT_JUMPSLASH, true, 1, false, false))),
+    LOCATION(RC_KF_CHILD_GRASS_1, is_child() && can_cut_shrubs()),
+    LOCATION(RC_KF_CHILD_GRASS_2, is_child() && can_cut_shrubs()),
+    LOCATION(RC_KF_CHILD_GRASS_3, is_child() && can_cut_shrubs()),
+    LOCATION(RC_KF_CHILD_GRASS_4, is_child() && can_cut_shrubs()),
+    LOCATION(RC_KF_CHILD_GRASS_5, is_child() && can_cut_shrubs()),
+    LOCATION(RC_KF_CHILD_GRASS_6, is_child() && can_cut_shrubs()),
+    LOCATION(RC_KF_CHILD_GRASS_7, is_child() && can_cut_shrubs()),
+    LOCATION(RC_KF_CHILD_GRASS_8, is_child() && can_cut_shrubs()),
+    LOCATION(RC_KF_CHILD_GRASS_9, is_child() && can_cut_shrubs()),
+    LOCATION(RC_KF_CHILD_GRASS_10, is_child() && can_cut_shrubs()),
+    LOCATION(RC_KF_CHILD_GRASS_11, is_child() && can_cut_shrubs()),
+    LOCATION(RC_KF_CHILD_GRASS_12, is_child() && can_cut_shrubs()),
+    LOCATION(RC_KF_ADULT_GRASS_1, is_adult() && can_cut_shrubs()),
+    LOCATION(RC_KF_ADULT_GRASS_2, is_adult() && can_cut_shrubs()),
+    LOCATION(RC_KF_ADULT_GRASS_3, is_adult() && can_cut_shrubs()),
+    LOCATION(RC_KF_ADULT_GRASS_4, is_adult() && can_cut_shrubs()),
+    LOCATION(RC_KF_ADULT_GRASS_5, is_adult() && can_cut_shrubs()),
+    LOCATION(RC_KF_ADULT_GRASS_6, is_adult() && can_cut_shrubs()),
+    LOCATION(RC_KF_ADULT_GRASS_7, is_adult() && can_cut_shrubs()),
+    LOCATION(RC_KF_ADULT_GRASS_8, is_adult() && can_cut_shrubs()),
+    LOCATION(RC_KF_ADULT_GRASS_9, is_adult() && can_cut_shrubs()),
+    LOCATION(RC_KF_ADULT_GRASS_10, is_adult() && can_cut_shrubs()),
+    LOCATION(RC_KF_ADULT_GRASS_11, is_adult() && can_cut_shrubs()),
+    LOCATION(RC_KF_ADULT_GRASS_12, is_adult() && can_cut_shrubs()),
+    LOCATION(RC_KF_ADULT_GRASS_13, is_adult() && can_cut_shrubs()),
+    LOCATION(RC_KF_ADULT_GRASS_14, is_adult() && can_cut_shrubs()),
+    LOCATION(RC_KF_ADULT_GRASS_15, is_adult() && can_cut_shrubs()),
+    LOCATION(RC_KF_ADULT_GRASS_16, is_adult() && can_cut_shrubs()),
+    LOCATION(RC_KF_ADULT_GRASS_17, is_adult() && can_cut_shrubs()),
+    LOCATION(RC_KF_ADULT_GRASS_18, is_adult() && can_cut_shrubs()),
+    LOCATION(RC_KF_ADULT_GRASS_19, is_adult() && can_cut_shrubs()),
+    LOCATION(RC_KF_ADULT_GRASS_20, is_adult() && can_cut_shrubs()),
 }, {
     // Exits
     ENTRANCE(RR_KF_BOULDER_LOOP, can_use(RG_CRAWL)),
-    ENTRANCE(RR_KF_LINKS_PORCH, logic->IsChild ? can_climb_ladder() : has(RG_CLIMB) || can_use(RG_HOVER_BOOTS)),
+    ENTRANCE(RR_KF_LINKS_PORCH, is_child() ? can_climb_ladder() : has(RG_CLIMB) || can_use(RG_HOVER_BOOTS)),
     ENTRANCE(RR_KF_MIDOS_HOUSE, true),
     ENTRANCE(RR_KF_SARIAS_HOUSE, true),
     ENTRANCE(RR_KF_HOUSE_OF_TWINS, true),
     ENTRANCE(RR_KF_KNOW_IT_ALL_HOUSE, true),
     ENTRANCE(RR_KF_KOKIRI_SHOP, true),
-    ENTRANCE(RR_KF_OUTSIDE_DEKU_TREE, flag(LOGIC_SHOWED_MIDO_SWORD_AND_SHIELD) || setting(RSK_FOREST) == RO_CLOSED_FOREST_OFF || logic->IsAdult && (can_pass(RE_BIG_SKULLTULA, ED_CLOSE, true) || flag(LOGIC_FOREST_TEMPLE_CLEAR))),
-    ENTRANCE(RR_KF_OUTSIDE_LOST_WOODS, has(RG_CLIMB) || can_use(RG_HOOKSHOT) || logic->IsAdult && (can_plant_bean(RR_KOKIRI_FOREST, RG_KOKIRI_FOREST_BEAN_SOUL) || trick(RT_UNINTUITIVE_JUMPS))),
-    ENTRANCE(RR_KF_RUPEE_ALCOVE, logic->IsAdult && can_plant_bean(RR_KOKIRI_FOREST, RG_KOKIRI_FOREST_BEAN_SOUL)),
-    ENTRANCE(RR_LW_BRIDGE_FROM_FOREST, logic->IsAdult || setting(RSK_FOREST) != RO_CLOSED_FOREST_ON || flag(LOGIC_DEKU_TREE_CLEAR)),
+    ENTRANCE(RR_KF_OUTSIDE_DEKU_TREE, flag(LOGIC_SHOWED_MIDO_SWORD_AND_SHIELD) || setting(RSK_FOREST) == RO_CLOSED_FOREST_OFF || is_adult() && (can_pass(RE_BIG_SKULLTULA, ED_CLOSE, true) || flag(LOGIC_FOREST_TEMPLE_CLEAR))),
+    ENTRANCE(RR_KF_OUTSIDE_LOST_WOODS, has(RG_CLIMB) || can_use(RG_HOOKSHOT) || is_adult() && (can_plant_bean(RR_KOKIRI_FOREST, RG_KOKIRI_FOREST_BEAN_SOUL) || trick(RT_UNINTUITIVE_JUMPS))),
+    ENTRANCE(RR_KF_RUPEE_ALCOVE, is_adult() && can_plant_bean(RR_KOKIRI_FOREST, RG_KOKIRI_FOREST_BEAN_SOUL)),
+    ENTRANCE(RR_LW_BRIDGE_FROM_FOREST, is_adult() || setting(RSK_FOREST) != RO_CLOSED_FOREST_ON || flag(LOGIC_DEKU_TREE_CLEAR)),
 });
 
-areaTable[RR_ROOT] = Region("Root", SCENE_ID_MAX, {
+areaTable[RR_ROOT] = Region("Root", SCENE_ID_MAX, false, {RA_LINKS_POCKET}, {
     // Events
 }, {
     // Locations
@@ -121,13 +121,13 @@ areaTable[RR_ROOT] = Region("Root", SCENE_ID_MAX, {
     ENTRANCE(RR_ROOT_EXITS, true),
 });
 
-areaTable[RR_ROOT_EXITS] = Region("Root Exits", SCENE_ID_MAX, {
+areaTable[RR_ROOT_EXITS] = Region("Root Exits", SCENE_ID_MAX, false, {RA_LINKS_POCKET}, {
     // Events
 }, {
     // Locations
 }, {
     // Exits
-    ENTRANCE(RR_CHILD_SPAWN, logic->IsChild),
+    ENTRANCE(RR_CHILD_SPAWN, is_child()),
 });
 
 }

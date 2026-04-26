@@ -1,7 +1,6 @@
 region RR_KF_LINKS_HOUSE {
     name: "KF Link's House"
     scene: SCENE_LINKS_HOUSE
-    no_time_passes
 
     locations {
         RC_KF_LINKS_HOUSE_POT: has(RG_POWER_BRACELET)
@@ -15,7 +14,6 @@ region RR_KF_LINKS_HOUSE {
 region RR_KF_LINKS_PORCH {
     name: "KF Link's Porch"
     scene: SCENE_KOKIRI_FOREST
-    no_time_passes
 
     exits {
         RR_KF_LINKS_HOUSE: always
@@ -26,7 +24,6 @@ region RR_KF_LINKS_PORCH {
 region RR_KOKIRI_FOREST {
     name: "Kokiri Forest"
     scene: SCENE_KOKIRI_FOREST
-    no_time_passes
 
     events {
         LOGIC_FAIRY_ACCESS:
