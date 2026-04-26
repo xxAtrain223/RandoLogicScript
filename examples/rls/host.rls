@@ -4,3 +4,9 @@ extern define flag(key: Logic) -> Bool
 extern define setting(key: Setting) -> Setting
 extern define trick(key: Trick) -> Bool
 extern define can_plant_bean(reg: Region, bean: Item) -> Bool
+extern define is_child() -> Bool
+extern define is_adult() -> Bool
+extern define at_day() -> Bool
+extern define at_night() -> Bool
+extern define is_vanilla() -> Bool
+extern define is_mq() -> Bool

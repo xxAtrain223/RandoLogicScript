@@ -45,12 +45,6 @@ enum class BinaryOp {
 	Add, Sub, Mul, Div,
 };
 
-enum class Keyword {
-	IsChild, IsAdult,
-	AtDay, AtNight,
-	IsVanilla, IsMq,
-};
-
 enum class SectionKind { Events, Locations, Exits };
 
 enum class TimePasses { Auto, Yes, No };
@@ -70,12 +64,6 @@ struct IntLiteral {
 /// Named identifier: enum values (`RG_HOOKSHOT`), parameters (`distance`), etc.
 struct Identifier {
 	std::string name;
-};
-
-/// Built-in keyword: `is_child`, `is_adult`, `at_day`, `at_night`,
-/// `is_vanilla`, `is_mq`.
-struct KeywordExpr {
-	Keyword keyword;
 };
 
 // == Expression compound nodes ================================================
@@ -187,7 +175,6 @@ struct Expr {
 		BoolLiteral,
 		IntLiteral,
 		Identifier,
-		KeywordExpr,
 		UnaryExpr,
 		BinaryExpr,
 		TernaryExpr,

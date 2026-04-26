@@ -24,7 +24,6 @@ private:
 	std::string GenerateExpression(const rls::ast::BoolLiteral& node) const;
 	std::string GenerateExpression(const rls::ast::IntLiteral& node) const;
 	std::string GenerateExpression(const rls::ast::Identifier& node) const;
-	std::string GenerateExpression(const rls::ast::KeywordExpr& node) const;
 	std::string GenerateExpression(const rls::ast::UnaryExpr& node) const;
 	std::string GenerateExpression(const rls::ast::BinaryExpr& node) const;
 	std::string GenerateExpression(const rls::ast::TernaryExpr& node) const;

@@ -115,17 +115,6 @@ TEST(ResolveTypes, IntLiteral) {
 	EXPECT_EQ(project.getType(findRegionEntry(project)), Type::Int);
 }
 
-TEST(ResolveTypes, KeywordExpr) {
-	auto [project, diags] = resolveFromSource(
-		"region RR_TEST {\n"
-		"    name: \"Test\"\n"
-		"    scene: SCENE_TEST\n"
-		"    locations { TEST_LOC: is_child }\n"
-		"}\n");
-	EXPECT_TRUE(diags.empty());
-	EXPECT_EQ(project.getType(findRegionEntry(project)), Type::Bool);
-}
-
 TEST(ResolveTypes, IdentifierEnum) {
 	auto [project, diags] = resolveFromSource(
 		"region RR_TEST {\n"

@@ -199,42 +199,6 @@ TEST(ParseExpr, Identifier) {
 	EXPECT_EQ(std::get<Identifier>(e.node).name, "RG_HOOKSHOT");
 }
 
-TEST(ParseExpr, KeywordIsChild) {
-	const auto& e = parseExpr("is_child");
-	ASSERT_TRUE(std::holds_alternative<KeywordExpr>(e.node));
-	EXPECT_EQ(std::get<KeywordExpr>(e.node).keyword, Keyword::IsChild);
-}
-
-TEST(ParseExpr, KeywordIsAdult) {
-	const auto& e = parseExpr("is_adult");
-	ASSERT_TRUE(std::holds_alternative<KeywordExpr>(e.node));
-	EXPECT_EQ(std::get<KeywordExpr>(e.node).keyword, Keyword::IsAdult);
-}
-
-TEST(ParseExpr, KeywordAtDay) {
-	const auto& e = parseExpr("at_day");
-	ASSERT_TRUE(std::holds_alternative<KeywordExpr>(e.node));
-	EXPECT_EQ(std::get<KeywordExpr>(e.node).keyword, Keyword::AtDay);
-}
-
-TEST(ParseExpr, KeywordAtNight) {
-	const auto& e = parseExpr("at_night");
-	ASSERT_TRUE(std::holds_alternative<KeywordExpr>(e.node));
-	EXPECT_EQ(std::get<KeywordExpr>(e.node).keyword, Keyword::AtNight);
-}
-
-TEST(ParseExpr, KeywordIsVanilla) {
-	const auto& e = parseExpr("is_vanilla");
-	ASSERT_TRUE(std::holds_alternative<KeywordExpr>(e.node));
-	EXPECT_EQ(std::get<KeywordExpr>(e.node).keyword, Keyword::IsVanilla);
-}
-
-TEST(ParseExpr, KeywordIsMq) {
-	const auto& e = parseExpr("is_mq");
-	ASSERT_TRUE(std::holds_alternative<KeywordExpr>(e.node));
-	EXPECT_EQ(std::get<KeywordExpr>(e.node).keyword, Keyword::IsMq);
-}
-
 // == Unary expression =========================================================
 
 TEST(ParseExpr, UnaryNot) {
@@ -257,11 +221,11 @@ TEST(ParseExpr, DoubleNot) {
 // == Binary expressions =======================================================
 
 TEST(ParseExpr, BinaryAnd) {
-	const auto& e = parseExpr("is_child and RG_HOOKSHOT");
+	const auto& e = parseExpr("is_child() and RG_HOOKSHOT");
 	ASSERT_TRUE(std::holds_alternative<BinaryExpr>(e.node));
 	const auto& bin = std::get<BinaryExpr>(e.node);
 	EXPECT_EQ(bin.op, BinaryOp::And);
-	EXPECT_TRUE(std::holds_alternative<KeywordExpr>(bin.left->node));
+	EXPECT_TRUE(std::holds_alternative<CallExpr>(bin.left->node));
 	EXPECT_TRUE(std::holds_alternative<Identifier>(bin.right->node));
 }
 
@@ -369,10 +333,10 @@ TEST(ParseExpr, LeftAssociativeChain) {
 // == Ternary expression =======================================================
 
 TEST(ParseExpr, Ternary) {
-	const auto& e = parseExpr("is_adult ? RG_HOOKSHOT : RG_BOOMERANG");
+	const auto& e = parseExpr("is_adult() ? RG_HOOKSHOT : RG_BOOMERANG");
 	ASSERT_TRUE(std::holds_alternative<TernaryExpr>(e.node));
 	const auto& t = std::get<TernaryExpr>(e.node);
-	EXPECT_TRUE(std::holds_alternative<KeywordExpr>(t.condition->node));
+	EXPECT_TRUE(std::holds_alternative<CallExpr>(t.condition->node));
 	EXPECT_TRUE(std::holds_alternative<Identifier>(t.thenBranch->node));
 	EXPECT_EQ(std::get<Identifier>(t.thenBranch->node).name, "RG_HOOKSHOT");
 	EXPECT_EQ(std::get<Identifier>(t.elseBranch->node).name, "RG_BOOMERANG");
@@ -481,7 +445,7 @@ TEST(ParseExpr, SharedMultipleBranches) {
 		"shared {\n"
 		"  from RR_A: true\n"
 		"  from RR_B: false\n"
-		"  from RR_C: is_adult\n"
+		"  from RR_C: is_adult()\n"
 		"}"
 	);
 	ASSERT_TRUE(std::holds_alternative<SharedBlock>(e.node));
@@ -818,7 +782,7 @@ TEST(ParseRegion, FullRegion) {
 		"  }\n"
 		"  exits {\n"
 		"    RR_SPIRIT_ENTRYWAY: always\n"
-		"    RR_SPIRIT_CHILD: is_child and has(RG_STICKS)\n"
+		"    RR_SPIRIT_CHILD: is_child() and has(RG_STICKS)\n"
 		"  }\n"
 		"}"
 	);
@@ -977,9 +941,9 @@ TEST(ParseRealistic, SpiritTempleExcerpt) {
 		"  }\n"
 		"  exits {\n"
 		"    RR_SPIRIT_TEMPLE_ENTRYWAY: always\n"
-		"    RR_SPIRIT_TEMPLE_CHILD: is_child\n"
+		"    RR_SPIRIT_TEMPLE_CHILD: is_child()\n"
 		"    RR_SPIRIT_TEMPLE_ADULT:\n"
-		"      is_adult and can_use(RG_SILVER_GAUNTLETS)\n"
+		"      is_adult() and can_use(RG_SILVER_GAUNTLETS)\n"
 		"  }\n"
 		"}\n"
 	);

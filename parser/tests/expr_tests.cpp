@@ -37,30 +37,6 @@ TEST(ExprAtom, BoolKeywordNever) {
 	EXPECT_TRUE(matches<atom>("never"));
 }
 
-TEST(ExprAtom, AgeIsChild) {
-	EXPECT_TRUE(matches<atom>("is_child"));
-}
-
-TEST(ExprAtom, AgeIsAdult) {
-	EXPECT_TRUE(matches<atom>("is_adult"));
-}
-
-TEST(ExprAtom, TimeAtDay) {
-	EXPECT_TRUE(matches<atom>("at_day"));
-}
-
-TEST(ExprAtom, TimeAtNight) {
-	EXPECT_TRUE(matches<atom>("at_night"));
-}
-
-TEST(ExprAtom, DungeonIsVanilla) {
-	EXPECT_TRUE(matches<atom>("is_vanilla"));
-}
-
-TEST(ExprAtom, DungeonIsMq) {
-	EXPECT_TRUE(matches<atom>("is_mq"));
-}
-
 TEST(ExprAtom, Identifier) {
 	EXPECT_TRUE(matches<atom>("RG_HOOKSHOT"));
 }
@@ -251,11 +227,11 @@ TEST(ExprComparison, WithArithmetic) {
 // == And ======================================================================
 
 TEST(ExprAnd, TwoOperands) {
-	EXPECT_TRUE(matches<and_expr>("is_adult and has(RG_HOOKSHOT)"));
+	EXPECT_TRUE(matches<and_expr>("is_adult() and has(RG_HOOKSHOT)"));
 }
 
 TEST(ExprAnd, ThreeOperands) {
-	EXPECT_TRUE(matches<and_expr>("is_adult and has(RG_HOOKSHOT) and at_day"));
+	EXPECT_TRUE(matches<and_expr>("is_adult() and has(RG_HOOKSHOT) and at_day()"));
 }
 
 TEST(ExprAnd, WithComparison) {
@@ -288,7 +264,7 @@ TEST(ExprOr, NoOp) {
 // == Ternary ==================================================================
 
 TEST(ExprTernary, Simple) {
-	EXPECT_TRUE(matches<ternary>("is_adult ? 1 : 2"));
+	EXPECT_TRUE(matches<ternary>("is_adult() ? 1 : 2"));
 }
 
 TEST(ExprTernary, WithExpressions) {
@@ -334,7 +310,7 @@ TEST(Expr, OrExpr) {
 }
 
 TEST(Expr, AndExpr) {
-	EXPECT_TRUE(matches<expr>("is_adult and has(RG_HOOKSHOT)"));
+	EXPECT_TRUE(matches<expr>("is_adult() and has(RG_HOOKSHOT)"));
 }
 
 TEST(Expr, MixedBoolOps) {
@@ -343,7 +319,7 @@ TEST(Expr, MixedBoolOps) {
 
 TEST(Expr, FullComplex) {
 	EXPECT_TRUE(matches<expr>(
-		"is_adult and (has(RG_HOOKSHOT) or has(RG_LONGSHOT)) and stone_count() >= 3"
+		"is_adult() and (has(RG_HOOKSHOT) or has(RG_LONGSHOT)) and stone_count() >= 3"
 	));
 }
 
@@ -448,7 +424,7 @@ TEST(ExprAnyAge, SimpleBlock) {
 
 TEST(ExprAnyAge, WithComplexExpr) {
 	EXPECT_TRUE(matches<any_age_block>(
-		"any_age { is_adult and has(RG_HOOKSHOT) or is_child and has(RG_BOOMERANG) }"
+		"any_age { is_adult() and has(RG_HOOKSHOT) or is_child() and has(RG_BOOMERANG) }"
 	));
 }
 
@@ -565,7 +541,7 @@ TEST(ExprRealistic, AgeAndAbility) {
 
 TEST(ExprRealistic, MultiNot) {
 	EXPECT_TRUE(matches<expr>(
-		"not setting(RSK_SUNLIGHT_ARROWS) and is_adult"
+		"not setting(RSK_SUNLIGHT_ARROWS) and is_adult()"
 	));
 }
 

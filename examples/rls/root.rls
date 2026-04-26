@@ -23,7 +23,7 @@ region RR_ROOT_EXITS {
     areas: RA_LINKS_POCKET
 
     exits {
-        RR_CHILD_SPAWN: is_child
+        RR_CHILD_SPAWN: is_child()
     }
 }
 

@@ -121,15 +121,7 @@ struct kw_not : TAO_PEGTL_STRING("not") {};
 struct kw_is : TAO_PEGTL_STRING("is") {};
 
 // Age and time
-struct kw_is_child : TAO_PEGTL_STRING("is_child") {};
-struct kw_is_adult : TAO_PEGTL_STRING("is_adult") {};
-struct kw_at_day : TAO_PEGTL_STRING("at_day") {};
-struct kw_at_night : TAO_PEGTL_STRING("at_night") {};
 struct kw_any_age : TAO_PEGTL_STRING("any_age") {};
-
-// Dungeon variant selection
-struct kw_is_vanilla : TAO_PEGTL_STRING("is_vanilla") {};
-struct kw_is_mq : TAO_PEGTL_STRING("is_mq") {};
 
 // Shared / multi-region blocks
 struct kw_shared : TAO_PEGTL_STRING("shared") {};
@@ -177,10 +169,6 @@ struct reserved : sor<
 	// Multi-word / long keywords first (prefix-safe ordering)
 	kw<kw_no_time_passes>,
 	kw<kw_time_passes>,
-	kw<kw_is_vanilla>,
-	kw<kw_is_child>,
-	kw<kw_is_adult>,
-	kw<kw_is_mq>,
 	// Top-level declarations
 	kw<kw_region>,
 	kw<kw_extend>,
@@ -206,8 +194,6 @@ struct reserved : sor<
 	// Comparison alias
 	kw<kw_is>,
 	// Age and time
-	kw<kw_at_day>,
-	kw<kw_at_night>,
 	kw<kw_any_age>,
 	// Shared blocks
 	kw<kw_shared>,
@@ -274,9 +260,6 @@ struct expr;
 /// Keyword atoms that evaluate to a value by themselves.
 struct atom_keyword : sor<
 	kw<kw_always>, kw<kw_never>,
-	kw<kw_is_child>, kw<kw_is_adult>,
-	kw<kw_at_day>, kw<kw_at_night>,
-	kw<kw_is_vanilla>, kw<kw_is_mq>,
 	kw<kw_true>, kw<kw_false>
 > {};
 

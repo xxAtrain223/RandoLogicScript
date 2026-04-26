@@ -38,8 +38,8 @@ region RR_SPIRIT_TEMPLE_FOYER {
     scene: SCENE_SPIRIT_TEMPLE
 
     events {
-        LOGIC_FORWARDS_SPIRIT_CHILD: is_child
-        LOGIC_FORWARDS_SPIRIT_ADULT: is_adult
+        LOGIC_FORWARDS_SPIRIT_CHILD: is_child()
+        LOGIC_FORWARDS_SPIRIT_ADULT: is_adult()
     }
 
     locations {
@@ -49,7 +49,7 @@ region RR_SPIRIT_TEMPLE_FOYER {
 
     exits {
         RR_SPIRIT_TEMPLE_ENTRYWAY:       always
-        RR_SPIRIT_TEMPLE_CHILD_SIDE_HUB: (is_adult or has(RG_SPEAK_GERUDO) or flag(LOGIC_SPIRIT_NABOORU_KIDNAPPED))
+        RR_SPIRIT_TEMPLE_CHILD_SIDE_HUB: (is_adult() or has(RG_SPEAK_GERUDO) or flag(LOGIC_SPIRIT_NABOORU_KIDNAPPED))
                                          and can_use(RG_CRAWL)
         RR_SPIRIT_TEMPLE_ADULT_SIDE_HUB: can_use(RG_SILVER_GAUNTLETS)
     }
@@ -57,7 +57,7 @@ region RR_SPIRIT_TEMPLE_FOYER {
 ```
 
 - `always` / `never` are aliases for `true` / `false`.
-- `is_vanilla` / `is_mq` replace `ctx->GetDungeon(...)->IsVanilla()`.
+- `is_vanilla()` / `is_mq()` replace `ctx->GetDungeon(...)->IsVanilla()`.
 - All names are the same `RR_*`, `RC_*`, `RG_*`, etc. enum identifiers used in C++.
 
 Regions can also be extended from separate files (e.g. shuffle features adding pot locations without touching core dungeon logic):
@@ -85,15 +85,15 @@ extern define keys(scene: Scene, n: int) -> int
 
 Conditions are boolean expressions using short function names that the transpiler maps to C++ methods:
 
-| RLS                                         | C++                                                  |
-| -------------------------------------------- | ---------------------------------------------------- |
-| `has(RG_HOOKSHOT)`                           | `logic->HasItem(RG_HOOKSHOT)`                        |
-| `can_use(RG_HOOKSHOT)`                       | `logic->CanUse(RG_HOOKSHOT)`                         |
-| `keys(SCENE_SPIRIT_TEMPLE, 3)`               | `logic->SmallKeys(SCENE_SPIRIT_TEMPLE, 3)`           |
-| `flag(LOGIC_SPIRIT_PLATFORM_LOWERED)`        | `logic->Get(LOGIC_SPIRIT_PLATFORM_LOWERED)`          |
-| `setting(RSK_FOREST) is RO_CLOSED_FOREST_ON` | `ctx->GetOption(RSK_FOREST).Is(RO_CLOSED_FOREST_ON)` |
-| `trick(RT_SPIRIT_CHILD_CHU)`                 | `ctx->GetTrickOption(RT_SPIRIT_CHILD_CHU)`           |
-| `is_child`, `is_adult`, `at_day`, `at_night` | `logic->IsChild`, etc.                               |
+| RLS                                                  | C++                                                  |
+| ---------------------------------------------------- | ---------------------------------------------------- |
+| `has(RG_HOOKSHOT)`                                   | `logic->HasItem(RG_HOOKSHOT)`                        |
+| `can_use(RG_HOOKSHOT)`                               | `logic->CanUse(RG_HOOKSHOT)`                         |
+| `keys(SCENE_SPIRIT_TEMPLE, 3)`                       | `logic->SmallKeys(SCENE_SPIRIT_TEMPLE, 3)`           |
+| `flag(LOGIC_SPIRIT_PLATFORM_LOWERED)`                | `logic->Get(LOGIC_SPIRIT_PLATFORM_LOWERED)`          |
+| `setting(RSK_FOREST) is RO_CLOSED_FOREST_ON`         | `ctx->GetOption(RSK_FOREST).Is(RO_CLOSED_FOREST_ON)` |
+| `trick(RT_SPIRIT_CHILD_CHU)`                         | `ctx->GetTrickOption(RT_SPIRIT_CHILD_CHU)`           |
+| `is_child()`, `is_adult()`, `at_day()`, `at_night()` | `logic->IsChild`, etc.                               |
 
 `any_age { ... }` evaluates across all age/time combinations with access to the current region:
 

@@ -1,8 +1,8 @@
 extend region RR_KOKIRI_FOREST {
     locations {
-        RC_KF_GS_KNOW_IT_ALL_HOUSE: is_child and can_kill(RE_GOLD_SKULLTULA, ED_CLOSE) and can_get_night_time_gs()
+        RC_KF_GS_KNOW_IT_ALL_HOUSE: is_child() and can_kill(RE_GOLD_SKULLTULA, ED_CLOSE) and can_get_night_time_gs()
         RC_KF_GS_BEAN_PATCH: can_spawn_soil_skull(RG_KOKIRI_FOREST_BEAN_SOUL) and can_kill(RE_GOLD_SKULLTULA, ED_CLOSE)
-        RC_KF_GS_HOUSE_OF_TWINS: is_adult and can_get_night_time_gs() and (
+        RC_KF_GS_HOUSE_OF_TWINS: is_adult() and can_get_night_time_gs() and (
             can_get_drop(RE_GOLD_SKULLTULA, ED_BOOMERANG) or
             (trick(RT_KF_ADULT_GS) and can_use(RG_HOVER_BOOTS) and can_kill(RE_GOLD_SKULLTULA, ED_SHORT_JUMPSLASH)))
     }

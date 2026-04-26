@@ -64,7 +64,7 @@ TEST(DeclEntry, SimpleExpr) {
 }
 
 TEST(DeclEntry, ComplexExpr) {
-	EXPECT_TRUE(matches<entry>("RR_SPIRIT_TEMPLE_CHILD: is_child and has(RG_STICKS)"));
+	EXPECT_TRUE(matches<entry>("RR_SPIRIT_TEMPLE_CHILD: can_break_pots() and has(RG_STICKS)"));
 }
 
 TEST(DeclEntry, AlwaysExpr) {
@@ -103,7 +103,7 @@ TEST(DeclSection, ExitsWithComplexExprs) {
 		"exits {\n"
 		"  RR_SPIRIT_TEMPLE_ENTRYWAY: always\n"
 		"  RR_SPIRIT_TEMPLE_CHILD_SIDE_HUB:\n"
-		"    is_child and has(RG_STICKS)\n"
+		"    can_break_pots() and has(RG_STICKS)\n"
 		"}"
 	));
 }
@@ -464,7 +464,7 @@ TEST(DeclRealistic, SpiritTempleExcerpt) {
 		"  }\n"
 		"  exits {\n"
 		"    RR_SPIRIT_TEMPLE_ENTRYWAY: always\n"
-		"    RR_SPIRIT_TEMPLE_CHILD_SIDE_HUB: is_child\n"
+		"    RR_SPIRIT_TEMPLE_CHILD_SIDE_HUB: always\n"
 		"    RR_SPIRIT_TEMPLE_ADULT_SIDE_HUB:\n"
 		"      is_adult and can_use(RG_SILVER_GAUNTLETS)\n"
 		"  }\n"

@@ -94,10 +94,6 @@ struct ExprResolver {
 		return ast::Type::Int;
 	}
 
-	ast::Type resolve(const ast::KeywordExpr&, const ast::Expr&) {
-		return ast::Type::Bool;
-	}
-
 	ast::Type resolve(const ast::Identifier& node, const ast::Expr& expr) {
 		// Check scope first (parameter names).
 		if (auto it = scope.find(node.name); it != scope.end()) {

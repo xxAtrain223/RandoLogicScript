@@ -119,10 +119,6 @@ TEST(LexIdentifier, KeywordAndIsNotIdentifier) {
 	EXPECT_FALSE(matches<ident>("and"));
 }
 
-TEST(LexIdentifier, KeywordIsChildIsNotIdentifier) {
-	EXPECT_FALSE(matches<ident>("is_child"));
-}
-
 TEST(LexIdentifier, KeywordAlwaysIsNotIdentifier) {
 	EXPECT_FALSE(matches<ident>("always"));
 }
@@ -235,22 +231,6 @@ TEST(LexKeyword, IsExact) {
 	EXPECT_TRUE(matches<kw<kw_is>>("is"));
 }
 
-TEST(LexKeyword, IsChildExact) {
-	EXPECT_TRUE(matches<kw<kw_is_child>>("is_child"));
-}
-
-TEST(LexKeyword, IsAdultExact) {
-	EXPECT_TRUE(matches<kw<kw_is_adult>>("is_adult"));
-}
-
-TEST(LexKeyword, IsVanillaExact) {
-	EXPECT_TRUE(matches<kw<kw_is_vanilla>>("is_vanilla"));
-}
-
-TEST(LexKeyword, IsMqExact) {
-	EXPECT_TRUE(matches<kw<kw_is_mq>>("is_mq"));
-}
-
 TEST(LexKeyword, AlwaysExact) {
 	EXPECT_TRUE(matches<kw<kw_always>>("always"));
 }
@@ -359,8 +339,7 @@ TEST(LexKeywordList, AllKeywordsRecognized) {
 		"true", "false", "always", "never",
 		"and", "or", "not",
 		"is",
-		"is_child", "is_adult", "at_day", "at_night", "any_age",
-		"is_vanilla", "is_mq",
+		"any_age",
 		"shared", "from", "here",
 		"match",
 	};

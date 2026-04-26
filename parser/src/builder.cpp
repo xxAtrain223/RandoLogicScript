@@ -121,18 +121,6 @@ ast::ExprPtr buildExpr(const Node& n, Diags& diags) {
 			return ast::makeExpr(ast::BoolLiteral{true}, makeSpan(n));
 		if (s == "false" || s == "never")
 			return ast::makeExpr(ast::BoolLiteral{false}, makeSpan(n));
-		if (s == "is_child")
-			return ast::makeExpr(ast::KeywordExpr{ast::Keyword::IsChild}, makeSpan(n));
-		if (s == "is_adult")
-			return ast::makeExpr(ast::KeywordExpr{ast::Keyword::IsAdult}, makeSpan(n));
-		if (s == "at_day")
-			return ast::makeExpr(ast::KeywordExpr{ast::Keyword::AtDay}, makeSpan(n));
-		if (s == "at_night")
-			return ast::makeExpr(ast::KeywordExpr{ast::Keyword::AtNight}, makeSpan(n));
-		if (s == "is_vanilla")
-			return ast::makeExpr(ast::KeywordExpr{ast::Keyword::IsVanilla}, makeSpan(n));
-		if (s == "is_mq")
-			return ast::makeExpr(ast::KeywordExpr{ast::Keyword::IsMq}, makeSpan(n));
 		emitError(diags, "unknown atom keyword: " + std::string(s), n);
 		return ast::makeExpr(ast::BoolLiteral{false}, makeSpan(n));
 	}

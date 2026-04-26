@@ -178,15 +178,6 @@ has_explosives() or can_use(RG_MEGATON_HAMMER)
 
 ### 4.2 Age & Time
 
-Age and time-of-day are first-class keywords:
-
-```rls
-is_child                           # logic->IsChild
-is_adult                           # logic->IsAdult
-at_day                             # logic->AtDay
-at_night                           # logic->AtNight
-```
-
 `any_age { ... }` evaluates its body across all age/time combinations that have access to the current region. The transpiler generates the appropriate `Region::AnyAgeTime()` call:
 
 ```rls
@@ -215,8 +206,8 @@ region RR_SPIRIT_TEMPLE_FOYER {
     scene: SCENE_SPIRIT_TEMPLE
 
     events {
-        LOGIC_FORWARDS_SPIRIT_CHILD: is_child
-        LOGIC_FORWARDS_SPIRIT_ADULT: is_adult
+        LOGIC_FORWARDS_SPIRIT_CHILD: is_child()
+        LOGIC_FORWARDS_SPIRIT_ADULT: is_adult()
     }
 
     locations {
@@ -226,7 +217,7 @@ region RR_SPIRIT_TEMPLE_FOYER {
 
     exits {
         RR_SPIRIT_TEMPLE_ENTRYWAY:       always
-        RR_SPIRIT_TEMPLE_CHILD_SIDE_HUB: (is_adult or has(RG_SPEAK_GERUDO) or flag(LOGIC_SPIRIT_NABOORU_KIDNAPPED))
+        RR_SPIRIT_TEMPLE_CHILD_SIDE_HUB: (is_adult() or has(RG_SPEAK_GERUDO) or flag(LOGIC_SPIRIT_NABOORU_KIDNAPPED))
                                          and can_use(RG_CRAWL)
         RR_SPIRIT_TEMPLE_ADULT_SIDE_HUB: can_use(RG_SILVER_GAUNTLETS)
     }
@@ -377,14 +368,14 @@ region RR_SPIRIT_TEMPLE_ENTRYWAY {
     scene: SCENE_SPIRIT_TEMPLE
 
     exits {
-        RR_SPIRIT_TEMPLE_FOYER:              is_vanilla
-        RR_SPIRIT_TEMPLE_MQ_FOYER:           is_mq
+        RR_SPIRIT_TEMPLE_FOYER:              is_vanilla()
+        RR_SPIRIT_TEMPLE_MQ_FOYER:           is_mq()
         RR_DESERT_COLOSSUS_OUTSIDE_TEMPLE:   always
     }
 }
 ```
 
-`is_vanilla` / `is_mq` transpiles to `ctx->GetDungeon(SPIRIT_TEMPLE)->IsVanilla()` / `->IsMQ()`. The dungeon is inferred from the region's scene.
+`is_vanilla()` / `is_mq()` transpiles to host functions of the same name. The dungeon is inferred from the region's scene.
 
 ### 4.6 Functions
 
@@ -395,7 +386,7 @@ define spirit_explosive_key_logic():
     keys(SCENE_SPIRIT_TEMPLE, has_explosives() ? 1 : 2)
 
 define spirit_east_to_switch():
-    (is_adult and trick(RT_SPIRIT_STATUE_JUMP))
+    (is_adult() and trick(RT_SPIRIT_STATUE_JUMP))
     or can_use(RG_HOVER_BOOTS)
     or (can_use(RG_ZELDAS_LULLABY) and can_use(RG_HOOKSHOT))
 ```
@@ -405,7 +396,7 @@ These are **pure** - no side effects, no mutation. The transpiler always generat
 ### 4.7 Ternary / Conditional Expressions
 
 ```rls
-can_hit_switch(is_adult and trick(RT_SPIRIT_LOWER_ADULT_SWITCH) ? ED_BOMB_THROW : ED_BOOMERANG)
+can_hit_switch(is_adult() and trick(RT_SPIRIT_LOWER_ADULT_SWITCH) ? ED_BOMB_THROW : ED_BOOMERANG)
 ```
 
 This directly mirrors the current pattern:
@@ -638,12 +629,12 @@ define spirit_explosive_key_logic():
     keys(SCENE_SPIRIT_TEMPLE, has_explosives() ? 1 : 2)
 
 define spirit_east_to_switch():
-    (is_adult and trick(RT_SPIRIT_STATUE_JUMP))
+    (is_adult() and trick(RT_SPIRIT_STATUE_JUMP))
     or can_use(RG_HOVER_BOOTS)
     or (can_use(RG_ZELDAS_LULLABY) and can_use(RG_HOOKSHOT))
 
 define spirit_sun_block_south_ledge():
-    has(RG_POWER_BRACELET) or is_adult or can_kill(RE_BEAMOS)
+    has(RG_POWER_BRACELET) or is_adult() or can_kill(RE_BEAMOS)
     or (can_use(RG_HOOKSHOT) and
         (has_fire_source()
          or (flag(LOGIC_SPIRIT_SUN_BLOCK_TORCH)
@@ -936,8 +927,7 @@ shared_branch = "from" (IDENT | "here") ":" expr ;
 
 any_age_block = "any_age" "{" expr "}" ;
 
-atom          = "always" | "never" | "is_child" | "is_adult"
-              | "at_day" | "at_night" | "is_vanilla" | "is_mq"
+atom          = "always" | "never"
               | "true" | "false"
               | IDENT | NUMBER ;
 
@@ -949,7 +939,7 @@ type          = IDENT ;
 
 Key differences from the existing `LogicExpression` parser:
 - `and`/`or`/`not` keywords instead of `&&`/`||`/`!`. `is`/`is not` as aliases for `==`/`!=`.
-- `always`/`never`/`is_child`/`is_adult`/`at_day`/`at_night`/`is_vanilla`/`is_mq` as keywords.
+- `always`/`never` as keywords.
 - `shared { from ... }` and `any_age { ... }` as first-class expression blocks.
 - `match <value> { ... }` expressions with trailing `or` for fallthrough accumulation.
 - File-level structure (`region`, `extend`, `define`, `extern define`).
@@ -963,7 +953,6 @@ Since logic errors can cause softlocks in generated seeds, RLS prioritizes error
 | Error Class              | Example                              | Message                                                                                                                                                                |
 | ------------------------ | ------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | **Unknown symbol**       | `can_use(RG_HOOKSHAT)`               | `error: unknown enum 'RG_HOOKSHAT'. Did you mean 'RG_HOOKSHOT'?`                                                                                                       |
-| **Age impossibility**    | `is_child and can_use(RG_HOOKSHOT)`  | `warning: RG_HOOKSHOT is adult-only; condition is always false.`                                                                                                       |
 | **Unreachable region**   | Region with no incoming exits        | `error: region 'RR_SPIRIT_TEMPLE_ORPHAN' has no incoming exits.`                                                                                                       |
 | **Key over-requirement** | `keys(SCENE_SPIRIT_TEMPLE, 12)`      | `error: SPIRIT_TEMPLE has at most 5/7 small keys (Vanilla/MQ).`                                                                                                        |
 | **Unused define**        | `define foo(): ...` never referenced | `warning: 'foo' is defined but never used.`                                                                                                                            |
@@ -1055,8 +1044,8 @@ region RR_SPIRIT_TEMPLE_ENTRYWAY {
     scene: SCENE_SPIRIT_TEMPLE
 
     exits {
-        RR_SPIRIT_TEMPLE_FOYER:              is_vanilla
-        RR_SPIRIT_TEMPLE_MQ_FOYER:           is_mq
+        RR_SPIRIT_TEMPLE_FOYER:              is_vanilla()
+        RR_SPIRIT_TEMPLE_MQ_FOYER:           is_mq()
         RR_DESERT_COLOSSUS_OUTSIDE_TEMPLE:   always
     }
 }
@@ -1066,8 +1055,8 @@ region RR_SPIRIT_TEMPLE_FOYER {
     scene: SCENE_SPIRIT_TEMPLE
 
     events {
-        LOGIC_FORWARDS_SPIRIT_CHILD: is_child
-        LOGIC_FORWARDS_SPIRIT_ADULT: is_adult
+        LOGIC_FORWARDS_SPIRIT_CHILD: is_child()
+        LOGIC_FORWARDS_SPIRIT_ADULT: is_adult()
     }
 
     locations {
@@ -1078,7 +1067,7 @@ region RR_SPIRIT_TEMPLE_FOYER {
     exits {
         RR_SPIRIT_TEMPLE_ENTRYWAY:        always
         RR_SPIRIT_TEMPLE_CHILD_SIDE_HUB:
-            (is_adult or has(RG_SPEAK_GERUDO) or flag(LOGIC_SPIRIT_NABOORU_KIDNAPPED))
+            (is_adult() or has(RG_SPEAK_GERUDO) or flag(LOGIC_SPIRIT_NABOORU_KIDNAPPED))
             and can_use(RG_CRAWL)
         RR_SPIRIT_TEMPLE_ADULT_SIDE_HUB:  can_use(RG_SILVER_GAUNTLETS)
     }
@@ -1173,7 +1162,7 @@ region RR_SPIRIT_TEMPLE_STATUE_ROOM_CHILD {
 
 ## 12. Comparison Summary
 
-| Aspect                           | Current C++                                                                                | RLS                                                                                    |
+| Aspect                           | Current C++                                                                                | RLS                                                                                     |
 | -------------------------------- | ------------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------- |
 | Lines for Spirit Temple Vanilla  | ~520                                                                                       | ~280 (est.)                                                                             |
 | `logic->` / `ctx->` prefix noise | Every call                                                                                 | None - short function names                                                             |
@@ -1183,9 +1172,9 @@ region RR_SPIRIT_TEMPLE_STATUE_ROOM_CHILD {
 | Setting comparisons              | `.Is(RO_*)` / `.IsNot(RO_*)` / `(bool)` cast                                               | `setting() is RO_*` / `is not RO_*` / bare truthiness                                   |
 | SpiritShared calls               | 3-region callback soup                                                                     | `shared { from ...: ... }` blocks                                                       |
 | Age/time helpers                 | `AnyAgeTime([]{...})`                                                                      | `any_age { ... }` blocks                                                                |
-| Variant selection                | `ctx->GetDungeon(...)->IsVanilla()`                                                        | `is_vanilla` / `is_mq` keywords                                                         |
+| Variant selection                | `ctx->GetDungeon(...)->IsVanilla()`                                                        | `is_vanilla()` / `is_mq()` functions                                                    |
 | Logic tracker data               | Runtime parsing of stringified C++                                                         | Transpiler-generated `ExpressionNode` trees                                             |
-| Logic tracker display text       | `CleanConditionString(#condition)`                                                         | RLS source text embedded in generated structs                                          |
+| Logic tracker display text       | `CleanConditionString(#condition)`                                                         | RLS source text embedded in generated structs                                           |
 | Distance fallthrough             | C++ `switch` fallthrough (error-prone, implicit)                                           | `match` with trailing `or` (explicit, per-arm opt-in)                                   |
 | Runtime parser dependency        | `LogicExpression` parser required                                                          | None - can be removed after full migration                                              |
 | Archipelago integration          | Manual Python port, frequent drift                                                         | Auto-generated, matches existing `connect_regions`/`add_locations`/`add_events` pattern |

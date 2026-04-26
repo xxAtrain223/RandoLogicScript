@@ -30,12 +30,6 @@ TEST(ExprTests, Identifier) {
 	EXPECT_EQ(std::get<Identifier>(expr->node).name, "RG_HOOKSHOT");
 }
 
-TEST(ExprTests, Keyword) {
-	auto expr = makeExpr(KeywordExpr{Keyword::IsAdult});
-	ASSERT_TRUE(std::holds_alternative<KeywordExpr>(expr->node));
-	EXPECT_EQ(std::get<KeywordExpr>(expr->node).keyword, Keyword::IsAdult);
-}
-
 // == Compound expression nodes ================================================
 
 TEST(ExprTests, UnaryNot) {
@@ -54,13 +48,13 @@ TEST(ExprTests, BinaryAnd) {
 	// is_child and RG_HOOKSHOT
 	auto expr = makeExpr(BinaryExpr(
 		BinaryOp::And,
-		makeExpr(KeywordExpr{Keyword::IsChild}),
+		makeExpr(BoolLiteral{true}),
 		makeExpr(Identifier{"RG_HOOKSHOT"})
 	));
 	ASSERT_TRUE(std::holds_alternative<BinaryExpr>(expr->node));
 	const auto& bin = std::get<BinaryExpr>(expr->node);
 	EXPECT_EQ(bin.op, BinaryOp::And);
-	EXPECT_TRUE(std::holds_alternative<KeywordExpr>(bin.left->node));
+	EXPECT_TRUE(std::holds_alternative<BoolLiteral>(bin.left->node));
 	EXPECT_TRUE(std::holds_alternative<Identifier>(bin.right->node));
 }
 

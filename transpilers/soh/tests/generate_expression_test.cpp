@@ -106,54 +106,6 @@ TEST(SohExpressions, Identifier) {
 		"item");
 }
 
-TEST(SohExpressions, IsChildIsAdultKeywords) {
-	auto expr = sourceToExpression(
-		"define test():\n"
-		"    is_child\n",
-		"test");
-	EXPECT_EQ(GenerateExpression(expr),
-		"is_child()");
-
-	expr = sourceToExpression(
-		"define test():\n"
-		"    is_adult\n",
-		"test");
-	EXPECT_EQ(GenerateExpression(expr),
-		"is_adult()");
-}
-
-TEST(SohExpressions, AtDayAtNightKeywords) {
-	auto expr = sourceToExpression(
-		"define test():\n"
-		"    at_day\n",
-		"test");
-	EXPECT_EQ(GenerateExpression(expr),
-		"at_day()");
-
-	expr = sourceToExpression(
-		"define test():\n"
-		"    at_night\n",
-		"test");
-	EXPECT_EQ(GenerateExpression(expr),
-		"at_night()");
-}
-
-TEST(SohExpressions, IsVanillaIsMqKeywords) {
-	auto expr = sourceToExpression(
-		"define test():\n"
-		"    is_vanilla\n",
-		"test");
-	EXPECT_EQ(GenerateExpression(expr),
-		"is_vanilla()");
-
-	expr = sourceToExpression(
-		"define test():\n"
-		"    is_mq\n",
-		"test");
-	EXPECT_EQ(GenerateExpression(expr),
-		"is_mq()");
-}
-
 TEST(SohExpressions, UnaryNot) {
 	auto expr = sourceToExpression(
 		"define test(value: Bool):\n"
@@ -462,7 +414,7 @@ TEST(SohExpressions, CallDefinedFunctions) {
 
 	EXPECT_EQ(GenerateExpression(sourceToExpression(
 		"define CanSpawnSoilSkull(bean: Item):\n"
-		"    is_child and can_use(RG_BOTTLE_WITH_BUGS) and has(bean)\n"
+		"    can_use(RG_BOTTLE_WITH_BUGS) and has(bean)\n"
 		"\n"
 		"define test():\n"
 		"    CanSpawnSoilSkull(RG_KOKIRI_FOREST_BEAN_SOUL)\n",
