@@ -129,12 +129,12 @@ areaTable[RR_KF_OUTSIDE_DEKU_TREE] = Region("KF Outside Deku Tree", SCENE_KOKIRI
     EVENT_ACCESS(LOGIC_SHOWED_MIDO_SWORD_AND_SHIELD, is_child() && has(RG_SPEAK_KOKIRI) && can_use(RG_KOKIRI_SWORD) && can_use(RG_DEKU_SHIELD)),
 }, {
     // Locations
-    LOCATION(RC_KF_DEKU_TREE_LEFT_GOSSIP_STONE, true),
-    LOCATION(RC_KF_DEKU_TREE_RIGHT_GOSSIP_STONE, true),
     LOCATION(RC_KF_DEKU_TREE_LEFT_GOSSIP_STONE_FAIRY, call_gossip_fairy_except_suns()),
     LOCATION(RC_KF_DEKU_TREE_LEFT_GOSSIP_STONE_FAIRY_BIG, can_use(RG_SONG_OF_STORMS)),
     LOCATION(RC_KF_DEKU_TREE_RIGHT_GOSSIP_STONE_FAIRY, call_gossip_fairy_except_suns()),
     LOCATION(RC_KF_DEKU_TREE_RIGHT_GOSSIP_STONE_FAIRY_BIG, can_use(RG_SONG_OF_STORMS)),
+    LOCATION(RC_KF_DEKU_TREE_LEFT_GOSSIP_STONE, true),
+    LOCATION(RC_KF_DEKU_TREE_RIGHT_GOSSIP_STONE, true),
 }, {
     // Exits
     ENTRANCE(RR_DEKU_TREE_ENTRYWAY, is_child() || setting(RSK_SHUFFLE_DUNGEON_ENTRANCES) != RO_DUNGEON_ENTRANCE_SHUFFLE_OFF && (setting(RSK_FOREST) == RO_CLOSED_FOREST_OFF || flag(LOGIC_SHOWED_MIDO_SWORD_AND_SHIELD))),
@@ -145,7 +145,6 @@ areaTable[RR_KF_OUTSIDE_LOST_WOODS] = Region("KF Outside Lost Woods", SCENE_KOKI
     // Events
 }, {
     // Locations
-    LOCATION(RC_KF_GOSSIP_STONE, true),
     LOCATION(RC_KF_GOSSIP_STONE_FAIRY, call_gossip_fairy_except_suns()),
     LOCATION(RC_KF_GOSSIP_STONE_FAIRY_BIG, can_use(RG_SONG_OF_STORMS)),
     LOCATION(RC_KF_BEAN_RUPEE_1, is_adult() && can_use(RG_BOOMERANG)),
@@ -155,6 +154,7 @@ areaTable[RR_KF_OUTSIDE_LOST_WOODS] = Region("KF Outside Lost Woods", SCENE_KOKI
     LOCATION(RC_KF_BEAN_RUPEE_5, is_adult() && can_use(RG_BOOMERANG)),
     LOCATION(RC_KF_BEAN_RUPEE_6, is_adult() && can_use(RG_BOOMERANG)),
     LOCATION(RC_KF_BEAN_RED_RUPEE, is_adult() && can_use(RG_BOOMERANG)),
+    LOCATION(RC_KF_GOSSIP_STONE, true),
 }, {
     // Exits
     ENTRANCE(RR_KOKIRI_FOREST, true),
@@ -200,7 +200,6 @@ areaTable[RR_KF_STORMS_GROTTO] = Region("KF Storms Grotto", SCENE_GROTTOS, {
 }, {
     // Locations
     LOCATION(RC_KF_STORMS_GROTTO_CHEST, has(RG_OPEN_CHEST)),
-    LOCATION(RC_KF_STORMS_GROTTO_GOSSIP_STONE, true),
     LOCATION(RC_KF_STORMS_GROTTO_BEEHIVE_LEFT, can_break_lower_beehives()),
     LOCATION(RC_KF_STORMS_GROTTO_BEEHIVE_RIGHT, can_break_lower_beehives()),
     LOCATION(RC_KF_STORMS_GROTTO_GOSSIP_STONE_FAIRY, call_gossip_fairy()),
@@ -210,6 +209,7 @@ areaTable[RR_KF_STORMS_GROTTO] = Region("KF Storms Grotto", SCENE_GROTTOS, {
     LOCATION(RC_KF_STORMS_GROTTO_GRASS_2, can_cut_shrubs()),
     LOCATION(RC_KF_STORMS_GROTTO_GRASS_3, can_cut_shrubs()),
     LOCATION(RC_KF_STORMS_GROTTO_GRASS_4, can_cut_shrubs()),
+    LOCATION(RC_KF_STORMS_GROTTO_GOSSIP_STONE, true),
 }, {
     // Exits
     ENTRANCE(RR_KF_OUTSIDE_LOST_WOODS, true),
