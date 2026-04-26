@@ -415,8 +415,18 @@ struct Project {
 		return it != TypeTable.end() ? std::optional(it->second) : std::nullopt;
 	}
 
+	void setResolvedCallArgs(const CallExpr* node, std::vector<const Expr*> args) {
+		ResolvedCallArgs[node] = std::move(args);
+	}
+
+	const std::vector<const Expr*>* getResolvedCallArgs(const CallExpr* node) const {
+		auto it = ResolvedCallArgs.find(node);
+		return it != ResolvedCallArgs.end() ? &it->second : nullptr;
+	}
+
 private:
 	std::unordered_map<const void*, Type> TypeTable;
+	std::unordered_map<const CallExpr*, std::vector<const Expr*>> ResolvedCallArgs;
 };
 
 } // namespace rls::ast

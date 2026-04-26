@@ -718,6 +718,31 @@ TEST(ResolveTypes, DefineCallNamedArgsReordered) {
 	EXPECT_EQ(project.getType(findRegionEntry(project)), Type::Bool);
 }
 
+TEST(ResolveTypes, DefineCallResolvedArgs) {
+	// define foo(x: Item, d = ED_CLOSE): has(x)
+	// Call: foo(d: ED_FAR, x: RG_HOOKSHOT) — named args should canonicalize.
+	auto [project, diags] = resolveFromSource(
+		"define foo(x: Item, d = ED_CLOSE): has(x)\n"
+		"region RR_TEST {\n"
+		"    name: \"Test\"\n"
+		"    scene: SCENE_TEST\n"
+		"    locations { TEST_LOC: foo(d: ED_FAR, x: RG_HOOKSHOT) }\n"
+		"}\n");
+	EXPECT_TRUE(diags.empty());
+
+	const auto* expr = findRegionEntry(project);
+	ASSERT_NE(expr, nullptr);
+	ASSERT_TRUE(std::holds_alternative<CallExpr>(expr->node));
+	const auto& call = std::get<CallExpr>(expr->node);
+	const auto* resolved = project.getResolvedCallArgs(&call);
+	ASSERT_NE(resolved, nullptr);
+	ASSERT_EQ(resolved->size(), 2u);
+	ASSERT_TRUE(std::holds_alternative<Identifier>((*resolved)[0]->node));
+	EXPECT_EQ(std::get<Identifier>((*resolved)[0]->node).name, "RG_HOOKSHOT");
+	ASSERT_TRUE(std::holds_alternative<Identifier>((*resolved)[1]->node));
+	EXPECT_EQ(std::get<Identifier>((*resolved)[1]->node).name, "ED_FAR");
+}
+
 TEST(ResolveTypes, DefineCallUnknownNamedArg) {
 	// define foo(x: Item): has(x)
 	// Call: foo(y: RG_HOOKSHOT) — unknown named arg.

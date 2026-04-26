@@ -481,6 +481,26 @@ struct ExprResolver {
 		}
 	}
 
+	template <typename GetDefaultValue>
+	std::vector<const ast::Expr*> normalizeBoundCallArgs(
+		const ast::CallExpr& node,
+		const ArgBindingResult& binding,
+		size_t nParams,
+		GetDefaultValue&& getDefaultValue)
+	{
+		std::vector<const ast::Expr*> resolved(nParams, nullptr);
+		for (size_t argIndex = 0; argIndex < node.args.size(); ++argIndex) {
+			if (!binding.argToParam[argIndex]) continue;
+			resolved[*binding.argToParam[argIndex]] = node.args[argIndex].value.get();
+		}
+		for (size_t i = 0; i < nParams; ++i) {
+			if (resolved[i] == nullptr) {
+				resolved[i] = getDefaultValue(i);
+			}
+		}
+		return resolved;
+	}
+
 	std::optional<T> resolveExternParamType(const ast::ExternDefineDecl& ext, size_t index) {
 		std::optional<T> paramType = project.getType(&ext.params[index]);
 		if (!paramType && ext.params[index].type) {
@@ -527,6 +547,16 @@ struct ExprResolver {
 				node,
 				[&](size_t i) { return resolveExternParamType(ext, i); });
 
+			if (!binding.hasError) {
+				project.setResolvedCallArgs(
+					&node,
+					normalizeBoundCallArgs(
+						node,
+						binding,
+						ext.params.size(),
+						[&](size_t i) { return ext.params[i].defaultValue.get(); }));
+			}
+
 			if (!ext.returnType) {
 				return T::Error;
 			}
@@ -555,6 +585,16 @@ struct ExprResolver {
 				binding,
 				node,
 				[&](size_t i) { return project.getType(&def.params[i]); });
+
+			if (!binding.hasError) {
+				project.setResolvedCallArgs(
+					&node,
+					normalizeBoundCallArgs(
+						node,
+						binding,
+						def.params.size(),
+						[&](size_t i) { return def.params[i].defaultValue.get(); }));
+			}
 
 			// Return the define's body type if available.
 			if (auto bodyType = project.getType(def.body.get())) {

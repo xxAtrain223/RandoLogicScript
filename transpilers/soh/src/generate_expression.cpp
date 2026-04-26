@@ -131,117 +131,24 @@ std::string SohTranspiler::GenerateExpression(const rls::ast::TernaryExpr& node)
 }
 
 std::string SohTranspiler::GenerateExpression(const rls::ast::CallExpr& node) const {
-    // Resolves call arguments into parameter slots using sema-compatible
-    // named/positional binding order. Unknown/duplicate args should have been
-    // reported by sema already, so this function only maps what it can.
-    auto resolveByNames = [&](const std::vector<std::string>& paramNames) {
-        std::vector<std::optional<std::string>> resolved(paramNames.size());
-        std::vector<bool> bound(paramNames.size(), false);
-        std::unordered_map<std::string, size_t> indexByName;
-        for (size_t i = 0; i < paramNames.size(); ++i) {
-            indexByName.emplace(paramNames[i], i);
-        }
-
-        size_t nextPositional = 0;
-        for (const auto& arg : node.args) {
-            if (arg.name) {
-                auto it = indexByName.find(*arg.name);
-                if (it == indexByName.end()) {
-                    continue;
-                }
-                size_t i = it->second;
-                if (bound[i]) {
-                    continue;
-                }
-                resolved[i] = GenerateExpression(arg.value);
-                bound[i] = true;
-                continue;
-            }
-
-            while (nextPositional < paramNames.size() && bound[nextPositional]) {
-                ++nextPositional;
-            }
-            if (nextPositional >= paramNames.size()) {
-                continue;
-            }
-
-            resolved[nextPositional] = GenerateExpression(arg.value);
-            bound[nextPositional] = true;
-            ++nextPositional;
-        }
-
-        return resolved;
-    };
-
-    // Emits a direct function-style call from a final ordered argument list.
-    auto emitCall = [](const std::string& functionName, const std::vector<std::string>& args) {
-        std::ostringstream oss;
-        oss << functionName << "(";
-        for (size_t i = 0; i < args.size(); ++i) {
-            if (i > 0) {
-                oss << ", ";
-            }
-            oss << args[i];
-        }
-        oss << ")";
-        return oss.str();
-    };
-
-    // Extern-defined calls emit by declared function name with resolved
-    // argument order and declaration defaults.
-    if (auto it = project.ExternDefineDecls.find(node.function); it != project.ExternDefineDecls.end()) {
-        const auto& ext = *it->second;
-        std::vector<std::string> paramNames;
-        paramNames.reserve(ext.params.size());
-        for (const auto& p : ext.params) {
-            paramNames.push_back(p.name);
-        }
-
-        auto resolved = resolveByNames(paramNames);
-        std::vector<std::string> emittedArgs;
-        emittedArgs.reserve(ext.params.size());
-        for (size_t i = 0; i < ext.params.size(); ++i) {
-            if (resolved[i]) {
-                emittedArgs.push_back(*resolved[i]);
-                continue;
-            }
-            if (ext.params[i].defaultValue) {
-                emittedArgs.push_back(GenerateExpression(ext.params[i].defaultValue));
-            }
-        }
-
-        return emitCall(node.function, emittedArgs);
+    auto resolvedPtr = project.getResolvedCallArgs(&node);
+    if (resolvedPtr == nullptr) {
+        // Unknown calls or calls with semantic errors are blocked earlier in sema;
+        // emit empty as a defensive fallback so generation does not invent call forms.
+        return "";
     }
+    const auto& resolved = *resolvedPtr;
 
-    // User-defined calls use the same binding/default expansion rules so call
-    // emission is canonical across define + extern define.
-    if (auto it = project.DefineDecls.find(node.function); it != project.DefineDecls.end()) {
-        const auto& def = *it->second;
-        std::vector<std::string> paramNames;
-        paramNames.reserve(def.params.size());
-        for (const auto& p : def.params) {
-            paramNames.push_back(p.name);
+    std::ostringstream oss;
+    oss << node.function << "(";
+    for (size_t i = 0; i < resolved.size(); ++i) {
+        if (i > 0) {
+            oss << ", ";
         }
-
-        auto resolved = resolveByNames(paramNames);
-        std::vector<std::string> emittedArgs;
-        emittedArgs.reserve(def.params.size());
-        for (size_t i = 0; i < def.params.size(); ++i) {
-            if (resolved[i]) {
-                emittedArgs.push_back(*resolved[i]);
-                continue;
-            }
-            if (def.params[i].defaultValue) {
-                emittedArgs.push_back(GenerateExpression(def.params[i].defaultValue));
-            }
-        }
-
-        return emitCall(node.function, emittedArgs);
+        oss << GenerateExpression(resolved[i]->node);
     }
-
-    // Unknown calls are blocked earlier in sema; emit empty as a defensive
-    // fallback so generation does not invent passthrough call forms.
-    return "";
+    oss << ")";
+    return oss.str();
 }
 
 std::string SohTranspiler::GenerateExpression(const rls::ast::SharedBlock& node) const {
