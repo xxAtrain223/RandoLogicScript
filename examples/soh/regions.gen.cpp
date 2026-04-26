@@ -115,6 +115,7 @@ areaTable[RR_ROOT] = Region("Root", SCENE_ID_MAX, false, {RA_LINKS_POCKET}, {
 }, {
     // Locations
     LOCATION(RC_LINKS_POCKET, true),
+    LOCATION(RC_TRIFORCE_COMPLETED, collected_triforce_pieces() >= required_triforce_pieces()),
     LOCATION(RC_TOT_MASTER_SWORD, setting(RSK_SELECTED_STARTING_AGE) == RO_AGE_ADULT),
 }, {
     // Exits

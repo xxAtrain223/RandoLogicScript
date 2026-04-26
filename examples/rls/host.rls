@@ -10,3 +10,5 @@ extern define at_day() -> Bool
 extern define at_night() -> Bool
 extern define is_vanilla() -> Bool
 extern define is_mq() -> Bool
+extern define required_triforce_pieces() -> Int
+extern define collected_triforce_pieces() -> Int

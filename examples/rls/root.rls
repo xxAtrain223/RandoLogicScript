@@ -6,8 +6,7 @@ region RR_ROOT {
 
     locations {
         RC_LINKS_POCKET: always
-        # TODO error: arithmetic requires Int operands, left is Setting
-        #RC_TRIFORCE_COMPLETED: triforce_pieces() >= setting(RSK_TRIFORCE_HUNT_PIECES_REQUIRED) + 1
+        RC_TRIFORCE_COMPLETED: collected_triforce_pieces() >= required_triforce_pieces()
         RC_TOT_MASTER_SWORD: setting(RSK_SELECTED_STARTING_AGE) is RO_AGE_ADULT
     }
 
