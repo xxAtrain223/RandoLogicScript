@@ -1,9 +1,14 @@
 #include "language_server.h"
 
 #include <algorithm>
+#include <cstdlib>
 #include <cstdint>
+#include <iostream>
+#include <map>
 #include <optional>
+#include <set>
 #include <stdexcept>
+#include <string_view>
 #include <utility>
 #include <variant>
 #include <vector>
@@ -19,6 +24,91 @@ namespace rls::lsp {
 namespace {
 
 using json = nlohmann::json;
+
+enum class TraceLevel {
+    Off,
+    Error,
+    Info,
+    Debug,
+};
+
+TraceLevel configuredTraceLevel() {
+    static const TraceLevel level = [] {
+        std::string traceValue;
+#ifdef _MSC_VER
+        char* value = nullptr;
+        size_t valueLen = 0;
+        if (_dupenv_s(&value, &valueLen, "RLS_LSP_TRACE") == 0 && value != nullptr) {
+            traceValue.assign(value);
+            free(value);
+        }
+#else
+        const char* value = std::getenv("RLS_LSP_TRACE");
+        if (value != nullptr) {
+            traceValue.assign(value);
+        }
+#endif
+
+        if (traceValue.empty()) {
+            return TraceLevel::Off;
+        }
+
+        std::string v = traceValue;
+        std::transform(v.begin(), v.end(), v.begin(), [](unsigned char c) {
+            return static_cast<char>(std::tolower(c));
+        });
+
+        if (v == "error") {
+            return TraceLevel::Error;
+        }
+        if (v == "info") {
+            return TraceLevel::Info;
+        }
+        if (v == "debug") {
+            return TraceLevel::Debug;
+        }
+        return TraceLevel::Off;
+    }();
+
+    return level;
+}
+
+bool shouldTrace(TraceLevel level) {
+    return static_cast<int>(configuredTraceLevel()) >= static_cast<int>(level)
+        && configuredTraceLevel() != TraceLevel::Off;
+}
+
+void trace(TraceLevel level, std::string_view message, const json& data = nullptr) {
+    if (!shouldTrace(level)) {
+        return;
+    }
+
+    const char* levelName = "debug";
+    switch (level) {
+    case TraceLevel::Error:
+        levelName = "error";
+        break;
+    case TraceLevel::Info:
+        levelName = "info";
+        break;
+    case TraceLevel::Debug:
+        levelName = "debug";
+        break;
+    case TraceLevel::Off:
+        return;
+    }
+
+    json payload = {
+        {"component", "rls_lsp"},
+        {"level", levelName},
+        {"message", message},
+    };
+    if (!data.is_null()) {
+        payload["data"] = data;
+    }
+
+    std::cerr << payload.dump() << "\n";
+}
 
 struct WordAtPosition {
     std::string value;
@@ -100,6 +190,88 @@ std::optional<WordAtPosition> extractWordAtPosition(const std::string& text, int
     result.startCharacter = static_cast<int>(start - *lineStart);
     result.endCharacter = static_cast<int>(end - *lineStart + 1);
     return result;
+}
+
+std::string prefixAtPosition(const std::string& text, int line, int character) {
+    const auto lineStart = lineStartOffset(text, line);
+    if (!lineStart.has_value() || character <= 0) {
+        return {};
+    }
+
+    size_t pos = *lineStart + static_cast<size_t>(character);
+    if (pos > text.size()) {
+        pos = text.size();
+    }
+    if (pos == 0) {
+        return {};
+    }
+
+    size_t start = pos;
+    while (start > *lineStart && isIdentifierChar(text[start - 1])) {
+        --start;
+    }
+
+    if (start >= pos) {
+        return {};
+    }
+
+    return text.substr(start, pos - start);
+}
+
+std::optional<std::string> callsiteFunctionNameAtPosition(const std::string& text, int line, int character) {
+    const auto lineStart = lineStartOffset(text, line);
+    if (!lineStart.has_value()) {
+        return std::nullopt;
+    }
+
+    size_t pos = *lineStart + static_cast<size_t>(std::max(character, 0));
+    if (pos > text.size()) {
+        pos = text.size();
+    }
+
+    const size_t lineEnd = [&] {
+        const auto e = text.find('\n', *lineStart);
+        return e == std::string::npos ? text.size() : e;
+    }();
+
+    if (pos > lineEnd) {
+        pos = lineEnd;
+    }
+
+    size_t openParen = std::string::npos;
+    for (size_t i = pos; i > *lineStart; --i) {
+        const char ch = text[i - 1];
+        if (ch == '(') {
+            openParen = i - 1;
+            break;
+        }
+        if (ch == ')' || ch == ';') {
+            break;
+        }
+    }
+
+    if (openParen == std::string::npos || openParen == *lineStart) {
+        return std::nullopt;
+    }
+
+    size_t end = openParen;
+    while (end > *lineStart && std::isspace(static_cast<unsigned char>(text[end - 1]))) {
+        --end;
+    }
+    if (end == *lineStart) {
+        return std::nullopt;
+    }
+
+    size_t start = end;
+    while (start > *lineStart && isIdentifierChar(text[start - 1])) {
+        --start;
+    }
+
+    if (start == end) {
+        return std::nullopt;
+    }
+
+    return text.substr(start, end - start);
 }
 
 std::pair<int, int> offsetToLineCharacter(const std::string& text, size_t offset) {
@@ -250,6 +422,48 @@ std::vector<IndexedSymbol> collectSymbols(const DocumentStore& documents) {
     return symbols;
 }
 
+std::map<std::string, std::vector<std::string>> collectFunctionParams(const DocumentStore& documents) {
+    std::map<std::string, std::vector<std::string>> params;
+
+    for (const auto& uri : documents.openUris()) {
+        const auto* doc = documents.find(uri);
+        if (doc == nullptr) {
+            continue;
+        }
+
+        auto file = rls::parser::ParseString(doc->text, uri);
+        for (const auto& decl : file.declarations) {
+            std::visit([&](const auto& d) {
+                using T = std::decay_t<decltype(d)>;
+                if constexpr (std::is_same_v<T, rls::ast::DefineDecl> || std::is_same_v<T, rls::ast::ExternDefineDecl>) {
+                    auto& out = params[d.name];
+                    for (const auto& p : d.params) {
+                        out.push_back(p.name);
+                    }
+                }
+            }, decl);
+        }
+    }
+
+    return params;
+}
+
+bool startsWithCaseInsensitive(const std::string& value, const std::string& prefix) {
+    if (prefix.empty()) {
+        return true;
+    }
+    if (prefix.size() > value.size()) {
+        return false;
+    }
+
+    for (size_t i = 0; i < prefix.size(); ++i) {
+        if (std::tolower(static_cast<unsigned char>(value[i])) != std::tolower(static_cast<unsigned char>(prefix[i]))) {
+            return false;
+        }
+    }
+    return true;
+}
+
 json locationFromSpan(const std::string& uri, const rls::ast::Span& span) {
     return {
         {"uri", span.file.empty() ? uri : span.file},
@@ -320,60 +534,88 @@ std::vector<std::string> LanguageServer::handlePayload(std::string_view payload)
     json message;
     try {
         message = json::parse(payload);
-    } catch (const std::exception&) {
-        return {};
+    } catch (const std::exception& e) {
+        trace(TraceLevel::Error, "json parse failure", { {"error", e.what()} });
+        return {makeErrorResponse(nullptr, -32700, "Parse error").dump()};
     }
 
-    if (!message.is_object() || !message.contains("jsonrpc") || message["jsonrpc"] != "2.0") {
-        return {};
+    if (!message.is_object()) {
+        return {makeErrorResponse(nullptr, -32600, "Invalid Request").dump()};
+    }
+
+    if (!message.contains("jsonrpc") || message["jsonrpc"] != "2.0") {
+        const bool hasId = message.contains("id");
+        const json id = hasId ? message["id"] : json(nullptr);
+        return {makeErrorResponse(id, -32600, "Invalid Request").dump()};
     }
 
     const bool hasId = message.contains("id");
     const json id = hasId ? message["id"] : json(nullptr);
+
+    if (!message.contains("method") || !message["method"].is_string()) {
+        if (hasId) {
+            return {makeErrorResponse(id, -32600, "Invalid Request").dump()};
+        }
+        return {};
+    }
+
     const std::string method = message.value("method", "");
+    trace(TraceLevel::Debug, "handle method", { {"method", method} });
 
-    if (method == "initialize") {
-        return handleInitialize(hasId, id);
-    }
+    try {
+        if (method == "initialize") {
+            return handleInitialize(hasId, id);
+        }
 
-    if (method == "shutdown") {
-        return handleShutdown(hasId, id);
-    }
+        if (method == "shutdown") {
+            return handleShutdown(hasId, id);
+        }
 
-    if (method == "exit") {
-        return handleExit();
-    }
+        if (method == "exit") {
+            return handleExit();
+        }
 
-    if (method == "textDocument/didOpen") {
-        return handleDidOpen(message);
-    }
+        if (method == "textDocument/didOpen") {
+            return handleDidOpen(message);
+        }
 
-    if (method == "textDocument/didChange") {
-        return handleDidChange(message);
-    }
+        if (method == "textDocument/didChange") {
+            return handleDidChange(message);
+        }
 
-    if (method == "textDocument/didClose") {
-        return handleDidClose(message);
-    }
+        if (method == "textDocument/didClose") {
+            return handleDidClose(message);
+        }
 
-    if (method == "textDocument/definition") {
-        return handleDefinition(hasId, id, message);
-    }
+        if (method == "textDocument/definition") {
+            return handleDefinition(hasId, id, message);
+        }
 
-    if (method == "textDocument/references") {
-        return handleReferences(hasId, id, message);
-    }
+        if (method == "textDocument/references") {
+            return handleReferences(hasId, id, message);
+        }
 
-    if (method == "textDocument/hover") {
-        return handleHover(hasId, id, message);
-    }
+        if (method == "textDocument/hover") {
+            return handleHover(hasId, id, message);
+        }
 
-    if (method == "textDocument/documentSymbol") {
-        return handleDocumentSymbol(hasId, id, message);
-    }
+        if (method == "textDocument/completion") {
+            return handleCompletion(hasId, id, message);
+        }
 
-    if (method == "workspace/symbol") {
-        return handleWorkspaceSymbol(hasId, id, message);
+        if (method == "textDocument/documentSymbol") {
+            return handleDocumentSymbol(hasId, id, message);
+        }
+
+        if (method == "workspace/symbol") {
+            return handleWorkspaceSymbol(hasId, id, message);
+        }
+    } catch (const std::exception& e) {
+        trace(TraceLevel::Error, "handler failure", { {"method", method}, {"error", e.what()} });
+        if (hasId) {
+            return {makeErrorResponse(id, -32603, "Internal error").dump()};
+        }
+        return {};
     }
 
     if (hasId) {
@@ -390,7 +632,10 @@ std::vector<std::string> LanguageServer::handleInitialize(bool hasId, const json
             {"definitionProvider", capabilities_.definitionProvider},
             {"referencesProvider", capabilities_.referencesProvider},
             {"hoverProvider", capabilities_.hoverProvider},
-            {"completionProvider", json::object()},
+            {"completionProvider", {
+                {"resolveProvider", false},
+                {"triggerCharacters", json::array({"(", ",", ":"})}
+            }},
             {"documentSymbolProvider", capabilities_.documentSymbolProvider},
             {"workspaceSymbolProvider", capabilities_.workspaceSymbolProvider},
         }}
@@ -630,6 +875,90 @@ std::vector<std::string> LanguageServer::handleHover(bool hasId, const json& id,
     return {makeResponse(id, nullptr).dump()};
 }
 
+std::vector<std::string> LanguageServer::handleCompletion(bool hasId, const json& id, const json& message) const {
+    if (!hasId || !message.contains("params") || !message["params"].contains("textDocument")
+        || !message["params"].contains("position")) {
+        return {};
+    }
+
+    const std::string uri = message["params"]["textDocument"].value("uri", "");
+    const int line = message["params"]["position"].value("line", -1);
+    const int character = message["params"]["position"].value("character", -1);
+
+    const TextDocument* doc = documents_.find(uri);
+    if (doc == nullptr) {
+        return {makeResponse(id, json{{"isIncomplete", false}, {"items", json::array()}}).dump()};
+    }
+
+    const std::string prefix = prefixAtPosition(doc->text, line, character);
+    const auto callsiteName = callsiteFunctionNameAtPosition(doc->text, line, character);
+    const auto symbols = collectSymbols(documents_);
+    const auto paramsByFunction = collectFunctionParams(documents_);
+
+    const std::vector<std::string> keywords = {
+        "define", "extern", "region", "extend", "match", "shared", "any_age",
+        "true", "false", "always", "never", "and", "or", "not"
+    };
+
+    json items = json::array();
+    std::set<std::string> seen;
+
+    for (const auto& kw : keywords) {
+        if (!startsWithCaseInsensitive(kw, prefix)) {
+            continue;
+        }
+        if (!seen.insert("kw:" + kw).second) {
+            continue;
+        }
+        items.push_back({
+            {"label", kw},
+            {"kind", 14},
+            {"detail", "keyword"},
+        });
+    }
+
+    for (const auto& symbol : symbols) {
+        if (!startsWithCaseInsensitive(symbol.name, prefix)) {
+            continue;
+        }
+        if (!seen.insert("sym:" + symbol.name).second) {
+            continue;
+        }
+        items.push_back({
+            {"label", symbol.name},
+            {"kind", symbol.kind == 12 ? 3 : symbol.kind},
+            {"detail", symbol.detail},
+        });
+    }
+
+    if (callsiteName.has_value()) {
+        auto it = paramsByFunction.find(*callsiteName);
+        if (it != paramsByFunction.end()) {
+            for (const auto& param : it->second) {
+                const std::string label = param + ": ";
+                if (!startsWithCaseInsensitive(param, prefix)) {
+                    continue;
+                }
+                if (!seen.insert("param:" + label).second) {
+                    continue;
+                }
+                items.push_back({
+                    {"label", label},
+                    {"kind", 5},
+                    {"detail", "parameter"},
+                });
+            }
+        }
+    }
+
+    return {
+        makeResponse(id, json{
+            {"isIncomplete", false},
+            {"items", std::move(items)}
+        }).dump()
+    };
+}
+
 std::vector<std::string> LanguageServer::handleDocumentSymbol(bool hasId, const json& id, const json& message) const {
     if (!hasId || !message.contains("params") || !message["params"].contains("textDocument")) {
         return {};
@@ -710,7 +1039,31 @@ std::vector<std::string> LanguageServer::publishDiagnostics(const std::string& u
         return outbound;
     }
 
-    auto file = rls::parser::ParseString(doc->text, uri);
+    rls::ast::File file;
+    try {
+        file = rls::parser::ParseString(doc->text, uri);
+    } catch (const std::exception& e) {
+        trace(TraceLevel::Error, "parse exception", { {"uri", uri}, {"error", e.what()} });
+        const json lspDiagnostics = json::array({
+            {
+                {"range", {
+                    {"start", {{"line", 0}, {"character", 0}}},
+                    {"end", {{"line", 0}, {"character", 0}}},
+                }},
+                {"severity", 1},
+                {"source", "rls"},
+                {"message", std::string("internal parser failure: ") + e.what()},
+            }
+        });
+
+        outbound.push_back(makeNotification(
+            "textDocument/publishDiagnostics",
+            {
+                {"uri", uri},
+                {"diagnostics", lspDiagnostics},
+            }).dump());
+        return outbound;
+    }
 
     std::vector<rls::ast::Diagnostic> diagnostics;
     diagnostics.reserve(file.diagnostics.size());
@@ -730,11 +1083,20 @@ std::vector<std::string> LanguageServer::publishDiagnostics(const std::string& u
         rls::ast::Project project;
         project.files.push_back(std::move(file));
 
-        auto semaDiagnostics = rls::sema::analyze(project);
-        diagnostics.insert(
-            diagnostics.end(),
-            std::make_move_iterator(semaDiagnostics.begin()),
-            std::make_move_iterator(semaDiagnostics.end()));
+        try {
+            auto semaDiagnostics = rls::sema::analyze(project);
+            diagnostics.insert(
+                diagnostics.end(),
+                std::make_move_iterator(semaDiagnostics.begin()),
+                std::make_move_iterator(semaDiagnostics.end()));
+        } catch (const std::exception& e) {
+            trace(TraceLevel::Error, "sema exception", { {"uri", uri}, {"error", e.what()} });
+            diagnostics.push_back({
+                rls::ast::DiagnosticLevel::Error,
+                std::string("internal semantic analysis failure: ") + e.what(),
+                rls::ast::Span{uri, {1, 1}, {1, 1}},
+            });
+        }
     }
 
     json lspDiagnostics = json::array();

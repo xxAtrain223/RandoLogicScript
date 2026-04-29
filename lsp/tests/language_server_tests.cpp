@@ -300,4 +300,70 @@ TEST(LanguageServerTests, WorkspaceSymbolFiltersByQuery) {
     EXPECT_EQ(response["result"][0]["name"], "alpha");
 }
 
+TEST(LanguageServerTests, CompletionReturnsKeywordsAndSymbols) {
+    LanguageServer server;
+    (void)server.handlePayload(R"json({
+        "jsonrpc":"2.0",
+        "method":"textDocument/didOpen",
+        "params":{
+            "textDocument":{
+                "uri":"file:///completion.rls",
+                "languageId":"rls",
+                "version":1,
+                "text":"define alpha(value: Int): value\ndefine beta(): al"
+            }
+        }
+    })json");
+
+    const auto outbound = server.handlePayload(R"json({
+        "jsonrpc":"2.0",
+        "id":31,
+        "method":"textDocument/completion",
+        "params":{
+            "textDocument":{"uri":"file:///completion.rls"},
+            "position":{"line":1,"character":17}
+        }
+    })json");
+
+    ASSERT_EQ(outbound.size(), 1u);
+    const auto response = json::parse(outbound[0]);
+    ASSERT_TRUE(response.contains("result"));
+    ASSERT_TRUE(response["result"].contains("items"));
+    ASSERT_TRUE(response["result"]["items"].is_array());
+
+    bool foundAlpha = false;
+    for (const auto& item : response["result"]["items"]) {
+        if (item.value("label", "") == "alpha") {
+            foundAlpha = true;
+            break;
+        }
+    }
+    EXPECT_TRUE(foundAlpha);
+}
+
+TEST(LanguageServerTests, InvalidRequestReturnsError) {
+    LanguageServer server;
+
+    const auto outbound = server.handlePayload(R"json({
+        "jsonrpc":"2.0",
+        "id":42
+    })json");
+
+    ASSERT_EQ(outbound.size(), 1u);
+    const auto response = json::parse(outbound[0]);
+    ASSERT_TRUE(response.contains("error"));
+    EXPECT_EQ(response["error"]["code"], -32600);
+}
+
+TEST(LanguageServerTests, ParseErrorReturnsJsonRpcError) {
+    LanguageServer server;
+
+    const auto outbound = server.handlePayload("{ this is not valid json");
+
+    ASSERT_EQ(outbound.size(), 1u);
+    const auto response = json::parse(outbound[0]);
+    ASSERT_TRUE(response.contains("error"));
+    EXPECT_EQ(response["error"]["code"], -32700);
+}
+
 } // namespace
