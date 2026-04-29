@@ -48,6 +48,11 @@ private:
     std::vector<std::string> handleDidOpen(const nlohmann::json& message);
     std::vector<std::string> handleDidChange(const nlohmann::json& message);
     std::vector<std::string> handleDidClose(const nlohmann::json& message);
+    std::vector<std::string> handleDefinition(bool hasId, const nlohmann::json& id, const nlohmann::json& message) const;
+    std::vector<std::string> handleReferences(bool hasId, const nlohmann::json& id, const nlohmann::json& message) const;
+    std::vector<std::string> handleHover(bool hasId, const nlohmann::json& id, const nlohmann::json& message) const;
+    std::vector<std::string> handleDocumentSymbol(bool hasId, const nlohmann::json& id, const nlohmann::json& message) const;
+    std::vector<std::string> handleWorkspaceSymbol(bool hasId, const nlohmann::json& id, const nlohmann::json& message) const;
 
     std::vector<std::string> publishDiagnostics(const std::string& uri) const;
 
