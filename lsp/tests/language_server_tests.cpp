@@ -366,4 +366,51 @@ TEST(LanguageServerTests, ParseErrorReturnsJsonRpcError) {
     EXPECT_EQ(response["error"]["code"], -32700);
 }
 
+TEST(LanguageServerTests, DidOpenNormalizesFileUriSlashes) {
+    LanguageServer server;
+
+    const auto outbound = server.handlePayload(R"json({
+        "jsonrpc":"2.0",
+        "method":"textDocument/didOpen",
+        "params":{
+            "textDocument":{
+                "uri":"file:///C:\\tmp\\norm.rls",
+                "languageId":"rls",
+                "version":1,
+                "text":"define foo() true"
+            }
+        }
+    })json");
+
+    ASSERT_EQ(outbound.size(), 1u);
+    const auto notification = json::parse(outbound[0]);
+    EXPECT_EQ(notification["params"]["uri"], "file:///C:/tmp/norm.rls");
+}
+
+TEST(LanguageServerTests, ParseDiagnosticRangeConvertsToZeroBased) {
+    LanguageServer server;
+
+    const auto outbound = server.handlePayload(R"json({
+        "jsonrpc":"2.0",
+        "method":"textDocument/didOpen",
+        "params":{
+            "textDocument":{
+                "uri":"file:///range.rls",
+                "languageId":"rls",
+                "version":1,
+                "text":"define foo() true"
+            }
+        }
+    })json");
+
+    ASSERT_EQ(outbound.size(), 1u);
+    const auto notification = json::parse(outbound[0]);
+    ASSERT_TRUE(notification["params"].contains("diagnostics"));
+    ASSERT_FALSE(notification["params"]["diagnostics"].empty());
+
+    const auto& first = notification["params"]["diagnostics"][0];
+    EXPECT_EQ(first["range"]["start"]["line"], 0);
+    EXPECT_EQ(first["range"]["start"]["character"], 13);
+}
+
 } // namespace

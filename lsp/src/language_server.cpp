@@ -129,6 +129,33 @@ bool isIdentifierChar(char ch) {
     return std::isalnum(uch) || ch == '_';
 }
 
+std::string normalizeUri(std::string uri) {
+    std::replace(uri.begin(), uri.end(), '\\', '/');
+
+    constexpr std::string_view filePrefix = "file://";
+    if (uri.rfind(filePrefix, 0) != 0) {
+        return uri;
+    }
+
+    std::string normalized = std::string(filePrefix);
+    const std::string path = uri.substr(filePrefix.size());
+
+    bool previousWasSlash = false;
+    for (char ch : path) {
+        if (ch == '/') {
+            if (!previousWasSlash) {
+                normalized.push_back(ch);
+            }
+            previousWasSlash = true;
+        } else {
+            normalized.push_back(ch);
+            previousWasSlash = false;
+        }
+    }
+
+    return normalized;
+}
+
 std::optional<size_t> lineStartOffset(const std::string& text, int targetLine) {
     if (targetLine < 0) {
         return std::nullopt;
@@ -465,8 +492,9 @@ bool startsWithCaseInsensitive(const std::string& value, const std::string& pref
 }
 
 json locationFromSpan(const std::string& uri, const rls::ast::Span& span) {
+    const std::string rawUri = span.file.empty() ? uri : span.file;
     return {
-        {"uri", span.file.empty() ? uri : span.file},
+        {"uri", normalizeUri(rawUri)},
         {"range", toLspRange(span)},
     };
 }
@@ -668,7 +696,7 @@ std::vector<std::string> LanguageServer::handleDidOpen(const json& message) {
     }
 
     const json& textDocument = message["params"]["textDocument"];
-    const std::string uri = textDocument.value("uri", "");
+    const std::string uri = normalizeUri(textDocument.value("uri", ""));
     const std::string languageId = textDocument.value("languageId", "");
     const int version = textDocument.value("version", 0);
     const std::string text = textDocument.value("text", "");
@@ -688,7 +716,7 @@ std::vector<std::string> LanguageServer::handleDidChange(const json& message) {
 
     const json& params = message["params"];
     const json& textDocument = params["textDocument"];
-    const std::string uri = textDocument.value("uri", "");
+    const std::string uri = normalizeUri(textDocument.value("uri", ""));
     const int version = textDocument.value("version", 0);
 
     if (uri.empty() || !params.contains("contentChanges") || !params["contentChanges"].is_array()) {
@@ -713,7 +741,7 @@ std::vector<std::string> LanguageServer::handleDidClose(const json& message) {
         return {};
     }
 
-    const std::string uri = message["params"]["textDocument"].value("uri", "");
+    const std::string uri = normalizeUri(message["params"]["textDocument"].value("uri", ""));
     if (uri.empty() || !documents_.close(uri)) {
         return {};
     }
@@ -734,7 +762,7 @@ std::vector<std::string> LanguageServer::handleDefinition(bool hasId, const json
         return {};
     }
 
-    const std::string uri = message["params"]["textDocument"].value("uri", "");
+    const std::string uri = normalizeUri(message["params"]["textDocument"].value("uri", ""));
     const int line = message["params"]["position"].value("line", -1);
     const int character = message["params"]["position"].value("character", -1);
 
@@ -766,7 +794,7 @@ std::vector<std::string> LanguageServer::handleReferences(bool hasId, const json
         return {};
     }
 
-    const std::string uri = message["params"]["textDocument"].value("uri", "");
+    const std::string uri = normalizeUri(message["params"]["textDocument"].value("uri", ""));
     const int line = message["params"]["position"].value("line", -1);
     const int character = message["params"]["position"].value("character", -1);
     const bool includeDeclaration = message["params"].contains("context")
@@ -841,7 +869,7 @@ std::vector<std::string> LanguageServer::handleHover(bool hasId, const json& id,
         return {};
     }
 
-    const std::string uri = message["params"]["textDocument"].value("uri", "");
+    const std::string uri = normalizeUri(message["params"]["textDocument"].value("uri", ""));
     const int line = message["params"]["position"].value("line", -1);
     const int character = message["params"]["position"].value("character", -1);
 
@@ -881,7 +909,7 @@ std::vector<std::string> LanguageServer::handleCompletion(bool hasId, const json
         return {};
     }
 
-    const std::string uri = message["params"]["textDocument"].value("uri", "");
+    const std::string uri = normalizeUri(message["params"]["textDocument"].value("uri", ""));
     const int line = message["params"]["position"].value("line", -1);
     const int character = message["params"]["position"].value("character", -1);
 
@@ -964,7 +992,7 @@ std::vector<std::string> LanguageServer::handleDocumentSymbol(bool hasId, const 
         return {};
     }
 
-    const std::string uri = message["params"]["textDocument"].value("uri", "");
+    const std::string uri = normalizeUri(message["params"]["textDocument"].value("uri", ""));
     const TextDocument* doc = documents_.find(uri);
     if (doc == nullptr) {
         return {makeResponse(id, json::array()).dump()};
