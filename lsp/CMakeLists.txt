@@ -1,3 +1,10 @@
+FetchContent_Declare(
+    nlohmann_json
+    GIT_REPOSITORY https://github.com/nlohmann/json.git
+    GIT_TAG v3.11.3
+)
+FetchContent_MakeAvailable(nlohmann_json)
+
 file(GLOB lsp_sources CONFIGURE_DEPENDS
     "${CMAKE_CURRENT_SOURCE_DIR}/src/*.cpp"
 )
@@ -5,7 +12,7 @@ file(GLOB lsp_sources CONFIGURE_DEPENDS
 add_library(rls_lsp STATIC ${lsp_sources})
 
 target_include_directories(rls_lsp PUBLIC include)
-target_link_libraries(rls_lsp PUBLIC ast parser sema)
+target_link_libraries(rls_lsp PUBLIC ast parser sema nlohmann_json::nlohmann_json)
 
 add_executable(rls_language_server
     main.cpp
