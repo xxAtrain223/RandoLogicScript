@@ -15,7 +15,7 @@ def set_region_rules(world: "SohWorld") -> None:
     ])
     # Exits
     connect_regions(Regions.RR_ADULT_SPAWN, world, [
-        (Regions.RR_TEMPLE_OF_TIME, True),
+        (Regions.RR_TEMPLE_OF_TIME, lambda bundle: True),
     ])
 
     # Bolero of Fire Warp
@@ -27,7 +27,7 @@ def set_region_rules(world: "SohWorld") -> None:
     ])
     # Exits
     connect_regions(Regions.RR_BOLERO_OF_FIRE_WARP, world, [
-        (Regions.RR_DMC_PAD_ENTRY, True),
+        (Regions.RR_DMC_PAD_ENTRY, lambda bundle: True),
     ])
 
     # Child Spawn
@@ -39,7 +39,7 @@ def set_region_rules(world: "SohWorld") -> None:
     ])
     # Exits
     connect_regions(Regions.RR_CHILD_SPAWN, world, [
-        (Regions.RR_KF_LINKS_HOUSE, True),
+        (Regions.RR_KF_LINKS_HOUSE, lambda bundle: True),
     ])
 
     # KF Boulder Loop
@@ -48,16 +48,16 @@ def set_region_rules(world: "SohWorld") -> None:
     ])
     # Locations
     add_locations(Regions.RR_KF_BOULDER_LOOP, world, [
-        (Locations.RC_KF_KOKIRI_SWORD_CHEST, is_child() and has(RG_OPEN_CHEST)),
-        (Locations.RC_KF_CHILD_GRASS_MAZE_1, is_child() and can_cut_shrubs()),
-        (Locations.RC_KF_CHILD_GRASS_MAZE_2, is_child() and can_cut_shrubs()),
-        (Locations.RC_KF_CHILD_GRASS_MAZE_3, is_child() and can_cut_shrubs()),
-        (Locations.RC_KF_BOULDER_RUPEE_1, is_child()),
-        (Locations.RC_KF_BOULDER_RUPEE_2, is_child()),
+        (Locations.RC_KF_KOKIRI_SWORD_CHEST, lambda bundle: is_child() and has(RG_OPEN_CHEST)),
+        (Locations.RC_KF_CHILD_GRASS_MAZE_1, lambda bundle: is_child() and can_cut_shrubs()),
+        (Locations.RC_KF_CHILD_GRASS_MAZE_2, lambda bundle: is_child() and can_cut_shrubs()),
+        (Locations.RC_KF_CHILD_GRASS_MAZE_3, lambda bundle: is_child() and can_cut_shrubs()),
+        (Locations.RC_KF_BOULDER_RUPEE_1, lambda bundle: is_child()),
+        (Locations.RC_KF_BOULDER_RUPEE_2, lambda bundle: is_child()),
     ])
     # Exits
     connect_regions(Regions.RR_KF_BOULDER_LOOP, world, [
-        (Regions.RR_KOKIRI_FOREST, can_use(RG_CRAWL)),
+        (Regions.RR_KOKIRI_FOREST, lambda bundle: can_use(RG_CRAWL)),
     ])
 
     # KF House of Twins
@@ -66,12 +66,12 @@ def set_region_rules(world: "SohWorld") -> None:
     ])
     # Locations
     add_locations(Regions.RR_KF_HOUSE_OF_TWINS, world, [
-        (Locations.RC_KF_TWINS_HOUSE_POT_1, has(RG_POWER_BRACELET)),
-        (Locations.RC_KF_TWINS_HOUSE_POT_2, has(RG_POWER_BRACELET)),
+        (Locations.RC_KF_TWINS_HOUSE_POT_1, lambda bundle: has(RG_POWER_BRACELET)),
+        (Locations.RC_KF_TWINS_HOUSE_POT_2, lambda bundle: has(RG_POWER_BRACELET)),
     ])
     # Exits
     connect_regions(Regions.RR_KF_HOUSE_OF_TWINS, world, [
-        (Regions.RR_KOKIRI_FOREST, True),
+        (Regions.RR_KOKIRI_FOREST, lambda bundle: True),
     ])
 
     # KF Know It All House
@@ -80,12 +80,12 @@ def set_region_rules(world: "SohWorld") -> None:
     ])
     # Locations
     add_locations(Regions.RR_KF_KNOW_IT_ALL_HOUSE, world, [
-        (Locations.RC_KF_BROTHERS_HOUSE_POT_1, has(RG_POWER_BRACELET)),
-        (Locations.RC_KF_BROTHERS_HOUSE_POT_2, has(RG_POWER_BRACELET)),
+        (Locations.RC_KF_BROTHERS_HOUSE_POT_1, lambda bundle: has(RG_POWER_BRACELET)),
+        (Locations.RC_KF_BROTHERS_HOUSE_POT_2, lambda bundle: has(RG_POWER_BRACELET)),
     ])
     # Exits
     connect_regions(Regions.RR_KF_KNOW_IT_ALL_HOUSE, world, [
-        (Regions.RR_KOKIRI_FOREST, True),
+        (Regions.RR_KOKIRI_FOREST, lambda bundle: True),
     ])
 
     # KF Kokiri Shop
@@ -94,18 +94,18 @@ def set_region_rules(world: "SohWorld") -> None:
     ])
     # Locations
     add_locations(Regions.RR_KF_KOKIRI_SHOP, world, [
-        (Locations.RC_KF_SHOP_ITEM_1, has(RG_SPEAK_KOKIRI) and check_price(RC_UNKNOWN_CHECK) <= wallet_capacity()),
-        (Locations.RC_KF_SHOP_ITEM_2, has(RG_SPEAK_KOKIRI) and check_price(RC_UNKNOWN_CHECK) <= wallet_capacity()),
-        (Locations.RC_KF_SHOP_ITEM_3, has(RG_SPEAK_KOKIRI) and check_price(RC_UNKNOWN_CHECK) <= wallet_capacity()),
-        (Locations.RC_KF_SHOP_ITEM_4, has(RG_SPEAK_KOKIRI) and check_price(RC_UNKNOWN_CHECK) <= wallet_capacity()),
-        (Locations.RC_KF_SHOP_ITEM_5, has(RG_SPEAK_KOKIRI) and check_price(RC_UNKNOWN_CHECK) <= wallet_capacity()),
-        (Locations.RC_KF_SHOP_ITEM_6, has(RG_SPEAK_KOKIRI) and check_price(RC_UNKNOWN_CHECK) <= wallet_capacity()),
-        (Locations.RC_KF_SHOP_ITEM_7, has(RG_SPEAK_KOKIRI) and check_price(RC_UNKNOWN_CHECK) <= wallet_capacity()),
-        (Locations.RC_KF_SHOP_ITEM_8, has(RG_SPEAK_KOKIRI) and check_price(RC_UNKNOWN_CHECK) <= wallet_capacity()),
+        (Locations.RC_KF_SHOP_ITEM_1, lambda bundle: has(RG_SPEAK_KOKIRI) and check_price(RC_UNKNOWN_CHECK) <= wallet_capacity()),
+        (Locations.RC_KF_SHOP_ITEM_2, lambda bundle: has(RG_SPEAK_KOKIRI) and check_price(RC_UNKNOWN_CHECK) <= wallet_capacity()),
+        (Locations.RC_KF_SHOP_ITEM_3, lambda bundle: has(RG_SPEAK_KOKIRI) and check_price(RC_UNKNOWN_CHECK) <= wallet_capacity()),
+        (Locations.RC_KF_SHOP_ITEM_4, lambda bundle: has(RG_SPEAK_KOKIRI) and check_price(RC_UNKNOWN_CHECK) <= wallet_capacity()),
+        (Locations.RC_KF_SHOP_ITEM_5, lambda bundle: has(RG_SPEAK_KOKIRI) and check_price(RC_UNKNOWN_CHECK) <= wallet_capacity()),
+        (Locations.RC_KF_SHOP_ITEM_6, lambda bundle: has(RG_SPEAK_KOKIRI) and check_price(RC_UNKNOWN_CHECK) <= wallet_capacity()),
+        (Locations.RC_KF_SHOP_ITEM_7, lambda bundle: has(RG_SPEAK_KOKIRI) and check_price(RC_UNKNOWN_CHECK) <= wallet_capacity()),
+        (Locations.RC_KF_SHOP_ITEM_8, lambda bundle: has(RG_SPEAK_KOKIRI) and check_price(RC_UNKNOWN_CHECK) <= wallet_capacity()),
     ])
     # Exits
     connect_regions(Regions.RR_KF_KOKIRI_SHOP, world, [
-        (Regions.RR_KOKIRI_FOREST, True),
+        (Regions.RR_KOKIRI_FOREST, lambda bundle: True),
     ])
 
     # KF Link's House
@@ -114,12 +114,12 @@ def set_region_rules(world: "SohWorld") -> None:
     ])
     # Locations
     add_locations(Regions.RR_KF_LINKS_HOUSE, world, [
-        (Locations.RC_KF_LINKS_HOUSE_POT, has(RG_POWER_BRACELET)),
-        (Locations.RC_KF_LINKS_HOUSE_COW, is_adult() and can_use(RG_EPONAS_SONG) and flag(LOGIC_LINKS_COW)),
+        (Locations.RC_KF_LINKS_HOUSE_POT, lambda bundle: has(RG_POWER_BRACELET)),
+        (Locations.RC_KF_LINKS_HOUSE_COW, lambda bundle: is_adult() and can_use(RG_EPONAS_SONG) and flag(LOGIC_LINKS_COW)),
     ])
     # Exits
     connect_regions(Regions.RR_KF_LINKS_HOUSE, world, [
-        (Regions.RR_KF_LINKS_PORCH, True),
+        (Regions.RR_KF_LINKS_PORCH, lambda bundle: True),
     ])
 
     # KF Link's Porch
@@ -131,8 +131,8 @@ def set_region_rules(world: "SohWorld") -> None:
     ])
     # Exits
     connect_regions(Regions.RR_KF_LINKS_PORCH, world, [
-        (Regions.RR_KF_LINKS_HOUSE, True),
-        (Regions.RR_KOKIRI_FOREST, True),
+        (Regions.RR_KF_LINKS_HOUSE, lambda bundle: True),
+        (Regions.RR_KOKIRI_FOREST, lambda bundle: True),
     ])
 
     # KF Mido's House
@@ -141,37 +141,37 @@ def set_region_rules(world: "SohWorld") -> None:
     ])
     # Locations
     add_locations(Regions.RR_KF_MIDOS_HOUSE, world, [
-        (Locations.RC_KF_MIDOS_TOP_LEFT_CHEST, has(RG_OPEN_CHEST)),
-        (Locations.RC_KF_MIDOS_TOP_RIGHT_CHEST, has(RG_OPEN_CHEST)),
-        (Locations.RC_KF_MIDOS_BOTTOM_LEFT_CHEST, has(RG_OPEN_CHEST)),
-        (Locations.RC_KF_MIDOS_BOTTOM_RIGHT_CHEST, has(RG_OPEN_CHEST)),
+        (Locations.RC_KF_MIDOS_TOP_LEFT_CHEST, lambda bundle: has(RG_OPEN_CHEST)),
+        (Locations.RC_KF_MIDOS_TOP_RIGHT_CHEST, lambda bundle: has(RG_OPEN_CHEST)),
+        (Locations.RC_KF_MIDOS_BOTTOM_LEFT_CHEST, lambda bundle: has(RG_OPEN_CHEST)),
+        (Locations.RC_KF_MIDOS_BOTTOM_RIGHT_CHEST, lambda bundle: has(RG_OPEN_CHEST)),
     ])
     # Exits
     connect_regions(Regions.RR_KF_MIDOS_HOUSE, world, [
-        (Regions.RR_KOKIRI_FOREST, True),
+        (Regions.RR_KOKIRI_FOREST, lambda bundle: True),
     ])
 
     # KF Outside Deku Tree
     # Events
     add_events(Regions.RR_KF_OUTSIDE_DEKU_TREE, world, [
-        (EventLocations.LOGIC_STICK_ACCESS, can_get_deku_baba_sticks()),
-        (EventLocations.LOGIC_NUT_ACCESS, can_get_deku_baba_nuts()),
-        (EventLocations.LOGIC_FAIRY_ACCESS, call_gossip_fairy_except_suns()),
-        (EventLocations.LOGIC_SHOWED_MIDO_SWORD_AND_SHIELD, is_child() and has(RG_SPEAK_KOKIRI) and can_use(RG_KOKIRI_SWORD) and can_use(RG_DEKU_SHIELD)),
+        (EventLocations.LOGIC_STICK_ACCESS, lambda bundle: can_get_deku_baba_sticks()),
+        (EventLocations.LOGIC_NUT_ACCESS, lambda bundle: can_get_deku_baba_nuts()),
+        (EventLocations.LOGIC_FAIRY_ACCESS, lambda bundle: call_gossip_fairy_except_suns()),
+        (EventLocations.LOGIC_SHOWED_MIDO_SWORD_AND_SHIELD, lambda bundle: is_child() and has(RG_SPEAK_KOKIRI) and can_use(RG_KOKIRI_SWORD) and can_use(RG_DEKU_SHIELD)),
     ])
     # Locations
     add_locations(Regions.RR_KF_OUTSIDE_DEKU_TREE, world, [
-        (Locations.RC_KF_DEKU_TREE_LEFT_GOSSIP_STONE, True),
-        (Locations.RC_KF_DEKU_TREE_RIGHT_GOSSIP_STONE, True),
-        (Locations.RC_KF_DEKU_TREE_LEFT_GOSSIP_STONE_FAIRY, call_gossip_fairy_except_suns()),
-        (Locations.RC_KF_DEKU_TREE_LEFT_GOSSIP_STONE_FAIRY_BIG, can_use(RG_SONG_OF_STORMS)),
-        (Locations.RC_KF_DEKU_TREE_RIGHT_GOSSIP_STONE_FAIRY, call_gossip_fairy_except_suns()),
-        (Locations.RC_KF_DEKU_TREE_RIGHT_GOSSIP_STONE_FAIRY_BIG, can_use(RG_SONG_OF_STORMS)),
+        (Locations.RC_KF_DEKU_TREE_LEFT_GOSSIP_STONE, lambda bundle: True),
+        (Locations.RC_KF_DEKU_TREE_RIGHT_GOSSIP_STONE, lambda bundle: True),
+        (Locations.RC_KF_DEKU_TREE_LEFT_GOSSIP_STONE_FAIRY, lambda bundle: call_gossip_fairy_except_suns()),
+        (Locations.RC_KF_DEKU_TREE_LEFT_GOSSIP_STONE_FAIRY_BIG, lambda bundle: can_use(RG_SONG_OF_STORMS)),
+        (Locations.RC_KF_DEKU_TREE_RIGHT_GOSSIP_STONE_FAIRY, lambda bundle: call_gossip_fairy_except_suns()),
+        (Locations.RC_KF_DEKU_TREE_RIGHT_GOSSIP_STONE_FAIRY_BIG, lambda bundle: can_use(RG_SONG_OF_STORMS)),
     ])
     # Exits
     connect_regions(Regions.RR_KF_OUTSIDE_DEKU_TREE, world, [
-        (Regions.RR_DEKU_TREE_ENTRYWAY, is_child() or setting(RSK_SHUFFLE_DUNGEON_ENTRANCES) != RO_DUNGEON_ENTRANCE_SHUFFLE_OFF and (setting(RSK_FOREST) == RO_CLOSED_FOREST_OFF or flag(LOGIC_SHOWED_MIDO_SWORD_AND_SHIELD))),
-        (Regions.RR_KOKIRI_FOREST, is_adult() and (can_pass(RE_BIG_SKULLTULA, ED_CLOSE, True) or flag(LOGIC_DEKU_TREE_CLEAR)) or setting(RSK_FOREST) == RO_CLOSED_FOREST_OFF or flag(LOGIC_SHOWED_MIDO_SWORD_AND_SHIELD)),
+        (Regions.RR_DEKU_TREE_ENTRYWAY, lambda bundle: is_child() or setting(RSK_SHUFFLE_DUNGEON_ENTRANCES) != RO_DUNGEON_ENTRANCE_SHUFFLE_OFF and (setting(RSK_FOREST) == RO_CLOSED_FOREST_OFF or flag(LOGIC_SHOWED_MIDO_SWORD_AND_SHIELD))),
+        (Regions.RR_KOKIRI_FOREST, lambda bundle: is_adult() and (can_pass(RE_BIG_SKULLTULA, ED_CLOSE, True) or flag(LOGIC_DEKU_TREE_CLEAR)) or setting(RSK_FOREST) == RO_CLOSED_FOREST_OFF or flag(LOGIC_SHOWED_MIDO_SWORD_AND_SHIELD)),
     ])
 
     # KF Outside Lost Woods
@@ -180,23 +180,23 @@ def set_region_rules(world: "SohWorld") -> None:
     ])
     # Locations
     add_locations(Regions.RR_KF_OUTSIDE_LOST_WOODS, world, [
-        (Locations.RC_KF_GOSSIP_STONE, True),
-        (Locations.RC_KF_BEAN_RUPEE_1, is_adult() and can_use(RG_BOOMERANG)),
-        (Locations.RC_KF_BEAN_RUPEE_2, is_adult() and can_use(RG_BOOMERANG)),
-        (Locations.RC_KF_BEAN_RUPEE_3, is_adult() and can_use(RG_BOOMERANG)),
-        (Locations.RC_KF_BEAN_RUPEE_4, is_adult() and can_use(RG_BOOMERANG)),
-        (Locations.RC_KF_BEAN_RUPEE_5, is_adult() and can_use(RG_BOOMERANG)),
-        (Locations.RC_KF_BEAN_RUPEE_6, is_adult() and can_use(RG_BOOMERANG)),
-        (Locations.RC_KF_BEAN_RED_RUPEE, is_adult() and can_use(RG_BOOMERANG)),
-        (Locations.RC_KF_GOSSIP_STONE_FAIRY, call_gossip_fairy_except_suns()),
-        (Locations.RC_KF_GOSSIP_STONE_FAIRY_BIG, can_use(RG_SONG_OF_STORMS)),
+        (Locations.RC_KF_GOSSIP_STONE, lambda bundle: True),
+        (Locations.RC_KF_BEAN_RUPEE_1, lambda bundle: is_adult() and can_use(RG_BOOMERANG)),
+        (Locations.RC_KF_BEAN_RUPEE_2, lambda bundle: is_adult() and can_use(RG_BOOMERANG)),
+        (Locations.RC_KF_BEAN_RUPEE_3, lambda bundle: is_adult() and can_use(RG_BOOMERANG)),
+        (Locations.RC_KF_BEAN_RUPEE_4, lambda bundle: is_adult() and can_use(RG_BOOMERANG)),
+        (Locations.RC_KF_BEAN_RUPEE_5, lambda bundle: is_adult() and can_use(RG_BOOMERANG)),
+        (Locations.RC_KF_BEAN_RUPEE_6, lambda bundle: is_adult() and can_use(RG_BOOMERANG)),
+        (Locations.RC_KF_BEAN_RED_RUPEE, lambda bundle: is_adult() and can_use(RG_BOOMERANG)),
+        (Locations.RC_KF_GOSSIP_STONE_FAIRY, lambda bundle: call_gossip_fairy_except_suns()),
+        (Locations.RC_KF_GOSSIP_STONE_FAIRY_BIG, lambda bundle: can_use(RG_SONG_OF_STORMS)),
     ])
     # Exits
     connect_regions(Regions.RR_KF_OUTSIDE_LOST_WOODS, world, [
-        (Regions.RR_KOKIRI_FOREST, True),
-        (Regions.RR_THE_LOST_WOODS, True),
-        (Regions.RR_KF_RUPEE_ALCOVE, is_adult() and (can_plant_bean(RR_KOKIRI_FOREST, RG_KOKIRI_FOREST_BEAN_SOUL) or can_use(RG_HOVER_BOOTS))),
-        (Regions.RR_KF_STORMS_GROTTO, can_open_storms_grotto()),
+        (Regions.RR_KOKIRI_FOREST, lambda bundle: True),
+        (Regions.RR_THE_LOST_WOODS, lambda bundle: True),
+        (Regions.RR_KF_RUPEE_ALCOVE, lambda bundle: is_adult() and (can_plant_bean(RR_KOKIRI_FOREST, RG_KOKIRI_FOREST_BEAN_SOUL) or can_use(RG_HOVER_BOOTS))),
+        (Regions.RR_KF_STORMS_GROTTO, lambda bundle: can_open_storms_grotto()),
     ])
 
     # KF Alcove
@@ -205,17 +205,17 @@ def set_region_rules(world: "SohWorld") -> None:
     ])
     # Locations
     add_locations(Regions.RR_KF_RUPEE_ALCOVE, world, [
-        (Locations.RC_KF_BEAN_RUPEE_1, is_adult() and can_use(RG_HOVER_BOOTS)),
-        (Locations.RC_KF_BEAN_RUPEE_2, is_adult() and can_use(RG_HOVER_BOOTS)),
-        (Locations.RC_KF_BEAN_RUPEE_3, is_adult() and can_use(RG_HOVER_BOOTS)),
-        (Locations.RC_KF_BEAN_RUPEE_4, is_adult() and can_use(RG_HOVER_BOOTS)),
-        (Locations.RC_KF_BEAN_RUPEE_5, is_adult() and can_use(RG_HOVER_BOOTS)),
-        (Locations.RC_KF_BEAN_RUPEE_6, is_adult() and can_use(RG_HOVER_BOOTS)),
-        (Locations.RC_KF_BEAN_RED_RUPEE, is_adult() and can_use(RG_HOVER_BOOTS)),
+        (Locations.RC_KF_BEAN_RUPEE_1, lambda bundle: is_adult() and can_use(RG_HOVER_BOOTS)),
+        (Locations.RC_KF_BEAN_RUPEE_2, lambda bundle: is_adult() and can_use(RG_HOVER_BOOTS)),
+        (Locations.RC_KF_BEAN_RUPEE_3, lambda bundle: is_adult() and can_use(RG_HOVER_BOOTS)),
+        (Locations.RC_KF_BEAN_RUPEE_4, lambda bundle: is_adult() and can_use(RG_HOVER_BOOTS)),
+        (Locations.RC_KF_BEAN_RUPEE_5, lambda bundle: is_adult() and can_use(RG_HOVER_BOOTS)),
+        (Locations.RC_KF_BEAN_RUPEE_6, lambda bundle: is_adult() and can_use(RG_HOVER_BOOTS)),
+        (Locations.RC_KF_BEAN_RED_RUPEE, lambda bundle: is_adult() and can_use(RG_HOVER_BOOTS)),
     ])
     # Exits
     connect_regions(Regions.RR_KF_RUPEE_ALCOVE, world, [
-        (Regions.RR_KOKIRI_FOREST, True),
+        (Regions.RR_KOKIRI_FOREST, lambda bundle: True),
     ])
 
     # KF Saria's House
@@ -224,118 +224,118 @@ def set_region_rules(world: "SohWorld") -> None:
     ])
     # Locations
     add_locations(Regions.RR_KF_SARIAS_HOUSE, world, [
-        (Locations.RC_KF_SARIAS_TOP_LEFT_HEART, True),
-        (Locations.RC_KF_SARIAS_TOP_RIGHT_HEART, True),
-        (Locations.RC_KF_SARIAS_BOTTOM_LEFT_HEART, True),
-        (Locations.RC_KF_SARIAS_BOTTOM_RIGHT_HEART, True),
+        (Locations.RC_KF_SARIAS_TOP_LEFT_HEART, lambda bundle: True),
+        (Locations.RC_KF_SARIAS_TOP_RIGHT_HEART, lambda bundle: True),
+        (Locations.RC_KF_SARIAS_BOTTOM_LEFT_HEART, lambda bundle: True),
+        (Locations.RC_KF_SARIAS_BOTTOM_RIGHT_HEART, lambda bundle: True),
     ])
     # Exits
     connect_regions(Regions.RR_KF_SARIAS_HOUSE, world, [
-        (Regions.RR_KOKIRI_FOREST, True),
+        (Regions.RR_KOKIRI_FOREST, lambda bundle: True),
     ])
 
     # KF Storms Grotto
     # Events
     add_events(Regions.RR_KF_STORMS_GROTTO, world, [
-        (EventLocations.LOGIC_FAIRY_ACCESS, call_gossip_fairy() or can_use(RG_STICKS)),
-        (EventLocations.LOGIC_BUG_ACCESS, can_cut_shrubs()),
-        (EventLocations.LOGIC_FISH_ACCESS, True),
+        (EventLocations.LOGIC_FAIRY_ACCESS, lambda bundle: call_gossip_fairy() or can_use(RG_STICKS)),
+        (EventLocations.LOGIC_BUG_ACCESS, lambda bundle: can_cut_shrubs()),
+        (EventLocations.LOGIC_FISH_ACCESS, lambda bundle: True),
     ])
     # Locations
     add_locations(Regions.RR_KF_STORMS_GROTTO, world, [
-        (Locations.RC_KF_STORMS_GROTTO_CHEST, has(RG_OPEN_CHEST)),
-        (Locations.RC_KF_STORMS_GROTTO_GOSSIP_STONE, True),
-        (Locations.RC_KF_STORMS_GROTTO_BEEHIVE_LEFT, can_break_lower_beehives()),
-        (Locations.RC_KF_STORMS_GROTTO_BEEHIVE_RIGHT, can_break_lower_beehives()),
-        (Locations.RC_KF_STORMS_GROTTO_FISH, has_bottle()),
-        (Locations.RC_KF_STORMS_GROTTO_GOSSIP_STONE_FAIRY, call_gossip_fairy()),
-        (Locations.RC_KF_STORMS_GROTTO_GOSSIP_STONE_FAIRY_BIG, can_use(RG_SONG_OF_STORMS)),
-        (Locations.RC_KF_STORMS_GROTTO_GRASS_1, can_cut_shrubs()),
-        (Locations.RC_KF_STORMS_GROTTO_GRASS_2, can_cut_shrubs()),
-        (Locations.RC_KF_STORMS_GROTTO_GRASS_3, can_cut_shrubs()),
-        (Locations.RC_KF_STORMS_GROTTO_GRASS_4, can_cut_shrubs()),
+        (Locations.RC_KF_STORMS_GROTTO_CHEST, lambda bundle: has(RG_OPEN_CHEST)),
+        (Locations.RC_KF_STORMS_GROTTO_GOSSIP_STONE, lambda bundle: True),
+        (Locations.RC_KF_STORMS_GROTTO_BEEHIVE_LEFT, lambda bundle: can_break_lower_beehives()),
+        (Locations.RC_KF_STORMS_GROTTO_BEEHIVE_RIGHT, lambda bundle: can_break_lower_beehives()),
+        (Locations.RC_KF_STORMS_GROTTO_FISH, lambda bundle: has_bottle()),
+        (Locations.RC_KF_STORMS_GROTTO_GOSSIP_STONE_FAIRY, lambda bundle: call_gossip_fairy()),
+        (Locations.RC_KF_STORMS_GROTTO_GOSSIP_STONE_FAIRY_BIG, lambda bundle: can_use(RG_SONG_OF_STORMS)),
+        (Locations.RC_KF_STORMS_GROTTO_GRASS_1, lambda bundle: can_cut_shrubs()),
+        (Locations.RC_KF_STORMS_GROTTO_GRASS_2, lambda bundle: can_cut_shrubs()),
+        (Locations.RC_KF_STORMS_GROTTO_GRASS_3, lambda bundle: can_cut_shrubs()),
+        (Locations.RC_KF_STORMS_GROTTO_GRASS_4, lambda bundle: can_cut_shrubs()),
     ])
     # Exits
     connect_regions(Regions.RR_KF_STORMS_GROTTO, world, [
-        (Regions.RR_KF_OUTSIDE_LOST_WOODS, True),
+        (Regions.RR_KF_OUTSIDE_LOST_WOODS, lambda bundle: True),
     ])
 
     # Kokiri Forest
     # Events
     add_events(Regions.RR_KOKIRI_FOREST, world, [
-        (EventLocations.LOGIC_FAIRY_ACCESS, call_gossip_fairy_except_suns() or is_child() and can_use(RG_MAGIC_BEAN) and has(RG_KOKIRI_FOREST_BEAN_SOUL) and can_use(RG_SONG_OF_STORMS)),
-        (EventLocations.LOGIC_SHOWED_MIDO_SWORD_AND_SHIELD, is_child() and has(RG_SPEAK_KOKIRI) and can_use(RG_KOKIRI_SWORD) and can_use(RG_DEKU_SHIELD)),
+        (EventLocations.LOGIC_FAIRY_ACCESS, lambda bundle: call_gossip_fairy_except_suns() or is_child() and can_use(RG_MAGIC_BEAN) and has(RG_KOKIRI_FOREST_BEAN_SOUL) and can_use(RG_SONG_OF_STORMS)),
+        (EventLocations.LOGIC_SHOWED_MIDO_SWORD_AND_SHIELD, lambda bundle: is_child() and has(RG_SPEAK_KOKIRI) and can_use(RG_KOKIRI_SWORD) and can_use(RG_DEKU_SHIELD)),
     ])
     # Locations
     add_locations(Regions.RR_KOKIRI_FOREST, world, [
-        (Locations.RC_KF_CHILD_GRASS_1, is_child() and can_cut_shrubs()),
-        (Locations.RC_KF_CHILD_GRASS_2, is_child() and can_cut_shrubs()),
-        (Locations.RC_KF_CHILD_GRASS_3, is_child() and can_cut_shrubs()),
-        (Locations.RC_KF_CHILD_GRASS_4, is_child() and can_cut_shrubs()),
-        (Locations.RC_KF_CHILD_GRASS_5, is_child() and can_cut_shrubs()),
-        (Locations.RC_KF_CHILD_GRASS_6, is_child() and can_cut_shrubs()),
-        (Locations.RC_KF_CHILD_GRASS_7, is_child() and can_cut_shrubs()),
-        (Locations.RC_KF_CHILD_GRASS_8, is_child() and can_cut_shrubs()),
-        (Locations.RC_KF_CHILD_GRASS_9, is_child() and can_cut_shrubs()),
-        (Locations.RC_KF_CHILD_GRASS_10, is_child() and can_cut_shrubs()),
-        (Locations.RC_KF_CHILD_GRASS_11, is_child() and can_cut_shrubs()),
-        (Locations.RC_KF_CHILD_GRASS_12, is_child() and can_cut_shrubs()),
-        (Locations.RC_KF_ADULT_GRASS_1, is_adult() and can_cut_shrubs()),
-        (Locations.RC_KF_ADULT_GRASS_2, is_adult() and can_cut_shrubs()),
-        (Locations.RC_KF_ADULT_GRASS_3, is_adult() and can_cut_shrubs()),
-        (Locations.RC_KF_ADULT_GRASS_4, is_adult() and can_cut_shrubs()),
-        (Locations.RC_KF_ADULT_GRASS_5, is_adult() and can_cut_shrubs()),
-        (Locations.RC_KF_ADULT_GRASS_6, is_adult() and can_cut_shrubs()),
-        (Locations.RC_KF_ADULT_GRASS_7, is_adult() and can_cut_shrubs()),
-        (Locations.RC_KF_ADULT_GRASS_8, is_adult() and can_cut_shrubs()),
-        (Locations.RC_KF_ADULT_GRASS_9, is_adult() and can_cut_shrubs()),
-        (Locations.RC_KF_ADULT_GRASS_10, is_adult() and can_cut_shrubs()),
-        (Locations.RC_KF_ADULT_GRASS_11, is_adult() and can_cut_shrubs()),
-        (Locations.RC_KF_ADULT_GRASS_12, is_adult() and can_cut_shrubs()),
-        (Locations.RC_KF_ADULT_GRASS_13, is_adult() and can_cut_shrubs()),
-        (Locations.RC_KF_ADULT_GRASS_14, is_adult() and can_cut_shrubs()),
-        (Locations.RC_KF_ADULT_GRASS_15, is_adult() and can_cut_shrubs()),
-        (Locations.RC_KF_ADULT_GRASS_16, is_adult() and can_cut_shrubs()),
-        (Locations.RC_KF_ADULT_GRASS_17, is_adult() and can_cut_shrubs()),
-        (Locations.RC_KF_ADULT_GRASS_18, is_adult() and can_cut_shrubs()),
-        (Locations.RC_KF_ADULT_GRASS_19, is_adult() and can_cut_shrubs()),
-        (Locations.RC_KF_ADULT_GRASS_20, is_adult() and can_cut_shrubs()),
-        (Locations.RC_KF_BRIDGE_RUPEE, is_child()),
-        (Locations.RC_KF_BEHIND_MIDOS_RUPEE, is_child()),
-        (Locations.RC_KF_SOUTH_GRASS_WEST_RUPEE, is_child()),
-        (Locations.RC_KF_SOUTH_GRASS_EAST_RUPEE, is_child()),
-        (Locations.RC_KF_NORTH_GRASS_WEST_RUPEE, is_child()),
-        (Locations.RC_KF_NORTH_GRASS_EAST_RUPEE, is_child()),
-        (Locations.RC_KF_SARIAS_ROOF_WEST_HEART, is_child()),
-        (Locations.RC_KF_SARIAS_ROOF_EAST_HEART, is_child()),
-        (Locations.RC_KF_SARIAS_ROOF_NORTH_HEART, is_child()),
-        (Locations.RC_KF_BEAN_RUPEE_1, is_adult() and (can_plant_bean(RR_KOKIRI_FOREST, RG_KOKIRI_FOREST_BEAN_SOUL) or can_use(RG_HOVER_BOOTS) or can_use(RG_BOOMERANG))),
-        (Locations.RC_KF_BEAN_RUPEE_2, is_adult() and (can_plant_bean(RR_KOKIRI_FOREST, RG_KOKIRI_FOREST_BEAN_SOUL) or can_use(RG_HOVER_BOOTS) or can_use(RG_BOOMERANG))),
-        (Locations.RC_KF_BEAN_RUPEE_3, is_adult() and (can_plant_bean(RR_KOKIRI_FOREST, RG_KOKIRI_FOREST_BEAN_SOUL) or can_use(RG_HOVER_BOOTS) or can_use(RG_BOOMERANG))),
-        (Locations.RC_KF_BEAN_RUPEE_4, is_adult() and (can_plant_bean(RR_KOKIRI_FOREST, RG_KOKIRI_FOREST_BEAN_SOUL) or can_use(RG_HOVER_BOOTS) or can_use(RG_BOOMERANG))),
-        (Locations.RC_KF_BEAN_RUPEE_5, is_adult() and (can_plant_bean(RR_KOKIRI_FOREST, RG_KOKIRI_FOREST_BEAN_SOUL) or can_use(RG_HOVER_BOOTS) or can_use(RG_BOOMERANG))),
-        (Locations.RC_KF_BEAN_RUPEE_6, is_adult() and (can_plant_bean(RR_KOKIRI_FOREST, RG_KOKIRI_FOREST_BEAN_SOUL) or can_use(RG_HOVER_BOOTS) or can_use(RG_BOOMERANG))),
-        (Locations.RC_KF_BEAN_RED_RUPEE, is_adult() and (can_plant_bean(RR_KOKIRI_FOREST, RG_KOKIRI_FOREST_BEAN_SOUL) or can_use(RG_HOVER_BOOTS) or can_use(RG_BOOMERANG))),
-        (Locations.RC_KF_GS_KNOW_IT_ALL_HOUSE, is_child() and can_kill(RE_GOLD_SKULLTULA, ED_CLOSE, True, 1, False, False) and can_get_night_time_gs()),
-        (Locations.RC_KF_GS_BEAN_PATCH, can_spawn_soil_skull(RG_KOKIRI_FOREST_BEAN_SOUL) and can_kill(RE_GOLD_SKULLTULA, ED_CLOSE, True, 1, False, False)),
-        (Locations.RC_KF_GS_HOUSE_OF_TWINS, is_adult() and can_get_night_time_gs() and (can_get_drop(RE_GOLD_SKULLTULA, ED_BOOMERANG, False) or trick(RT_KF_ADULT_GS) and can_use(RG_HOVER_BOOTS) and can_kill(RE_GOLD_SKULLTULA, ED_SHORT_JUMPSLASH, True, 1, False, False))),
-        (Locations.RC_KF_BEAN_SPROUT_FAIRY_1, is_child() and can_use(RG_MAGIC_BEAN) and has(RG_KOKIRI_FOREST_BEAN_SOUL) and can_use(RG_SONG_OF_STORMS)),
-        (Locations.RC_KF_BEAN_SPROUT_FAIRY_2, is_child() and can_use(RG_MAGIC_BEAN) and has(RG_KOKIRI_FOREST_BEAN_SOUL) and can_use(RG_SONG_OF_STORMS)),
-        (Locations.RC_KF_BEAN_SPROUT_FAIRY_3, is_child() and can_use(RG_MAGIC_BEAN) and has(RG_KOKIRI_FOREST_BEAN_SOUL) and can_use(RG_SONG_OF_STORMS)),
+        (Locations.RC_KF_CHILD_GRASS_1, lambda bundle: is_child() and can_cut_shrubs()),
+        (Locations.RC_KF_CHILD_GRASS_2, lambda bundle: is_child() and can_cut_shrubs()),
+        (Locations.RC_KF_CHILD_GRASS_3, lambda bundle: is_child() and can_cut_shrubs()),
+        (Locations.RC_KF_CHILD_GRASS_4, lambda bundle: is_child() and can_cut_shrubs()),
+        (Locations.RC_KF_CHILD_GRASS_5, lambda bundle: is_child() and can_cut_shrubs()),
+        (Locations.RC_KF_CHILD_GRASS_6, lambda bundle: is_child() and can_cut_shrubs()),
+        (Locations.RC_KF_CHILD_GRASS_7, lambda bundle: is_child() and can_cut_shrubs()),
+        (Locations.RC_KF_CHILD_GRASS_8, lambda bundle: is_child() and can_cut_shrubs()),
+        (Locations.RC_KF_CHILD_GRASS_9, lambda bundle: is_child() and can_cut_shrubs()),
+        (Locations.RC_KF_CHILD_GRASS_10, lambda bundle: is_child() and can_cut_shrubs()),
+        (Locations.RC_KF_CHILD_GRASS_11, lambda bundle: is_child() and can_cut_shrubs()),
+        (Locations.RC_KF_CHILD_GRASS_12, lambda bundle: is_child() and can_cut_shrubs()),
+        (Locations.RC_KF_ADULT_GRASS_1, lambda bundle: is_adult() and can_cut_shrubs()),
+        (Locations.RC_KF_ADULT_GRASS_2, lambda bundle: is_adult() and can_cut_shrubs()),
+        (Locations.RC_KF_ADULT_GRASS_3, lambda bundle: is_adult() and can_cut_shrubs()),
+        (Locations.RC_KF_ADULT_GRASS_4, lambda bundle: is_adult() and can_cut_shrubs()),
+        (Locations.RC_KF_ADULT_GRASS_5, lambda bundle: is_adult() and can_cut_shrubs()),
+        (Locations.RC_KF_ADULT_GRASS_6, lambda bundle: is_adult() and can_cut_shrubs()),
+        (Locations.RC_KF_ADULT_GRASS_7, lambda bundle: is_adult() and can_cut_shrubs()),
+        (Locations.RC_KF_ADULT_GRASS_8, lambda bundle: is_adult() and can_cut_shrubs()),
+        (Locations.RC_KF_ADULT_GRASS_9, lambda bundle: is_adult() and can_cut_shrubs()),
+        (Locations.RC_KF_ADULT_GRASS_10, lambda bundle: is_adult() and can_cut_shrubs()),
+        (Locations.RC_KF_ADULT_GRASS_11, lambda bundle: is_adult() and can_cut_shrubs()),
+        (Locations.RC_KF_ADULT_GRASS_12, lambda bundle: is_adult() and can_cut_shrubs()),
+        (Locations.RC_KF_ADULT_GRASS_13, lambda bundle: is_adult() and can_cut_shrubs()),
+        (Locations.RC_KF_ADULT_GRASS_14, lambda bundle: is_adult() and can_cut_shrubs()),
+        (Locations.RC_KF_ADULT_GRASS_15, lambda bundle: is_adult() and can_cut_shrubs()),
+        (Locations.RC_KF_ADULT_GRASS_16, lambda bundle: is_adult() and can_cut_shrubs()),
+        (Locations.RC_KF_ADULT_GRASS_17, lambda bundle: is_adult() and can_cut_shrubs()),
+        (Locations.RC_KF_ADULT_GRASS_18, lambda bundle: is_adult() and can_cut_shrubs()),
+        (Locations.RC_KF_ADULT_GRASS_19, lambda bundle: is_adult() and can_cut_shrubs()),
+        (Locations.RC_KF_ADULT_GRASS_20, lambda bundle: is_adult() and can_cut_shrubs()),
+        (Locations.RC_KF_BRIDGE_RUPEE, lambda bundle: is_child()),
+        (Locations.RC_KF_BEHIND_MIDOS_RUPEE, lambda bundle: is_child()),
+        (Locations.RC_KF_SOUTH_GRASS_WEST_RUPEE, lambda bundle: is_child()),
+        (Locations.RC_KF_SOUTH_GRASS_EAST_RUPEE, lambda bundle: is_child()),
+        (Locations.RC_KF_NORTH_GRASS_WEST_RUPEE, lambda bundle: is_child()),
+        (Locations.RC_KF_NORTH_GRASS_EAST_RUPEE, lambda bundle: is_child()),
+        (Locations.RC_KF_SARIAS_ROOF_WEST_HEART, lambda bundle: is_child()),
+        (Locations.RC_KF_SARIAS_ROOF_EAST_HEART, lambda bundle: is_child()),
+        (Locations.RC_KF_SARIAS_ROOF_NORTH_HEART, lambda bundle: is_child()),
+        (Locations.RC_KF_BEAN_RUPEE_1, lambda bundle: is_adult() and (can_plant_bean(RR_KOKIRI_FOREST, RG_KOKIRI_FOREST_BEAN_SOUL) or can_use(RG_HOVER_BOOTS) or can_use(RG_BOOMERANG))),
+        (Locations.RC_KF_BEAN_RUPEE_2, lambda bundle: is_adult() and (can_plant_bean(RR_KOKIRI_FOREST, RG_KOKIRI_FOREST_BEAN_SOUL) or can_use(RG_HOVER_BOOTS) or can_use(RG_BOOMERANG))),
+        (Locations.RC_KF_BEAN_RUPEE_3, lambda bundle: is_adult() and (can_plant_bean(RR_KOKIRI_FOREST, RG_KOKIRI_FOREST_BEAN_SOUL) or can_use(RG_HOVER_BOOTS) or can_use(RG_BOOMERANG))),
+        (Locations.RC_KF_BEAN_RUPEE_4, lambda bundle: is_adult() and (can_plant_bean(RR_KOKIRI_FOREST, RG_KOKIRI_FOREST_BEAN_SOUL) or can_use(RG_HOVER_BOOTS) or can_use(RG_BOOMERANG))),
+        (Locations.RC_KF_BEAN_RUPEE_5, lambda bundle: is_adult() and (can_plant_bean(RR_KOKIRI_FOREST, RG_KOKIRI_FOREST_BEAN_SOUL) or can_use(RG_HOVER_BOOTS) or can_use(RG_BOOMERANG))),
+        (Locations.RC_KF_BEAN_RUPEE_6, lambda bundle: is_adult() and (can_plant_bean(RR_KOKIRI_FOREST, RG_KOKIRI_FOREST_BEAN_SOUL) or can_use(RG_HOVER_BOOTS) or can_use(RG_BOOMERANG))),
+        (Locations.RC_KF_BEAN_RED_RUPEE, lambda bundle: is_adult() and (can_plant_bean(RR_KOKIRI_FOREST, RG_KOKIRI_FOREST_BEAN_SOUL) or can_use(RG_HOVER_BOOTS) or can_use(RG_BOOMERANG))),
+        (Locations.RC_KF_GS_KNOW_IT_ALL_HOUSE, lambda bundle: is_child() and can_kill(RE_GOLD_SKULLTULA, ED_CLOSE, True, 1, False, False) and can_get_night_time_gs()),
+        (Locations.RC_KF_GS_BEAN_PATCH, lambda bundle: can_spawn_soil_skull(RG_KOKIRI_FOREST_BEAN_SOUL) and can_kill(RE_GOLD_SKULLTULA, ED_CLOSE, True, 1, False, False)),
+        (Locations.RC_KF_GS_HOUSE_OF_TWINS, lambda bundle: is_adult() and can_get_night_time_gs() and (can_get_drop(RE_GOLD_SKULLTULA, ED_BOOMERANG, False) or trick(RT_KF_ADULT_GS) and can_use(RG_HOVER_BOOTS) and can_kill(RE_GOLD_SKULLTULA, ED_SHORT_JUMPSLASH, True, 1, False, False))),
+        (Locations.RC_KF_BEAN_SPROUT_FAIRY_1, lambda bundle: is_child() and can_use(RG_MAGIC_BEAN) and has(RG_KOKIRI_FOREST_BEAN_SOUL) and can_use(RG_SONG_OF_STORMS)),
+        (Locations.RC_KF_BEAN_SPROUT_FAIRY_2, lambda bundle: is_child() and can_use(RG_MAGIC_BEAN) and has(RG_KOKIRI_FOREST_BEAN_SOUL) and can_use(RG_SONG_OF_STORMS)),
+        (Locations.RC_KF_BEAN_SPROUT_FAIRY_3, lambda bundle: is_child() and can_use(RG_MAGIC_BEAN) and has(RG_KOKIRI_FOREST_BEAN_SOUL) and can_use(RG_SONG_OF_STORMS)),
     ])
     # Exits
     connect_regions(Regions.RR_KOKIRI_FOREST, world, [
-        (Regions.RR_KF_BOULDER_LOOP, can_use(RG_CRAWL)),
-        (Regions.RR_KF_LINKS_PORCH, can_climb_ladder() if is_child() else has(RG_CLIMB) or can_use(RG_HOVER_BOOTS)),
-        (Regions.RR_KF_MIDOS_HOUSE, True),
-        (Regions.RR_KF_SARIAS_HOUSE, True),
-        (Regions.RR_KF_HOUSE_OF_TWINS, True),
-        (Regions.RR_KF_KNOW_IT_ALL_HOUSE, True),
-        (Regions.RR_KF_KOKIRI_SHOP, True),
-        (Regions.RR_KF_OUTSIDE_DEKU_TREE, flag(LOGIC_SHOWED_MIDO_SWORD_AND_SHIELD) or setting(RSK_FOREST) == RO_CLOSED_FOREST_OFF or is_adult() and (can_pass(RE_BIG_SKULLTULA, ED_CLOSE, True) or flag(LOGIC_FOREST_TEMPLE_CLEAR))),
-        (Regions.RR_KF_OUTSIDE_LOST_WOODS, has(RG_CLIMB) or can_use(RG_HOOKSHOT) or is_adult() and (can_plant_bean(RR_KOKIRI_FOREST, RG_KOKIRI_FOREST_BEAN_SOUL) or trick(RT_UNINTUITIVE_JUMPS))),
-        (Regions.RR_KF_RUPEE_ALCOVE, is_adult() and can_plant_bean(RR_KOKIRI_FOREST, RG_KOKIRI_FOREST_BEAN_SOUL)),
-        (Regions.RR_LW_BRIDGE_FROM_FOREST, is_adult() or setting(RSK_FOREST) != RO_CLOSED_FOREST_ON or flag(LOGIC_DEKU_TREE_CLEAR)),
+        (Regions.RR_KF_BOULDER_LOOP, lambda bundle: can_use(RG_CRAWL)),
+        (Regions.RR_KF_LINKS_PORCH, lambda bundle: can_climb_ladder() if is_child() else has(RG_CLIMB) or can_use(RG_HOVER_BOOTS)),
+        (Regions.RR_KF_MIDOS_HOUSE, lambda bundle: True),
+        (Regions.RR_KF_SARIAS_HOUSE, lambda bundle: True),
+        (Regions.RR_KF_HOUSE_OF_TWINS, lambda bundle: True),
+        (Regions.RR_KF_KNOW_IT_ALL_HOUSE, lambda bundle: True),
+        (Regions.RR_KF_KOKIRI_SHOP, lambda bundle: True),
+        (Regions.RR_KF_OUTSIDE_DEKU_TREE, lambda bundle: flag(LOGIC_SHOWED_MIDO_SWORD_AND_SHIELD) or setting(RSK_FOREST) == RO_CLOSED_FOREST_OFF or is_adult() and (can_pass(RE_BIG_SKULLTULA, ED_CLOSE, True) or flag(LOGIC_FOREST_TEMPLE_CLEAR))),
+        (Regions.RR_KF_OUTSIDE_LOST_WOODS, lambda bundle: has(RG_CLIMB) or can_use(RG_HOOKSHOT) or is_adult() and (can_plant_bean(RR_KOKIRI_FOREST, RG_KOKIRI_FOREST_BEAN_SOUL) or trick(RT_UNINTUITIVE_JUMPS))),
+        (Regions.RR_KF_RUPEE_ALCOVE, lambda bundle: is_adult() and can_plant_bean(RR_KOKIRI_FOREST, RG_KOKIRI_FOREST_BEAN_SOUL)),
+        (Regions.RR_LW_BRIDGE_FROM_FOREST, lambda bundle: is_adult() or setting(RSK_FOREST) != RO_CLOSED_FOREST_ON or flag(LOGIC_DEKU_TREE_CLEAR)),
     ])
 
     # Minuet of Forest Warp
@@ -347,7 +347,7 @@ def set_region_rules(world: "SohWorld") -> None:
     ])
     # Exits
     connect_regions(Regions.RR_MINUET_OF_FOREST_WARP, world, [
-        (Regions.RR_SACRED_FOREST_MEADOW, True),
+        (Regions.RR_SACRED_FOREST_MEADOW, lambda bundle: True),
     ])
 
     # Nocturne of Shadow Warp
@@ -359,7 +359,7 @@ def set_region_rules(world: "SohWorld") -> None:
     ])
     # Exits
     connect_regions(Regions.RR_NOCTURNE_OF_SHADOW_WARP, world, [
-        (Regions.RR_GRAVEYARD_WARP_PAD_REGION, True),
+        (Regions.RR_GRAVEYARD_WARP_PAD_REGION, lambda bundle: True),
     ])
 
     # Prelude of Light Warp
@@ -371,7 +371,7 @@ def set_region_rules(world: "SohWorld") -> None:
     ])
     # Exits
     connect_regions(Regions.RR_PRELUDE_OF_LIGHT_WARP, world, [
-        (Regions.RR_TEMPLE_OF_TIME, True),
+        (Regions.RR_TEMPLE_OF_TIME, lambda bundle: True),
     ])
 
     # Requiem of Spirit Warp
@@ -383,33 +383,33 @@ def set_region_rules(world: "SohWorld") -> None:
     ])
     # Exits
     connect_regions(Regions.RR_REQUIEM_OF_SPIRIT_WARP, world, [
-        (Regions.RR_DESERT_COLOSSUS, True),
+        (Regions.RR_DESERT_COLOSSUS, lambda bundle: True),
     ])
 
     # Root
     # Events
     add_events(Regions.RR_ROOT, world, [
-        (EventLocations.LOGIC_KAKARIKO_GATE_OPEN, setting(RSK_KAK_GATE) == RO_KAK_GATE_OPEN),
-        (EventLocations.LOGIC_TH_COULD_FREE_1_TORCH_CARPENTER, setting(RSK_GERUDO_FORTRESS) == RO_GF_CARPENTERS_FREE),
-        (EventLocations.LOGIC_TH_COULD_FREE_DOUBLE_CELL_CARPENTER, setting(RSK_GERUDO_FORTRESS) == RO_GF_CARPENTERS_FREE or setting(RSK_GERUDO_FORTRESS) == RO_GF_CARPENTERS_FAST),
-        (EventLocations.LOGIC_TH_COULD_FREE_DEAD_END_CARPENTER, setting(RSK_GERUDO_FORTRESS) == RO_GF_CARPENTERS_FREE or setting(RSK_GERUDO_FORTRESS) == RO_GF_CARPENTERS_FAST),
-        (EventLocations.LOGIC_TH_COULD_FREE_SLOPE_CARPENTER, setting(RSK_GERUDO_FORTRESS) == RO_GF_CARPENTERS_FREE or setting(RSK_GERUDO_FORTRESS) == RO_GF_CARPENTERS_FAST),
-        (EventLocations.LOGIC_TH_RESCUED_ALL_CARPENTERS, setting(RSK_GERUDO_FORTRESS) == RO_GF_CARPENTERS_FREE),
-        (EventLocations.LOGIC_FREED_EPONA, setting(RSK_SKIP_EPONA_RACE)),
+        (EventLocations.LOGIC_KAKARIKO_GATE_OPEN, lambda bundle: setting(RSK_KAK_GATE) == RO_KAK_GATE_OPEN),
+        (EventLocations.LOGIC_TH_COULD_FREE_1_TORCH_CARPENTER, lambda bundle: setting(RSK_GERUDO_FORTRESS) == RO_GF_CARPENTERS_FREE),
+        (EventLocations.LOGIC_TH_COULD_FREE_DOUBLE_CELL_CARPENTER, lambda bundle: setting(RSK_GERUDO_FORTRESS) == RO_GF_CARPENTERS_FREE or setting(RSK_GERUDO_FORTRESS) == RO_GF_CARPENTERS_FAST),
+        (EventLocations.LOGIC_TH_COULD_FREE_DEAD_END_CARPENTER, lambda bundle: setting(RSK_GERUDO_FORTRESS) == RO_GF_CARPENTERS_FREE or setting(RSK_GERUDO_FORTRESS) == RO_GF_CARPENTERS_FAST),
+        (EventLocations.LOGIC_TH_COULD_FREE_SLOPE_CARPENTER, lambda bundle: setting(RSK_GERUDO_FORTRESS) == RO_GF_CARPENTERS_FREE or setting(RSK_GERUDO_FORTRESS) == RO_GF_CARPENTERS_FAST),
+        (EventLocations.LOGIC_TH_RESCUED_ALL_CARPENTERS, lambda bundle: setting(RSK_GERUDO_FORTRESS) == RO_GF_CARPENTERS_FREE),
+        (EventLocations.LOGIC_FREED_EPONA, lambda bundle: setting(RSK_SKIP_EPONA_RACE)),
     ])
     # Locations
     add_locations(Regions.RR_ROOT, world, [
-        (Locations.RC_LINKS_POCKET, True),
-        (Locations.RC_TRIFORCE_COMPLETED, collected_triforce_pieces() >= required_triforce_pieces()),
-        (Locations.RC_SARIA_SONG_HINT, can_use(RG_SARIAS_SONG)),
-        (Locations.RC_SONG_FROM_IMPA, setting(RSK_SKIP_CHILD_ZELDA)),
-        (Locations.RC_HC_MALON_EGG, setting(RSK_SKIP_CHILD_ZELDA)),
-        (Locations.RC_HC_ZELDAS_LETTER, setting(RSK_SKIP_CHILD_ZELDA)),
-        (Locations.RC_TOT_MASTER_SWORD, setting(RSK_SELECTED_STARTING_AGE) == RO_AGE_ADULT),
+        (Locations.RC_LINKS_POCKET, lambda bundle: True),
+        (Locations.RC_TRIFORCE_COMPLETED, lambda bundle: collected_triforce_pieces() >= required_triforce_pieces()),
+        (Locations.RC_SARIA_SONG_HINT, lambda bundle: can_use(RG_SARIAS_SONG)),
+        (Locations.RC_SONG_FROM_IMPA, lambda bundle: setting(RSK_SKIP_CHILD_ZELDA)),
+        (Locations.RC_HC_MALON_EGG, lambda bundle: setting(RSK_SKIP_CHILD_ZELDA)),
+        (Locations.RC_HC_ZELDAS_LETTER, lambda bundle: setting(RSK_SKIP_CHILD_ZELDA)),
+        (Locations.RC_TOT_MASTER_SWORD, lambda bundle: setting(RSK_SELECTED_STARTING_AGE) == RO_AGE_ADULT),
     ])
     # Exits
     connect_regions(Regions.RR_ROOT, world, [
-        (Regions.RR_ROOT_EXITS, True),
+        (Regions.RR_ROOT_EXITS, lambda bundle: True),
     ])
 
     # Root Exits
@@ -421,14 +421,14 @@ def set_region_rules(world: "SohWorld") -> None:
     ])
     # Exits
     connect_regions(Regions.RR_ROOT_EXITS, world, [
-        (Regions.RR_CHILD_SPAWN, is_child()),
-        (Regions.RR_ADULT_SPAWN, is_adult()),
-        (Regions.RR_MINUET_OF_FOREST_WARP, can_use(RG_MINUET_OF_FOREST)),
-        (Regions.RR_BOLERO_OF_FIRE_WARP, can_use(RG_BOLERO_OF_FIRE)),
-        (Regions.RR_SERENADE_OF_WATER_WARP, can_use(RG_SERENADE_OF_WATER)),
-        (Regions.RR_NOCTURNE_OF_SHADOW_WARP, can_use(RG_NOCTURNE_OF_SHADOW)),
-        (Regions.RR_REQUIEM_OF_SPIRIT_WARP, can_use(RG_REQUIEM_OF_SPIRIT)),
-        (Regions.RR_PRELUDE_OF_LIGHT_WARP, can_use(RG_PRELUDE_OF_LIGHT)),
+        (Regions.RR_CHILD_SPAWN, lambda bundle: is_child()),
+        (Regions.RR_ADULT_SPAWN, lambda bundle: is_adult()),
+        (Regions.RR_MINUET_OF_FOREST_WARP, lambda bundle: can_use(RG_MINUET_OF_FOREST)),
+        (Regions.RR_BOLERO_OF_FIRE_WARP, lambda bundle: can_use(RG_BOLERO_OF_FIRE)),
+        (Regions.RR_SERENADE_OF_WATER_WARP, lambda bundle: can_use(RG_SERENADE_OF_WATER)),
+        (Regions.RR_NOCTURNE_OF_SHADOW_WARP, lambda bundle: can_use(RG_NOCTURNE_OF_SHADOW)),
+        (Regions.RR_REQUIEM_OF_SPIRIT_WARP, lambda bundle: can_use(RG_REQUIEM_OF_SPIRIT)),
+        (Regions.RR_PRELUDE_OF_LIGHT_WARP, lambda bundle: can_use(RG_PRELUDE_OF_LIGHT)),
     ])
 
     # Serenade of Water Warp
@@ -440,6 +440,6 @@ def set_region_rules(world: "SohWorld") -> None:
     ])
     # Exits
     connect_regions(Regions.RR_SERENADE_OF_WATER_WARP, world, [
-        (Regions.RR_LAKE_HYLIA, True),
+        (Regions.RR_LAKE_HYLIA, lambda bundle: True),
     ])
 
