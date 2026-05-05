@@ -138,7 +138,7 @@ Acceptance tests are included in `console_acceptance_tests` and run the end-to-e
 pipeline over `examples/rls`.
 
 - SOH acceptance golden files: `examples/soh/*.gen.{h,cpp}`
-- AP acceptance golden file: `examples/ap/ap.py`
+- AP acceptance golden files: `examples/soh_ap/*.gen.py`
 
 To run only acceptance tests:
 

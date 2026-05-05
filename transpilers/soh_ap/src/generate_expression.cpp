@@ -1,50 +1,28 @@
-namespace rls::transpilers::ap {
-
-#include "generate_expression.h"
+#include "soh_ap.h"
 
 #include <format>
 #include <sstream>
+#include <optional>
+#include <unordered_map>
 
-namespace rls::transpilers::soh {
+namespace rls::transpilers::soh_ap {
 
-std::string GenerateExpression(const rls::ast::Expr::Variant& node);
-  
-static std::string GenerateExpression(const rls::ast::BoolLiteral& node) {
+std::string SohApTranspiler::GenerateExpression(const rls::ast::BoolLiteral& node) const {
 	return node.value ? "True" : "False";
 }
 
-static std::string GenerateExpression(const rls::ast::IntLiteral& node) {
+std::string SohApTranspiler::GenerateExpression(const rls::ast::IntLiteral& node) const {
 	return std::to_string(node.value);
 }
 
-static std::string GenerateExpression(const rls::ast::Identifier& node) {
+std::string SohApTranspiler::GenerateExpression(const rls::ast::Identifier& node) const {
 	return node.name;
-}
-
-static std::string GenerateExpression(const rls::ast::KeywordExpr& node) {
-    switch (node.keyword) {
-    case rls::ast::Keyword::IsChild:
-        return "is_child(bundle)";
-    case rls::ast::Keyword::IsAdult:
-        return "is_adult(bundle)";
-    case rls::ast::Keyword::AtDay:
-        return "at_day(bundle)";
-    case rls::ast::Keyword::AtNight:
-        return "at_night(bundle)";
-    // TODO Handle IsVanilla and IsMq
-    case rls::ast::Keyword::IsVanilla:
-        return "NOT IMPLEMENTED";
-    case rls::ast::Keyword::IsMq:
-        return "NOT IMPLEMENTED";
-    default:
-        return "";
-    }
 }
 
 // Returns the Python operator precedence for an expression node.
 // Lower values bind tighter. Non-compound nodes return 0 (tightest).
 // Precedence is from https://docs.python.org/3/reference/expressions.html#operator-precedence
-static int GetPythonPrecedence(const rls::ast::ExprPtr& expr) {
+int SohApTranspiler::GetPythonPrecedence(const rls::ast::ExprPtr& expr) const {
 	if (auto* bin = std::get_if<rls::ast::BinaryExpr>(&expr->node)) {
 		switch (bin->op) {
 		case rls::ast::BinaryOp::Mul:
@@ -76,8 +54,9 @@ static int GetPythonPrecedence(const rls::ast::ExprPtr& expr) {
 // Generates an expression, wrapping in parentheses when the child's Python
 // precedence is looser than the parent's (or equal on the right side of
 // a left-associative operator).
-static std::string GenerateChildExpression(
-	const rls::ast::ExprPtr& expr, int parentPrec, bool isRightChild = false)
+std::string SohApTranspiler::GenerateChildExpression(
+    const rls::ast::ExprPtr& expr, int parentPrec, bool isRightChild) 
+    const 
 {
 	auto result = GenerateExpression(expr);
 	int childPrec = GetPythonPrecedence(expr);
@@ -87,7 +66,7 @@ static std::string GenerateChildExpression(
 	return result;
 }
 
-static std::string GenerateExpression(const rls::ast::UnaryExpr& node) {
+std::string SohApTranspiler::GenerateExpression(const rls::ast::UnaryExpr& node) const {
 	switch (node.op) {
 	case rls::ast::UnaryOp::Not:
 		return "!" + GenerateChildExpression(node.operand, 3);
@@ -96,16 +75,7 @@ static std::string GenerateExpression(const rls::ast::UnaryExpr& node) {
 	}
 }
 
-static std::string GenerateExpression(const rls::ast::UnaryExpr& node) {
-	switch (node.op) {
-	case rls::ast::UnaryOp::Not:
-		return "not " + GenerateChildExpression(node.operand, 13);
-	default:
-		return "";
-	}
-}
-
-static std::string GenerateExpression(const rls::ast::BinaryExpr& node) {
+std::string SohApTranspiler::GenerateExpression(const rls::ast::BinaryExpr& node) const {
     switch (node.op) {
     case rls::ast::BinaryOp::And:
         return GenerateChildExpression(node.left, 14) + " and " + GenerateChildExpression(node.right, 14, true);
@@ -137,40 +107,85 @@ static std::string GenerateExpression(const rls::ast::BinaryExpr& node) {
 }
 
 // Python ternary syntax is "a if test else b"
-static std::string GenerateExpression(const rls::ast::TernaryExpr& node) {
+std::string SohApTranspiler::GenerateExpression(const rls::ast::TernaryExpr& node) const {
     return GenerateExpression(node.thenBranch) + " if " +
-           GenertateChildExpresssion(node.condition, 15) + " else " +
+           GenerateChildExpression(node.condition, 15) + " else " +
 		   GenerateExpression(node.elseBranch);
 }
 
 // TODO Handle Host Functions
-static std::string GenerateExpression(const rls::ast::CallExpr& node) {
-  return "NOT IMPLEMENTED";
+std::string SohApTranspiler::GenerateExpression(const rls::ast::CallExpr& node) const {
+    auto resolvedPtr = project.getResolvedCallArgs(&node);
+    if (resolvedPtr == nullptr) {
+        // Unknown calls or calls with semantic errors are blocked earlier in sema;
+        // emit empty as a defensive fallback so generation does not invent call forms.
+        return "";
+    }
+    const auto& resolved = *resolvedPtr;
+
+    std::ostringstream oss;
+    oss << node.function << "(";
+    for (size_t i = 0; i < resolved.size(); ++i) {
+        if (i > 0) {
+            oss << ", ";
+        }
+        oss << GenerateExpression(resolved[i]->node);
+    }
+    oss << ")";
+    return oss.str();
 }
 
 // TODO Figure out Shared blocks
-static std::string GenerateExpression(const rls::ast::SharedBlock& node) {
+std::string SohApTranspiler::GenerateExpression(const rls::ast::SharedBlock& node) const {
   return "NOT IMPLEMENTED";
 }
 
 // TODO Figure out AnyAge Blocks
 // The Python AP implementation doesn't currently have an AnyAge function
-static std::string GenerateExpression(const rls::ast::AnyAgeBlock& node) {
+std::string SohApTranspiler::GenerateExpression(const rls::ast::AnyAgeBlock& node) const {
 	return "NOT IMPLEMENTED";
-
-// TODO Figure out Match Statements
-static std::string GenerateExpression(const rls::ast::MatchExpr& node) {
-    return "NOT IMPLEMENTED";
 }
 
-static std::string GenerateExpression(const rls::ast::Expr::Variant& node) {
+std::string SohApTranspiler::GenerateExpression(const rls::ast::MatchExpr& node) const {
+	std::ostringstream oss;
+	oss << "soh_match(";
+
+	for (size_t i = 0; i < node.arms.size(); i++) {
+		const auto& arm = node.arms[i];
+
+		if (i > 0) oss << ", ";
+
+        // Condition - lambda discriminant: discriminant == P1 or discriminant == P2
+        if (arm.isDefault) {
+            oss << "(lambda: true), ";
+        } else {
+            oss << "(lambda " << node.discriminant << ": ";
+            for (size_t j = 0; j < arm.patterns.size(); j++) {
+                if (j > 0) oss << " or ";
+                oss << node.discriminant << " == " << arm.patterns[j];
+            }
+            oss << "), ";
+        }
+
+        // Body - lambda: <body_expression>
+		oss << "(lambda: " << GenerateExpression(arm.body) << "), ";
+
+		// Fallthrough flag
+		oss << (arm.fallthrough ? "True" : "False");
+	}
+
+	oss << ")";
+	return oss.str();
+}
+
+std::string SohApTranspiler::GenerateExpression(const rls::ast::Expr::Variant& node) const {
 	return std::visit([&](const auto& node) {
-		return GenerateExpression(node);
+		return SohApTranspiler::GenerateExpression(node);
 	}, node);
 }
 
-std::string GenerateExpression(const rls::ast::ExprPtr& expr) {
+std::string SohApTranspiler::GenerateExpression(const rls::ast::ExprPtr& expr) const {
 	return GenerateExpression(expr->node);
 }
 
-} // rls::transpilers::ap
+} // rls::transpilers::soh_ap

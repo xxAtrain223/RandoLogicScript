@@ -9,7 +9,7 @@
 #include "output.h"
 #include "parser.h"
 #include "sema.h"
-#include "ap.h"
+#include "soh_ap.h"
 #include "soh.h"
 
 namespace fs = std::filesystem;
@@ -79,8 +79,8 @@ static bool runTranspiler(const TranspilerConfig& config, const rls::ast::Projec
 
     if (config.name == "soh") {
         rls::transpilers::soh::SohTranspiler(project).Transpile(writer);
-    } else if (config.name == "ap") {
-        rls::transpilers::ap::Transpile(project, writer);
+    } else if (config.name == "soh_ap") {
+        rls::transpilers::soh_ap::SohApTranspiler(project).Transpile(writer);
     } else {
         std::cerr << "error: unknown transpiler '" << config.name << "'\n";
         return false;
