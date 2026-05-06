@@ -64,7 +64,7 @@ void SohApTranspiler::GenerateFunctionDefinitionsSource(rls::OutputWriter& out) 
     for (const auto& [name, decl] : project.DefineDecls) {
         source << "\n";
         
-        source << functionSignature(*this, project, decl, false) << ":\n";
+        source << functionSignature(*this, project, decl, true) << ":\n";
 		source << "    return " << GenerateExpression(decl->body) << "\n";
     }
 }

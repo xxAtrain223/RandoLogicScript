@@ -69,7 +69,7 @@ std::string SohApTranspiler::GenerateChildExpression(
 std::string SohApTranspiler::GenerateExpression(const rls::ast::UnaryExpr& node) const {
 	switch (node.op) {
 	case rls::ast::UnaryOp::Not:
-		return "!" + GenerateChildExpression(node.operand, 3);
+		return "not " + GenerateChildExpression(node.operand, 3);
 	default:
 		return "";
 	}
@@ -135,15 +135,30 @@ std::string SohApTranspiler::GenerateExpression(const rls::ast::CallExpr& node) 
     return oss.str();
 }
 
-// TODO Figure out Shared blocks
+// Going to have to fiddle with this. 
+// I think as long as we define the SharedSpirit functions and the SharedSpiritData map this could be done 
 std::string SohApTranspiler::GenerateExpression(const rls::ast::SharedBlock& node) const {
-  return "NOT IMPLEMENTED";
+    std::ostringstream oss;
+
+    const auto& firstBranch = node.branches[0];
+    oss << "spirit_shared(" << firstBranch.region.value_or("") << ", "
+        << "(lambda: " << GenerateExpression(firstBranch.condition) << "), "
+        << (node.anyAge ? "true" : "false");
+
+    for (int i = 1; i < node.branches.size(); i++) {
+        oss << ", " << node.branches[i].region.value_or("") << ", "
+            << "(labmda:" << GenerateExpression(node.branches[i].condition) << ")";
+    }
+
+    oss << ")";
+
+	return oss.str();
 }
 
-// TODO Figure out AnyAge Blocks
-// The Python AP implementation doesn't currently have an AnyAge function
+// This one I'm not quite sure how it works. Seems like Ship calls this recursively for the current region
 std::string SohApTranspiler::GenerateExpression(const rls::ast::AnyAgeBlock& node) const {
-	return "NOT IMPLEMENTED";
+	return "";
+    // return "AnyAgeTime((lambda:" + GenerateExpression(node.body) + "))";
 }
 
 std::string SohApTranspiler::GenerateExpression(const rls::ast::MatchExpr& node) const {

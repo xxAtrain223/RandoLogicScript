@@ -14,7 +14,7 @@ def call_gossip_fairy() -> bool:
 def call_gossip_fairy_except_suns() -> bool:
     return can_use(RG_ZELDAS_LULLABY) or can_use(RG_EPONAS_SONG) or can_use(RG_SONG_OF_TIME)
 
-def can_avoid(e: RandomizerEnemy, grounded: bool, quantity: int) -> bool:
+def can_avoid(e: RandomizerEnemy, grounded: bool = False, quantity: int = 1) -> bool:
     return can_kill(e, ED_CLOSE, True, quantity, False, False) or soh_match((lambda e: e == RE_GOLD_SKULLTULA), (lambda: True), False)
 
 def can_break_lower_beehives() -> bool:
@@ -35,11 +35,11 @@ def can_get_deku_baba_nuts() -> bool:
 def can_get_deku_baba_sticks() -> bool:
     return can_use_sword() or can_use(RG_BOOMERANG)
 
-def can_get_drop(e: RandomizerEnemy, distance: EnemyDistance, above_link: bool) -> bool:
+def can_get_drop(e: RandomizerEnemy, distance: EnemyDistance = ED_CLOSE, above_link: bool = False) -> bool:
     return can_kill(e, distance, True, 1, False, False) and (distance_to_int(distance) <= distance_to_int(ED_MASTER_SWORD_JUMPSLASH) or soh_match((lambda e: e == RE_GOLD_SKULLTULA), (lambda: _can_get_drop_gold_skulltula(distance)), False, (lambda e: e == RE_KEESE or e == RE_FIRE_KEESE or e == RE_GUAY), (lambda: True), False, (lambda: true), (lambda: above_link or distance_to_int(distance) <= distance_to_int(ED_BOOMERANG) and can_use(RG_BOOMERANG)), False))
 
 def can_get_night_time_gs() -> bool:
-    return at_night() and (can_use(RG_SUNS_SONG) or !setting(RSK_SKULLS_SUNS_SONG))
+    return at_night() and (can_use(RG_SUNS_SONG) or not setting(RSK_SKULLS_SUNS_SONG))
 
 def can_jumpslash() -> bool:
     return can_jumpslash_except_hammer() or can_use(RG_MEGATON_HAMMER)
@@ -47,13 +47,13 @@ def can_jumpslash() -> bool:
 def can_jumpslash_except_hammer() -> bool:
     return can_use(RG_STICKS) or can_use_sword()
 
-def can_kill(e: RandomizerEnemy, distance: EnemyDistance, wall_or_floor: bool, quantity: int, timer: bool, in_water: bool) -> bool:
+def can_kill(e: RandomizerEnemy, distance: EnemyDistance = ED_CLOSE, wall_or_floor: bool = True, quantity: int = 1, timer: bool = False, in_water: bool = False) -> bool:
     return soh_match((lambda e: e == RE_GOLD_SKULLTULA), (lambda: _can_kill_gold_skulltula(distance, wall_or_floor)), False)
 
 def can_open_storms_grotto() -> bool:
     return can_use(RG_SONG_OF_STORMS) and (has(RG_STONE_OF_AGONY) or trick(RT_GROTTOS_WITHOUT_AGONY))
 
-def can_pass(e: RandomizerEnemy, distance: EnemyDistance, wall_or_floor: bool) -> bool:
+def can_pass(e: RandomizerEnemy, distance: EnemyDistance = ED_CLOSE, wall_or_floor: bool = True) -> bool:
     return can_kill(e, distance, wall_or_floor, 1, False, False) or soh_match((lambda e: e == RE_GOLD_SKULLTULA), (lambda: True), False)
 
 def can_spawn_soil_skull(bean: RandomizerGet) -> bool:
