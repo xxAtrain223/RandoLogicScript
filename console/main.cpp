@@ -24,7 +24,7 @@ static void printUsage(const char* program) {
         << "Options:\n"
         << "  -t, --transpiler <name> -o, --output <dir>\n"
         << "                            Transpiler and output directory pair (may be repeated).\n"
-        << "                            Available transpilers: soh, ap\n"
+        << "                            Available transpilers: soh, soh_ap\n"
         << "  -h, --help                Show this help message.\n";
 }
 

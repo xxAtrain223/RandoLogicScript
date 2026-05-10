@@ -7,7 +7,7 @@ TEST(AcceptanceAp, ExamplesRlsMatchesGolden) {
 	const auto project = parseAndAnalyzeProject(repoPath("examples/rls"), errors);
 	ASSERT_TRUE(errors.empty()) << joinLines(errors);
 
-	TempDirectory outputDir("ap");
+	TempDirectory outputDir("soh_ap");
 	{
 		DirectoryWriter writer(outputDir.path());
 		rls::transpilers::soh_ap::SohApTranspiler(project).Transpile(writer);
