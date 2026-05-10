@@ -3,7 +3,8 @@
 #include "json_bind.h"
 #include "language_server.h"
 
-namespace rls::lsp::detail::endpoints::did_open {
+namespace rls::lsp::detail::endpoints {
+namespace did_open {
 
 struct DidOpenRequest {
     std::string uri;
@@ -17,9 +18,16 @@ std::vector<std::string> handleDidOpenEndpoint(const EndpointContext& context, c
     return EndpointAccess::publishDiagnostics(context.server, request.uri);
 }
 
-} // namespace rls::lsp::detail::endpoints::did_open
+const EndpointRegistrar registerEndpoint([]{
+    return makeEndpoint<DidOpenRequest>(
+        "textDocument/didOpen",
+        "Open a document and publish diagnostics",
+        EndpointInvocation::Any,
+        BindFailureBehavior::Ignore,
+        handleDidOpenEndpoint);
+});
 
-namespace rls::lsp::detail::endpoints {
+} // namespace did_open
 
 template <>
 struct RequestBinder<did_open::DidOpenRequest> {
@@ -43,20 +51,5 @@ struct RequestBinder<did_open::DidOpenRequest> {
         return request;
     }
 };
-
-EndpointDefinition makeDidOpenEndpoint() {
-    return makeEndpoint<did_open::DidOpenRequest>(
-        "textDocument/didOpen",
-        "Open a document and publish diagnostics",
-        EndpointInvocation::Any,
-        BindFailureBehavior::Ignore,
-        [](const EndpointContext& context, const did_open::DidOpenRequest& request) {
-            return did_open::handleDidOpenEndpoint(context, request);
-        });
-}
-
-namespace {
-const EndpointRegistrar kRegisterDidOpenEndpoint(&makeDidOpenEndpoint);
-}
 
 } // namespace rls::lsp::detail::endpoints

@@ -4,7 +4,8 @@
 #include "language_server.h"
 #include "symbol_support.h"
 
-namespace rls::lsp::detail::endpoints::definition {
+namespace rls::lsp::detail::endpoints {
+namespace definition {
 
 struct TextDocumentPositionRequest {
     std::string uri;
@@ -41,9 +42,16 @@ std::vector<std::string> handleDefinitionEndpoint(
     return context.ok(locations);
 }
 
-} // namespace rls::lsp::detail::endpoints::definition
+const EndpointRegistrar registerEndpoint([]{
+    return makeEndpoint<TextDocumentPositionRequest>(
+        "textDocument/definition",
+        "Resolve symbol definition at a position",
+        EndpointInvocation::RequestOnly,
+        BindFailureBehavior::Ignore,
+        handleDefinitionEndpoint);
+});
 
-namespace rls::lsp::detail::endpoints {
+} // namespace definition
 
 template <>
 struct RequestBinder<definition::TextDocumentPositionRequest> {
@@ -62,20 +70,5 @@ struct RequestBinder<definition::TextDocumentPositionRequest> {
         return request;
     }
 };
-
-EndpointDefinition makeDefinitionEndpoint() {
-    return makeEndpoint<definition::TextDocumentPositionRequest>(
-        "textDocument/definition",
-        "Resolve symbol definition at a position",
-        EndpointInvocation::RequestOnly,
-        BindFailureBehavior::Ignore,
-        [](const EndpointContext& context, const definition::TextDocumentPositionRequest& request) {
-            return definition::handleDefinitionEndpoint(context, request);
-        });
-}
-
-namespace {
-const EndpointRegistrar kRegisterDefinitionEndpoint(&makeDefinitionEndpoint);
-}
 
 } // namespace rls::lsp::detail::endpoints

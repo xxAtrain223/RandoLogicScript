@@ -4,7 +4,8 @@
 #include "language_server.h"
 #include "symbol_support.h"
 
-namespace rls::lsp::detail::endpoints::workspace_symbol {
+namespace rls::lsp::detail::endpoints {
+namespace workspace_symbol {
 
 struct WorkspaceSymbolRequest {
     std::string query;
@@ -35,9 +36,16 @@ std::vector<std::string> handleWorkspaceSymbolEndpoint(
     return context.ok(results);
 }
 
-} // namespace rls::lsp::detail::endpoints::workspace_symbol
+const EndpointRegistrar registerEndpoint([]{
+    return makeEndpoint<WorkspaceSymbolRequest>(
+        "workspace/symbol",
+        "Search indexed symbols across open documents",
+        EndpointInvocation::RequestOnly,
+        BindFailureBehavior::Ignore,
+        handleWorkspaceSymbolEndpoint);
+});
 
-namespace rls::lsp::detail::endpoints {
+} // namespace workspace_symbol
 
 template <>
 struct RequestBinder<workspace_symbol::WorkspaceSymbolRequest> {
@@ -52,20 +60,5 @@ struct RequestBinder<workspace_symbol::WorkspaceSymbolRequest> {
         return request;
     }
 };
-
-EndpointDefinition makeWorkspaceSymbolEndpoint() {
-    return makeEndpoint<workspace_symbol::WorkspaceSymbolRequest>(
-        "workspace/symbol",
-        "Search indexed symbols across open documents",
-        EndpointInvocation::RequestOnly,
-        BindFailureBehavior::Ignore,
-        [](const EndpointContext& context, const workspace_symbol::WorkspaceSymbolRequest& request) {
-            return workspace_symbol::handleWorkspaceSymbolEndpoint(context, request);
-        });
-}
-
-namespace {
-const EndpointRegistrar kRegisterWorkspaceSymbolEndpoint(&makeWorkspaceSymbolEndpoint);
-}
 
 } // namespace rls::lsp::detail::endpoints

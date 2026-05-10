@@ -4,7 +4,8 @@
 #include "language_server.h"
 #include "symbol_support.h"
 
-namespace rls::lsp::detail::endpoints::references {
+namespace rls::lsp::detail::endpoints {
+namespace references {
 
 struct ReferencesRequest {
     std::string uri;
@@ -82,9 +83,16 @@ std::vector<std::string> handleReferencesEndpoint(
     return context.ok(locations);
 }
 
-} // namespace rls::lsp::detail::endpoints::references
+const EndpointRegistrar registerEndpoint([]{
+    return makeEndpoint<ReferencesRequest>(
+        "textDocument/references",
+        "Find symbol references across open documents",
+        EndpointInvocation::RequestOnly,
+        BindFailureBehavior::Ignore,
+        handleReferencesEndpoint);
+});
 
-namespace rls::lsp::detail::endpoints {
+} // namespace references
 
 template <>
 struct RequestBinder<references::ReferencesRequest> {
@@ -106,20 +114,5 @@ struct RequestBinder<references::ReferencesRequest> {
         return request;
     }
 };
-
-EndpointDefinition makeReferencesEndpoint() {
-    return makeEndpoint<references::ReferencesRequest>(
-        "textDocument/references",
-        "Find symbol references across open documents",
-        EndpointInvocation::RequestOnly,
-        BindFailureBehavior::Ignore,
-        [](const EndpointContext& context, const references::ReferencesRequest& request) {
-            return references::handleReferencesEndpoint(context, request);
-        });
-}
-
-namespace {
-const EndpointRegistrar kRegisterReferencesEndpoint(&makeReferencesEndpoint);
-}
 
 } // namespace rls::lsp::detail::endpoints

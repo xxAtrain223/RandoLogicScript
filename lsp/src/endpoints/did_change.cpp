@@ -3,7 +3,8 @@
 #include "json_bind.h"
 #include "language_server.h"
 
-namespace rls::lsp::detail::endpoints::did_change {
+namespace rls::lsp::detail::endpoints {
+namespace did_change {
 
 struct DidChangeRequest {
     std::string uri;
@@ -19,9 +20,16 @@ std::vector<std::string> handleDidChangeEndpoint(const EndpointContext& context,
     return EndpointAccess::publishDiagnostics(context.server, request.uri);
 }
 
-} // namespace rls::lsp::detail::endpoints::did_change
+const EndpointRegistrar registerEndpoint([]{
+    return makeEndpoint<DidChangeRequest>(
+        "textDocument/didChange",
+        "Apply full document update and publish diagnostics",
+        EndpointInvocation::Any,
+        BindFailureBehavior::Ignore,
+        handleDidChangeEndpoint);
+});
 
-namespace rls::lsp::detail::endpoints {
+} // namespace did_change
 
 template <>
 struct RequestBinder<did_change::DidChangeRequest> {
@@ -51,20 +59,5 @@ struct RequestBinder<did_change::DidChangeRequest> {
         return request;
     }
 };
-
-EndpointDefinition makeDidChangeEndpoint() {
-    return makeEndpoint<did_change::DidChangeRequest>(
-        "textDocument/didChange",
-        "Apply full document update and publish diagnostics",
-        EndpointInvocation::Any,
-        BindFailureBehavior::Ignore,
-        [](const EndpointContext& context, const did_change::DidChangeRequest& request) {
-            return did_change::handleDidChangeEndpoint(context, request);
-        });
-}
-
-namespace {
-const EndpointRegistrar kRegisterDidChangeEndpoint(&makeDidChangeEndpoint);
-}
 
 } // namespace rls::lsp::detail::endpoints

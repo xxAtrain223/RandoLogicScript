@@ -2,7 +2,8 @@
 
 #include "language_server.h"
 
-namespace rls::lsp::detail::endpoints::exit_endpoint {
+namespace rls::lsp::detail::endpoints {
+namespace exit_endpoint {
 
 struct EmptyRequest {
 };
@@ -12,9 +13,16 @@ std::vector<std::string> handleExitEndpoint(const EndpointContext& context, cons
     return {};
 }
 
-} // namespace rls::lsp::detail::endpoints::exit_endpoint
+const EndpointRegistrar registerEndpoint([]{
+    return makeEndpoint<EmptyRequest>(
+        "exit",
+        "Signal server process exit",
+        EndpointInvocation::Any,
+        BindFailureBehavior::Ignore,
+        handleExitEndpoint);
+});
 
-namespace rls::lsp::detail::endpoints {
+} // namespace exit_endpoint
 
 template <>
 struct RequestBinder<exit_endpoint::EmptyRequest> {
@@ -22,20 +30,5 @@ struct RequestBinder<exit_endpoint::EmptyRequest> {
         return exit_endpoint::EmptyRequest{};
     }
 };
-
-EndpointDefinition makeExitEndpoint() {
-    return makeEndpoint<exit_endpoint::EmptyRequest>(
-        "exit",
-        "Signal server process exit",
-        EndpointInvocation::Any,
-        BindFailureBehavior::Ignore,
-        [](const EndpointContext& context, const exit_endpoint::EmptyRequest& request) {
-            return exit_endpoint::handleExitEndpoint(context, request);
-        });
-}
-
-namespace {
-const EndpointRegistrar kRegisterExitEndpoint(&makeExitEndpoint);
-}
 
 } // namespace rls::lsp::detail::endpoints

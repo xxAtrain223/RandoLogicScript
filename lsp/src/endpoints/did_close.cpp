@@ -3,7 +3,8 @@
 #include "json_bind.h"
 #include "language_server.h"
 
-namespace rls::lsp::detail::endpoints::did_close {
+namespace rls::lsp::detail::endpoints {
+namespace did_close {
 
 struct DidCloseRequest {
     std::string uri;
@@ -24,9 +25,16 @@ std::vector<std::string> handleDidCloseEndpoint(const EndpointContext& context, 
     };
 }
 
-} // namespace rls::lsp::detail::endpoints::did_close
+const EndpointRegistrar registerEndpoint([]{
+    return makeEndpoint<DidCloseRequest>(
+        "textDocument/didClose",
+        "Close a document and clear diagnostics",
+        EndpointInvocation::Any,
+        BindFailureBehavior::Ignore,
+        handleDidCloseEndpoint);
+});
 
-namespace rls::lsp::detail::endpoints {
+} // namespace did_close
 
 template <>
 struct RequestBinder<did_close::DidCloseRequest> {
@@ -46,20 +54,5 @@ struct RequestBinder<did_close::DidCloseRequest> {
         return request;
     }
 };
-
-EndpointDefinition makeDidCloseEndpoint() {
-    return makeEndpoint<did_close::DidCloseRequest>(
-        "textDocument/didClose",
-        "Close a document and clear diagnostics",
-        EndpointInvocation::Any,
-        BindFailureBehavior::Ignore,
-        [](const EndpointContext& context, const did_close::DidCloseRequest& request) {
-            return did_close::handleDidCloseEndpoint(context, request);
-        });
-}
-
-namespace {
-const EndpointRegistrar kRegisterDidCloseEndpoint(&makeDidCloseEndpoint);
-}
 
 } // namespace rls::lsp::detail::endpoints

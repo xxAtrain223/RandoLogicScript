@@ -8,7 +8,8 @@
 #include "language_server.h"
 #include "parser.h"
 
-namespace rls::lsp::detail::endpoints::document_symbol {
+namespace rls::lsp::detail::endpoints {
+namespace document_symbol {
 
 struct TextDocumentRequest {
     std::string uri;
@@ -79,9 +80,16 @@ std::vector<std::string> handleDocumentSymbolEndpoint(
     return context.ok(symbols);
 }
 
-} // namespace rls::lsp::detail::endpoints::document_symbol
+const EndpointRegistrar registerEndpoint([]{
+    return makeEndpoint<TextDocumentRequest>(
+        "textDocument/documentSymbol",
+        "Return top-level symbols for a document",
+        EndpointInvocation::RequestOnly,
+        BindFailureBehavior::Ignore,
+        handleDocumentSymbolEndpoint);
+});
 
-namespace rls::lsp::detail::endpoints {
+} // namespace document_symbol
 
 template <>
 struct RequestBinder<document_symbol::TextDocumentRequest> {
@@ -97,20 +105,5 @@ struct RequestBinder<document_symbol::TextDocumentRequest> {
         return request;
     }
 };
-
-EndpointDefinition makeDocumentSymbolEndpoint() {
-    return makeEndpoint<document_symbol::TextDocumentRequest>(
-        "textDocument/documentSymbol",
-        "Return top-level symbols for a document",
-        EndpointInvocation::RequestOnly,
-        BindFailureBehavior::Ignore,
-        [](const EndpointContext& context, const document_symbol::TextDocumentRequest& request) {
-            return document_symbol::handleDocumentSymbolEndpoint(context, request);
-        });
-}
-
-namespace {
-const EndpointRegistrar kRegisterDocumentSymbolEndpoint(&makeDocumentSymbolEndpoint);
-}
 
 } // namespace rls::lsp::detail::endpoints

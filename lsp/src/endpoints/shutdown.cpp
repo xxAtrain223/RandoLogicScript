@@ -2,7 +2,8 @@
 
 #include "language_server.h"
 
-namespace rls::lsp::detail::endpoints::shutdown {
+namespace rls::lsp::detail::endpoints {
+namespace shutdown {
 
 struct EmptyRequest {
 };
@@ -12,9 +13,16 @@ std::vector<std::string> handleShutdownEndpoint(const EndpointContext& context, 
     return context.ok(nullptr);
 }
 
-} // namespace rls::lsp::detail::endpoints::shutdown
+const EndpointRegistrar registerEndpoint([]{
+    return makeEndpoint<EmptyRequest>(
+        "shutdown",
+        "Enter shutdown state",
+        EndpointInvocation::Any,
+        BindFailureBehavior::Ignore,
+        handleShutdownEndpoint);
+});
 
-namespace rls::lsp::detail::endpoints {
+} // namespace shutdown
 
 template <>
 struct RequestBinder<shutdown::EmptyRequest> {
@@ -22,20 +30,5 @@ struct RequestBinder<shutdown::EmptyRequest> {
         return shutdown::EmptyRequest{};
     }
 };
-
-EndpointDefinition makeShutdownEndpoint() {
-    return makeEndpoint<shutdown::EmptyRequest>(
-        "shutdown",
-        "Enter shutdown state",
-        EndpointInvocation::Any,
-        BindFailureBehavior::Ignore,
-        [](const EndpointContext& context, const shutdown::EmptyRequest& request) {
-            return shutdown::handleShutdownEndpoint(context, request);
-        });
-}
-
-namespace {
-const EndpointRegistrar kRegisterShutdownEndpoint(&makeShutdownEndpoint);
-}
 
 } // namespace rls::lsp::detail::endpoints

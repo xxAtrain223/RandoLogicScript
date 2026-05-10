@@ -2,7 +2,8 @@
 
 #include "language_server.h"
 
-namespace rls::lsp::detail::endpoints::initialize {
+namespace rls::lsp::detail::endpoints {
+namespace initialize {
 
 struct EmptyRequest {
 };
@@ -27,9 +28,16 @@ std::vector<std::string> handleInitializeEndpoint(const EndpointContext& context
     return context.ok(result);
 }
 
-} // namespace rls::lsp::detail::endpoints::initialize
+const EndpointRegistrar registerEndpoint([]{
+    return makeEndpoint<EmptyRequest>(
+        "initialize",
+        "Initialize server and advertise capabilities",
+        EndpointInvocation::Any,
+        BindFailureBehavior::Ignore,
+        handleInitializeEndpoint);
+});
 
-namespace rls::lsp::detail::endpoints {
+} // namespace initialize
 
 template <>
 struct RequestBinder<initialize::EmptyRequest> {
@@ -37,20 +45,5 @@ struct RequestBinder<initialize::EmptyRequest> {
         return initialize::EmptyRequest{};
     }
 };
-
-EndpointDefinition makeInitializeEndpoint() {
-    return makeEndpoint<initialize::EmptyRequest>(
-        "initialize",
-        "Initialize server and advertise capabilities",
-        EndpointInvocation::Any,
-        BindFailureBehavior::Ignore,
-        [](const EndpointContext& context, const initialize::EmptyRequest& request) {
-            return initialize::handleInitializeEndpoint(context, request);
-        });
-}
-
-namespace {
-const EndpointRegistrar kRegisterInitializeEndpoint(&makeInitializeEndpoint);
-}
 
 } // namespace rls::lsp::detail::endpoints

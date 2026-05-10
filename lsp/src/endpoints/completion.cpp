@@ -8,7 +8,8 @@
 #include "language_server.h"
 #include "symbol_support.h"
 
-namespace rls::lsp::detail::endpoints::completion {
+namespace rls::lsp::detail::endpoints {
+namespace completion {
 
 struct TextDocumentPositionRequest {
     std::string uri;
@@ -92,9 +93,16 @@ std::vector<std::string> handleCompletionEndpoint(
     return context.ok(json{{"isIncomplete", false}, {"items", std::move(items)}});
 }
 
-} // namespace rls::lsp::detail::endpoints::completion
+const EndpointRegistrar registerEndpoint([]{
+    return makeEndpoint<TextDocumentPositionRequest>(
+        "textDocument/completion",
+        "Return completion items for cursor position",
+        EndpointInvocation::RequestOnly,
+        BindFailureBehavior::Ignore,
+        handleCompletionEndpoint);
+});
 
-namespace rls::lsp::detail::endpoints {
+} // namespace completion
 
 template <>
 struct RequestBinder<completion::TextDocumentPositionRequest> {
@@ -113,20 +121,5 @@ struct RequestBinder<completion::TextDocumentPositionRequest> {
         return request;
     }
 };
-
-EndpointDefinition makeCompletionEndpoint() {
-    return makeEndpoint<completion::TextDocumentPositionRequest>(
-        "textDocument/completion",
-        "Return completion items for cursor position",
-        EndpointInvocation::RequestOnly,
-        BindFailureBehavior::Ignore,
-        [](const EndpointContext& context, const completion::TextDocumentPositionRequest& request) {
-            return completion::handleCompletionEndpoint(context, request);
-        });
-}
-
-namespace {
-const EndpointRegistrar kRegisterCompletionEndpoint(&makeCompletionEndpoint);
-}
 
 } // namespace rls::lsp::detail::endpoints

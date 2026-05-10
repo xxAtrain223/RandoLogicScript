@@ -4,7 +4,8 @@
 #include "language_server.h"
 #include "symbol_support.h"
 
-namespace rls::lsp::detail::endpoints::hover {
+namespace rls::lsp::detail::endpoints {
+namespace hover {
 
 struct TextDocumentPositionRequest {
     std::string uri;
@@ -49,9 +50,16 @@ std::vector<std::string> handleHoverEndpoint(
     return context.ok(nullptr);
 }
 
-} // namespace rls::lsp::detail::endpoints::hover
+const EndpointRegistrar registerEndpoint([]{
+    return makeEndpoint<TextDocumentPositionRequest>(
+        "textDocument/hover",
+        "Provide hover information for symbol under cursor",
+        EndpointInvocation::RequestOnly,
+        BindFailureBehavior::Ignore,
+        handleHoverEndpoint);
+});
 
-namespace rls::lsp::detail::endpoints {
+} // namespace hover
 
 template <>
 struct RequestBinder<hover::TextDocumentPositionRequest> {
@@ -70,20 +78,5 @@ struct RequestBinder<hover::TextDocumentPositionRequest> {
         return request;
     }
 };
-
-EndpointDefinition makeHoverEndpoint() {
-    return makeEndpoint<hover::TextDocumentPositionRequest>(
-        "textDocument/hover",
-        "Provide hover information for symbol under cursor",
-        EndpointInvocation::RequestOnly,
-        BindFailureBehavior::Ignore,
-        [](const EndpointContext& context, const hover::TextDocumentPositionRequest& request) {
-            return hover::handleHoverEndpoint(context, request);
-        });
-}
-
-namespace {
-const EndpointRegistrar kRegisterHoverEndpoint(&makeHoverEndpoint);
-}
 
 } // namespace rls::lsp::detail::endpoints
