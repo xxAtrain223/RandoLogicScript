@@ -102,7 +102,11 @@ void SohTranspiler::GenerateRegionsSource(rls::OutputWriter& out) const {
            << "\n";
     
     for (const auto& [regionName, region] : project.RegionDecls) {
-        const auto [extendRegionBegin, extendRegionEnd] = project.ExtendRegionDecls.equal_range(region->key);
+        const auto extendRegionIt = project.ExtendRegionDecls.find(region->key);
+        std::vector<const rls::ast::ExtendRegionDecl*> extendRegionDecls;
+        if (extendRegionIt != project.ExtendRegionDecls.end()) {
+            extendRegionDecls = extendRegionIt->second;
+        }
 
         source << "areaTable[" << region->key << "] = Region("
                << "\"" << region->body.name << "\", "
@@ -118,18 +122,18 @@ void SohTranspiler::GenerateRegionsSource(rls::OutputWriter& out) const {
         
         source << "{\n    // Events\n";
         WriteEvents(*this, source, region->body.sections);
-        for (auto it = extendRegionBegin; it != extendRegionEnd; it++) {
-            WriteEvents(*this, source, it->second->sections);
+        for (const auto* extendRegion : extendRegionDecls) {
+            WriteEvents(*this, source, extendRegion->sections);
         }
         source << "}, {\n    // Locations\n";
         WriteLocations(*this, source, region->body.sections);
-        for (auto it = extendRegionBegin; it != extendRegionEnd; it++) {
-            WriteLocations(*this, source, it->second->sections);
+        for (const auto* extendRegion : extendRegionDecls) {
+            WriteLocations(*this, source, extendRegion->sections);
         }
         source << "}, {\n    // Exits\n";
         WriteExits(*this, source, region->body.sections);
-        for (auto it = extendRegionBegin; it != extendRegionEnd; it++) {
-            WriteExits(*this, source, it->second->sections);
+        for (const auto* extendRegion : extendRegionDecls) {
+            WriteExits(*this, source, extendRegion->sections);
         }
         source << "});\n\n";
     }

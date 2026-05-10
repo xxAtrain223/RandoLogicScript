@@ -22,13 +22,15 @@ static const char* sectionKindName(ast::SectionKind kind) {
 static void checkExtendRegionTargets(
 	ast::Project& project, std::vector<ast::Diagnostic>& diags)
 {
-	for (auto& [name, decl] : project.ExtendRegionDecls) {
+	for (auto& [name, decls] : project.ExtendRegionDecls) {
 		if (!project.RegionDecls.contains(name)) {
-			diags.push_back({
-				ast::DiagnosticLevel::Error,
-				std::format("extend region targets unknown region '{}'", name),
-				decl->span
-			});
+			for (const auto* decl : decls) {
+				diags.push_back({
+					ast::DiagnosticLevel::Error,
+					std::format("extend region targets unknown region '{}'", name),
+					decl->span
+				});
+			}
 		}
 	}
 }
@@ -59,9 +61,11 @@ static void checkDuplicateEntries(
 
 		checkEntries(regionDecl->body.sections);
 
-		auto range = project.ExtendRegionDecls.equal_range(regionName);
-		for (auto it = range.first; it != range.second; ++it) {
-			checkEntries(it->second->sections);
+		if (auto it = project.ExtendRegionDecls.find(regionName);
+			it != project.ExtendRegionDecls.end()) {
+			for (const auto* decl : it->second) {
+				checkEntries(decl->sections);
+			}
 		}
 	}
 }
@@ -92,8 +96,10 @@ static void checkEntryConditionTypes(
 	for (auto& [name, decl] : project.RegionDecls) {
 		check(decl->body.sections, name);
 	}
-	for (auto& [name, decl] : project.ExtendRegionDecls) {
-		check(decl->sections, name);
+	for (auto& [name, decls] : project.ExtendRegionDecls) {
+		for (const auto* decl : decls) {
+			check(decl->sections, name);
+		}
 	}
 }
 
@@ -116,13 +122,15 @@ static void checkRegionReachability(
 			}
 		}
 	}
-	for (auto& [regionName, decl] : project.ExtendRegionDecls) {
+	for (auto& [regionName, decls] : project.ExtendRegionDecls) {
 		if (!project.RegionDecls.contains(regionName)) continue;
 		auto& targets = graph[regionName];
-		for (const auto& section : decl->sections) {
-			if (section.kind == ast::SectionKind::Exits) {
-				for (const auto& entry : section.entries) {
-					targets.insert(entry.name);
+		for (const auto* decl : decls) {
+			for (const auto& section : decl->sections) {
+				if (section.kind == ast::SectionKind::Exits) {
+					for (const auto& entry : section.entries) {
+						targets.insert(entry.name);
+					}
 				}
 			}
 		}
@@ -177,8 +185,10 @@ static void checkUnusedDefines(
 	for (auto& [name, decl] : project.RegionDecls) {
 		collectFromSections(decl->body.sections);
 	}
-	for (auto& [name, decl] : project.ExtendRegionDecls) {
-		collectFromSections(decl->sections);
+	for (auto& [name, decls] : project.ExtendRegionDecls) {
+		for (const auto* decl : decls) {
+			collectFromSections(decl->sections);
+		}
 	}
 	for (auto& [name, decl] : project.DefineDecls) {
 		collectCallNames(*decl->body, usedFunctions);

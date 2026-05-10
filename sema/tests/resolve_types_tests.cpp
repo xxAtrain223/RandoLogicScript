@@ -952,9 +952,10 @@ TEST(ResolveTypes, SharedBlockFromHereInExtendRegion) {
 	EXPECT_TRUE(diags.empty());
 
 	// Find the entry in the extend region's sections
-	auto range = project.ExtendRegionDecls.equal_range("RR_BASE");
-	ASSERT_NE(range.first, range.second);
-	const auto& sections = range.first->second->sections;
+	auto it = project.ExtendRegionDecls.find("RR_BASE");
+	ASSERT_NE(it, project.ExtendRegionDecls.end());
+	ASSERT_EQ(it->second.size(), 1u);
+	const auto& sections = it->second[0]->sections;
 	ASSERT_FALSE(sections.empty());
 	ASSERT_FALSE(sections[0].entries.empty());
 	const auto* expr = sections[0].entries[0].condition.get();

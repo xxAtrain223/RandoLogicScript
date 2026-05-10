@@ -387,7 +387,7 @@ struct Project {
 	std::vector<File> files;
 
 	std::map<std::string, const RegionDecl*> RegionDecls;
-	std::unordered_multimap<std::string, const ExtendRegionDecl*> ExtendRegionDecls;
+	std::map<std::string, std::vector<const ExtendRegionDecl*>> ExtendRegionDecls;
 	std::map<std::string, const DefineDecl*> DefineDecls;
 	std::map<std::string, const ExternDefineDecl*> ExternDefineDecls;
 

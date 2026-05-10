@@ -145,7 +145,8 @@ TEST(CollectDeclarations, SingleExtendRegion) {
 	auto diags = collectDeclarations(project);
 
 	EXPECT_TRUE(diags.empty());
-	ASSERT_EQ(project.ExtendRegionDecls.count("RR_TEST"), 1u);
+	ASSERT_TRUE(project.ExtendRegionDecls.contains("RR_TEST"));
+	ASSERT_EQ(project.ExtendRegionDecls.at("RR_TEST").size(), 1u);
 }
 
 // == Multiple declarations across files =======================================
@@ -189,7 +190,8 @@ TEST(CollectDeclarations, MixedDeclsInOneFile) {
 	EXPECT_TRUE(diags.empty());
 	EXPECT_EQ(project.RegionDecls.size(), 1u);
 	EXPECT_EQ(project.DefineDecls.size(), 1u);
-	EXPECT_EQ(project.ExtendRegionDecls.count("RR_TEST"), 1u);
+	EXPECT_TRUE(project.ExtendRegionDecls.contains("RR_TEST"));
+	EXPECT_EQ(project.ExtendRegionDecls.at("RR_TEST").size(), 1u);
 }
 
 TEST(CollectDeclarations, MultipleExtendsForSameRegion) {
@@ -204,7 +206,8 @@ TEST(CollectDeclarations, MultipleExtendsForSameRegion) {
 	auto diags = collectDeclarations(project);
 
 	EXPECT_TRUE(diags.empty());
-	EXPECT_EQ(project.ExtendRegionDecls.count("RR_FOYER"), 3u);
+	ASSERT_TRUE(project.ExtendRegionDecls.contains("RR_FOYER"));
+	EXPECT_EQ(project.ExtendRegionDecls.at("RR_FOYER").size(), 3u);
 }
 
 // == Duplicate declarations ===================================================
@@ -444,7 +447,8 @@ TEST(CollectDeclarations, ParsedExtendRegion) {
 	auto diags = collectDeclarations(project);
 
 	EXPECT_TRUE(diags.empty());
-	ASSERT_EQ(project.ExtendRegionDecls.count("RR_SPIRIT_TEMPLE_FOYER"), 1u);
+	ASSERT_TRUE(project.ExtendRegionDecls.contains("RR_SPIRIT_TEMPLE_FOYER"));
+	ASSERT_EQ(project.ExtendRegionDecls.at("RR_SPIRIT_TEMPLE_FOYER").size(), 1u);
 }
 
 TEST(CollectDeclarations, ParsedMultiFileProject) {
@@ -488,7 +492,8 @@ TEST(CollectDeclarations, ParsedMultiFileProject) {
 	EXPECT_TRUE(diags.empty());
 	EXPECT_EQ(project.RegionDecls.size(), 2u);
 	EXPECT_EQ(project.DefineDecls.size(), 2u);
-	EXPECT_EQ(project.ExtendRegionDecls.count("RR_FOYER"), 1u);
+	EXPECT_TRUE(project.ExtendRegionDecls.contains("RR_FOYER"));
+	EXPECT_EQ(project.ExtendRegionDecls.at("RR_FOYER").size(), 1u);
 
 	EXPECT_TRUE(project.RegionDecls.contains("RR_FOYER"));
 	EXPECT_TRUE(project.RegionDecls.contains("RR_STATUE"));
@@ -578,7 +583,8 @@ TEST(Analyze, PopulatesDeclMaps) {
 	EXPECT_EQ(errors, 0u);
 	EXPECT_EQ(project.RegionDecls.size(), 1u);
 	EXPECT_EQ(project.DefineDecls.size(), 1u);
-	EXPECT_EQ(project.ExtendRegionDecls.count("RR_FOYER"), 1u);
+	EXPECT_TRUE(project.ExtendRegionDecls.contains("RR_FOYER"));
+	EXPECT_EQ(project.ExtendRegionDecls.at("RR_FOYER").size(), 1u);
 }
 
 TEST(Analyze, ReturnsDiagnosticsFromAllPasses) {
