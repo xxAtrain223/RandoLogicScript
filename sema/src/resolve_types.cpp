@@ -985,10 +985,12 @@ std::vector<ast::Diagnostic> resolveTypes(ast::Project& project) {
 	{
 		Scope extendScope;
 		ExprResolver resolver{project, extendScope, diags};
-		for (auto& [name, decl] : project.ExtendRegionDecls) {
-			for (const auto& section : decl->sections) {
-				for (const auto& entry : section.entries) {
-					resolver.resolveExpr(*entry.condition);
+		for (const auto& [name, decls] : project.ExtendRegionDecls) {
+			for (const auto* decl : decls) {
+				for (const auto& section : decl->sections) {
+					for (const auto& entry : section.entries) {
+						resolver.resolveExpr(*entry.condition);
+					}
 				}
 			}
 		}
@@ -1043,10 +1045,12 @@ std::vector<ast::Diagnostic> resolveTypes(ast::Project& project) {
 			}
 		}
 
-		for (auto& [name, region] : project.ExtendRegionDecls) {
-			for (auto& section : region->sections) {
-				for (auto& entry : section.entries) {
-					populateHere(name, entry.condition);
+		for (const auto& [name, decls] : project.ExtendRegionDecls) {
+			for (const auto* decl : decls) {
+				for (const auto& section : decl->sections) {
+					for (const auto& entry : section.entries) {
+						populateHere(name, entry.condition);
+					}
 				}
 			}
 		}

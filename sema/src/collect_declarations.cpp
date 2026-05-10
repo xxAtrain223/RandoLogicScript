@@ -1,5 +1,6 @@
 #include "collect_declarations.h"
 
+#include <algorithm>
 #include <format>
 
 namespace rls::sema {
@@ -35,7 +36,7 @@ std::vector<ast::Diagnostic> collectDeclarations(ast::Project& project) {
 					}
 				}
 				else if constexpr (std::is_same_v<T, ast::ExtendRegionDecl>) {
-					project.ExtendRegionDecls.emplace(d.name, &d);
+					project.ExtendRegionDecls[d.name].push_back(&d);
 				}
 				else if constexpr (std::is_same_v<T, ast::DefineDecl>) {
 					if (auto it = project.DefineDecls.find(d.name);
@@ -65,6 +66,14 @@ std::vector<ast::Diagnostic> collectDeclarations(ast::Project& project) {
 				}
 			}, decl);
 		}
+	}
+
+	for (auto& [regionName, decls] : project.ExtendRegionDecls) {
+		std::sort(decls.begin(), decls.end(),
+		          [](const ast::ExtendRegionDecl* a, const ast::ExtendRegionDecl* b) {
+			          return std::tie(a->span.file, a->span.start.line) <
+			                 std::tie(b->span.file, b->span.start.line);
+		          });
 	}
 
 	return diagnostics;
