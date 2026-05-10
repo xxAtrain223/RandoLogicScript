@@ -10,6 +10,10 @@
 
 namespace rls::lsp {
 
+namespace detail {
+struct EndpointAccess;
+}
+
 enum class TextDocumentSyncKind {
     None = 0,
     Full = 1,
@@ -42,18 +46,7 @@ public:
     bool shouldExit() const;
 
 private:
-    std::vector<std::string> handleInitialize(bool hasId, const nlohmann::json& id) const;
-    std::vector<std::string> handleShutdown(bool hasId, const nlohmann::json& id);
-    std::vector<std::string> handleExit();
-    std::vector<std::string> handleDidOpen(const nlohmann::json& message);
-    std::vector<std::string> handleDidChange(const nlohmann::json& message);
-    std::vector<std::string> handleDidClose(const nlohmann::json& message);
-    std::vector<std::string> handleDefinition(bool hasId, const nlohmann::json& id, const nlohmann::json& message) const;
-    std::vector<std::string> handleReferences(bool hasId, const nlohmann::json& id, const nlohmann::json& message) const;
-    std::vector<std::string> handleHover(bool hasId, const nlohmann::json& id, const nlohmann::json& message) const;
-    std::vector<std::string> handleCompletion(bool hasId, const nlohmann::json& id, const nlohmann::json& message) const;
-    std::vector<std::string> handleDocumentSymbol(bool hasId, const nlohmann::json& id, const nlohmann::json& message) const;
-    std::vector<std::string> handleWorkspaceSymbol(bool hasId, const nlohmann::json& id, const nlohmann::json& message) const;
+    friend struct detail::EndpointAccess;
 
     std::vector<std::string> publishDiagnostics(const std::string& uri) const;
 
