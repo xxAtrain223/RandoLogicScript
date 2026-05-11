@@ -60,7 +60,12 @@ void SohApTranspiler::GenerateRegionsSource(rls::OutputWriter& out) const {
         // TODO figure out local events and event locations
 
     for (const auto& [regionName, region] : project.RegionDecls) {
-        const auto [extendRegionBegin, extendRegionEnd] = project.ExtendRegionDecls.equal_range(region->key);
+        const auto extendRegionIt = project.ExtendRegionDecls.find(region->key);
+
+        std::vector<const rls::ast::ExtendRegionDecl*> extendRegionDecls;
+        if (extendRegionIt != project.ExtendRegionDecls.end()) {
+            extendRegionDecls = extendRegionIt->second;
+        }
 
         std::string creationString = "Regions." + region->key + ", world, [\n";
 
@@ -69,20 +74,20 @@ void SohApTranspiler::GenerateRegionsSource(rls::OutputWriter& out) const {
 
         source << "    add_events(" << creationString;
         WriteEvents(*this, source, region->body.sections);
-        for (auto it = extendRegionBegin; it != extendRegionEnd; it++) {
-            WriteEvents(*this, source, it->second->sections);
+        for (const auto* extendRegion : extendRegionDecls) {
+            WriteEvents(*this, source, extendRegion->sections);
         }
         source << "    ])\n    # Locations\n"
                << "    add_locations(" << creationString;
         WriteLocations(*this, source, region->body.sections);
-        for (auto it = extendRegionBegin; it != extendRegionEnd; it++) {
-            WriteLocations(*this, source, it->second->sections);
+        for (const auto* extendRegion : extendRegionDecls) {
+            WriteLocations(*this, source, extendRegion->sections);
         }
         source << "    ])\n    # Exits\n"
                << "    connect_regions(" << creationString;
         WriteExits(*this, source, region->body.sections);
-        for (auto it = extendRegionBegin; it != extendRegionEnd; it++) {
-            WriteExits(*this, source, it->second->sections);
+        for (const auto* extendRegion : extendRegionDecls) {
+            WriteExits(*this, source, extendRegion->sections);
         }
         source << "    ])\n\n";
 

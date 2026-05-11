@@ -2,77 +2,77 @@
 
 from .Enums import *
 
-def _can_get_drop_gold_skulltula(distance: EnemyDistance) -> bool:
+def _can_get_drop_gold_skulltula(bundle: "SohWorld", distance: EnemyDistance) -> bool:
     return soh_match((lambda distance: distance == ED_CLOSE or distance == ED_SHORT_JUMPSLASH or distance == ED_MASTER_SWORD_JUMPSLASH or distance == ED_LONG_JUMPSLASH or distance == ED_BOMB_THROW or distance == ED_BOOMERANG), (lambda: can_use(RG_BOOMERANG)), True, (lambda distance: distance == ED_HOOKSHOT), (lambda: can_use(RG_HOOKSHOT)), True, (lambda distance: distance == ED_LONGSHOT), (lambda: can_use(RG_LONGSHOT)), False)
 
-def _can_kill_gold_skulltula(distance: EnemyDistance, wall_or_floor: bool) -> bool:
+def _can_kill_gold_skulltula(bundle: "SohWorld", distance: EnemyDistance, wall_or_floor: bool) -> bool:
     return soh_match((lambda distance: distance == ED_CLOSE), (lambda: can_use(RG_MEGATON_HAMMER)), True, (lambda distance: distance == ED_SHORT_JUMPSLASH), (lambda: can_use(RG_KOKIRI_SWORD)), True, (lambda distance: distance == ED_MASTER_SWORD_JUMPSLASH), (lambda: can_use(RG_MASTER_SWORD)), True, (lambda distance: distance == ED_LONG_JUMPSLASH), (lambda: can_use(RG_BIGGORON_SWORD) or can_use(RG_STICKS)), True, (lambda distance: distance == ED_BOMB_THROW), (lambda: can_use(RG_BOMB_BAG)), True, (lambda distance: distance == ED_BOOMERANG), (lambda: can_use(RG_BOOMERANG) or can_use(RG_DINS_FIRE)), True, (lambda distance: distance == ED_HOOKSHOT), (lambda: can_use(RG_HOOKSHOT)), True, (lambda distance: distance == ED_LONGSHOT), (lambda: can_use(RG_LONGSHOT) or wall_or_floor and can_use(RG_BOMBCHU_5)), True, (lambda distance: distance == ED_FAR), (lambda: can_use(RG_FAIRY_SLINGSHOT) or can_use(RG_FAIRY_BOW)), False)
 
-def call_gossip_fairy() -> bool:
+def call_gossip_fairy(bundle: "SohWorld") -> bool:
     return call_gossip_fairy_except_suns() or can_use(RG_SUNS_SONG)
 
-def call_gossip_fairy_except_suns() -> bool:
+def call_gossip_fairy_except_suns(bundle: "SohWorld") -> bool:
     return can_use(RG_ZELDAS_LULLABY) or can_use(RG_EPONAS_SONG) or can_use(RG_SONG_OF_TIME)
 
-def can_avoid(e: RandomizerEnemy, grounded: bool = False, quantity: int = 1) -> bool:
+def can_avoid(bundle: "SohWorld", e: RandomizerEnemy, grounded: bool = False, quantity: int = 1) -> bool:
     return can_kill(e, ED_CLOSE, True, quantity, False, False) or soh_match((lambda e: e == RE_GOLD_SKULLTULA), (lambda: True), False)
 
-def can_break_lower_beehives() -> bool:
+def can_break_lower_beehives(bundle: "SohWorld") -> bool:
     return can_break_upper_beehives() or can_use(RG_BOMB_BAG)
 
-def can_break_upper_beehives() -> bool:
+def can_break_upper_beehives(bundle: "SohWorld") -> bool:
     return hookshot_or_boomerang() or trick(RT_BOMBCHU_BEEHIVES) and can_use(RG_BOMBCHU_5) or setting(RSK_SLINGBOW_BREAK_BEEHIVES) and (can_use(RG_FAIRY_BOW) or can_use(RG_FAIRY_SLINGSHOT))
 
-def can_climb_ladder() -> bool:
+def can_climb_ladder(bundle: "SohWorld") -> bool:
     return has(RG_CLIMB) or trick(RT_HOOKSHOT_LADDERS) and can_use(RG_HOOKSHOT)
 
-def can_cut_shrubs() -> bool:
+def can_cut_shrubs(bundle: "SohWorld") -> bool:
     return can_use(RG_KOKIRI_SWORD) or can_use(RG_BOOMERANG) or has_explosives() or has(RG_GORONS_BRACELET) or can_use(RG_MASTER_SWORD) or can_use(RG_MEGATON_HAMMER) or can_use(RG_BIGGORON_SWORD) or can_use(RG_GIANTS_KNIFE)
 
-def can_get_deku_baba_nuts() -> bool:
+def can_get_deku_baba_nuts(bundle: "SohWorld") -> bool:
     return can_jumpslash() or can_use(RG_FAIRY_SLINGSHOT) or can_use(RG_FAIRY_BOW) or has_explosives() or can_use(RG_DINS_FIRE)
 
-def can_get_deku_baba_sticks() -> bool:
+def can_get_deku_baba_sticks(bundle: "SohWorld") -> bool:
     return can_use_sword() or can_use(RG_BOOMERANG)
 
-def can_get_drop(e: RandomizerEnemy, distance: EnemyDistance = ED_CLOSE, above_link: bool = False) -> bool:
+def can_get_drop(bundle: "SohWorld", e: RandomizerEnemy, distance: EnemyDistance = ED_CLOSE, above_link: bool = False) -> bool:
     return can_kill(e, distance, True, 1, False, False) and (distance_to_int(distance) <= distance_to_int(ED_MASTER_SWORD_JUMPSLASH) or soh_match((lambda e: e == RE_GOLD_SKULLTULA), (lambda: _can_get_drop_gold_skulltula(distance)), False, (lambda e: e == RE_KEESE or e == RE_FIRE_KEESE or e == RE_GUAY), (lambda: True), False, (lambda: true), (lambda: above_link or distance_to_int(distance) <= distance_to_int(ED_BOOMERANG) and can_use(RG_BOOMERANG)), False))
 
-def can_get_night_time_gs() -> bool:
+def can_get_night_time_gs(bundle: "SohWorld") -> bool:
     return at_night() and (can_use(RG_SUNS_SONG) or not setting(RSK_SKULLS_SUNS_SONG))
 
-def can_jumpslash() -> bool:
+def can_jumpslash(bundle: "SohWorld") -> bool:
     return can_jumpslash_except_hammer() or can_use(RG_MEGATON_HAMMER)
 
-def can_jumpslash_except_hammer() -> bool:
+def can_jumpslash_except_hammer(bundle: "SohWorld") -> bool:
     return can_use(RG_STICKS) or can_use_sword()
 
-def can_kill(e: RandomizerEnemy, distance: EnemyDistance = ED_CLOSE, wall_or_floor: bool = True, quantity: int = 1, timer: bool = False, in_water: bool = False) -> bool:
+def can_kill(bundle: "SohWorld", e: RandomizerEnemy, distance: EnemyDistance = ED_CLOSE, wall_or_floor: bool = True, quantity: int = 1, timer: bool = False, in_water: bool = False) -> bool:
     return soh_match((lambda e: e == RE_GOLD_SKULLTULA), (lambda: _can_kill_gold_skulltula(distance, wall_or_floor)), False)
 
-def can_open_storms_grotto() -> bool:
+def can_open_storms_grotto(bundle: "SohWorld") -> bool:
     return can_use(RG_SONG_OF_STORMS) and (has(RG_STONE_OF_AGONY) or trick(RT_GROTTOS_WITHOUT_AGONY))
 
-def can_pass(e: RandomizerEnemy, distance: EnemyDistance = ED_CLOSE, wall_or_floor: bool = True) -> bool:
+def can_pass(bundle: "SohWorld", e: RandomizerEnemy, distance: EnemyDistance = ED_CLOSE, wall_or_floor: bool = True) -> bool:
     return can_kill(e, distance, wall_or_floor, 1, False, False) or soh_match((lambda e: e == RE_GOLD_SKULLTULA), (lambda: True), False)
 
-def can_spawn_soil_skull(bean: RandomizerGet) -> bool:
+def can_spawn_soil_skull(bundle: "SohWorld", bean: RandomizerGet) -> bool:
     return is_child() and can_use(RG_BOTTLE_WITH_BUGS) and has(bean)
 
-def can_use_sword() -> bool:
+def can_use_sword(bundle: "SohWorld") -> bool:
     return can_use(RG_KOKIRI_SWORD) or can_use(RG_MASTER_SWORD) or can_use(RG_BIGGORON_SWORD)
 
-def distance_to_int(distance: EnemyDistance) -> int:
+def distance_to_int(bundle: "SohWorld", distance: EnemyDistance) -> int:
     return soh_match((lambda distance: distance == ED_CLOSE), (lambda: 0), False, (lambda distance: distance == ED_SHORT_JUMPSLASH), (lambda: 1), False, (lambda distance: distance == ED_MASTER_SWORD_JUMPSLASH), (lambda: 2), False, (lambda distance: distance == ED_LONG_JUMPSLASH), (lambda: 3), False, (lambda distance: distance == ED_BOMB_THROW), (lambda: 4), False, (lambda distance: distance == ED_BOOMERANG), (lambda: 5), False, (lambda distance: distance == ED_HOOKSHOT), (lambda: 6), False, (lambda distance: distance == ED_LONGSHOT), (lambda: 7), False, (lambda distance: distance == ED_FAR), (lambda: 8), False)
 
-def has_bottle() -> bool:
+def has_bottle(bundle: "SohWorld") -> bool:
     return bottle_count() >= 1
 
-def has_explosives() -> bool:
+def has_explosives(bundle: "SohWorld") -> bool:
     return can_use(RG_BOMB_BAG) or can_use(RG_BOMBCHU_5)
 
-def hookshot_or_boomerang() -> bool:
+def hookshot_or_boomerang(bundle: "SohWorld") -> bool:
     return can_use(RG_HOOKSHOT) or can_use(RG_BOOMERANG)
 
-def wallet_capacity() -> int:
+def wallet_capacity(bundle: "SohWorld") -> int:
     return 999 if has(RG_TYCOON_WALLET) else 500 if has(RG_GIANT_WALLET) else 200 if has(RG_ADULT_WALLET) else 99 if has(RG_CHILD_WALLET) else 0

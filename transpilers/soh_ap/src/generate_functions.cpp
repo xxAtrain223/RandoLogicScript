@@ -40,7 +40,8 @@ std::string functionSignature(
     const bool includeDefaults)
 {
     std::ostringstream sig;
-    sig << "def " << decl->name << "(";
+    sig << "def " << decl->name << "(bundle: \"SohWorld\"";
+    if (decl->params.size() > 0) { sig << ", "; }
     for (int i = 0; i < decl->params.size(); i++) {
         const auto& param = decl->params[i];
         sig << param.name << ": " << nodeType(p, &param);
