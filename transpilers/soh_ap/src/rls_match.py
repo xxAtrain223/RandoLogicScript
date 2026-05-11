@@ -21,10 +21,7 @@ from typing import Any
 # RG_BOOMERANG, RG_HOOKSHOT, RG_LONGSHOT = RandomizerGet
 # ED_CLOSE, ED_SHORT_JUMPSLASH, ED_MASTER_SWORD_JUMPSLASH, ED_LONG_JUMPSLASH, ED_BOMB_THROW, ED_BOOMERANG, ED_HOOKSHOT, ED_LONGSHOT, ED_FAR = EnemyDistances
 
-# not sure how this active variable is used or changed
-active = False
-
-def rls_match(compare, condition, body, fallthrough: bool, *args) -> Any:
+def rls_match(compare, condition, body, fallthrough: bool, *args, active: bool = False) -> Any:
     if len(args) == 0:
         if active or condition(compare): return body()
         # Choose default for type to return
@@ -34,7 +31,7 @@ def rls_match(compare, condition, body, fallthrough: bool, *args) -> Any:
         if active or condition(compare):
             if fallthrough:
                 if bool(body()): return body()
-                return rls_match(compare, *args)
+                return rls_match(compare, *args, active=True)
             return body()
         return rls_match(compare, *args)
 
