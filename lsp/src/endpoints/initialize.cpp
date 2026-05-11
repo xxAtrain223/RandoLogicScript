@@ -18,6 +18,8 @@ std::vector<std::string> handleInitializeEndpoint(const EndpointContext& context
             {"hoverProvider", caps.hoverProvider},
             {"completionProvider", {
                 {"resolveProvider", false},
+                // Trigger completion after opening an argument list, separating
+                // arguments, or starting a named argument.
                 {"triggerCharacters", json::array({"(", ",", ":"})}
             }},
             {"documentSymbolProvider", caps.documentSymbolProvider},

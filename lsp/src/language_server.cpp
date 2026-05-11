@@ -29,6 +29,8 @@ enum class TraceLevel {
     Debug,
 };
 
+// Cache the environment-driven trace setting once so request handling stays
+// deterministic and avoids repeated environment lookups.
 TraceLevel configuredTraceLevel() {
     static const TraceLevel level = [] {
         std::string traceValue;
@@ -167,6 +169,8 @@ std::vector<std::string> LanguageServer::handlePayload(std::string_view payload)
         return {makeErrorResponse(nullptr, -32600, "Invalid Request").dump()};
     }
 
+    // JSON-RPC requires a top-level object with version marker before any
+    // method-specific dispatch can happen.
     if (!message.contains("jsonrpc") || message["jsonrpc"] != "2.0") {
         const bool hasId = message.contains("id");
         const json id = hasId ? message["id"] : json(nullptr);
@@ -189,6 +193,8 @@ std::vector<std::string> LanguageServer::handlePayload(std::string_view payload)
     trace(TraceLevel::Debug, "handle method", {{"method", method}});
 
     try {
+        // Endpoint registration owns method lookup, request-vs-notification
+        // rules, parameter binding, and any handler-generated outbound messages.
         const auto dispatch = detail::dispatchEndpoint(detail::EndpointDispatchInput{
             *this,
             method,
@@ -243,6 +249,8 @@ std::vector<std::string> LanguageServer::publishDiagnostics(const std::string& u
     try {
         file = rls::parser::ParseString(doc->text, uri);
     } catch (const std::exception& e) {
+        // Surface parser crashes as a synthetic diagnostic so the editor still
+        // shows a failure instead of silently dropping diagnostics.
         trace(TraceLevel::Error, "parse exception", {{"uri", uri}, {"error", e.what()}});
         const json lspDiagnostics = json::array({
             {
@@ -280,6 +288,8 @@ std::vector<std::string> LanguageServer::publishDiagnostics(const std::string& u
     }
 
     if (!hasParseErrors) {
+        // Semantic analysis runs only after parsing succeeds so it can assume a
+        // structurally valid AST and avoid cascading parse-noise diagnostics.
         rls::ast::Project project;
         project.files.push_back(std::move(file));
 
@@ -304,6 +314,8 @@ std::vector<std::string> LanguageServer::publishDiagnostics(const std::string& u
         lspDiagnostics.push_back(toLspDiagnostic(diagnostic));
     }
 
+    // Always publish the full current diagnostic set for the document, even
+    // when it is empty, so the client can clear stale diagnostics.
     outbound.push_back(makeNotification(
         "textDocument/publishDiagnostics",
         {

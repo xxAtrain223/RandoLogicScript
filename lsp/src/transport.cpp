@@ -11,6 +11,9 @@ void JsonRpcMessageFramer::append(std::string_view chunk) {
 
 std::optional<std::string> JsonRpcMessageFramer::popMessage() {
     constexpr std::string_view kHeaderTerminator = "\r\n\r\n";
+
+    // Wait until the full header block has arrived before attempting to parse
+    // Content-Length or slice out any payload bytes.
     const auto headerEndPos = buffer_.find(kHeaderTerminator);
     if (headerEndPos == std::string::npos) {
         return std::nullopt;
@@ -34,6 +37,8 @@ std::optional<std::string> JsonRpcMessageFramer::popMessage() {
         constexpr std::string_view kContentLength = "Content-Length:";
         if (line.rfind(kContentLength, 0) == 0) {
             std::string value = line.substr(kContentLength.size());
+
+            // The protocol allows optional whitespace after the colon.
             size_t firstNonSpace = 0;
             while (firstNonSpace < value.size()
                 && std::isspace(static_cast<unsigned char>(value[firstNonSpace]))) {
@@ -60,6 +65,8 @@ std::optional<std::string> JsonRpcMessageFramer::popMessage() {
         return std::nullopt;
     }
 
+    // Consume exactly one frame and leave any subsequent buffered frame data in
+    // place for the next popMessage() call.
     std::string payload = buffer_.substr(payloadStart, contentLength);
     buffer_.erase(0, totalFrameSize);
     return payload;

@@ -9,6 +9,8 @@ struct EmptyRequest {
 };
 
 std::vector<std::string> handleShutdownEndpoint(const EndpointContext& context, const EmptyRequest&) {
+    // Shutdown records the state transition and acknowledges the request, but
+    // leaves actual process termination to a later exit notification.
     EndpointAccess::setShutdown(context.server, true);
     return context.ok(nullptr);
 }

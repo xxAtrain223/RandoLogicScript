@@ -13,6 +13,8 @@ struct DidChangeRequest {
 };
 
 std::vector<std::string> handleDidChangeEndpoint(const EndpointContext& context, const DidChangeRequest& request) {
+    // Full-document changes for unknown documents or stale versions are ignored
+    // by the document store, matching the server's simple sync contract.
     if (!context.server.documents().applyFullChange(request.uri, request.version, request.text)) {
         return {};
     }
@@ -49,6 +51,8 @@ struct RequestBinder<did_change::DidChangeRequest> {
             return std::nullopt;
         }
 
+        // The server advertises full document sync, so it consumes the first
+        // full replacement text from contentChanges.
         const json* firstChange = asObject(&(*changes)[0]);
         const json* textValue = findMember(firstChange, "text");
         if (textValue == nullptr || !textValue->is_string()) {

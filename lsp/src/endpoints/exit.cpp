@@ -9,6 +9,8 @@ struct EmptyRequest {
 };
 
 std::vector<std::string> handleExitEndpoint(const EndpointContext& context, const EmptyRequest&) {
+    // Exit is a notification in normal LSP flow, so it only flips server state
+    // for the host process to observe after dispatch completes.
     EndpointAccess::setShouldExit(context.server, true);
     return {};
 }

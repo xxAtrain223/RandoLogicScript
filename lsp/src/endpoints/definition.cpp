@@ -33,6 +33,8 @@ std::vector<std::string> handleDefinitionEndpoint(
     const auto symbols = support::collectSymbols(context.server.documents());
     json locations = json::array();
     for (const auto& symbol : symbols) {
+        // The indexed symbol list represents declaration sites, so the first
+        // name match is the definition target we want to return.
         if (symbol.name == word->value) {
             locations.push_back(support::locationFromSpan(symbol.uri, symbol.span));
             break;

@@ -33,6 +33,8 @@ std::vector<std::string> handleHoverEndpoint(
     const auto symbols = support::collectSymbols(context.server.documents());
     for (const auto& symbol : symbols) {
         if (symbol.name == word->value) {
+            // Hover content is intentionally lightweight: just the declaration
+            // category and symbol name, anchored to the identifier under the cursor.
             const json hoverResult = {
                 {"contents", {
                     {"kind", "plaintext"},

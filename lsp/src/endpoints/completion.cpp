@@ -34,12 +34,15 @@ std::vector<std::string> handleCompletionEndpoint(
     const auto symbols = support::collectSymbols(context.server.documents());
     const auto paramsByFunction = support::collectFunctionParams(context.server.documents());
 
+    // Combine language keywords with indexed symbols and, when applicable,
+    // named-argument completions for the active call site.
     const std::vector<std::string> keywords = {
         "define", "extern", "region", "extend", "match", "shared", "any_age",
         "true", "false", "always", "never", "and", "or", "not"
     };
 
     json items = json::array();
+    // Deduplicate suggestions across the different completion sources.
     std::set<std::string> seen;
 
     for (const auto& keyword : keywords) {
@@ -71,6 +74,8 @@ std::vector<std::string> handleCompletionEndpoint(
     }
 
     if (callsiteName.has_value()) {
+        // Only offer parameter labels when the cursor sits inside an active
+        // function call whose declaration metadata we have indexed.
         auto it = paramsByFunction.find(*callsiteName);
         if (it != paramsByFunction.end()) {
             for (const auto& param : it->second) {

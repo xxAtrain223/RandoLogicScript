@@ -14,6 +14,8 @@ struct DidOpenRequest {
 };
 
 std::vector<std::string> handleDidOpenEndpoint(const EndpointContext& context, const DidOpenRequest& request) {
+    // Opening replaces any prior snapshot for the URI and immediately emits
+    // diagnostics for the newly synchronized document text.
     context.server.documents().open(request.uri, request.languageId, request.version, request.text);
     return EndpointAccess::publishDiagnostics(context.server, request.uri);
 }

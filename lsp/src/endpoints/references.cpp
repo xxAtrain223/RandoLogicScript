@@ -46,6 +46,8 @@ std::vector<std::string> handleReferencesEndpoint(
             continue;
         }
 
+        // Scan raw text for exact identifier matches so references can be found
+        // across all currently open documents without a full semantic index.
         size_t pos = doc->text.find(word->value);
         while (pos != std::string::npos) {
             const bool leftOk = pos == 0 || !support::isIdentifierChar(doc->text[pos - 1]);
@@ -57,6 +59,8 @@ std::vector<std::string> handleReferencesEndpoint(
                 bool isDeclarationLocation = false;
 
                 if (!request.includeDeclaration) {
+                    // Compare the textual match against indexed declaration
+                    // start positions so callers can exclude declaration sites.
                     for (const auto& [declUri, declSpan] : declarationSpans) {
                         const auto declUriValue = declSpan.file.empty() ? declUri : declSpan.file;
                         const auto& range = location["range"];

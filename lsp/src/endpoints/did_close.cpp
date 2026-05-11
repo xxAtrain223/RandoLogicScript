@@ -15,6 +15,8 @@ std::vector<std::string> handleDidCloseEndpoint(const EndpointContext& context, 
         return {};
     }
 
+    // Clients expect an explicit empty diagnostics publish on close so any
+    // previously reported problems are cleared from the editor.
     return {
         makeNotificationPayload(
             "textDocument/publishDiagnostics",

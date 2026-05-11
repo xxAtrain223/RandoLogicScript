@@ -59,6 +59,8 @@ std::vector<std::string> handleDocumentSymbolEndpoint(
         return context.ok(json::array());
     }
 
+    // Reparse the current open snapshot and surface only top-level declarations
+    // as flat document symbols.
     auto file = rls::parser::ParseString(doc->text, request.uri);
     json symbols = json::array();
 
@@ -73,6 +75,8 @@ std::vector<std::string> handleDocumentSymbolEndpoint(
             {"name", name},
             {"kind", kind},
             {"range", toLspRange(span)},
+            // The parser tracks declaration spans, not narrower identifier-only
+            // spans, so selectionRange matches the declaration range here.
             {"selectionRange", toLspRange(span)},
         });
     }

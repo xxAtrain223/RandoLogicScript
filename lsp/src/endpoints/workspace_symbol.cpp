@@ -22,6 +22,8 @@ std::vector<std::string> handleWorkspaceSymbolEndpoint(
 
     json results = json::array();
     for (const auto& symbol : symbols) {
+        // Workspace symbol search uses the preindexed declarations from all
+        // open documents and filters them with a case-insensitive substring match.
         if (!support::symbolMatchesQuery(symbol.name, request.query)) {
             continue;
         }
