@@ -16,7 +16,35 @@ std::string SohApTranspiler::GenerateExpression(const rls::ast::IntLiteral& node
 }
 
 std::string SohApTranspiler::GenerateExpression(const rls::ast::Identifier& node) const {
-	return node.name;
+    return node.name;
+    // auto type = project.getType(&node);
+    // if (!type.has_value()) {
+    //     return node.name;
+    // }
+    // switch (type.value()) {
+    //     case rls::ast::Type::Item:
+    //         return "RandomizerGet." + node.name;
+    //     case rls::ast::Type::Enemy:
+    //         return "RandomizerEnemy." + node.name;
+    //     case rls::ast::Type::Distance:
+    //         return "EnemyDistance." + node.name;
+    //     case rls::ast::Type::Trick:
+    //         return "RandomizerTrick." + node.name;
+    //     case rls::ast::Type::Setting:
+    //         return "world.options." + node.name;
+    //     case rls::ast::Type::Region:
+    //         return "RandomizerRegion." + node.name;
+    //     case rls::ast::Type::Check:
+    //         return "RandomizerCheck." + node.name;
+    //     case rls::ast::Type::Dungeon:
+    //         return "Dungeon." + node.name;
+    //     case rls::ast::Type::Trial:
+    //         return "Trial." + node.name;
+    //     case rls::ast::Type::WaterLevel:
+    //         return "WaterLevel." + node.name;
+    //     default:
+    //         return node.name;
+    // }
 }
 
 // Returns the Python operator precedence for an expression node.
@@ -163,7 +191,7 @@ std::string SohApTranspiler::GenerateExpression(const rls::ast::AnyAgeBlock& nod
 
 std::string SohApTranspiler::GenerateExpression(const rls::ast::MatchExpr& node) const {
 	std::ostringstream oss;
-	oss << "soh_match(";
+	oss << "rls_match(";
 
 	for (size_t i = 0; i < node.arms.size(); i++) {
 		const auto& arm = node.arms[i];
@@ -174,7 +202,7 @@ std::string SohApTranspiler::GenerateExpression(const rls::ast::MatchExpr& node)
         if (arm.isDefault) {
             oss << "(lambda: true), ";
         } else {
-            oss << "(lambda " << node.discriminant << ": ";
+            oss << "(lambda " << node.discriminant << "=" << node.discriminant << ": ";
             for (size_t j = 0; j < arm.patterns.size(); j++) {
                 if (j > 0) oss << " or ";
                 oss << node.discriminant << " == " << arm.patterns[j];
