@@ -68,7 +68,7 @@ struct ExprResolver {
 		bool hasError = false;
 	};
 
-	bool inferUntypedParamIdentifier(const ast::Expr& expr, T expectedType) {
+	bool inferUntypedParamIdentifier(ast::Expr& expr, T expectedType) {
 		auto* id = std::get_if<ast::Identifier>(&expr.node);
 		if (id == nullptr) {
 			return false;
@@ -79,6 +79,7 @@ struct ExprResolver {
 			return false;
 		}
 
+		id->kind = ast::IdentifierKind::Parameter;
 		it->second = expectedType;
 		project.setType(&expr, expectedType);
 		return true;
@@ -86,17 +87,18 @@ struct ExprResolver {
 
 	// -- Node handlers -------------------------------------------------------
 
-	ast::Type resolve(const ast::BoolLiteral&, const ast::Expr&) {
+	ast::Type resolve(const ast::BoolLiteral&, ast::Expr&) {
 		return ast::Type::Bool;
 	}
 
-	ast::Type resolve(const ast::IntLiteral&, const ast::Expr&) {
+	ast::Type resolve(const ast::IntLiteral&, ast::Expr&) {
 		return ast::Type::Int;
 	}
 
-	ast::Type resolve(const ast::Identifier& node, const ast::Expr& expr) {
+	ast::Type resolve(ast::Identifier& node, ast::Expr& expr) {
 		// Check scope first (parameter names).
 		if (auto it = scope.find(node.name.text); it != scope.end()) {
+			node.kind = ast::IdentifierKind::Parameter;
 			if (it->second) {
 				return *it->second;
 			}
@@ -105,6 +107,7 @@ struct ExprResolver {
 		}
 
 		if (auto t = typeFromIdentifier(node.name.text)) {
+			node.kind = ast::IdentifierKind::EnumValue;
 			return *t;
 		}
 		diags.push_back({
@@ -115,7 +118,7 @@ struct ExprResolver {
 		return ast::Type::Error;
 	}
 
-	ast::Type resolve(const ast::UnaryExpr& node, const ast::Expr& expr) {
+	ast::Type resolve(const ast::UnaryExpr& node, ast::Expr& expr) {
 		inferUntypedParamIdentifier(*node.operand, ast::Type::Bool);
 		auto opType = resolveExpr(*node.operand);
 		if (opType != ast::Type::Error && !isBoolCompatible(opType)) {
@@ -129,7 +132,7 @@ struct ExprResolver {
 		return ast::Type::Bool;
 	}
 
-	ast::Type resolve(const ast::BinaryExpr& node, const ast::Expr& expr) {
+	ast::Type resolve(const ast::BinaryExpr& node, ast::Expr& expr) {
 		using T = ast::Type;
 
 		switch (node.op) {
@@ -258,7 +261,7 @@ struct ExprResolver {
 		return T::Error; // unreachable — all BinaryOp cases covered
 	}
 
-	ast::Type resolve(const ast::TernaryExpr& node, const ast::Expr& expr) {
+	ast::Type resolve(const ast::TernaryExpr& node, ast::Expr& expr) {
 		using T = ast::Type;
 		inferUntypedParamIdentifier(*node.condition, T::Bool);
 		auto condType = resolveExpr(*node.condition);
@@ -301,7 +304,7 @@ struct ExprResolver {
 	}
 
 	/// Recursively resolve the type of an expression.
-	ast::Type resolveExpr(const ast::Expr& expr) {
+	ast::Type resolveExpr(ast::Expr& expr) {
 		if (auto cached = project.getType(&expr)) {
 			return *cached;
 		}
