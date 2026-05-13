@@ -651,7 +651,7 @@ TEST(ValidateDeclarations, ExternDefineMissingReturnTypeManualAst) {
 	File file;
 	file.path = "externs.rls";
 	file.declarations.emplace_back(ExternDefineDecl(
-		"can_hit_switch",
+		Name("can_hit_switch"),
 		std::vector<Param>{}
 	));
 	project.files.push_back(std::move(file));

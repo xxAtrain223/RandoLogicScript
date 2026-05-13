@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cstdint>
+#include <ostream>
 #include <memory>
 #include <optional>
 #include <string>
@@ -49,6 +50,56 @@ enum class SectionKind { Events, Locations, Exits };
 
 enum class TimePasses { Auto, Yes, No };
 
+enum class IdentifierKind {
+	Unresolved,
+	Parameter,
+	EnumValue,
+};
+
+// == Name-like syntax nodes ==================================================
+
+/// A syntactic name token used for declarations, labels, and symbolic refs.
+struct Name {
+	std::string text;
+
+	Name() = default;
+	explicit Name(std::string text) : text(std::move(text)) {}
+
+	std::string_view view() const { return text; }
+};
+
+inline bool operator==(const Name& lhs, std::string_view rhs) {
+	return lhs.text == rhs;
+}
+
+inline bool operator==(std::string_view lhs, const Name& rhs) {
+	return lhs == rhs.text;
+}
+
+inline std::ostream& operator<<(std::ostream& out, const Name& name) {
+	return out << name.text;
+}
+
+/// A type annotation name such as `Bool`, `Distance`, or `Item`.
+struct TypeRef {
+	Name name;
+
+	TypeRef() = default;
+	explicit TypeRef(Name name) : name(std::move(name)) {}
+};
+
+inline bool operator==(const TypeRef& lhs, std::string_view rhs) {
+	return lhs.name.text == rhs;
+}
+
+inline bool operator==(std::string_view lhs, const TypeRef& rhs) {
+	return lhs == rhs.name.text;
+}
+
+inline std::ostream& operator<<(std::ostream& out, const TypeRef& typeRef) {
+	return out << typeRef.name.text;
+}
+
 // == Expression leaf nodes ====================================================
 
 /// Boolean literal: `true`, `false`, `always`, `never`.
@@ -63,7 +114,12 @@ struct IntLiteral {
 
 /// Named identifier: enum values (`RG_HOOKSHOT`), parameters (`distance`), etc.
 struct Identifier {
-	std::string name;
+	Name name;
+	IdentifierKind kind = IdentifierKind::Unresolved;
+
+	Identifier() = default;
+	explicit Identifier(Name name, IdentifierKind kind = IdentifierKind::Unresolved)
+		: name(std::move(name)), kind(kind) {}
 };
 
 // == Expression compound nodes ================================================
@@ -101,29 +157,29 @@ struct TernaryExpr {
 
 /// A function call argument, either positional or named (`param: value`).
 struct Arg {
-	std::optional<std::string> name;
+	std::optional<Name> name;
 	ExprPtr value;
 
-	Arg(std::optional<std::string> name, ExprPtr value)
+	Arg(std::optional<Name> name, ExprPtr value)
 		: name(std::move(name)), value(std::move(value)) {}
 };
 
 /// Function call: `name(arg1, arg2, param: arg3)`.
 struct CallExpr {
-	std::string function;
+	Name callee;
 	std::vector<Arg> args;
 
-	CallExpr(std::string function, std::vector<Arg> args)
-		: function(std::move(function)), args(std::move(args)) {}
+	CallExpr(Name callee, std::vector<Arg> args)
+		: callee(std::move(callee)), args(std::move(args)) {}
 };
 
 /// One branch of a `shared` block: `from <region>: <condition>` or
 /// `from here: <condition>`.
 struct SharedBranch {
-	std::optional<std::string> region; // nullopt means "from here"
+	std::optional<Name> region; // nullopt means "from here"
 	ExprPtr condition;
 
-	SharedBranch(std::optional<std::string> region, ExprPtr condition)
+	SharedBranch(std::optional<Name> region, ExprPtr condition)
 		: region(std::move(region)), condition(std::move(condition)) {}
 };
 
@@ -145,12 +201,12 @@ struct AnyAgeBlock {
 
 /// One arm of a `match` expression.
 struct MatchArm {
-	std::vector<std::string> patterns;  // one or more enum identifiers
+	std::vector<Name> patterns;         // one or more enum identifiers
 	bool isDefault;                     // `_` catch-all arm
 	ExprPtr body;
 	bool fallthrough;                   // trailing `or` for OR-accumulation
 
-	MatchArm(std::vector<std::string> patterns, bool isDefault, ExprPtr body, bool fallthrough)
+	MatchArm(std::vector<Name> patterns, bool isDefault, ExprPtr body, bool fallthrough)
 		: patterns(std::move(patterns)),
 		  isDefault(isDefault),
 		  body(std::move(body)),
@@ -159,10 +215,10 @@ struct MatchArm {
 
 /// Match expression: `match <discriminant> { <arms> }`.
 struct MatchExpr {
-	std::string discriminant;
+	Name discriminant;
 	std::vector<MatchArm> arms;
 
-	MatchExpr(std::string discriminant, std::vector<MatchArm> arms)
+	MatchExpr(Name discriminant, std::vector<MatchArm> arms)
 		: discriminant(std::move(discriminant)), arms(std::move(arms)) {}
 };
 
@@ -202,11 +258,11 @@ ExprPtr makeExpr(T&& node, Span span = {}) {
 /// A parameter in a `define` or enemy field: `name`, optional `: type`,
 /// optional `= default`.
 struct Param {
-	std::string name;
-	std::optional<std::string> type;
+	Name name;
+	std::optional<TypeRef> type;
 	ExprPtr defaultValue; // nullptr if no default
 
-	Param(std::string name, std::optional<std::string> type, ExprPtr defaultValue)
+	Param(Name name, std::optional<TypeRef> type, ExprPtr defaultValue)
 		: name(std::move(name)),
 		  type(std::move(type)),
 		  defaultValue(std::move(defaultValue)) {}
@@ -214,11 +270,11 @@ struct Param {
 
 /// A single entry in a region section: `NAME: condition`.
 struct Entry {
-	std::string name;
+	Name name;
 	ExprPtr condition;
 	Span span;
 
-	Entry(std::string name, ExprPtr condition, Span span = {})
+	Entry(Name name, ExprPtr condition, Span span = {})
 		: name(std::move(name)),
 		  condition(std::move(condition)),
 		  span(span) {}
@@ -236,16 +292,16 @@ struct Section {
 /// Region body: properties and sections shared by `region` and `extend region`.
 struct RegionBody {
 	std::string name;
-	std::optional<std::string> scene;
+	std::optional<Name> scene;
 	TimePasses timePasses = TimePasses::Auto;
-	std::vector<std::string> areas;
+	std::vector<Name> areas;
 	std::vector<Section> sections;
 
 	RegionBody(
 		std::string name,
-		std::optional<std::string> scene,
+		std::optional<Name> scene,
 		TimePasses timePasses,
-		std::vector<std::string> areas,
+		std::vector<Name> areas,
 		std::vector<Section> sections)
 		: name(std::move(name)),
 		  scene(std::move(scene)),
@@ -258,11 +314,11 @@ struct RegionBody {
 
 /// `region RR_KEY { name: "Display Name" scene: SCENE_ID ... }`
 struct RegionDecl {
-	std::string key;
+	Name key;
 	RegionBody body;
 	Span span;
 
-	RegionDecl(std::string key, RegionBody body, Span span = {})
+	RegionDecl(Name key, RegionBody body, Span span = {})
 		: key(std::move(key)),
 		  body(std::move(body)),
 		  span(span) {}
@@ -271,11 +327,11 @@ struct RegionDecl {
 /// `extend region RR_NAME { ... }`
 /// Extensions can only add sections, not redefine scene, time_passes, or areas.
 struct ExtendRegionDecl {
-	std::string name;
+	Name name;
 	std::vector<Section> sections;
 	Span span;
 
-	ExtendRegionDecl(std::string name, std::vector<Section> sections,
+	ExtendRegionDecl(Name name, std::vector<Section> sections,
 	                 Span span = {})
 		: name(std::move(name)),
 		  sections(std::move(sections)),
@@ -284,13 +340,13 @@ struct ExtendRegionDecl {
 
 /// `define name(params): body`
 struct DefineDecl {
-	std::string name;
+	Name name;
 	std::vector<Param> params;
 	ExprPtr body;
 	Span span;
 
 	DefineDecl(
-		std::string name,
+		Name name,
 		std::vector<Param> params,
 		ExprPtr body,
 		Span span = {})
@@ -302,13 +358,13 @@ struct DefineDecl {
 
 /// `extern define name(params)`
 struct ExternDefineDecl {
-	std::string name;
+	Name name;
 	std::vector<Param> params;
-	std::optional<std::string> returnType;
+	std::optional<TypeRef> returnType;
 	Span span;
 
 	ExternDefineDecl(
-		std::string name,
+		Name name,
 		std::vector<Param> params,
 		Span span = {})
 		: name(std::move(name)),
@@ -317,9 +373,9 @@ struct ExternDefineDecl {
 		  span(span) {}
 
 	ExternDefineDecl(
-		std::string name,
+		Name name,
 		std::vector<Param> params,
-		std::optional<std::string> returnType,
+		std::optional<TypeRef> returnType,
 		Span span = {})
 		: name(std::move(name)),
 		  params(std::move(params)),

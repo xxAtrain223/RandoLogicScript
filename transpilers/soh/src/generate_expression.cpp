@@ -15,7 +15,7 @@ std::string SohTranspiler::GenerateExpression(const rls::ast::IntLiteral& node) 
 }
 
 std::string SohTranspiler::GenerateExpression(const rls::ast::Identifier& node) const {
-	return node.name;
+    return node.name.text;
 }
 
 // Returns the C++ operator precedence for an expression node.
@@ -121,7 +121,7 @@ std::string SohTranspiler::GenerateExpression(const rls::ast::CallExpr& node) co
     const auto& resolved = *resolvedPtr;
 
     std::ostringstream oss;
-    oss << node.function << "(";
+    oss << node.callee.text << "(";
     for (size_t i = 0; i < resolved.size(); ++i) {
         if (i > 0) {
             oss << ", ";
@@ -136,12 +136,12 @@ std::string SohTranspiler::GenerateExpression(const rls::ast::SharedBlock& node)
     std::ostringstream oss;
 
     const auto& firstBranch = node.branches[0];
-    oss << "SpiritShared(" << firstBranch.region.value_or("") << ", "
+        oss << "SpiritShared(" << firstBranch.region->text << ", "
         << "[]{return " << GenerateExpression(firstBranch.condition) << ";}, "
         << (node.anyAge ? "true" : "false");
 
     for (int i = 1; i < node.branches.size(); i++) {
-        oss << ", " << node.branches[i].region.value_or("") << ", "
+		oss << ", " << node.branches[i].region->text << ", "
             << "[]{return " << GenerateExpression(node.branches[i].condition) << ";}";
     }
 
@@ -170,7 +170,7 @@ std::string SohTranspiler::GenerateExpression(const rls::ast::MatchExpr& node) c
             oss << "[&]{return ";
             for (size_t j = 0; j < arm.patterns.size(); j++) {
                 if (j > 0) oss << " || ";
-                oss << node.discriminant << " == " << arm.patterns[j];
+                oss << node.discriminant.text << " == " << arm.patterns[j].text;
             }
             oss << ";}, ";
         }

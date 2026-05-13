@@ -40,10 +40,10 @@ std::string functionSignature(
     const bool includeDefaults)
 {
     std::ostringstream sig;
-    sig << nodeType(p, decl->body.get()) << " " << decl->name << "(";
+    sig << nodeType(p, decl->body.get()) << " " << decl->name.text << "(";
     for (int i = 0; i < decl->params.size(); i++) {
         const auto& param = decl->params[i];
-        sig << "const " << nodeType(p, &param) << " " << param.name;
+        sig << "const " << nodeType(p, &param) << " " << param.name.text;
         if (includeDefaults && param.defaultValue != nullptr) {
 			sig << " = " + transpiler.GenerateExpression(param.defaultValue);
         }

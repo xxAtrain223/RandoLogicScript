@@ -42,7 +42,7 @@ ResolvedExpression sourceToRegionExpression(
 	for (auto& section : region->body.sections) {
 		if (section.kind != sectionKind) continue;
 		for (auto& entry : section.entries) {
-			if (entry.name == entryName) {
+			if (entry.name.text == entryName) {
 				return { std::move(project), std::move(entry.condition) };
 			}
 		}

@@ -18,8 +18,8 @@ static File makeRegionFile(const std::string& path, const std::string& regionNam
 	File f;
 	f.path = path;
 	f.declarations.emplace_back(RegionDecl(
-		regionName,
-		RegionBody("Test", scene, TimePasses::Auto, {}, {}),
+		Name(regionName),
+		RegionBody("Test", Name(scene), TimePasses::Auto, {}, {}),
 		span
 	));
 	return f;
@@ -31,7 +31,7 @@ static File makeDefineFile(const std::string& path, const std::string& name,
 	File f;
 	f.path = path;
 	f.declarations.emplace_back(DefineDecl(
-		name, {}, makeExpr(BoolLiteral{true}), span
+		Name(name), {}, makeExpr(BoolLiteral{true}), span
 	));
 	return f;
 }
@@ -41,7 +41,7 @@ static File makeExternDefineFile(const std::string& path, const std::string& nam
                                  Span span = {}) {
 	File f;
 	f.path = path;
-	f.declarations.emplace_back(ExternDefineDecl(name, {}, span));
+	f.declarations.emplace_back(ExternDefineDecl(Name(name), {}, span));
 	return f;
 }
 
@@ -51,11 +51,11 @@ static File makeExtendFile(const std::string& path, const std::string& regionNam
 	File f;
 	f.path = path;
 	std::vector<Entry> entries;
-	entries.emplace_back("TEST_ENTRY", makeExpr(BoolLiteral{true}));
+	entries.emplace_back(Name("TEST_ENTRY"), makeExpr(BoolLiteral{true}));
 	std::vector<Section> sections;
 	sections.emplace_back(sectionKind, std::move(entries));
 	f.declarations.emplace_back(ExtendRegionDecl(
-		regionName, std::move(sections), span
+		Name(regionName), std::move(sections), span
 	));
 	return f;
 }
@@ -172,17 +172,17 @@ TEST(CollectDeclarations, MixedDeclsInOneFile) {
 	f.path = "mixed.rls";
 
 	f.declarations.emplace_back(RegionDecl(
-		"RR_TEST", RegionBody("Test", "SCENE_TEST", TimePasses::Auto, {}, {})
+		Name("RR_TEST"), RegionBody("Test", Name("SCENE_TEST"), TimePasses::Auto, {}, {})
 	));
 	f.declarations.emplace_back(DefineDecl(
-		"helper", {}, makeExpr(BoolLiteral{true})
+		Name("helper"), {}, makeExpr(BoolLiteral{true})
 	));
 
 	std::vector<Entry> entries;
-	entries.emplace_back("RC_POT", makeExpr(BoolLiteral{true}));
+	entries.emplace_back(Name("RC_POT"), makeExpr(BoolLiteral{true}));
 	std::vector<Section> sections;
 	sections.emplace_back(SectionKind::Locations, std::move(entries));
-	f.declarations.emplace_back(ExtendRegionDecl("RR_TEST", std::move(sections)));
+	f.declarations.emplace_back(ExtendRegionDecl(Name("RR_TEST"), std::move(sections)));
 
 	project.files.push_back(std::move(f));
 	auto diags = collectDeclarations(project);
@@ -290,10 +290,10 @@ TEST(CollectDeclarations, DuplicateRegionInSameFile) {
 	Span span1{"bad.rls", {1, 1}, {3, 1}};
 	Span span2{"bad.rls", {5, 1}, {7, 1}};
 	f.declarations.emplace_back(RegionDecl(
-		"RR_DUP", RegionBody("Dup A", "SCENE_A", TimePasses::Auto, {}, {}), span1
+		Name("RR_DUP"), RegionBody("Dup A", Name("SCENE_A"), TimePasses::Auto, {}, {}), span1
 	));
 	f.declarations.emplace_back(RegionDecl(
-		"RR_DUP", RegionBody("Dup B", "SCENE_B", TimePasses::Auto, {}, {}), span2
+		Name("RR_DUP"), RegionBody("Dup B", Name("SCENE_B"), TimePasses::Auto, {}, {}), span2
 	));
 	project.files.push_back(std::move(f));
 

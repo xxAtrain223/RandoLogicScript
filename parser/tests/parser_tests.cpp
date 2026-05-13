@@ -356,7 +356,7 @@ TEST(ParseExpr, CallNoArgs) {
 	const auto& e = parseExpr("has_explosives()");
 	ASSERT_TRUE(std::holds_alternative<CallExpr>(e.node));
 	const auto& call = std::get<CallExpr>(e.node);
-	EXPECT_EQ(call.function, "has_explosives");
+	EXPECT_EQ(call.callee.text, "has_explosives");
 	EXPECT_TRUE(call.args.empty());
 }
 
@@ -364,7 +364,7 @@ TEST(ParseExpr, CallSinglePositionalArg) {
 	const auto& e = parseExpr("has(RG_HOOKSHOT)");
 	ASSERT_TRUE(std::holds_alternative<CallExpr>(e.node));
 	const auto& call = std::get<CallExpr>(e.node);
-	EXPECT_EQ(call.function, "has");
+	EXPECT_EQ(call.callee.text, "has");
 	ASSERT_EQ(call.args.size(), 1u);
 	EXPECT_FALSE(call.args[0].name.has_value());
 	EXPECT_TRUE(std::holds_alternative<Identifier>(call.args[0].value->node));
@@ -374,7 +374,7 @@ TEST(ParseExpr, CallMultipleArgs) {
 	const auto& e = parseExpr("can_kill(RE_ARMOS, ED_CLOSE, false)");
 	ASSERT_TRUE(std::holds_alternative<CallExpr>(e.node));
 	const auto& call = std::get<CallExpr>(e.node);
-	EXPECT_EQ(call.function, "can_kill");
+	EXPECT_EQ(call.callee.text, "can_kill");
 	ASSERT_EQ(call.args.size(), 3u);
 	EXPECT_FALSE(call.args[0].name.has_value());
 	EXPECT_FALSE(call.args[1].name.has_value());
@@ -409,7 +409,7 @@ TEST(ParseExpr, NestedCalls) {
 	ASSERT_EQ(outer.args.size(), 1u);
 	ASSERT_TRUE(std::holds_alternative<CallExpr>(outer.args[0].value->node));
 	const auto& inner = std::get<CallExpr>(outer.args[0].value->node);
-	EXPECT_EQ(inner.function, "setting");
+	EXPECT_EQ(inner.callee.text, "setting");
 }
 
 // == Shared block =============================================================
@@ -620,7 +620,7 @@ TEST(ParseDefine, ComplexBody) {
 	EXPECT_EQ(def.name, "spirit_key_logic");
 	ASSERT_TRUE(std::holds_alternative<CallExpr>(def.body->node));
 	const auto& call = std::get<CallExpr>(def.body->node);
-	EXPECT_EQ(call.function, "keys");
+	EXPECT_EQ(call.callee.text, "keys");
 	ASSERT_EQ(call.args.size(), 2u);
 	// Second arg should be a ternary
 	EXPECT_TRUE(std::holds_alternative<TernaryExpr>(call.args[1].value->node));
@@ -900,7 +900,7 @@ TEST(ParseFile, ExternDefineCallNamedArgsPreserved) {
 	const auto& def = std::get<DefineDecl>(file.declarations[1]);
 	ASSERT_TRUE(std::holds_alternative<CallExpr>(def.body->node));
 	const auto& call = std::get<CallExpr>(def.body->node);
-	EXPECT_EQ(call.function, "keys");
+	EXPECT_EQ(call.callee.text, "keys");
 	ASSERT_EQ(call.args.size(), 2u);
 
 	ASSERT_TRUE(call.args[0].name.has_value());
