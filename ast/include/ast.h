@@ -203,12 +203,12 @@ struct AnyAgeBlock {
 
 /// One arm of a `match` expression.
 struct MatchArm {
-	std::vector<Name> patterns;         // one or more enum identifiers
+	std::vector<ExprPtr> patterns;      // one or more match expressions
 	bool isDefault;                     // `_` catch-all arm
 	ExprPtr body;
 	bool fallthrough;                   // trailing `or` for OR-accumulation
 
-	MatchArm(std::vector<Name> patterns, bool isDefault, ExprPtr body, bool fallthrough)
+	MatchArm(std::vector<ExprPtr> patterns, bool isDefault, ExprPtr body, bool fallthrough)
 		: patterns(std::move(patterns)),
 		  isDefault(isDefault),
 		  body(std::move(body)),
@@ -217,10 +217,10 @@ struct MatchArm {
 
 /// Match expression: `match <discriminant> { <arms> }`.
 struct MatchExpr {
-	Name discriminant;
+	ExprPtr discriminant;
 	std::vector<MatchArm> arms;
 
-	MatchExpr(Name discriminant, std::vector<MatchArm> arms)
+	MatchExpr(ExprPtr discriminant, std::vector<MatchArm> arms)
 		: discriminant(std::move(discriminant)), arms(std::move(arms)) {}
 };
 

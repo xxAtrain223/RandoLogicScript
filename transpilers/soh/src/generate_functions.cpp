@@ -28,7 +28,7 @@ std::string nodeType(const rls::ast::Project& p, const T* node) {
         case AT::Dungeon: return "DungeonKey";
         case AT::Area: return "RandomizerArea";
         case AT::Trial: return "TrialKey";
-        case AT::WaterLevel: return "RandoWaterLeve";
+        case AT::WaterLevel: return "RandoWaterLevel";
         default: return "unsupported_type";
     }
 }

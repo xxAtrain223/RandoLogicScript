@@ -283,7 +283,7 @@ TEST(SohExpressions, TernaryWithIdentifier) {
 		"    item is RG_SILVER_GAUNTLETS ? 1 : 0\n",
 		"test");
 	EXPECT_EQ(GenerateExpression(expr),
-		"item == RG_SILVER_GAUNTLETS ? 1 : 0");
+		"item == RandomizerGet::RG_SILVER_GAUNTLETS ? 1 : 0");
 }
 
 TEST(SohExpressions, TernaryNestedRightAssociative) {
@@ -300,25 +300,25 @@ TEST(SohExpressions, CallHostFunctions) {
 		"define test():\n"
 		"    has(RG_HOOKSHOT)\n",
 		"test")),
-		"has(RG_HOOKSHOT)");
+		"has(RandomizerGet::RG_HOOKSHOT)");
 
 	EXPECT_EQ(GenerateExpression(sourceToExpression(
 		"define test():\n"
 		"    can_use(RG_HOOKSHOT)\n",
 		"test")),
-		"can_use(RG_HOOKSHOT)");
+		"can_use(RandomizerGet::RG_HOOKSHOT)");
 
 	EXPECT_EQ(GenerateExpression(sourceToExpression(
 		"define test():\n"
 		"    keys(SCENE_SPIRIT_TEMPLE, 3)\n",
 		"test")),
-		"keys(SCENE_SPIRIT_TEMPLE, 3)");
+		"keys(SceneID::SCENE_SPIRIT_TEMPLE, 3)");
 
 	EXPECT_EQ(GenerateExpression(sourceToExpression(
 		"define test():\n"
 		"    flag(LOGIC_SPIRIT_PLATFORM_LOWERED)\n",
 		"test")),
-		"flag(LOGIC_SPIRIT_PLATFORM_LOWERED)");
+		"flag(LogicVal::LOGIC_SPIRIT_PLATFORM_LOWERED)");
 
 	EXPECT_EQ(GenerateExpression(sourceToExpression(
 		"define test():\n"
@@ -330,7 +330,7 @@ TEST(SohExpressions, CallHostFunctions) {
 		"define test():\n"
 		"    trick(RT_SPIRIT_CHILD_CHU)\n",
 		"test")),
-		"trick(RT_SPIRIT_CHILD_CHU)");
+		"trick(RandomizerTrick::RT_SPIRIT_CHILD_CHU)");
 
 	EXPECT_EQ(GenerateExpression(sourceToExpression(
 		"define test():\n"
@@ -348,19 +348,19 @@ TEST(SohExpressions, CallHostFunctions) {
 		"define test():\n"
 		"    trial_skipped(TK_LIGHT_TRIAL)\n",
 		"test")),
-		"trial_skipped(TK_LIGHT_TRIAL)");
+		"trial_skipped(TrialKey::TK_LIGHT_TRIAL)");
 
 	EXPECT_EQ(GenerateExpression(sourceToExpression(
 		"define test():\n"
 		"    check_price(RC_KF_SHOP_ITEM_1)\n",
 		"test")),
-		"check_price(RC_KF_SHOP_ITEM_1)");
+		"check_price(RandomizerCheck::RC_KF_SHOP_ITEM_1)");
 
 	EXPECT_EQ(GenerateExpression(sourceToExpression(
 		"define test():\n"
 		"    can_plant_bean(RR_KOKIRI_FOREST, RG_KOKIRI_FOREST_BEAN_SOUL)\n",
 		"test")),
-		"can_plant_bean(RR_KOKIRI_FOREST, RG_KOKIRI_FOREST_BEAN_SOUL)");
+		"can_plant_bean(RandomizerRegion::RR_KOKIRI_FOREST, RandomizerGet::RG_KOKIRI_FOREST_BEAN_SOUL)");
 
 	EXPECT_EQ(GenerateExpression(sourceToExpression(
 		"define test():\n"
@@ -381,7 +381,7 @@ TEST(SohExpressions, CallExternDefineReorderedAndDefaultedArgs) {
 		"define test():\n"
 		"    host_custom(distance: ED_FAR, item: RG_HOOKSHOT) and host_custom(RG_FAIRY_BOW)\n",
 		"test")),
-		"host_custom(RG_HOOKSHOT, ED_FAR, false) && host_custom(RG_FAIRY_BOW, ED_CLOSE, false)");
+		"host_custom(RandomizerGet::RG_HOOKSHOT, EnemyDistance::ED_FAR, false) && host_custom(RandomizerGet::RG_FAIRY_BOW, EnemyDistance::ED_CLOSE, false)");
 }
 
 TEST(SohExpressions, CallEnemyFunctions) {
@@ -396,10 +396,10 @@ TEST(SohExpressions, CallEnemyFunctions) {
 		"    drop_fn(RE_GOLD_SKULLTULA) or\n"
 		"    avoid_fn(RE_GOLD_SKULLTULA)\n",
 		"test")),
-		"kill_fn(RE_GOLD_SKULLTULA, ED_CLOSE, false) || "
-		"pass_fn(RE_GOLD_SKULLTULA) || "
-		"drop_fn(RE_GOLD_SKULLTULA) || "
-		"avoid_fn(RE_GOLD_SKULLTULA)");
+		"kill_fn(RandomizerEnemy::RE_GOLD_SKULLTULA, EnemyDistance::ED_CLOSE, false) || "
+		"pass_fn(RandomizerEnemy::RE_GOLD_SKULLTULA) || "
+		"drop_fn(RandomizerEnemy::RE_GOLD_SKULLTULA) || "
+		"avoid_fn(RandomizerEnemy::RE_GOLD_SKULLTULA)");
 }
 
 TEST(SohExpressions, CallDefinedFunctions) {
@@ -419,7 +419,7 @@ TEST(SohExpressions, CallDefinedFunctions) {
 		"define test():\n"
 		"    CanSpawnSoilSkull(RG_KOKIRI_FOREST_BEAN_SOUL)\n",
 		"test")),
-		"CanSpawnSoilSkull(RG_KOKIRI_FOREST_BEAN_SOUL)");
+		"CanSpawnSoilSkull(RandomizerGet::RG_KOKIRI_FOREST_BEAN_SOUL)");
 
 	EXPECT_EQ(GenerateExpression(sourceToExpression(
 		"define CanHitSwitch(distance = ED_CLOSE, inWater = false):\n"
@@ -447,7 +447,7 @@ TEST(SohExpressions, CallDefinedFunctions) {
 		"define test():\n"
 		"    CanHitSwitch(ED_BOOMERANG)\n",
 		"test")),
-		"CanHitSwitch(ED_BOOMERANG, false)");
+		"CanHitSwitch(EnemyDistance::ED_BOOMERANG, false)");
 }
 
 TEST(SohExpressions, AnyAgeBlockSimple) {
@@ -465,7 +465,7 @@ TEST(SohExpressions, AnyAgeBlockWithCall) {
 		"    any_age { can_use(RG_HOOKSHOT) }\n",
 		"test");
 	EXPECT_EQ(GenerateExpression(expr),
-		"AnyAgeTime([]{return can_use(RG_HOOKSHOT);})");
+		"AnyAgeTime([]{return can_use(RandomizerGet::RG_HOOKSHOT);})");
 }
 
 TEST(SohExpressions, AnyAgeBlockWithCompoundCondition) {
@@ -474,7 +474,7 @@ TEST(SohExpressions, AnyAgeBlockWithCompoundCondition) {
 		"    any_age { has(RG_HOOKSHOT) or has(RG_BOOMERANG) }\n",
 		"test");
 	EXPECT_EQ(GenerateExpression(expr),
-		"AnyAgeTime([]{return has(RG_HOOKSHOT) || has(RG_BOOMERANG);})");
+		"AnyAgeTime([]{return has(RandomizerGet::RG_HOOKSHOT) || has(RandomizerGet::RG_BOOMERANG);})");
 }
 
 TEST(SohExpressions, AnyAgeBlockWithExternalCondition) {
@@ -484,7 +484,7 @@ TEST(SohExpressions, AnyAgeBlockWithExternalCondition) {
 		"    any_age { kill_fn(RE_ARMOS) } and can_use(RG_STICKS)\n",
 		"test");
 	EXPECT_EQ(GenerateExpression(expr),
-		"AnyAgeTime([]{return kill_fn(RE_ARMOS);}) && can_use(RG_STICKS)");
+		"AnyAgeTime([]{return kill_fn(RandomizerEnemy::RE_ARMOS);}) && can_use(RandomizerGet::RG_STICKS)");
 }
 
 TEST(SohExpressions, SharedBlockSingleBranch) {
@@ -495,7 +495,7 @@ TEST(SohExpressions, SharedBlockSingleBranch) {
 		"    }\n",
 		"test");
 	EXPECT_EQ(GenerateExpression(expr),
-		"SpiritShared(RR_ROOM_A, []{return has(RG_HOOKSHOT);}, false)");
+		"SpiritShared(RR_ROOM_A, []{return has(RandomizerGet::RG_HOOKSHOT);}, false)");
 }
 
 TEST(SohExpressions, SharedBlockTwoBranches) {
@@ -507,8 +507,8 @@ TEST(SohExpressions, SharedBlockTwoBranches) {
 		"    }\n",
 		"test");
 	EXPECT_EQ(GenerateExpression(expr),
-		"SpiritShared(RR_ROOM_A, []{return has(RG_HOOKSHOT);}, false, "
-		"RR_ROOM_B, []{return can_use(RG_FAIRY_BOW);})");
+		"SpiritShared(RR_ROOM_A, []{return has(RandomizerGet::RG_HOOKSHOT);}, false, "
+		"RR_ROOM_B, []{return can_use(RandomizerGet::RG_FAIRY_BOW);})");
 }
 
 TEST(SohExpressions, SharedBlockThreeBranches) {
@@ -521,9 +521,9 @@ TEST(SohExpressions, SharedBlockThreeBranches) {
 		"    }\n",
 		"test");
 	EXPECT_EQ(GenerateExpression(expr),
-		"SpiritShared(RR_ROOM_A, []{return can_use(RG_HOOKSHOT);}, false, "
-		"RR_ROOM_B, []{return can_use(RG_FAIRY_BOW);}, "
-		"RR_ROOM_C, []{return can_use(RG_LONGSHOT);})");
+		"SpiritShared(RR_ROOM_A, []{return can_use(RandomizerGet::RG_HOOKSHOT);}, false, "
+		"RR_ROOM_B, []{return can_use(RandomizerGet::RG_FAIRY_BOW);}, "
+		"RR_ROOM_C, []{return can_use(RandomizerGet::RG_LONGSHOT);})");
 }
 
 TEST(SohExpressions, SharedBlockAnyAge) {
@@ -546,8 +546,8 @@ TEST(SohExpressions, SharedBlockAnyAgeMultipleBranches) {
 		"    }\n",
 		"test");
 	EXPECT_EQ(GenerateExpression(expr),
-		"SpiritShared(RR_ROOM_A, []{return has(RG_HOOKSHOT);}, true, "
-		"RR_ROOM_B, []{return can_use(RG_FAIRY_BOW);})");
+		"SpiritShared(RR_ROOM_A, []{return has(RandomizerGet::RG_HOOKSHOT);}, true, "
+		"RR_ROOM_B, []{return can_use(RandomizerGet::RG_FAIRY_BOW);})");
 }
 
 TEST(SohExpressions, SharedBlockComplexConditions) {
@@ -563,8 +563,8 @@ TEST(SohExpressions, SharedBlockComplexConditions) {
 		"    }\n",
 		"test");
 	EXPECT_EQ(GenerateExpression(expr),
-		"SpiritShared(RR_ROOM_A, []{return can_use(RG_HOOKSHOT) || can_use(RG_BOOMERANG);}, false, "
-		"RR_ROOM_B, []{return drop_fn(RE_GOLD_SKULLTULA, trick(RT_SPIRIT_WEST_LEDGE) ? ED_BOOMERANG : ED_HOOKSHOT);})");
+		"SpiritShared(RR_ROOM_A, []{return can_use(RandomizerGet::RG_HOOKSHOT) || can_use(RandomizerGet::RG_BOOMERANG);}, false, "
+		"RR_ROOM_B, []{return drop_fn(RandomizerEnemy::RE_GOLD_SKULLTULA, trick(RandomizerTrick::RT_SPIRIT_WEST_LEDGE) ? EnemyDistance::ED_BOOMERANG : EnemyDistance::ED_HOOKSHOT);})");
 }
 
 TEST(SohExpressions, SharedBlockWithExternalCondition) {
@@ -576,9 +576,9 @@ TEST(SohExpressions, SharedBlockWithExternalCondition) {
 		"    }\n",
 		"test");
 	EXPECT_EQ(GenerateExpression(expr),
-		"has(RG_OPEN_CHEST) && "
-		"SpiritShared(RR_ROOM_A, []{return has(RG_HOOKSHOT);}, false, "
-		"RR_ROOM_B, []{return can_use(RG_FAIRY_BOW);})");
+		"has(RandomizerGet::RG_OPEN_CHEST) && "
+		"SpiritShared(RR_ROOM_A, []{return has(RandomizerGet::RG_HOOKSHOT);}, false, "
+		"RR_ROOM_B, []{return can_use(RandomizerGet::RG_FAIRY_BOW);})");
 }
 
 TEST(SohExpressions, SharedBlockFromHere) {
@@ -597,8 +597,8 @@ TEST(SohExpressions, SharedBlockFromHere) {
 		rls::ast::SectionKind::Locations,
 		"RC_TEST_LOCATION");
 	EXPECT_EQ(GenerateExpression(expr),
-		"SpiritShared(RR_SPIRIT_TEMPLE_STATUE_ROOM_CHILD, []{return has(RG_HOOKSHOT);}, false, "
-		"RR_OTHER_ROOM, []{return can_use(RG_FAIRY_BOW);})");
+		"SpiritShared(RR_SPIRIT_TEMPLE_STATUE_ROOM_CHILD, []{return has(RandomizerGet::RG_HOOKSHOT);}, false, "
+		"RR_OTHER_ROOM, []{return can_use(RandomizerGet::RG_FAIRY_BOW);})");
 }
 
 TEST(SohExpressions, SharedBlockFromHereOnly) {
@@ -630,8 +630,8 @@ TEST(SohExpressions, MatchSingleArm) {
 		"test");
 	EXPECT_EQ(GenerateExpression(expr),
 		"rls::match("
-		"[&]{return distance == ED_CLOSE;}, "
-		"[&]{return can_use(RG_KOKIRI_SWORD);}, false)");
+		"[&]{return distance == EnemyDistance::ED_CLOSE;}, "
+		"[&]{return can_use(RandomizerGet::RG_KOKIRI_SWORD);}, false)");
 }
 
 TEST(SohExpressions, MatchMultipleArmsNoFallthrough) {
@@ -644,10 +644,10 @@ TEST(SohExpressions, MatchMultipleArmsNoFallthrough) {
 		"test");
 	EXPECT_EQ(GenerateExpression(expr),
 		"rls::match("
-		"[&]{return distance == ED_CLOSE;}, "
-		"[&]{return can_use(RG_KOKIRI_SWORD);}, false, "
-		"[&]{return distance == ED_FAR;}, "
-		"[&]{return can_use(RG_FAIRY_BOW);}, false)");
+		"[&]{return distance == EnemyDistance::ED_CLOSE;}, "
+		"[&]{return can_use(RandomizerGet::RG_KOKIRI_SWORD);}, false, "
+		"[&]{return distance == EnemyDistance::ED_FAR;}, "
+		"[&]{return can_use(RandomizerGet::RG_FAIRY_BOW);}, false)");
 }
 
 TEST(SohExpressions, MatchWithFallthrough) {
@@ -661,12 +661,12 @@ TEST(SohExpressions, MatchWithFallthrough) {
 		"test");
 	EXPECT_EQ(GenerateExpression(expr),
 		"rls::match("
-		"[&]{return distance == ED_CLOSE;}, "
-		"[&]{return can_use(RG_KOKIRI_SWORD);}, true, "
-		"[&]{return distance == ED_HOOKSHOT;}, "
-		"[&]{return can_use(RG_HOOKSHOT);}, true, "
-		"[&]{return distance == ED_FAR;}, "
-		"[&]{return can_use(RG_FAIRY_BOW);}, false)");
+		"[&]{return distance == EnemyDistance::ED_CLOSE;}, "
+		"[&]{return can_use(RandomizerGet::RG_KOKIRI_SWORD);}, true, "
+		"[&]{return distance == EnemyDistance::ED_HOOKSHOT;}, "
+		"[&]{return can_use(RandomizerGet::RG_HOOKSHOT);}, true, "
+		"[&]{return distance == EnemyDistance::ED_FAR;}, "
+		"[&]{return can_use(RandomizerGet::RG_FAIRY_BOW);}, false)");
 }
 
 TEST(SohExpressions, MatchMultiValueArm) {
@@ -678,8 +678,8 @@ TEST(SohExpressions, MatchMultiValueArm) {
 		"test");
 	EXPECT_EQ(GenerateExpression(expr),
 		"rls::match("
-		"[&]{return distance == ED_CLOSE || distance == ED_SHORT_JUMPSLASH;}, "
-		"[&]{return can_use(RG_KOKIRI_SWORD);}, false)");
+		"[&]{return distance == EnemyDistance::ED_CLOSE || distance == EnemyDistance::ED_SHORT_JUMPSLASH;}, "
+		"[&]{return can_use(RandomizerGet::RG_KOKIRI_SWORD);}, false)");
 }
 
 TEST(SohExpressions, MatchDefaultArm) {
@@ -692,10 +692,10 @@ TEST(SohExpressions, MatchDefaultArm) {
 		"test");
 	EXPECT_EQ(GenerateExpression(expr),
 		"rls::match("
-		"[&]{return distance == ED_CLOSE;}, "
-		"[&]{return can_use(RG_KOKIRI_SWORD);}, false, "
+		"[&]{return distance == EnemyDistance::ED_CLOSE;}, "
+		"[&]{return can_use(RandomizerGet::RG_KOKIRI_SWORD);}, false, "
 		"[&]{return true;}, "
-		"[&]{return can_use(RG_FAIRY_BOW);}, false)");
+		"[&]{return can_use(RandomizerGet::RG_FAIRY_BOW);}, false)");
 }
 
 TEST(SohExpressions, MatchComplexCanHitSwitch) {
@@ -709,12 +709,12 @@ TEST(SohExpressions, MatchComplexCanHitSwitch) {
 		"test");
 	EXPECT_EQ(GenerateExpression(expr),
 		"rls::match("
-		"[&]{return distance == ED_SHORT_JUMPSLASH;}, "
-		"[&]{return can_use(RG_KOKIRI_SWORD);}, true, "
-		"[&]{return distance == ED_BOMB_THROW;}, "
-		"[&]{return !inWater && can_use(RG_BOMB_BAG);}, true, "
-		"[&]{return distance == ED_FAR;}, "
-		"[&]{return can_use(RG_FAIRY_BOW);}, false)");
+		"[&]{return distance == EnemyDistance::ED_SHORT_JUMPSLASH;}, "
+		"[&]{return can_use(RandomizerGet::RG_KOKIRI_SWORD);}, true, "
+		"[&]{return distance == EnemyDistance::ED_BOMB_THROW;}, "
+		"[&]{return !inWater && can_use(RandomizerGet::RG_BOMB_BAG);}, true, "
+		"[&]{return distance == EnemyDistance::ED_FAR;}, "
+		"[&]{return can_use(RandomizerGet::RG_FAIRY_BOW);}, false)");
 }
 
 TEST(SohExpressions, SharedBlockFromHereWithExternalCondition) {
@@ -736,11 +736,11 @@ TEST(SohExpressions, SharedBlockFromHereWithExternalCondition) {
 		rls::ast::SectionKind::Locations,
 		"RC_SPIRIT_TEMPLE_MAP_CHEST");
 	EXPECT_EQ(GenerateExpression(expr),
-		"has(RG_OPEN_CHEST) && "
+		"has(RandomizerGet::RG_OPEN_CHEST) && "
 		"SpiritShared(RR_SPIRIT_TEMPLE_STATUE_ROOM_CHILD, "
-		"[]{return has(RG_HOOKSHOT) || trick(RT_SPIRIT_MAP_CHEST) && can_use(RG_FAIRY_BOW);}, false, "
+		"[]{return has(RandomizerGet::RG_HOOKSHOT) || trick(RandomizerTrick::RT_SPIRIT_MAP_CHEST) && can_use(RandomizerGet::RG_FAIRY_BOW);}, false, "
 		"RR_SPIRIT_TEMPLE_STATUE_ROOM, "
-		"[]{return can_use(RG_DINS_FIRE);})");
+		"[]{return can_use(RandomizerGet::RG_DINS_FIRE);})");
 }
 
 TEST(SohExpressions, SharedBlockFromHereThreeBranches) {
@@ -767,9 +767,9 @@ TEST(SohExpressions, SharedBlockFromHereThreeBranches) {
 		"RC_SPIRIT_TEMPLE_GS_LOBBY");
 	EXPECT_EQ(GenerateExpression(expr),
 		"SpiritShared(RR_SPIRIT_TEMPLE_STATUE_ROOM_CHILD, "
-		"[]{return drop_fn(RE_GOLD_SKULLTULA, ED_LONGSHOT);}, false, "
+		"[]{return drop_fn(RandomizerEnemy::RE_GOLD_SKULLTULA, EnemyDistance::ED_LONGSHOT);}, false, "
 		"RR_SPIRIT_TEMPLE_INNER_WEST_HAND, "
-		"[]{return drop_fn(RE_GOLD_SKULLTULA, trick(RT_SPIRIT_WEST_LEDGE) ? ED_BOOMERANG : ED_HOOKSHOT);}, "
+		"[]{return drop_fn(RandomizerEnemy::RE_GOLD_SKULLTULA, trick(RandomizerTrick::RT_SPIRIT_WEST_LEDGE) ? EnemyDistance::ED_BOOMERANG : EnemyDistance::ED_HOOKSHOT);}, "
 		"RR_SPIRIT_TEMPLE_GS_LEDGE, "
-		"[]{return kill_fn(RE_GOLD_SKULLTULA);})");
+		"[]{return kill_fn(RandomizerEnemy::RE_GOLD_SKULLTULA);})");
 }

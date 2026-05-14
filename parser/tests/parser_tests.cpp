@@ -483,11 +483,13 @@ TEST(ParseExpr, MatchSingleArm) {
 	);
 	ASSERT_TRUE(std::holds_alternative<MatchExpr>(e.node));
 	const auto& m = std::get<MatchExpr>(e.node);
-	EXPECT_EQ(m.discriminant, "distance");
+	ASSERT_TRUE(std::holds_alternative<Identifier>(m.discriminant->node));
+	EXPECT_EQ(std::get<Identifier>(m.discriminant->node).name, "distance");
 	ASSERT_EQ(m.arms.size(), 1u);
 	EXPECT_FALSE(m.arms[0].isDefault);
 	ASSERT_EQ(m.arms[0].patterns.size(), 1u);
-	EXPECT_EQ(m.arms[0].patterns[0], "ED_CLOSE");
+	ASSERT_TRUE(std::holds_alternative<Identifier>(m.arms[0].patterns[0]->node));
+	EXPECT_EQ(std::get<Identifier>(m.arms[0].patterns[0]->node).name, "ED_CLOSE");
 	EXPECT_FALSE(m.arms[0].fallthrough);
 }
 
@@ -501,8 +503,10 @@ TEST(ParseExpr, MatchMultipleArms) {
 	ASSERT_TRUE(std::holds_alternative<MatchExpr>(e.node));
 	const auto& m = std::get<MatchExpr>(e.node);
 	ASSERT_EQ(m.arms.size(), 2u);
-	EXPECT_EQ(m.arms[0].patterns[0], "ED_CLOSE");
-	EXPECT_EQ(m.arms[1].patterns[0], "ED_FAR");
+	ASSERT_TRUE(std::holds_alternative<Identifier>(m.arms[0].patterns[0]->node));
+	ASSERT_TRUE(std::holds_alternative<Identifier>(m.arms[1].patterns[0]->node));
+	EXPECT_EQ(std::get<Identifier>(m.arms[0].patterns[0]->node).name, "ED_CLOSE");
+	EXPECT_EQ(std::get<Identifier>(m.arms[1].patterns[0]->node).name, "ED_FAR");
 }
 
 TEST(ParseExpr, MatchArmWithOrPatterns) {
@@ -515,8 +519,10 @@ TEST(ParseExpr, MatchArmWithOrPatterns) {
 	const auto& arm = std::get<MatchExpr>(e.node).arms[0];
 	EXPECT_FALSE(arm.isDefault);
 	ASSERT_EQ(arm.patterns.size(), 2u);
-	EXPECT_EQ(arm.patterns[0], "A");
-	EXPECT_EQ(arm.patterns[1], "B");
+	ASSERT_TRUE(std::holds_alternative<Identifier>(arm.patterns[0]->node));
+	ASSERT_TRUE(std::holds_alternative<Identifier>(arm.patterns[1]->node));
+	EXPECT_EQ(std::get<Identifier>(arm.patterns[0]->node).name, "A");
+	EXPECT_EQ(std::get<Identifier>(arm.patterns[1]->node).name, "B");
 }
 
 TEST(ParseExpr, MatchDefaultArm) {
@@ -1009,7 +1015,8 @@ TEST(ParseRealistic, DefineWithMatch) {
 	EXPECT_EQ(def.params[1].name, "inWater");
 	ASSERT_TRUE(std::holds_alternative<MatchExpr>(def.body->node));
 	const auto& m = std::get<MatchExpr>(def.body->node);
-	EXPECT_EQ(m.discriminant, "distance");
+	ASSERT_TRUE(std::holds_alternative<Identifier>(m.discriminant->node));
+	EXPECT_EQ(std::get<Identifier>(m.discriminant->node).name, "distance");
 	ASSERT_EQ(m.arms.size(), 3u);
 	EXPECT_TRUE(m.arms[0].fallthrough);
 	EXPECT_TRUE(m.arms[1].fallthrough);

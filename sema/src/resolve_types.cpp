@@ -645,13 +645,16 @@ struct ExprResolver {
 	ast::Type resolve(const ast::MatchExpr& node, const ast::Expr& expr) {
 		using T = ast::Type;
 
-		// --- Discriminant: look up in scope (should be a parameter) ---
-		std::optional<T> discrimType;
-		bool discrimInScope = false;
-		if (auto it = scope.find(node.discriminant.text); it != scope.end()) {
-			discrimInScope = true;
-			discrimType = it->second; // may be nullopt if untyped
-		}
+		auto identifierText = [](const ast::Expr& matchExpr) -> std::optional<std::string_view> {
+			if (auto* id = std::get_if<ast::Identifier>(&matchExpr.node)) {
+				return id->name.text;
+			}
+			return std::nullopt;
+		};
+
+		// --- Discriminant --------------------------------------------------
+		auto discrimType = resolveExpr(*node.discriminant);
+		auto discrimName = identifierText(*node.discriminant);
 
 		// --- Arm patterns: all must be the same enum type ---------------
 		std::optional<T> patternType;
@@ -680,24 +683,21 @@ struct ExprResolver {
 			}
 
 			for (const auto& pattern : arm.patterns) {
-				if (auto t = typeFromIdentifier(pattern.text)) {
-					if (!patternType) {
-						patternType = *t;
-					} else if (*t != *patternType) {
-						diags.push_back({
-							ast::DiagnosticLevel::Error,
-							std::format(
-								"match pattern '{}' is {} but expected {}",
-								pattern.text, typeName(*t),
-								typeName(*patternType)),
-							expr.span
-						});
-					}
-				} else {
+				auto currentPatternType = resolveExpr(*pattern);
+				if (currentPatternType == T::Error) {
+					continue;
+				}
+
+				if (!patternType) {
+					patternType = currentPatternType;
+				} else if (currentPatternType != *patternType) {
+					auto patternName = identifierText(*pattern).value_or("<expr>");
 					diags.push_back({
 						ast::DiagnosticLevel::Error,
-						std::format("unrecognized match pattern '{}'",
-							pattern.text),
+						std::format(
+							"match pattern '{}' is {} but expected {}",
+							patternName, typeName(currentPatternType),
+							typeName(*patternType)),
 						expr.span
 					});
 				}
@@ -706,23 +706,23 @@ struct ExprResolver {
 
 		// --- Unify discriminant type with pattern type ------------------
 		if (patternType) {
-			if (discrimType) {
-				// Both typed — they must agree.
-				if (*discrimType != *patternType) {
-					diags.push_back({
-						ast::DiagnosticLevel::Error,
-						std::format(
-							"match discriminant '{}' is {} "
-							"but patterns are {}",
-							node.discriminant.text,
-							typeName(*discrimType),
-							typeName(*patternType)),
-						expr.span
-					});
+			if (discrimType == T::Error) {
+				if (!inferUntypedParamIdentifier(*node.discriminant, *patternType) && discrimName) {
+					if (auto it = scope.find(std::string(*discrimName)); it != scope.end() && !it->second) {
+						it->second = *patternType;
+					}
 				}
-			} else if (discrimInScope) {
-				// Discriminant is a parameter with no type — infer it.
-				scope[node.discriminant.text] = *patternType;
+			} else if (discrimType != *patternType) {
+				auto name = discrimName.value_or("<expr>");
+				diags.push_back({
+					ast::DiagnosticLevel::Error,
+					std::format(
+						"match discriminant '{}' is {} but patterns are {}",
+						name,
+						typeName(discrimType),
+						typeName(*patternType)),
+					expr.span
+				});
 			}
 		}
 

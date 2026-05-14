@@ -258,7 +258,7 @@ ast::ExprPtr buildExpr(const Node& n, Diags& diags) {
 
 	if (n.is_type<grammar::match_expr>()) {
 		// children: [ident(discriminant), match_arm, match_arm, ...]
-		ast::Name discriminant(makeName(*n.children[0]));
+		ast::ExprPtr discriminant = buildExpr(*n.children[0], diags);
 		std::vector<ast::MatchArm> arms;
 
 		for (size_t i = 1; i < n.children.size(); ++i) {
@@ -266,14 +266,14 @@ ast::ExprPtr buildExpr(const Node& n, Diags& diags) {
 			// match_arm children: [match_pattern, body_expr, optional trailing_or]
 
 			// Patterns
-			std::vector<ast::Name> patterns;
+			std::vector<ast::ExprPtr> patterns;
 			bool isDefault = false;
 			const auto& patNode = *armNode.children[0];
 			for (const auto& p : patNode.children) {
 				if (p->is_type<grammar::match_default>()) {
 					isDefault = true;
 				} else {
-					patterns.emplace_back(makeName(*p));
+					patterns.emplace_back(buildExpr(*p, diags));
 				}
 			}
 

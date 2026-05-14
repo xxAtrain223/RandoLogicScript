@@ -165,13 +165,18 @@ TEST(ExprTests, AnyAgeBlock) {
 TEST(ExprTests, MatchExpr) {
 	// match distance { ED_CLOSE: expr or, ED_FAR: expr }
 	std::vector<MatchArm> arms;
-	arms.emplace_back(std::vector<Name>{Name("ED_CLOSE")}, false, makeExpr(BoolLiteral{true}), true);
-	arms.emplace_back(std::vector<Name>{Name("ED_FAR")}, false, makeExpr(BoolLiteral{false}), false);
+	std::vector<ExprPtr> closePatterns;
+	closePatterns.push_back(makeExpr(Identifier{Name("ED_CLOSE")}));
+	std::vector<ExprPtr> farPatterns;
+	farPatterns.push_back(makeExpr(Identifier{Name("ED_FAR")}));
+	arms.emplace_back(std::move(closePatterns), false, makeExpr(BoolLiteral{true}), true);
+	arms.emplace_back(std::move(farPatterns), false, makeExpr(BoolLiteral{false}), false);
 
-	auto expr = makeExpr(MatchExpr(Name("distance"), std::move(arms)));
+	auto expr = makeExpr(MatchExpr(makeExpr(Identifier{Name("distance")}), std::move(arms)));
 	ASSERT_TRUE(std::holds_alternative<MatchExpr>(expr->node));
 	const auto& m = std::get<MatchExpr>(expr->node);
-	EXPECT_EQ(m.discriminant, "distance");
+	ASSERT_TRUE(std::holds_alternative<Identifier>(m.discriminant->node));
+	EXPECT_EQ(std::get<Identifier>(m.discriminant->node).name, "distance");
 	ASSERT_EQ(m.arms.size(), 2u);
 	EXPECT_FALSE(m.arms[0].isDefault);
 	EXPECT_FALSE(m.arms[1].isDefault);
@@ -181,10 +186,15 @@ TEST(ExprTests, MatchExpr) {
 
 TEST(ExprTests, MatchArmMultiplePatterns) {
 	// ED_CLOSE or ED_SHORT_JUMPSLASH: body
-	MatchArm arm({Name("ED_CLOSE"), Name("ED_SHORT_JUMPSLASH")}, false, makeExpr(BoolLiteral{true}), false);
+	std::vector<ExprPtr> patterns;
+	patterns.push_back(makeExpr(Identifier{Name("ED_CLOSE")}));
+	patterns.push_back(makeExpr(Identifier{Name("ED_SHORT_JUMPSLASH")}));
+	MatchArm arm(std::move(patterns), false, makeExpr(BoolLiteral{true}), false);
 	EXPECT_EQ(arm.patterns.size(), 2u);
-	EXPECT_EQ(arm.patterns[0], "ED_CLOSE");
-	EXPECT_EQ(arm.patterns[1], "ED_SHORT_JUMPSLASH");
+	ASSERT_TRUE(std::holds_alternative<Identifier>(arm.patterns[0]->node));
+	ASSERT_TRUE(std::holds_alternative<Identifier>(arm.patterns[1]->node));
+	EXPECT_EQ(std::get<Identifier>(arm.patterns[0]->node).name, "ED_CLOSE");
+	EXPECT_EQ(std::get<Identifier>(arm.patterns[1]->node).name, "ED_SHORT_JUMPSLASH");
 	EXPECT_FALSE(arm.isDefault);
 }
 

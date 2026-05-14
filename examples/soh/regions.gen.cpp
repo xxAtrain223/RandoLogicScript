@@ -37,7 +37,7 @@ areaTable[RR_KF_BOULDER_LOOP] = Region("KF Boulder Loop", SCENE_KOKIRI_FOREST, {
     // Events
 }, {
     // Locations
-    LOCATION(RC_KF_KOKIRI_SWORD_CHEST, is_child() && has(RG_OPEN_CHEST)),
+    LOCATION(RC_KF_KOKIRI_SWORD_CHEST, is_child() && has(RandomizerGet::RG_OPEN_CHEST)),
     LOCATION(RC_KF_BOULDER_RUPEE_1, is_child()),
     LOCATION(RC_KF_BOULDER_RUPEE_2, is_child()),
     LOCATION(RC_KF_CHILD_GRASS_MAZE_1, is_child() && can_cut_shrubs()),
@@ -45,15 +45,15 @@ areaTable[RR_KF_BOULDER_LOOP] = Region("KF Boulder Loop", SCENE_KOKIRI_FOREST, {
     LOCATION(RC_KF_CHILD_GRASS_MAZE_3, is_child() && can_cut_shrubs()),
 }, {
     // Exits
-    ENTRANCE(RR_KOKIRI_FOREST, can_use(RG_CRAWL)),
+    ENTRANCE(RR_KOKIRI_FOREST, can_use(RandomizerGet::RG_CRAWL)),
 });
 
 areaTable[RR_KF_HOUSE_OF_TWINS] = Region("KF House of Twins", SCENE_TWINS_HOUSE, {
     // Events
 }, {
     // Locations
-    LOCATION(RC_KF_TWINS_HOUSE_POT_1, has(RG_POWER_BRACELET)),
-    LOCATION(RC_KF_TWINS_HOUSE_POT_2, has(RG_POWER_BRACELET)),
+    LOCATION(RC_KF_TWINS_HOUSE_POT_1, has(RandomizerGet::RG_POWER_BRACELET)),
+    LOCATION(RC_KF_TWINS_HOUSE_POT_2, has(RandomizerGet::RG_POWER_BRACELET)),
 }, {
     // Exits
     ENTRANCE(RR_KOKIRI_FOREST, true),
@@ -63,8 +63,8 @@ areaTable[RR_KF_KNOW_IT_ALL_HOUSE] = Region("KF Know It All House", SCENE_KNOW_I
     // Events
 }, {
     // Locations
-    LOCATION(RC_KF_BROTHERS_HOUSE_POT_1, has(RG_POWER_BRACELET)),
-    LOCATION(RC_KF_BROTHERS_HOUSE_POT_2, has(RG_POWER_BRACELET)),
+    LOCATION(RC_KF_BROTHERS_HOUSE_POT_1, has(RandomizerGet::RG_POWER_BRACELET)),
+    LOCATION(RC_KF_BROTHERS_HOUSE_POT_2, has(RandomizerGet::RG_POWER_BRACELET)),
 }, {
     // Exits
     ENTRANCE(RR_KOKIRI_FOREST, true),
@@ -74,14 +74,14 @@ areaTable[RR_KF_KOKIRI_SHOP] = Region("KF Kokiri Shop", SCENE_KOKIRI_SHOP, {
     // Events
 }, {
     // Locations
-    LOCATION(RC_KF_SHOP_ITEM_1, has(RG_SPEAK_KOKIRI) && check_price(RC_UNKNOWN_CHECK) <= wallet_capacity()),
-    LOCATION(RC_KF_SHOP_ITEM_2, has(RG_SPEAK_KOKIRI) && check_price(RC_UNKNOWN_CHECK) <= wallet_capacity()),
-    LOCATION(RC_KF_SHOP_ITEM_3, has(RG_SPEAK_KOKIRI) && check_price(RC_UNKNOWN_CHECK) <= wallet_capacity()),
-    LOCATION(RC_KF_SHOP_ITEM_4, has(RG_SPEAK_KOKIRI) && check_price(RC_UNKNOWN_CHECK) <= wallet_capacity()),
-    LOCATION(RC_KF_SHOP_ITEM_5, has(RG_SPEAK_KOKIRI) && check_price(RC_UNKNOWN_CHECK) <= wallet_capacity()),
-    LOCATION(RC_KF_SHOP_ITEM_6, has(RG_SPEAK_KOKIRI) && check_price(RC_UNKNOWN_CHECK) <= wallet_capacity()),
-    LOCATION(RC_KF_SHOP_ITEM_7, has(RG_SPEAK_KOKIRI) && check_price(RC_UNKNOWN_CHECK) <= wallet_capacity()),
-    LOCATION(RC_KF_SHOP_ITEM_8, has(RG_SPEAK_KOKIRI) && check_price(RC_UNKNOWN_CHECK) <= wallet_capacity()),
+    LOCATION(RC_KF_SHOP_ITEM_1, has(RandomizerGet::RG_SPEAK_KOKIRI) && check_price(RandomizerCheck::RC_UNKNOWN_CHECK) <= wallet_capacity()),
+    LOCATION(RC_KF_SHOP_ITEM_2, has(RandomizerGet::RG_SPEAK_KOKIRI) && check_price(RandomizerCheck::RC_UNKNOWN_CHECK) <= wallet_capacity()),
+    LOCATION(RC_KF_SHOP_ITEM_3, has(RandomizerGet::RG_SPEAK_KOKIRI) && check_price(RandomizerCheck::RC_UNKNOWN_CHECK) <= wallet_capacity()),
+    LOCATION(RC_KF_SHOP_ITEM_4, has(RandomizerGet::RG_SPEAK_KOKIRI) && check_price(RandomizerCheck::RC_UNKNOWN_CHECK) <= wallet_capacity()),
+    LOCATION(RC_KF_SHOP_ITEM_5, has(RandomizerGet::RG_SPEAK_KOKIRI) && check_price(RandomizerCheck::RC_UNKNOWN_CHECK) <= wallet_capacity()),
+    LOCATION(RC_KF_SHOP_ITEM_6, has(RandomizerGet::RG_SPEAK_KOKIRI) && check_price(RandomizerCheck::RC_UNKNOWN_CHECK) <= wallet_capacity()),
+    LOCATION(RC_KF_SHOP_ITEM_7, has(RandomizerGet::RG_SPEAK_KOKIRI) && check_price(RandomizerCheck::RC_UNKNOWN_CHECK) <= wallet_capacity()),
+    LOCATION(RC_KF_SHOP_ITEM_8, has(RandomizerGet::RG_SPEAK_KOKIRI) && check_price(RandomizerCheck::RC_UNKNOWN_CHECK) <= wallet_capacity()),
 }, {
     // Exits
     ENTRANCE(RR_KOKIRI_FOREST, true),
@@ -91,8 +91,8 @@ areaTable[RR_KF_LINKS_HOUSE] = Region("KF Link's House", SCENE_LINKS_HOUSE, {
     // Events
 }, {
     // Locations
-    LOCATION(RC_KF_LINKS_HOUSE_COW, is_adult() && can_use(RG_EPONAS_SONG) && flag(LOGIC_LINKS_COW)),
-    LOCATION(RC_KF_LINKS_HOUSE_POT, has(RG_POWER_BRACELET)),
+    LOCATION(RC_KF_LINKS_HOUSE_COW, is_adult() && can_use(RandomizerGet::RG_EPONAS_SONG) && flag(LogicVal::LOGIC_LINKS_COW)),
+    LOCATION(RC_KF_LINKS_HOUSE_POT, has(RandomizerGet::RG_POWER_BRACELET)),
 }, {
     // Exits
     ENTRANCE(RR_KF_LINKS_PORCH, true),
@@ -112,10 +112,10 @@ areaTable[RR_KF_MIDOS_HOUSE] = Region("KF Mido's House", SCENE_MIDOS_HOUSE, {
     // Events
 }, {
     // Locations
-    LOCATION(RC_KF_MIDOS_TOP_LEFT_CHEST, has(RG_OPEN_CHEST)),
-    LOCATION(RC_KF_MIDOS_TOP_RIGHT_CHEST, has(RG_OPEN_CHEST)),
-    LOCATION(RC_KF_MIDOS_BOTTOM_LEFT_CHEST, has(RG_OPEN_CHEST)),
-    LOCATION(RC_KF_MIDOS_BOTTOM_RIGHT_CHEST, has(RG_OPEN_CHEST)),
+    LOCATION(RC_KF_MIDOS_TOP_LEFT_CHEST, has(RandomizerGet::RG_OPEN_CHEST)),
+    LOCATION(RC_KF_MIDOS_TOP_RIGHT_CHEST, has(RandomizerGet::RG_OPEN_CHEST)),
+    LOCATION(RC_KF_MIDOS_BOTTOM_LEFT_CHEST, has(RandomizerGet::RG_OPEN_CHEST)),
+    LOCATION(RC_KF_MIDOS_BOTTOM_RIGHT_CHEST, has(RandomizerGet::RG_OPEN_CHEST)),
 }, {
     // Exits
     ENTRANCE(RR_KOKIRI_FOREST, true),
@@ -126,19 +126,19 @@ areaTable[RR_KF_OUTSIDE_DEKU_TREE] = Region("KF Outside Deku Tree", SCENE_KOKIRI
     EVENT_ACCESS(LOGIC_STICK_ACCESS, can_get_deku_baba_sticks()),
     EVENT_ACCESS(LOGIC_NUT_ACCESS, can_get_deku_baba_nuts()),
     EVENT_ACCESS(LOGIC_FAIRY_ACCESS, call_gossip_fairy_except_suns()),
-    EVENT_ACCESS(LOGIC_SHOWED_MIDO_SWORD_AND_SHIELD, is_child() && has(RG_SPEAK_KOKIRI) && can_use(RG_KOKIRI_SWORD) && can_use(RG_DEKU_SHIELD)),
+    EVENT_ACCESS(LOGIC_SHOWED_MIDO_SWORD_AND_SHIELD, is_child() && has(RandomizerGet::RG_SPEAK_KOKIRI) && can_use(RandomizerGet::RG_KOKIRI_SWORD) && can_use(RandomizerGet::RG_DEKU_SHIELD)),
 }, {
     // Locations
     LOCATION(RC_KF_DEKU_TREE_LEFT_GOSSIP_STONE_FAIRY, call_gossip_fairy_except_suns()),
-    LOCATION(RC_KF_DEKU_TREE_LEFT_GOSSIP_STONE_FAIRY_BIG, can_use(RG_SONG_OF_STORMS)),
+    LOCATION(RC_KF_DEKU_TREE_LEFT_GOSSIP_STONE_FAIRY_BIG, can_use(RandomizerGet::RG_SONG_OF_STORMS)),
     LOCATION(RC_KF_DEKU_TREE_RIGHT_GOSSIP_STONE_FAIRY, call_gossip_fairy_except_suns()),
-    LOCATION(RC_KF_DEKU_TREE_RIGHT_GOSSIP_STONE_FAIRY_BIG, can_use(RG_SONG_OF_STORMS)),
+    LOCATION(RC_KF_DEKU_TREE_RIGHT_GOSSIP_STONE_FAIRY_BIG, can_use(RandomizerGet::RG_SONG_OF_STORMS)),
     LOCATION(RC_KF_DEKU_TREE_LEFT_GOSSIP_STONE, true),
     LOCATION(RC_KF_DEKU_TREE_RIGHT_GOSSIP_STONE, true),
 }, {
     // Exits
-    ENTRANCE(RR_DEKU_TREE_ENTRYWAY, is_child() || setting(RSK_SHUFFLE_DUNGEON_ENTRANCES) != RO_DUNGEON_ENTRANCE_SHUFFLE_OFF && (setting(RSK_FOREST) == RO_CLOSED_FOREST_OFF || flag(LOGIC_SHOWED_MIDO_SWORD_AND_SHIELD))),
-    ENTRANCE(RR_KOKIRI_FOREST, is_adult() && (can_pass(RE_BIG_SKULLTULA, ED_CLOSE, true) || flag(LOGIC_DEKU_TREE_CLEAR)) || setting(RSK_FOREST) == RO_CLOSED_FOREST_OFF || flag(LOGIC_SHOWED_MIDO_SWORD_AND_SHIELD)),
+    ENTRANCE(RR_DEKU_TREE_ENTRYWAY, is_child() || setting(RSK_SHUFFLE_DUNGEON_ENTRANCES) != RO_DUNGEON_ENTRANCE_SHUFFLE_OFF && (setting(RSK_FOREST) == RO_CLOSED_FOREST_OFF || flag(LogicVal::LOGIC_SHOWED_MIDO_SWORD_AND_SHIELD))),
+    ENTRANCE(RR_KOKIRI_FOREST, is_adult() && (can_pass(RandomizerEnemy::RE_BIG_SKULLTULA, EnemyDistance::ED_CLOSE, true) || flag(LogicVal::LOGIC_DEKU_TREE_CLEAR)) || setting(RSK_FOREST) == RO_CLOSED_FOREST_OFF || flag(LogicVal::LOGIC_SHOWED_MIDO_SWORD_AND_SHIELD)),
 });
 
 areaTable[RR_KF_OUTSIDE_LOST_WOODS] = Region("KF Outside Lost Woods", SCENE_KOKIRI_FOREST, {
@@ -146,20 +146,20 @@ areaTable[RR_KF_OUTSIDE_LOST_WOODS] = Region("KF Outside Lost Woods", SCENE_KOKI
 }, {
     // Locations
     LOCATION(RC_KF_GOSSIP_STONE_FAIRY, call_gossip_fairy_except_suns()),
-    LOCATION(RC_KF_GOSSIP_STONE_FAIRY_BIG, can_use(RG_SONG_OF_STORMS)),
-    LOCATION(RC_KF_BEAN_RUPEE_1, is_adult() && can_use(RG_BOOMERANG)),
-    LOCATION(RC_KF_BEAN_RUPEE_2, is_adult() && can_use(RG_BOOMERANG)),
-    LOCATION(RC_KF_BEAN_RUPEE_3, is_adult() && can_use(RG_BOOMERANG)),
-    LOCATION(RC_KF_BEAN_RUPEE_4, is_adult() && can_use(RG_BOOMERANG)),
-    LOCATION(RC_KF_BEAN_RUPEE_5, is_adult() && can_use(RG_BOOMERANG)),
-    LOCATION(RC_KF_BEAN_RUPEE_6, is_adult() && can_use(RG_BOOMERANG)),
-    LOCATION(RC_KF_BEAN_RED_RUPEE, is_adult() && can_use(RG_BOOMERANG)),
+    LOCATION(RC_KF_GOSSIP_STONE_FAIRY_BIG, can_use(RandomizerGet::RG_SONG_OF_STORMS)),
+    LOCATION(RC_KF_BEAN_RUPEE_1, is_adult() && can_use(RandomizerGet::RG_BOOMERANG)),
+    LOCATION(RC_KF_BEAN_RUPEE_2, is_adult() && can_use(RandomizerGet::RG_BOOMERANG)),
+    LOCATION(RC_KF_BEAN_RUPEE_3, is_adult() && can_use(RandomizerGet::RG_BOOMERANG)),
+    LOCATION(RC_KF_BEAN_RUPEE_4, is_adult() && can_use(RandomizerGet::RG_BOOMERANG)),
+    LOCATION(RC_KF_BEAN_RUPEE_5, is_adult() && can_use(RandomizerGet::RG_BOOMERANG)),
+    LOCATION(RC_KF_BEAN_RUPEE_6, is_adult() && can_use(RandomizerGet::RG_BOOMERANG)),
+    LOCATION(RC_KF_BEAN_RED_RUPEE, is_adult() && can_use(RandomizerGet::RG_BOOMERANG)),
     LOCATION(RC_KF_GOSSIP_STONE, true),
 }, {
     // Exits
     ENTRANCE(RR_KOKIRI_FOREST, true),
     ENTRANCE(RR_THE_LOST_WOODS, true),
-    ENTRANCE(RR_KF_RUPEE_ALCOVE, is_adult() && (can_plant_bean(RR_KOKIRI_FOREST, RG_KOKIRI_FOREST_BEAN_SOUL) || can_use(RG_HOVER_BOOTS))),
+    ENTRANCE(RR_KF_RUPEE_ALCOVE, is_adult() && (can_plant_bean(RandomizerRegion::RR_KOKIRI_FOREST, RandomizerGet::RG_KOKIRI_FOREST_BEAN_SOUL) || can_use(RandomizerGet::RG_HOVER_BOOTS))),
     ENTRANCE(RR_KF_STORMS_GROTTO, can_open_storms_grotto()),
 });
 
@@ -167,13 +167,13 @@ areaTable[RR_KF_RUPEE_ALCOVE] = Region("KF Alcove", SCENE_KOKIRI_FOREST, {
     // Events
 }, {
     // Locations
-    LOCATION(RC_KF_BEAN_RUPEE_1, is_adult() && can_use(RG_HOVER_BOOTS)),
-    LOCATION(RC_KF_BEAN_RUPEE_2, is_adult() && can_use(RG_HOVER_BOOTS)),
-    LOCATION(RC_KF_BEAN_RUPEE_3, is_adult() && can_use(RG_HOVER_BOOTS)),
-    LOCATION(RC_KF_BEAN_RUPEE_4, is_adult() && can_use(RG_HOVER_BOOTS)),
-    LOCATION(RC_KF_BEAN_RUPEE_5, is_adult() && can_use(RG_HOVER_BOOTS)),
-    LOCATION(RC_KF_BEAN_RUPEE_6, is_adult() && can_use(RG_HOVER_BOOTS)),
-    LOCATION(RC_KF_BEAN_RED_RUPEE, is_adult() && can_use(RG_HOVER_BOOTS)),
+    LOCATION(RC_KF_BEAN_RUPEE_1, is_adult() && can_use(RandomizerGet::RG_HOVER_BOOTS)),
+    LOCATION(RC_KF_BEAN_RUPEE_2, is_adult() && can_use(RandomizerGet::RG_HOVER_BOOTS)),
+    LOCATION(RC_KF_BEAN_RUPEE_3, is_adult() && can_use(RandomizerGet::RG_HOVER_BOOTS)),
+    LOCATION(RC_KF_BEAN_RUPEE_4, is_adult() && can_use(RandomizerGet::RG_HOVER_BOOTS)),
+    LOCATION(RC_KF_BEAN_RUPEE_5, is_adult() && can_use(RandomizerGet::RG_HOVER_BOOTS)),
+    LOCATION(RC_KF_BEAN_RUPEE_6, is_adult() && can_use(RandomizerGet::RG_HOVER_BOOTS)),
+    LOCATION(RC_KF_BEAN_RED_RUPEE, is_adult() && can_use(RandomizerGet::RG_HOVER_BOOTS)),
 }, {
     // Exits
     ENTRANCE(RR_KOKIRI_FOREST, true),
@@ -194,16 +194,16 @@ areaTable[RR_KF_SARIAS_HOUSE] = Region("KF Saria's House", SCENE_SARIAS_HOUSE, {
 
 areaTable[RR_KF_STORMS_GROTTO] = Region("KF Storms Grotto", SCENE_GROTTOS, {
     // Events
-    EVENT_ACCESS(LOGIC_FAIRY_ACCESS, call_gossip_fairy() || can_use(RG_STICKS)),
+    EVENT_ACCESS(LOGIC_FAIRY_ACCESS, call_gossip_fairy() || can_use(RandomizerGet::RG_STICKS)),
     EVENT_ACCESS(LOGIC_BUG_ACCESS, can_cut_shrubs()),
     EVENT_ACCESS(LOGIC_FISH_ACCESS, true),
 }, {
     // Locations
-    LOCATION(RC_KF_STORMS_GROTTO_CHEST, has(RG_OPEN_CHEST)),
+    LOCATION(RC_KF_STORMS_GROTTO_CHEST, has(RandomizerGet::RG_OPEN_CHEST)),
     LOCATION(RC_KF_STORMS_GROTTO_BEEHIVE_LEFT, can_break_lower_beehives()),
     LOCATION(RC_KF_STORMS_GROTTO_BEEHIVE_RIGHT, can_break_lower_beehives()),
     LOCATION(RC_KF_STORMS_GROTTO_GOSSIP_STONE_FAIRY, call_gossip_fairy()),
-    LOCATION(RC_KF_STORMS_GROTTO_GOSSIP_STONE_FAIRY_BIG, can_use(RG_SONG_OF_STORMS)),
+    LOCATION(RC_KF_STORMS_GROTTO_GOSSIP_STONE_FAIRY_BIG, can_use(RandomizerGet::RG_SONG_OF_STORMS)),
     LOCATION(RC_KF_STORMS_GROTTO_FISH, has_bottle()),
     LOCATION(RC_KF_STORMS_GROTTO_GRASS_1, can_cut_shrubs()),
     LOCATION(RC_KF_STORMS_GROTTO_GRASS_2, can_cut_shrubs()),
@@ -217,13 +217,13 @@ areaTable[RR_KF_STORMS_GROTTO] = Region("KF Storms Grotto", SCENE_GROTTOS, {
 
 areaTable[RR_KOKIRI_FOREST] = Region("Kokiri Forest", SCENE_KOKIRI_FOREST, {
     // Events
-    EVENT_ACCESS(LOGIC_FAIRY_ACCESS, call_gossip_fairy_except_suns() || is_child() && can_use(RG_MAGIC_BEAN) && has(RG_KOKIRI_FOREST_BEAN_SOUL) && can_use(RG_SONG_OF_STORMS)),
-    EVENT_ACCESS(LOGIC_SHOWED_MIDO_SWORD_AND_SHIELD, is_child() && has(RG_SPEAK_KOKIRI) && can_use(RG_KOKIRI_SWORD) && can_use(RG_DEKU_SHIELD)),
+    EVENT_ACCESS(LOGIC_FAIRY_ACCESS, call_gossip_fairy_except_suns() || is_child() && can_use(RandomizerGet::RG_MAGIC_BEAN) && has(RandomizerGet::RG_KOKIRI_FOREST_BEAN_SOUL) && can_use(RandomizerGet::RG_SONG_OF_STORMS)),
+    EVENT_ACCESS(LOGIC_SHOWED_MIDO_SWORD_AND_SHIELD, is_child() && has(RandomizerGet::RG_SPEAK_KOKIRI) && can_use(RandomizerGet::RG_KOKIRI_SWORD) && can_use(RandomizerGet::RG_DEKU_SHIELD)),
 }, {
     // Locations
-    LOCATION(RC_KF_BEAN_SPROUT_FAIRY_1, is_child() && can_use(RG_MAGIC_BEAN) && has(RG_KOKIRI_FOREST_BEAN_SOUL) && can_use(RG_SONG_OF_STORMS)),
-    LOCATION(RC_KF_BEAN_SPROUT_FAIRY_2, is_child() && can_use(RG_MAGIC_BEAN) && has(RG_KOKIRI_FOREST_BEAN_SOUL) && can_use(RG_SONG_OF_STORMS)),
-    LOCATION(RC_KF_BEAN_SPROUT_FAIRY_3, is_child() && can_use(RG_MAGIC_BEAN) && has(RG_KOKIRI_FOREST_BEAN_SOUL) && can_use(RG_SONG_OF_STORMS)),
+    LOCATION(RC_KF_BEAN_SPROUT_FAIRY_1, is_child() && can_use(RandomizerGet::RG_MAGIC_BEAN) && has(RandomizerGet::RG_KOKIRI_FOREST_BEAN_SOUL) && can_use(RandomizerGet::RG_SONG_OF_STORMS)),
+    LOCATION(RC_KF_BEAN_SPROUT_FAIRY_2, is_child() && can_use(RandomizerGet::RG_MAGIC_BEAN) && has(RandomizerGet::RG_KOKIRI_FOREST_BEAN_SOUL) && can_use(RandomizerGet::RG_SONG_OF_STORMS)),
+    LOCATION(RC_KF_BEAN_SPROUT_FAIRY_3, is_child() && can_use(RandomizerGet::RG_MAGIC_BEAN) && has(RandomizerGet::RG_KOKIRI_FOREST_BEAN_SOUL) && can_use(RandomizerGet::RG_SONG_OF_STORMS)),
     LOCATION(RC_KF_BRIDGE_RUPEE, is_child()),
     LOCATION(RC_KF_BEHIND_MIDOS_RUPEE, is_child()),
     LOCATION(RC_KF_SOUTH_GRASS_WEST_RUPEE, is_child()),
@@ -233,16 +233,16 @@ areaTable[RR_KOKIRI_FOREST] = Region("Kokiri Forest", SCENE_KOKIRI_FOREST, {
     LOCATION(RC_KF_SARIAS_ROOF_WEST_HEART, is_child()),
     LOCATION(RC_KF_SARIAS_ROOF_EAST_HEART, is_child()),
     LOCATION(RC_KF_SARIAS_ROOF_NORTH_HEART, is_child()),
-    LOCATION(RC_KF_BEAN_RUPEE_1, is_adult() && (can_plant_bean(RR_KOKIRI_FOREST, RG_KOKIRI_FOREST_BEAN_SOUL) || can_use(RG_HOVER_BOOTS) || can_use(RG_BOOMERANG))),
-    LOCATION(RC_KF_BEAN_RUPEE_2, is_adult() && (can_plant_bean(RR_KOKIRI_FOREST, RG_KOKIRI_FOREST_BEAN_SOUL) || can_use(RG_HOVER_BOOTS) || can_use(RG_BOOMERANG))),
-    LOCATION(RC_KF_BEAN_RUPEE_3, is_adult() && (can_plant_bean(RR_KOKIRI_FOREST, RG_KOKIRI_FOREST_BEAN_SOUL) || can_use(RG_HOVER_BOOTS) || can_use(RG_BOOMERANG))),
-    LOCATION(RC_KF_BEAN_RUPEE_4, is_adult() && (can_plant_bean(RR_KOKIRI_FOREST, RG_KOKIRI_FOREST_BEAN_SOUL) || can_use(RG_HOVER_BOOTS) || can_use(RG_BOOMERANG))),
-    LOCATION(RC_KF_BEAN_RUPEE_5, is_adult() && (can_plant_bean(RR_KOKIRI_FOREST, RG_KOKIRI_FOREST_BEAN_SOUL) || can_use(RG_HOVER_BOOTS) || can_use(RG_BOOMERANG))),
-    LOCATION(RC_KF_BEAN_RUPEE_6, is_adult() && (can_plant_bean(RR_KOKIRI_FOREST, RG_KOKIRI_FOREST_BEAN_SOUL) || can_use(RG_HOVER_BOOTS) || can_use(RG_BOOMERANG))),
-    LOCATION(RC_KF_BEAN_RED_RUPEE, is_adult() && (can_plant_bean(RR_KOKIRI_FOREST, RG_KOKIRI_FOREST_BEAN_SOUL) || can_use(RG_HOVER_BOOTS) || can_use(RG_BOOMERANG))),
-    LOCATION(RC_KF_GS_KNOW_IT_ALL_HOUSE, is_child() && can_kill(RE_GOLD_SKULLTULA, ED_CLOSE, true, 1, false, false) && can_get_night_time_gs()),
-    LOCATION(RC_KF_GS_BEAN_PATCH, can_spawn_soil_skull(RG_KOKIRI_FOREST_BEAN_SOUL) && can_kill(RE_GOLD_SKULLTULA, ED_CLOSE, true, 1, false, false)),
-    LOCATION(RC_KF_GS_HOUSE_OF_TWINS, is_adult() && can_get_night_time_gs() && (can_get_drop(RE_GOLD_SKULLTULA, ED_BOOMERANG, false) || trick(RT_KF_ADULT_GS) && can_use(RG_HOVER_BOOTS) && can_kill(RE_GOLD_SKULLTULA, ED_SHORT_JUMPSLASH, true, 1, false, false))),
+    LOCATION(RC_KF_BEAN_RUPEE_1, is_adult() && (can_plant_bean(RandomizerRegion::RR_KOKIRI_FOREST, RandomizerGet::RG_KOKIRI_FOREST_BEAN_SOUL) || can_use(RandomizerGet::RG_HOVER_BOOTS) || can_use(RandomizerGet::RG_BOOMERANG))),
+    LOCATION(RC_KF_BEAN_RUPEE_2, is_adult() && (can_plant_bean(RandomizerRegion::RR_KOKIRI_FOREST, RandomizerGet::RG_KOKIRI_FOREST_BEAN_SOUL) || can_use(RandomizerGet::RG_HOVER_BOOTS) || can_use(RandomizerGet::RG_BOOMERANG))),
+    LOCATION(RC_KF_BEAN_RUPEE_3, is_adult() && (can_plant_bean(RandomizerRegion::RR_KOKIRI_FOREST, RandomizerGet::RG_KOKIRI_FOREST_BEAN_SOUL) || can_use(RandomizerGet::RG_HOVER_BOOTS) || can_use(RandomizerGet::RG_BOOMERANG))),
+    LOCATION(RC_KF_BEAN_RUPEE_4, is_adult() && (can_plant_bean(RandomizerRegion::RR_KOKIRI_FOREST, RandomizerGet::RG_KOKIRI_FOREST_BEAN_SOUL) || can_use(RandomizerGet::RG_HOVER_BOOTS) || can_use(RandomizerGet::RG_BOOMERANG))),
+    LOCATION(RC_KF_BEAN_RUPEE_5, is_adult() && (can_plant_bean(RandomizerRegion::RR_KOKIRI_FOREST, RandomizerGet::RG_KOKIRI_FOREST_BEAN_SOUL) || can_use(RandomizerGet::RG_HOVER_BOOTS) || can_use(RandomizerGet::RG_BOOMERANG))),
+    LOCATION(RC_KF_BEAN_RUPEE_6, is_adult() && (can_plant_bean(RandomizerRegion::RR_KOKIRI_FOREST, RandomizerGet::RG_KOKIRI_FOREST_BEAN_SOUL) || can_use(RandomizerGet::RG_HOVER_BOOTS) || can_use(RandomizerGet::RG_BOOMERANG))),
+    LOCATION(RC_KF_BEAN_RED_RUPEE, is_adult() && (can_plant_bean(RandomizerRegion::RR_KOKIRI_FOREST, RandomizerGet::RG_KOKIRI_FOREST_BEAN_SOUL) || can_use(RandomizerGet::RG_HOVER_BOOTS) || can_use(RandomizerGet::RG_BOOMERANG))),
+    LOCATION(RC_KF_GS_KNOW_IT_ALL_HOUSE, is_child() && can_kill(RandomizerEnemy::RE_GOLD_SKULLTULA, EnemyDistance::ED_CLOSE, true, 1, false, false) && can_get_night_time_gs()),
+    LOCATION(RC_KF_GS_BEAN_PATCH, can_spawn_soil_skull(RandomizerGet::RG_KOKIRI_FOREST_BEAN_SOUL) && can_kill(RandomizerEnemy::RE_GOLD_SKULLTULA, EnemyDistance::ED_CLOSE, true, 1, false, false)),
+    LOCATION(RC_KF_GS_HOUSE_OF_TWINS, is_adult() && can_get_night_time_gs() && (can_get_drop(RandomizerEnemy::RE_GOLD_SKULLTULA, EnemyDistance::ED_BOOMERANG, false) || trick(RandomizerTrick::RT_KF_ADULT_GS) && can_use(RandomizerGet::RG_HOVER_BOOTS) && can_kill(RandomizerEnemy::RE_GOLD_SKULLTULA, EnemyDistance::ED_SHORT_JUMPSLASH, true, 1, false, false))),
     LOCATION(RC_KF_CHILD_GRASS_1, is_child() && can_cut_shrubs()),
     LOCATION(RC_KF_CHILD_GRASS_2, is_child() && can_cut_shrubs()),
     LOCATION(RC_KF_CHILD_GRASS_3, is_child() && can_cut_shrubs()),
@@ -277,17 +277,17 @@ areaTable[RR_KOKIRI_FOREST] = Region("Kokiri Forest", SCENE_KOKIRI_FOREST, {
     LOCATION(RC_KF_ADULT_GRASS_20, is_adult() && can_cut_shrubs()),
 }, {
     // Exits
-    ENTRANCE(RR_KF_BOULDER_LOOP, can_use(RG_CRAWL)),
-    ENTRANCE(RR_KF_LINKS_PORCH, is_child() ? can_climb_ladder() : has(RG_CLIMB) || can_use(RG_HOVER_BOOTS)),
+    ENTRANCE(RR_KF_BOULDER_LOOP, can_use(RandomizerGet::RG_CRAWL)),
+    ENTRANCE(RR_KF_LINKS_PORCH, is_child() ? can_climb_ladder() : has(RandomizerGet::RG_CLIMB) || can_use(RandomizerGet::RG_HOVER_BOOTS)),
     ENTRANCE(RR_KF_MIDOS_HOUSE, true),
     ENTRANCE(RR_KF_SARIAS_HOUSE, true),
     ENTRANCE(RR_KF_HOUSE_OF_TWINS, true),
     ENTRANCE(RR_KF_KNOW_IT_ALL_HOUSE, true),
     ENTRANCE(RR_KF_KOKIRI_SHOP, true),
-    ENTRANCE(RR_KF_OUTSIDE_DEKU_TREE, flag(LOGIC_SHOWED_MIDO_SWORD_AND_SHIELD) || setting(RSK_FOREST) == RO_CLOSED_FOREST_OFF || is_adult() && (can_pass(RE_BIG_SKULLTULA, ED_CLOSE, true) || flag(LOGIC_FOREST_TEMPLE_CLEAR))),
-    ENTRANCE(RR_KF_OUTSIDE_LOST_WOODS, has(RG_CLIMB) || can_use(RG_HOOKSHOT) || is_adult() && (can_plant_bean(RR_KOKIRI_FOREST, RG_KOKIRI_FOREST_BEAN_SOUL) || trick(RT_UNINTUITIVE_JUMPS))),
-    ENTRANCE(RR_KF_RUPEE_ALCOVE, is_adult() && can_plant_bean(RR_KOKIRI_FOREST, RG_KOKIRI_FOREST_BEAN_SOUL)),
-    ENTRANCE(RR_LW_BRIDGE_FROM_FOREST, is_adult() || setting(RSK_FOREST) != RO_CLOSED_FOREST_ON || flag(LOGIC_DEKU_TREE_CLEAR)),
+    ENTRANCE(RR_KF_OUTSIDE_DEKU_TREE, flag(LogicVal::LOGIC_SHOWED_MIDO_SWORD_AND_SHIELD) || setting(RSK_FOREST) == RO_CLOSED_FOREST_OFF || is_adult() && (can_pass(RandomizerEnemy::RE_BIG_SKULLTULA, EnemyDistance::ED_CLOSE, true) || flag(LogicVal::LOGIC_FOREST_TEMPLE_CLEAR))),
+    ENTRANCE(RR_KF_OUTSIDE_LOST_WOODS, has(RandomizerGet::RG_CLIMB) || can_use(RandomizerGet::RG_HOOKSHOT) || is_adult() && (can_plant_bean(RandomizerRegion::RR_KOKIRI_FOREST, RandomizerGet::RG_KOKIRI_FOREST_BEAN_SOUL) || trick(RandomizerTrick::RT_UNINTUITIVE_JUMPS))),
+    ENTRANCE(RR_KF_RUPEE_ALCOVE, is_adult() && can_plant_bean(RandomizerRegion::RR_KOKIRI_FOREST, RandomizerGet::RG_KOKIRI_FOREST_BEAN_SOUL)),
+    ENTRANCE(RR_LW_BRIDGE_FROM_FOREST, is_adult() || setting(RSK_FOREST) != RO_CLOSED_FOREST_ON || flag(LogicVal::LOGIC_DEKU_TREE_CLEAR)),
 });
 
 areaTable[RR_MINUET_OF_FOREST_WARP] = Region("Minuet of Forest Warp", SCENE_ID_MAX, false, {RA_LINKS_POCKET}, {
@@ -334,15 +334,15 @@ areaTable[RR_ROOT] = Region("Root", SCENE_ID_MAX, false, {RA_LINKS_POCKET}, {
     EVENT_ACCESS(LOGIC_TH_COULD_FREE_DEAD_END_CARPENTER, setting(RSK_GERUDO_FORTRESS) == RO_GF_CARPENTERS_FREE || setting(RSK_GERUDO_FORTRESS) == RO_GF_CARPENTERS_FAST),
     EVENT_ACCESS(LOGIC_TH_COULD_FREE_SLOPE_CARPENTER, setting(RSK_GERUDO_FORTRESS) == RO_GF_CARPENTERS_FREE || setting(RSK_GERUDO_FORTRESS) == RO_GF_CARPENTERS_FAST),
     EVENT_ACCESS(LOGIC_TH_RESCUED_ALL_CARPENTERS, setting(RSK_GERUDO_FORTRESS) == RO_GF_CARPENTERS_FREE),
-    EVENT_ACCESS(LOGIC_FREED_EPONA, setting(RSK_SKIP_EPONA_RACE)),
+    EVENT_ACCESS(LOGIC_FREED_EPONA, setting(RSK_SKIP_EPONA_RACE) == RO_GENERIC_YES),
 }, {
     // Locations
     LOCATION(RC_LINKS_POCKET, true),
     LOCATION(RC_TRIFORCE_COMPLETED, collected_triforce_pieces() >= required_triforce_pieces()),
-    LOCATION(RC_SARIA_SONG_HINT, can_use(RG_SARIAS_SONG)),
-    LOCATION(RC_SONG_FROM_IMPA, setting(RSK_SKIP_CHILD_ZELDA)),
-    LOCATION(RC_HC_MALON_EGG, setting(RSK_SKIP_CHILD_ZELDA)),
-    LOCATION(RC_HC_ZELDAS_LETTER, setting(RSK_SKIP_CHILD_ZELDA)),
+    LOCATION(RC_SARIA_SONG_HINT, can_use(RandomizerGet::RG_SARIAS_SONG)),
+    LOCATION(RC_SONG_FROM_IMPA, setting(RSK_SKIP_CHILD_ZELDA) == RO_GENERIC_YES),
+    LOCATION(RC_HC_MALON_EGG, setting(RSK_SKIP_CHILD_ZELDA) == RO_GENERIC_YES),
+    LOCATION(RC_HC_ZELDAS_LETTER, setting(RSK_SKIP_CHILD_ZELDA) == RO_GENERIC_YES),
     LOCATION(RC_TOT_MASTER_SWORD, setting(RSK_SELECTED_STARTING_AGE) == RO_AGE_ADULT),
 }, {
     // Exits
@@ -357,12 +357,12 @@ areaTable[RR_ROOT_EXITS] = Region("Root Exits", SCENE_ID_MAX, false, {RA_LINKS_P
     // Exits
     ENTRANCE(RR_CHILD_SPAWN, is_child()),
     ENTRANCE(RR_ADULT_SPAWN, is_adult()),
-    ENTRANCE(RR_MINUET_OF_FOREST_WARP, can_use(RG_MINUET_OF_FOREST)),
-    ENTRANCE(RR_BOLERO_OF_FIRE_WARP, can_use(RG_BOLERO_OF_FIRE)),
-    ENTRANCE(RR_SERENADE_OF_WATER_WARP, can_use(RG_SERENADE_OF_WATER)),
-    ENTRANCE(RR_NOCTURNE_OF_SHADOW_WARP, can_use(RG_NOCTURNE_OF_SHADOW)),
-    ENTRANCE(RR_REQUIEM_OF_SPIRIT_WARP, can_use(RG_REQUIEM_OF_SPIRIT)),
-    ENTRANCE(RR_PRELUDE_OF_LIGHT_WARP, can_use(RG_PRELUDE_OF_LIGHT)),
+    ENTRANCE(RR_MINUET_OF_FOREST_WARP, can_use(RandomizerGet::RG_MINUET_OF_FOREST)),
+    ENTRANCE(RR_BOLERO_OF_FIRE_WARP, can_use(RandomizerGet::RG_BOLERO_OF_FIRE)),
+    ENTRANCE(RR_SERENADE_OF_WATER_WARP, can_use(RandomizerGet::RG_SERENADE_OF_WATER)),
+    ENTRANCE(RR_NOCTURNE_OF_SHADOW_WARP, can_use(RandomizerGet::RG_NOCTURNE_OF_SHADOW)),
+    ENTRANCE(RR_REQUIEM_OF_SPIRIT_WARP, can_use(RandomizerGet::RG_REQUIEM_OF_SPIRIT)),
+    ENTRANCE(RR_PRELUDE_OF_LIGHT_WARP, can_use(RandomizerGet::RG_PRELUDE_OF_LIGHT)),
 });
 
 areaTable[RR_SERENADE_OF_WATER_WARP] = Region("Serenade of Water Warp", SCENE_ID_MAX, false, {RA_LINKS_POCKET}, {

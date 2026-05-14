@@ -11,16 +11,16 @@ region RR_ROOT {
         LOGIC_TH_COULD_FREE_DEAD_END_CARPENTER:    setting(RSK_GERUDO_FORTRESS) is RO_GF_CARPENTERS_FREE or setting(RSK_GERUDO_FORTRESS) is RO_GF_CARPENTERS_FAST
         LOGIC_TH_COULD_FREE_SLOPE_CARPENTER:       setting(RSK_GERUDO_FORTRESS) is RO_GF_CARPENTERS_FREE or setting(RSK_GERUDO_FORTRESS) is RO_GF_CARPENTERS_FAST
         LOGIC_TH_RESCUED_ALL_CARPENTERS:           setting(RSK_GERUDO_FORTRESS) is RO_GF_CARPENTERS_FREE
-        LOGIC_FREED_EPONA:                         setting(RSK_SKIP_EPONA_RACE)
+        LOGIC_FREED_EPONA:                         setting(RSK_SKIP_EPONA_RACE) is RO_GENERIC_YES
     }
 
     locations {
         RC_LINKS_POCKET:       always
         RC_TRIFORCE_COMPLETED: collected_triforce_pieces() >= required_triforce_pieces()
         RC_SARIA_SONG_HINT:    can_use(RG_SARIAS_SONG)
-        RC_SONG_FROM_IMPA:     setting(RSK_SKIP_CHILD_ZELDA)
-        RC_HC_MALON_EGG:       setting(RSK_SKIP_CHILD_ZELDA)
-        RC_HC_ZELDAS_LETTER:   setting(RSK_SKIP_CHILD_ZELDA)
+        RC_SONG_FROM_IMPA:     setting(RSK_SKIP_CHILD_ZELDA) is RO_GENERIC_YES
+        RC_HC_MALON_EGG:       setting(RSK_SKIP_CHILD_ZELDA) is RO_GENERIC_YES
+        RC_HC_ZELDAS_LETTER:   setting(RSK_SKIP_CHILD_ZELDA) is RO_GENERIC_YES
         RC_TOT_MASTER_SWORD:   setting(RSK_SELECTED_STARTING_AGE) is RO_AGE_ADULT
     }
 
