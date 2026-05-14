@@ -94,7 +94,7 @@ inline void collectCallNames(
 			collectCallNames(*node.thenBranch, out);
 			collectCallNames(*node.elseBranch, out);
 		} else if constexpr (std::is_same_v<N, ast::CallExpr>) {
-			out.insert(node.function);
+			out.insert(node.callee.text);
 			for (const auto& arg : node.args) {
 				collectCallNames(*arg.value, out);
 			}

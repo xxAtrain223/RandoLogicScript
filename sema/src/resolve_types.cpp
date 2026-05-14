@@ -68,17 +68,18 @@ struct ExprResolver {
 		bool hasError = false;
 	};
 
-	bool inferUntypedParamIdentifier(const ast::Expr& expr, T expectedType) {
+	bool inferUntypedParamIdentifier(ast::Expr& expr, T expectedType) {
 		auto* id = std::get_if<ast::Identifier>(&expr.node);
 		if (id == nullptr) {
 			return false;
 		}
 
-		auto it = scope.find(id->name);
+		auto it = scope.find(id->name.text);
 		if (it == scope.end() || it->second.has_value()) {
 			return false;
 		}
 
+		id->kind = ast::IdentifierKind::Parameter;
 		it->second = expectedType;
 		project.setType(&expr, expectedType);
 		return true;
@@ -86,17 +87,18 @@ struct ExprResolver {
 
 	// -- Node handlers -------------------------------------------------------
 
-	ast::Type resolve(const ast::BoolLiteral&, const ast::Expr&) {
+	ast::Type resolve(const ast::BoolLiteral&, ast::Expr&) {
 		return ast::Type::Bool;
 	}
 
-	ast::Type resolve(const ast::IntLiteral&, const ast::Expr&) {
+	ast::Type resolve(const ast::IntLiteral&, ast::Expr&) {
 		return ast::Type::Int;
 	}
 
-	ast::Type resolve(const ast::Identifier& node, const ast::Expr& expr) {
+	ast::Type resolve(ast::Identifier& node, ast::Expr& expr) {
 		// Check scope first (parameter names).
-		if (auto it = scope.find(node.name); it != scope.end()) {
+		if (auto it = scope.find(node.name.text); it != scope.end()) {
+			node.kind = ast::IdentifierKind::Parameter;
 			if (it->second) {
 				return *it->second;
 			}
@@ -104,18 +106,19 @@ struct ExprResolver {
 			return ast::Type::Error;
 		}
 
-		if (auto t = typeFromIdentifier(node.name)) {
+		if (auto t = typeFromIdentifier(node.name.text)) {
+			node.kind = ast::IdentifierKind::EnumValue;
 			return *t;
 		}
 		diags.push_back({
 			ast::DiagnosticLevel::Error,
-			std::format("unknown identifier '{}'", node.name),
+			std::format("unknown identifier '{}'", node.name.text),
 			expr.span
 		});
 		return ast::Type::Error;
 	}
 
-	ast::Type resolve(const ast::UnaryExpr& node, const ast::Expr& expr) {
+	ast::Type resolve(const ast::UnaryExpr& node, ast::Expr& expr) {
 		inferUntypedParamIdentifier(*node.operand, ast::Type::Bool);
 		auto opType = resolveExpr(*node.operand);
 		if (opType != ast::Type::Error && !isBoolCompatible(opType)) {
@@ -129,7 +132,7 @@ struct ExprResolver {
 		return ast::Type::Bool;
 	}
 
-	ast::Type resolve(const ast::BinaryExpr& node, const ast::Expr& expr) {
+	ast::Type resolve(const ast::BinaryExpr& node, ast::Expr& expr) {
 		using T = ast::Type;
 
 		switch (node.op) {
@@ -258,7 +261,7 @@ struct ExprResolver {
 		return T::Error; // unreachable — all BinaryOp cases covered
 	}
 
-	ast::Type resolve(const ast::TernaryExpr& node, const ast::Expr& expr) {
+	ast::Type resolve(const ast::TernaryExpr& node, ast::Expr& expr) {
 		using T = ast::Type;
 		inferUntypedParamIdentifier(*node.condition, T::Bool);
 		auto condType = resolveExpr(*node.condition);
@@ -301,7 +304,7 @@ struct ExprResolver {
 	}
 
 	/// Recursively resolve the type of an expression.
-	ast::Type resolveExpr(const ast::Expr& expr) {
+	ast::Type resolveExpr(ast::Expr& expr) {
 		if (auto cached = project.getType(&expr)) {
 			return *cached;
 		}
@@ -339,13 +342,13 @@ struct ExprResolver {
 			const auto& arg = node.args[argIndex];
 			if (arg.name) {
 				result.hasNamedArgs = true;
-				auto it = paramIndexByName.find(*arg.name);
+				auto it = paramIndexByName.find(arg.name->text);
 				if (it == paramIndexByName.end()) {
 					result.hasError = true;
 					diags.push_back({
 						ast::DiagnosticLevel::Error,
 						std::format("'{}' unknown named argument '{}'",
-							function, *arg.name),
+							function, arg.name->text),
 						arg.value->span
 					});
 					continue;
@@ -357,7 +360,7 @@ struct ExprResolver {
 					diags.push_back({
 						ast::DiagnosticLevel::Error,
 						std::format("'{}' duplicate argument for parameter '{}'",
-							function, *arg.name),
+							function, arg.name->text),
 						arg.value->span
 					});
 					continue;
@@ -500,7 +503,7 @@ struct ExprResolver {
 	std::optional<T> resolveExternParamType(const ast::ExternDefineDecl& ext, size_t index) {
 		std::optional<T> paramType = project.getType(&ext.params[index]);
 		if (!paramType && ext.params[index].type) {
-			if (auto t = typeFromAnnotation(*ext.params[index].type)) {
+			if (auto t = typeFromAnnotation(ext.params[index].type->name.text)) {
 				paramType = *t;
 				project.setType(&ext.params[index], *t);
 			}
@@ -524,20 +527,20 @@ struct ExprResolver {
 		}
 
 		// Extern-defined host functions.
-		if (auto it = project.ExternDefineDecls.find(node.function);
+		if (auto it = project.ExternDefineDecls.find(node.callee.text);
 			it != project.ExternDefineDecls.end()) {
 			const auto& ext = *it->second;
 
 			auto binding = bindFunctionCallArgs(
-				node.function,
+				node.callee.text,
 				ext.params.size(),
 				node,
 				expr,
 				[&](size_t i) { return !ext.params[i].defaultValue; },
-				[&](size_t i) -> const std::string& { return ext.params[i].name; });
+				[&](size_t i) -> const std::string& { return ext.params[i].name.text; });
 
 			validateBoundArgTypes(
-				node.function,
+				node.callee.text,
 				argTypes,
 				binding,
 				node,
@@ -556,27 +559,27 @@ struct ExprResolver {
 			if (!ext.returnType) {
 				return T::Error;
 			}
-			if (auto returnType = typeFromAnnotation(*ext.returnType)) {
+			if (auto returnType = typeFromAnnotation(ext.returnType->name.text)) {
 				return *returnType;
 			}
 			return T::Error;
 		}
 
 		// User-defined functions (define declarations).
-		if (auto it = project.DefineDecls.find(node.function);
+		if (auto it = project.DefineDecls.find(node.callee.text);
 			it != project.DefineDecls.end()) {
 			const auto& def = *it->second;
 
 			auto binding = bindFunctionCallArgs(
-				node.function,
+				node.callee.text,
 				def.params.size(),
 				node,
 				expr,
 				[&](size_t i) { return !def.params[i].defaultValue; },
-				[&](size_t i) -> const std::string& { return def.params[i].name; });
+				[&](size_t i) -> const std::string& { return def.params[i].name.text; });
 
 			validateBoundArgTypes(
-				node.function,
+				node.callee.text,
 				argTypes,
 				binding,
 				node,
@@ -603,7 +606,7 @@ struct ExprResolver {
 		// Unknown function.
 		diags.push_back({
 			ast::DiagnosticLevel::Error,
-			std::format("unknown function '{}'", node.function),
+			std::format("unknown function '{}'", node.callee.text),
 			expr.span
 		});
 		return T::Error;
@@ -642,13 +645,16 @@ struct ExprResolver {
 	ast::Type resolve(const ast::MatchExpr& node, const ast::Expr& expr) {
 		using T = ast::Type;
 
-		// --- Discriminant: look up in scope (should be a parameter) ---
-		std::optional<T> discrimType;
-		bool discrimInScope = false;
-		if (auto it = scope.find(node.discriminant); it != scope.end()) {
-			discrimInScope = true;
-			discrimType = it->second; // may be nullopt if untyped
-		}
+		auto identifierText = [](const ast::Expr& matchExpr) -> std::optional<std::string_view> {
+			if (auto* id = std::get_if<ast::Identifier>(&matchExpr.node)) {
+				return id->name.text;
+			}
+			return std::nullopt;
+		};
+
+		// --- Discriminant --------------------------------------------------
+		auto discrimType = resolveExpr(*node.discriminant);
+		auto discrimName = identifierText(*node.discriminant);
 
 		// --- Arm patterns: all must be the same enum type ---------------
 		std::optional<T> patternType;
@@ -677,24 +683,21 @@ struct ExprResolver {
 			}
 
 			for (const auto& pattern : arm.patterns) {
-				if (auto t = typeFromIdentifier(pattern)) {
-					if (!patternType) {
-						patternType = *t;
-					} else if (*t != *patternType) {
-						diags.push_back({
-							ast::DiagnosticLevel::Error,
-							std::format(
-								"match pattern '{}' is {} but expected {}",
-								pattern, typeName(*t),
-								typeName(*patternType)),
-							expr.span
-						});
-					}
-				} else {
+				auto currentPatternType = resolveExpr(*pattern);
+				if (currentPatternType == T::Error) {
+					continue;
+				}
+
+				if (!patternType) {
+					patternType = currentPatternType;
+				} else if (currentPatternType != *patternType) {
+					auto patternName = identifierText(*pattern).value_or("<expr>");
 					diags.push_back({
 						ast::DiagnosticLevel::Error,
-						std::format("unrecognized match pattern '{}'",
-							pattern),
+						std::format(
+							"match pattern '{}' is {} but expected {}",
+							patternName, typeName(currentPatternType),
+							typeName(*patternType)),
 						expr.span
 					});
 				}
@@ -703,23 +706,23 @@ struct ExprResolver {
 
 		// --- Unify discriminant type with pattern type ------------------
 		if (patternType) {
-			if (discrimType) {
-				// Both typed — they must agree.
-				if (*discrimType != *patternType) {
-					diags.push_back({
-						ast::DiagnosticLevel::Error,
-						std::format(
-							"match discriminant '{}' is {} "
-							"but patterns are {}",
-							node.discriminant,
-							typeName(*discrimType),
-							typeName(*patternType)),
-						expr.span
-					});
+			if (discrimType == T::Error) {
+				if (!inferUntypedParamIdentifier(*node.discriminant, *patternType) && discrimName) {
+					if (auto it = scope.find(std::string(*discrimName)); it != scope.end() && !it->second) {
+						it->second = *patternType;
+					}
 				}
-			} else if (discrimInScope) {
-				// Discriminant is a parameter with no type — infer it.
-				scope[node.discriminant] = *patternType;
+			} else if (discrimType != *patternType) {
+				auto name = discrimName.value_or("<expr>");
+				diags.push_back({
+					ast::DiagnosticLevel::Error,
+					std::format(
+						"match discriminant '{}' is {} but patterns are {}",
+						name,
+						typeName(discrimType),
+						typeName(*patternType)),
+					expr.span
+				});
 			}
 		}
 
@@ -878,7 +881,7 @@ std::vector<ast::Diagnostic> resolveTypes(ast::Project& project) {
 		for (const auto& param : decl->params) {
 			std::optional<ast::Type> annotatedType;
 			if (param.type) {
-				if (auto t = typeFromAnnotation(*param.type)) {
+				if (auto t = typeFromAnnotation(param.type->name.text)) {
 					annotatedType = *t;
 				} else {
 					diags.push_back({
@@ -886,7 +889,7 @@ std::vector<ast::Diagnostic> resolveTypes(ast::Project& project) {
 						std::format(
 							"unknown type annotation '{}' "
 							"for parameter '{}'",
-							*param.type, param.name),
+							param.type->name.text, param.name.text),
 						decl->span
 					});
 				}
@@ -904,15 +907,15 @@ std::vector<ast::Diagnostic> resolveTypes(ast::Project& project) {
 			}
 
 			if (annotatedType) {
-				scope[param.name] = *annotatedType;
+				scope[param.name.text] = *annotatedType;
 				project.setType(&param, *annotatedType);
 			} else if (defaultType) {
-				scope[param.name] = *defaultType;
+				scope[param.name.text] = *defaultType;
 				project.setType(&param, *defaultType);
 			} else {
 				// No annotation, no default — type unknown
 				// until body-usage inference.
-				scope[param.name] = std::nullopt;
+				scope[param.name.text] = std::nullopt;
 			}
 		}
 		ExprResolver resolver{project, scope, diags};
@@ -923,7 +926,7 @@ std::vector<ast::Diagnostic> resolveTypes(ast::Project& project) {
 				continue;
 			}
 
-			auto scopeIt = scope.find(param.name);
+			auto scopeIt = scope.find(param.name.text);
 			if (scopeIt != scope.end() && scopeIt->second.has_value()) {
 				project.setType(&param, *scopeIt->second);
 			}
@@ -935,7 +938,7 @@ std::vector<ast::Diagnostic> resolveTypes(ast::Project& project) {
 		for (const auto& param : decl->params) {
 			std::optional<ast::Type> annotatedType;
 			if (param.type) {
-				if (auto t = typeFromAnnotation(*param.type)) {
+				if (auto t = typeFromAnnotation(param.type->name.text)) {
 					annotatedType = *t;
 				} else {
 					diags.push_back({
@@ -943,7 +946,7 @@ std::vector<ast::Diagnostic> resolveTypes(ast::Project& project) {
 						std::format(
 							"unknown type annotation '{}' "
 							"for parameter '{}'",
-							*param.type, param.name),
+							param.type->name.text, param.name.text),
 						decl->span
 					});
 				}
@@ -998,7 +1001,7 @@ std::vector<ast::Diagnostic> resolveTypes(ast::Project& project) {
 
 	// Resolve shared from here
 	{
-		std::function<void(const std::string&, const rls::ast::ExprPtr&)> populateHere = [&](const std::string& region, const rls::ast::ExprPtr& expr) {
+		std::function<void(const ast::Name&, const rls::ast::ExprPtr&)> populateHere = [&](const ast::Name& region, const rls::ast::ExprPtr& expr) {
 			std::visit([&](auto& node) -> void {
 				using T = std::decay_t<decltype(node)>;
 				if constexpr (std::is_same_v<T, ast::UnaryExpr>) {
@@ -1040,7 +1043,7 @@ std::vector<ast::Diagnostic> resolveTypes(ast::Project& project) {
 		for (auto& [name, region] : project.RegionDecls) {
 			for (auto& section : region->body.sections) {
 				for (auto& entry : section.entries) {
-					populateHere(name, entry.condition);
+					populateHere(region->key, entry.condition);
 				}
 			}
 		}
@@ -1049,7 +1052,7 @@ std::vector<ast::Diagnostic> resolveTypes(ast::Project& project) {
 			for (const auto* decl : decls) {
 				for (const auto& section : decl->sections) {
 					for (const auto& entry : section.entries) {
-						populateHere(name, entry.condition);
+						populateHere(ast::Name(name), entry.condition);
 					}
 				}
 			}

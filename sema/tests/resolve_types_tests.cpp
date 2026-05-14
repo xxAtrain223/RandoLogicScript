@@ -123,7 +123,11 @@ TEST(ResolveTypes, IdentifierEnum) {
 		"    locations { TEST_LOC: RG_HOOKSHOT }\n"
 		"}\n");
 	EXPECT_TRUE(diags.empty());
-	EXPECT_EQ(project.getType(findRegionEntry(project)), Type::Item);
+	const auto* expr = findRegionEntry(project);
+	ASSERT_NE(expr, nullptr);
+	ASSERT_TRUE(std::holds_alternative<Identifier>(expr->node));
+	EXPECT_EQ(project.getType(expr), Type::Item);
+	EXPECT_EQ(std::get<Identifier>(expr->node).kind, IdentifierKind::EnumValue);
 }
 
 TEST(ResolveTypes, IdentifierUnknown) {
@@ -1212,8 +1216,12 @@ TEST(ResolveTypes, ParamInferredFromLogicalContext) {
 	EXPECT_TRUE(diags.empty());
 	const auto* decl = project.DefineDecls.at("foo");
 	ASSERT_EQ(decl->params.size(), 1u);
+	ASSERT_TRUE(std::holds_alternative<BinaryExpr>(decl->body->node));
+	const auto& body = std::get<BinaryExpr>(decl->body->node);
+	ASSERT_TRUE(std::holds_alternative<Identifier>(body.left->node));
 	EXPECT_EQ(project.getType(&decl->params[0]), Type::Bool);
 	EXPECT_EQ(project.getType(decl->body.get()), Type::Bool);
+	EXPECT_EQ(std::get<Identifier>(body.left->node).kind, IdentifierKind::Parameter);
 }
 
 // -- Error poisoning ----------------------------------------------------------
@@ -1346,7 +1354,11 @@ TEST(ResolveTypes, DefineParamWithAnnotation) {
 	auto [project, diags] = resolveFromSource(
 		"define foo(d: Distance): d\n");
 	EXPECT_TRUE(diags.empty());
-	EXPECT_EQ(project.getType(project.DefineDecls.at("foo")->body.get()), Type::Distance);
+	const auto* body = project.DefineDecls.at("foo")->body.get();
+	ASSERT_NE(body, nullptr);
+	ASSERT_TRUE(std::holds_alternative<Identifier>(body->node));
+	EXPECT_EQ(project.getType(body), Type::Distance);
+	EXPECT_EQ(std::get<Identifier>(body->node).kind, IdentifierKind::Parameter);
 }
 
 TEST(ResolveTypes, DefineParamWithDefault) {

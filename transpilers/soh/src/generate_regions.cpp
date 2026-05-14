@@ -30,7 +30,7 @@ void WriteEvents(
 	const std::vector<rls::ast::Section>& sections)
 {
     WriteEntries(sections, rls::ast::SectionKind::Events, [&](const rls::ast::Entry& entry){
-        source << "    EVENT_ACCESS(" << entry.name << ", " << transpiler.GenerateExpression(entry.condition) << "),\n";
+        source << "    EVENT_ACCESS(" << entry.name.text << ", " << transpiler.GenerateExpression(entry.condition) << "),\n";
     });
 }
 
@@ -40,7 +40,7 @@ void WriteLocations(
 	const std::vector<rls::ast::Section>& sections)
 {
     WriteEntries(sections, rls::ast::SectionKind::Locations, [&](const rls::ast::Entry& entry){
-        source << "    LOCATION(" << entry.name << ", " << transpiler.GenerateExpression(entry.condition) << "),\n";
+        source << "    LOCATION(" << entry.name.text << ", " << transpiler.GenerateExpression(entry.condition) << "),\n";
     });
 }
 
@@ -50,7 +50,7 @@ void WriteExits(
 	const std::vector<rls::ast::Section>& sections)
 {
     WriteEntries(sections, rls::ast::SectionKind::Exits, [&](const rls::ast::Entry& entry){
-        source << "    ENTRANCE(" << entry.name << ", " << transpiler.GenerateExpression(entry.condition) << "),\n";
+        source << "    ENTRANCE(" << entry.name.text << ", " << transpiler.GenerateExpression(entry.condition) << "),\n";
     });
 }
 
@@ -66,7 +66,7 @@ void WriteRegionTimePasses(
         source << "false";
         break;
     case rls::ast::TimePasses::Auto:
-        source << "GetTimePassFromScene(" << body.scene.value() << ")";
+        source << "GetTimePassFromScene(" << body.scene->text << ")";
         break;
     }
 }
@@ -76,7 +76,7 @@ void WriteRegionAreas(
     const rls::ast::RegionBody& body)
 {
     if (body.areas.empty()) {
-        source << "CalculateAreas(" << body.scene.value() << ")";
+        source << "CalculateAreas(" << body.scene->text << ")";
         return;
     }
 
@@ -85,7 +85,7 @@ void WriteRegionAreas(
         if (i > 0) {
             source << ", ";
         }
-        source << body.areas[i];
+        source << body.areas[i].text;
     }
     source << "}";
 }
@@ -102,15 +102,15 @@ void SohTranspiler::GenerateRegionsSource(rls::OutputWriter& out) const {
            << "\n";
     
     for (const auto& [regionName, region] : project.RegionDecls) {
-        const auto extendRegionIt = project.ExtendRegionDecls.find(region->key);
+        const auto extendRegionIt = project.ExtendRegionDecls.find(region->key.text);
         std::vector<const rls::ast::ExtendRegionDecl*> extendRegionDecls;
         if (extendRegionIt != project.ExtendRegionDecls.end()) {
             extendRegionDecls = extendRegionIt->second;
         }
 
-        source << "areaTable[" << region->key << "] = Region("
+           source << "areaTable[" << region->key.text << "] = Region("
                << "\"" << region->body.name << "\", "
-             << region->body.scene.value();
+               << region->body.scene->text;
 
          if (region->body.timePasses != rls::ast::TimePasses::Auto || !region->body.areas.empty()) {
              source << ", ";

@@ -15,7 +15,36 @@ std::string SohTranspiler::GenerateExpression(const rls::ast::IntLiteral& node) 
 }
 
 std::string SohTranspiler::GenerateExpression(const rls::ast::Identifier& node) const {
-	return node.name;
+    if (node.kind == rls::ast::IdentifierKind::EnumValue) {
+        auto type = project.getType(&node);
+        if (!type.has_value()) {
+            return node.name.text;
+        }
+        switch (type.value()) {
+            case rls::ast::Type::Item: return "RandomizerGet::" + node.name.text;
+            case rls::ast::Type::Enemy: return "RandomizerEnemy::" + node.name.text;
+            case rls::ast::Type::Distance: return "EnemyDistance::" + node.name.text;
+            case rls::ast::Type::Trick: return "RandomizerTrick::" + node.name.text;
+            // We current map RSK_ and RO_ settings to a single enum, but SOH has 1 RSK_ enum about 55 RO_ enums,
+            // so we can't map to one type and back out to the correct prefix without losing information.
+            // This is a gap we'll have to address. For now, C++ accepts the unqualified name which we'll take advantage of..
+            //case rls::ast::Type::Setting: return "RandomizerSettingKey::" + node.name.text;
+            case rls::ast::Type::Region: return "RandomizerRegion::" + node.name.text;
+            case rls::ast::Type::Check: return "RandomizerCheck::" + node.name.text;
+            case rls::ast::Type::Logic: return "LogicVal::" + node.name.text;
+            case rls::ast::Type::Scene: return "SceneID::" + node.name.text;
+            case rls::ast::Type::Dungeon: return "DungeonKey::" + node.name.text;
+            case rls::ast::Type::Area: return "RandomizerArea::" + node.name.text;
+            case rls::ast::Type::Trial: return "TrialKey::" + node.name.text;
+            case rls::ast::Type::WaterLevel: return "RandoWaterLevel::" + node.name.text;
+            default: return node.name.text;
+        }
+    } else if (node.kind == rls::ast::IdentifierKind::Parameter) {
+        return node.name.text;
+    } else {
+        // Unresolved identifiers should have been blocked earlier in sema; emit empty as a defensive fallback.
+        return "";
+    }
 }
 
 // Returns the C++ operator precedence for an expression node.
@@ -121,7 +150,7 @@ std::string SohTranspiler::GenerateExpression(const rls::ast::CallExpr& node) co
     const auto& resolved = *resolvedPtr;
 
     std::ostringstream oss;
-    oss << node.function << "(";
+    oss << node.callee.text << "(";
     for (size_t i = 0; i < resolved.size(); ++i) {
         if (i > 0) {
             oss << ", ";
@@ -136,12 +165,12 @@ std::string SohTranspiler::GenerateExpression(const rls::ast::SharedBlock& node)
     std::ostringstream oss;
 
     const auto& firstBranch = node.branches[0];
-    oss << "SpiritShared(" << firstBranch.region.value_or("") << ", "
+        oss << "SpiritShared(" << firstBranch.region->text << ", "
         << "[]{return " << GenerateExpression(firstBranch.condition) << ";}, "
         << (node.anyAge ? "true" : "false");
 
     for (int i = 1; i < node.branches.size(); i++) {
-        oss << ", " << node.branches[i].region.value_or("") << ", "
+		oss << ", " << node.branches[i].region->text << ", "
             << "[]{return " << GenerateExpression(node.branches[i].condition) << ";}";
     }
 
@@ -170,7 +199,8 @@ std::string SohTranspiler::GenerateExpression(const rls::ast::MatchExpr& node) c
             oss << "[&]{return ";
             for (size_t j = 0; j < arm.patterns.size(); j++) {
                 if (j > 0) oss << " || ";
-                oss << node.discriminant << " == " << arm.patterns[j];
+                oss << GenerateExpression(node.discriminant) << " == "
+                    << GenerateExpression(arm.patterns[j]);
             }
             oss << ";}, ";
         }

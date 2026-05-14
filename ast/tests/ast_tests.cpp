@@ -25,7 +25,7 @@ TEST(ExprTests, IntLiteral) {
 }
 
 TEST(ExprTests, Identifier) {
-	auto expr = makeExpr(Identifier{"RG_HOOKSHOT"});
+	auto expr = makeExpr(Identifier{Name("RG_HOOKSHOT")});
 	ASSERT_TRUE(std::holds_alternative<Identifier>(expr->node));
 	EXPECT_EQ(std::get<Identifier>(expr->node).name, "RG_HOOKSHOT");
 }
@@ -49,7 +49,7 @@ TEST(ExprTests, BinaryAnd) {
 	auto expr = makeExpr(BinaryExpr(
 		BinaryOp::And,
 		makeExpr(BoolLiteral{true}),
-		makeExpr(Identifier{"RG_HOOKSHOT"})
+		makeExpr(Identifier{Name("RG_HOOKSHOT")})
 	));
 	ASSERT_TRUE(std::holds_alternative<BinaryExpr>(expr->node));
 	const auto& bin = std::get<BinaryExpr>(expr->node);
@@ -72,7 +72,7 @@ TEST(ExprTests, Comparison) {
 	// fire_timer() >= 48
 	auto expr = makeExpr(BinaryExpr(
 		BinaryOp::GtEq,
-		makeExpr(CallExpr("fire_timer", {})),
+		makeExpr(CallExpr(Name("fire_timer"), {})),
 		makeExpr(IntLiteral{48})
 	));
 	EXPECT_EQ(std::get<BinaryExpr>(expr->node).op, BinaryOp::GtEq);
@@ -82,8 +82,8 @@ TEST(ExprTests, Ternary) {
 	// condition ? ED_BOMB_THROW : ED_BOOMERANG
 	auto expr = makeExpr(TernaryExpr(
 		makeExpr(BoolLiteral{true}),
-		makeExpr(Identifier{"ED_BOMB_THROW"}),
-		makeExpr(Identifier{"ED_BOOMERANG"})
+		makeExpr(Identifier{Name("ED_BOMB_THROW")}),
+		makeExpr(Identifier{Name("ED_BOOMERANG")})
 	));
 	ASSERT_TRUE(std::holds_alternative<TernaryExpr>(expr->node));
 	const auto& tern = std::get<TernaryExpr>(expr->node);
@@ -95,13 +95,13 @@ TEST(ExprTests, Ternary) {
 TEST(ExprTests, CallWithPositionalArgs) {
 	// keys(SCENE_SPIRIT_TEMPLE, 3)
 	std::vector<Arg> args;
-	args.emplace_back(std::nullopt, makeExpr(Identifier{"SCENE_SPIRIT_TEMPLE"}));
+	args.emplace_back(std::nullopt, makeExpr(Identifier{Name("SCENE_SPIRIT_TEMPLE")}));
 	args.emplace_back(std::nullopt, makeExpr(IntLiteral{3}));
 
-	auto expr = makeExpr(CallExpr("keys", std::move(args)));
+	auto expr = makeExpr(CallExpr(Name("keys"), std::move(args)));
 	ASSERT_TRUE(std::holds_alternative<CallExpr>(expr->node));
 	const auto& call = std::get<CallExpr>(expr->node);
-	EXPECT_EQ(call.function, "keys");
+	EXPECT_EQ(call.callee, "keys");
 	ASSERT_EQ(call.args.size(), 2u);
 	EXPECT_FALSE(call.args[0].name.has_value());
 	EXPECT_FALSE(call.args[1].name.has_value());
@@ -110,10 +110,10 @@ TEST(ExprTests, CallWithPositionalArgs) {
 TEST(ExprTests, CallWithNamedArgs) {
 	// can_kill(RE_STALFOS, quantity: 2)
 	std::vector<Arg> args;
-	args.emplace_back(std::nullopt, makeExpr(Identifier{"RE_STALFOS"}));
-	args.emplace_back(std::optional<std::string>{"quantity"}, makeExpr(IntLiteral{2}));
+	args.emplace_back(std::nullopt, makeExpr(Identifier{Name("RE_STALFOS")}));
+	args.emplace_back(std::make_optional<Name>("quantity"), makeExpr(IntLiteral{2}));
 
-	auto expr = makeExpr(CallExpr("can_kill", std::move(args)));
+	auto expr = makeExpr(CallExpr(Name("can_kill"), std::move(args)));
 	const auto& call = std::get<CallExpr>(expr->node);
 	ASSERT_EQ(call.args.size(), 2u);
 	EXPECT_FALSE(call.args[0].name.has_value());
@@ -122,9 +122,9 @@ TEST(ExprTests, CallWithNamedArgs) {
 }
 
 TEST(ExprTests, CallWithNoArgs) {
-	auto expr = makeExpr(CallExpr("has_explosives", {}));
+	auto expr = makeExpr(CallExpr(Name("has_explosives"), {}));
 	const auto& call = std::get<CallExpr>(expr->node);
-	EXPECT_EQ(call.function, "has_explosives");
+	EXPECT_EQ(call.callee, "has_explosives");
 	EXPECT_TRUE(call.args.empty());
 }
 
@@ -132,7 +132,7 @@ TEST(ExprTests, SharedBlock) {
 	// shared { from here: always, from RR_OTHER: condition }
 	std::vector<SharedBranch> branches;
 	branches.emplace_back(std::nullopt, makeExpr(BoolLiteral{true}));
-	branches.emplace_back(std::optional<std::string>{"RR_OTHER"}, makeExpr(Identifier{"some_cond"}));
+	branches.emplace_back(std::make_optional<Name>("RR_OTHER"), makeExpr(Identifier{Name("some_cond")}));
 
 	auto expr = makeExpr(SharedBlock(false, std::move(branches)));
 	ASSERT_TRUE(std::holds_alternative<SharedBlock>(expr->node));
@@ -155,7 +155,7 @@ TEST(ExprTests, SharedBlockAnyAge) {
 TEST(ExprTests, AnyAgeBlock) {
 	// any_age { can_kill(RE_ARMOS) }
 	auto expr = makeExpr(AnyAgeBlock(
-		makeExpr(CallExpr("can_kill", {}))
+		makeExpr(CallExpr(Name("can_kill"), {}))
 	));
 	ASSERT_TRUE(std::holds_alternative<AnyAgeBlock>(expr->node));
 	const auto& inner = std::get<AnyAgeBlock>(expr->node).body;
@@ -165,13 +165,18 @@ TEST(ExprTests, AnyAgeBlock) {
 TEST(ExprTests, MatchExpr) {
 	// match distance { ED_CLOSE: expr or, ED_FAR: expr }
 	std::vector<MatchArm> arms;
-	arms.emplace_back(std::vector<std::string>{"ED_CLOSE"}, false, makeExpr(BoolLiteral{true}), true);
-	arms.emplace_back(std::vector<std::string>{"ED_FAR"}, false, makeExpr(BoolLiteral{false}), false);
+	std::vector<ExprPtr> closePatterns;
+	closePatterns.push_back(makeExpr(Identifier{Name("ED_CLOSE")}));
+	std::vector<ExprPtr> farPatterns;
+	farPatterns.push_back(makeExpr(Identifier{Name("ED_FAR")}));
+	arms.emplace_back(std::move(closePatterns), false, makeExpr(BoolLiteral{true}), true);
+	arms.emplace_back(std::move(farPatterns), false, makeExpr(BoolLiteral{false}), false);
 
-	auto expr = makeExpr(MatchExpr("distance", std::move(arms)));
+	auto expr = makeExpr(MatchExpr(makeExpr(Identifier{Name("distance")}), std::move(arms)));
 	ASSERT_TRUE(std::holds_alternative<MatchExpr>(expr->node));
 	const auto& m = std::get<MatchExpr>(expr->node);
-	EXPECT_EQ(m.discriminant, "distance");
+	ASSERT_TRUE(std::holds_alternative<Identifier>(m.discriminant->node));
+	EXPECT_EQ(std::get<Identifier>(m.discriminant->node).name, "distance");
 	ASSERT_EQ(m.arms.size(), 2u);
 	EXPECT_FALSE(m.arms[0].isDefault);
 	EXPECT_FALSE(m.arms[1].isDefault);
@@ -181,10 +186,15 @@ TEST(ExprTests, MatchExpr) {
 
 TEST(ExprTests, MatchArmMultiplePatterns) {
 	// ED_CLOSE or ED_SHORT_JUMPSLASH: body
-	MatchArm arm({"ED_CLOSE", "ED_SHORT_JUMPSLASH"}, false, makeExpr(BoolLiteral{true}), false);
+	std::vector<ExprPtr> patterns;
+	patterns.push_back(makeExpr(Identifier{Name("ED_CLOSE")}));
+	patterns.push_back(makeExpr(Identifier{Name("ED_SHORT_JUMPSLASH")}));
+	MatchArm arm(std::move(patterns), false, makeExpr(BoolLiteral{true}), false);
 	EXPECT_EQ(arm.patterns.size(), 2u);
-	EXPECT_EQ(arm.patterns[0], "ED_CLOSE");
-	EXPECT_EQ(arm.patterns[1], "ED_SHORT_JUMPSLASH");
+	ASSERT_TRUE(std::holds_alternative<Identifier>(arm.patterns[0]->node));
+	ASSERT_TRUE(std::holds_alternative<Identifier>(arm.patterns[1]->node));
+	EXPECT_EQ(std::get<Identifier>(arm.patterns[0]->node).name, "ED_CLOSE");
+	EXPECT_EQ(std::get<Identifier>(arm.patterns[1]->node).name, "ED_SHORT_JUMPSLASH");
 	EXPECT_FALSE(arm.isDefault);
 }
 
@@ -223,10 +233,10 @@ TEST(ExprTests, NestedBinaryExpressions) {
 		BinaryOp::Or,
 		makeExpr(BinaryExpr(
 			BinaryOp::And,
-			makeExpr(Identifier{"a"}),
-			makeExpr(Identifier{"b"})
+			makeExpr(Identifier{Name("a")}),
+			makeExpr(Identifier{Name("b")})
 		)),
-		makeExpr(Identifier{"c"})
+		makeExpr(Identifier{Name("c")})
 	));
 
 	const auto& outerOr = std::get<BinaryExpr>(expr->node);
@@ -242,7 +252,7 @@ TEST(DeclTests, RegionDecl) {
 	// region RR_SPIRIT_TEMPLE_FOYER { scene: SCENE_SPIRIT_TEMPLE, exits { ... } }
 	std::vector<Entry> exits;
 	exits.emplace_back(
-		"RR_SPIRIT_TEMPLE_ENTRYWAY",
+		Name("RR_SPIRIT_TEMPLE_ENTRYWAY"),
 		makeExpr(BoolLiteral{true})
 	);
 
@@ -250,10 +260,10 @@ TEST(DeclTests, RegionDecl) {
 	sections.emplace_back(SectionKind::Exits, std::move(exits));
 
 	RegionDecl region(
-		"RR_SPIRIT_TEMPLE_FOYER",
+		Name("RR_SPIRIT_TEMPLE_FOYER"),
 		RegionBody(
 			"Spirit Temple Foyer",
-			"SCENE_SPIRIT_TEMPLE",
+			Name("SCENE_SPIRIT_TEMPLE"),
 			TimePasses::Auto,
 			{},
 			std::move(sections)
@@ -273,12 +283,12 @@ TEST(DeclTests, RegionDecl) {
 
 TEST(DeclTests, RegionWithTimePasses) {
 	RegionDecl region(
-		"RR_HC_GARDEN",
+		Name("RR_HC_GARDEN"),
 		RegionBody(
 			"Hyrule Castle Garden",
-			"SCENE_CASTLE_COURTYARD_GUARDS_DAY",
+			Name("SCENE_CASTLE_COURTYARD_GUARDS_DAY"),
 			TimePasses::No,
-			{"RA_CASTLE_GROUNDS"},
+			std::vector<Name>{Name("RA_CASTLE_GROUNDS")},
 			{}
 		)
 	);
@@ -291,15 +301,15 @@ TEST(DeclTests, RegionWithTimePasses) {
 TEST(DeclTests, ExtendRegionDecl) {
 	std::vector<Entry> locations;
 	locations.emplace_back(
-		"RC_SPIRIT_TEMPLE_LOBBY_POT_1",
-		makeExpr(CallExpr("can_break_pots", {}))
+		Name("RC_SPIRIT_TEMPLE_LOBBY_POT_1"),
+		makeExpr(CallExpr(Name("can_break_pots"), {}))
 	);
 
 	std::vector<Section> sections;
 	sections.emplace_back(SectionKind::Locations, std::move(locations));
 
 	ExtendRegionDecl extend(
-		"RR_SPIRIT_TEMPLE_FOYER",
+		Name("RR_SPIRIT_TEMPLE_FOYER"),
 		std::move(sections)
 	);
 
@@ -311,7 +321,7 @@ TEST(DeclTests, ExtendRegionDecl) {
 TEST(DeclTests, DefineDecl) {
 	// define spirit_explosive_key_logic(): <body>
 	DefineDecl define(
-		"spirit_explosive_key_logic",
+		Name("spirit_explosive_key_logic"),
 		{},
 		makeExpr(BoolLiteral{true})
 	);
@@ -324,11 +334,11 @@ TEST(DeclTests, DefineDecl) {
 TEST(DeclTests, DefineWithParams) {
 	// define can_hit_switch(distance = ED_CLOSE, inWater = false): ...
 	std::vector<Param> params;
-	params.emplace_back("distance", std::nullopt, makeExpr(Identifier{"ED_CLOSE"}));
-	params.emplace_back("inWater", std::nullopt, makeExpr(BoolLiteral{false}));
+	params.emplace_back(Name("distance"), std::nullopt, makeExpr(Identifier{Name("ED_CLOSE")}));
+	params.emplace_back(Name("inWater"), std::nullopt, makeExpr(BoolLiteral{false}));
 
 	DefineDecl define(
-		"can_hit_switch",
+		Name("can_hit_switch"),
 		std::move(params),
 		makeExpr(BoolLiteral{true})
 	);
@@ -343,10 +353,10 @@ TEST(DeclTests, DefineWithParams) {
 TEST(DeclTests, DefineWithTypedParam) {
 	// define foo(d: Distance): ...
 	std::vector<Param> params;
-	params.emplace_back("d", std::optional<std::string>{"Distance"}, nullptr);
+	params.emplace_back(Name("d"), std::make_optional<TypeRef>(Name("Distance")), nullptr);
 
 	DefineDecl define(
-		"foo",
+		Name("foo"),
 		std::move(params),
 		makeExpr(BoolLiteral{true})
 	);
@@ -359,13 +369,13 @@ TEST(DeclTests, DefineWithTypedParam) {
 TEST(DeclTests, ExternDefineDecl) {
 	// extern define can_hit_switch(distance: Distance = ED_CLOSE, inWater = false) -> Bool
 	std::vector<Param> params;
-	params.emplace_back("distance", std::optional<std::string>{"Distance"}, makeExpr(Identifier{"ED_CLOSE"}));
-	params.emplace_back("inWater", std::nullopt, makeExpr(BoolLiteral{false}));
+	params.emplace_back(Name("distance"), std::make_optional<TypeRef>(Name("Distance")), makeExpr(Identifier{Name("ED_CLOSE")}));
+	params.emplace_back(Name("inWater"), std::nullopt, makeExpr(BoolLiteral{false}));
 
 	ExternDefineDecl ext(
-		"can_hit_switch",
+		Name("can_hit_switch"),
 		std::move(params),
-		std::optional<std::string>{"Bool"}
+		std::make_optional<TypeRef>(Name("Bool"))
 	);
 
 	EXPECT_EQ(ext.name, "can_hit_switch");
@@ -400,24 +410,24 @@ TEST(FileTests, FileWithMixedDeclarations) {
 
 	// Add a region
 	file.declarations.emplace_back(RegionDecl(
-		"RR_TEST_REGION",
-		RegionBody("Test Region", "SCENE_TEST", TimePasses::Auto, {}, {})
+		Name("RR_TEST_REGION"),
+		RegionBody("Test Region", Name("SCENE_TEST"), TimePasses::Auto, {}, {})
 	));
 
 	// Add a define
 	file.declarations.emplace_back(DefineDecl(
-		"test_helper",
+		Name("test_helper"),
 		std::vector<Param>{},
 		makeExpr(BoolLiteral{true})
 	));
 
 	// Add an extern define
 	std::vector<Param> externParams;
-	externParams.emplace_back("item", std::optional<std::string>{"Item"}, nullptr);
+	externParams.emplace_back(Name("item"), std::make_optional<TypeRef>(Name("Item")), nullptr);
 	file.declarations.emplace_back(ExternDefineDecl(
-		"can_use",
+		Name("can_use"),
 		std::move(externParams),
-		std::optional<std::string>{"Bool"}
+		std::make_optional<TypeRef>(Name("Bool"))
 	));
 
 	ASSERT_EQ(file.declarations.size(), 3u);
@@ -440,20 +450,20 @@ TEST(ProjectTests, AllDeclarationsAcrossFiles) {
 	File file1;
 	file1.path = "spirit_temple.rls";
 	file1.declarations.emplace_back(RegionDecl(
-		"RR_SPIRIT_TEMPLE_FOYER",
-		RegionBody("Spirit Temple Foyer", "SCENE_SPIRIT_TEMPLE", TimePasses::Auto, {}, {})
+		Name("RR_SPIRIT_TEMPLE_FOYER"),
+		RegionBody("Spirit Temple Foyer", Name("SCENE_SPIRIT_TEMPLE"), TimePasses::Auto, {}, {})
 	));
 
 	// File 2: one define + one extern define
 	File file2;
 	file2.path = "enemies.rls";
 	file2.declarations.emplace_back(DefineDecl(
-		"helper", {}, makeExpr(BoolLiteral{true})
+		Name("helper"), {}, makeExpr(BoolLiteral{true})
 	));
 	file2.declarations.emplace_back(ExternDefineDecl(
-		"host_helper",
+		Name("host_helper"),
 		std::vector<Param>{},
-		std::optional<std::string>{"Bool"}
+		std::make_optional<TypeRef>(Name("Bool"))
 	));
 
 	project.files.push_back(std::move(file1));
@@ -471,15 +481,15 @@ TEST(ProjectTests, ExternDefineMapStoresMetadata) {
 	file.path = "externs.rls";
 
 	std::vector<Param> params;
-	params.emplace_back("distance", std::optional<std::string>{"Distance"}, makeExpr(Identifier{"ED_CLOSE"}));
-	params.emplace_back("inWater", std::nullopt, makeExpr(BoolLiteral{false}));
+	params.emplace_back(Name("distance"), std::make_optional<TypeRef>(Name("Distance")), makeExpr(Identifier{Name("ED_CLOSE")}));
+	params.emplace_back(Name("inWater"), std::nullopt, makeExpr(BoolLiteral{false}));
 
 	Span declSpan{"externs.rls", {2, 1}, {2, 64}};
-	file.declarations.emplace_back(ExternDefineDecl("can_hit_switch", std::move(params), std::optional<std::string>{"Bool"}, declSpan));
+	file.declarations.emplace_back(ExternDefineDecl(Name("can_hit_switch"), std::move(params), std::make_optional<TypeRef>(Name("Bool")), declSpan));
 	project.files.push_back(std::move(file));
 
 	const auto& ext = std::get<ExternDefineDecl>(project.files[0].declarations[0]);
-	project.ExternDefineDecls.emplace(ext.name, &ext);
+	project.ExternDefineDecls.emplace(ext.name.text, &ext);
 
 	ASSERT_TRUE(project.ExternDefineDecls.contains("can_hit_switch"));
 	const auto* mapped = project.ExternDefineDecls.at("can_hit_switch");
@@ -514,7 +524,7 @@ TEST(TypeTableTests, SetAndGetExprType) {
 }
 
 TEST(TypeTableTests, SetAndGetParamType) {
-	Param param("distance", std::nullopt, makeExpr(Identifier{"ED_CLOSE"}));
+	Param param(Name("distance"), std::nullopt, makeExpr(Identifier{Name("ED_CLOSE")}));
 	Project project;
 	project.setType(&param, Type::Distance);
 
@@ -525,7 +535,7 @@ TEST(TypeTableTests, SetAndGetParamType) {
 
 TEST(TypeTableTests, OverwriteType) {
 	Project project;
-	auto expr = makeExpr(Identifier{"x"});
+	auto expr = makeExpr(Identifier{Name("x")});
 	project.setType(expr.get(), Type::Error);
 	project.setType(expr.get(), Type::Int);
 
@@ -536,7 +546,7 @@ TEST(TypeTableTests, DistinctExprsHaveDistinctTypes) {
 	Project project;
 	auto boolExpr = makeExpr(BoolLiteral{true});
 	auto intExpr = makeExpr(IntLiteral{42});
-	auto identExpr = makeExpr(Identifier{"RG_HOOKSHOT"});
+	auto identExpr = makeExpr(Identifier{Name("RG_HOOKSHOT")});
 
 	project.setType(boolExpr.get(), Type::Bool);
 	project.setType(intExpr.get(), Type::Int);
@@ -550,7 +560,7 @@ TEST(TypeTableTests, DistinctExprsHaveDistinctTypes) {
 TEST(TypeTableTests, MixedExprAndParamKeys) {
 	Project project;
 	auto expr = makeExpr(IntLiteral{3});
-	Param param("scene", "Scene", nullptr);
+	Param param(Name("scene"), std::make_optional<TypeRef>(Name("Scene")), nullptr);
 
 	project.setType(expr.get(), Type::Int);
 	project.setType(&param, Type::Scene);
@@ -577,9 +587,9 @@ TEST(TypeTableTests, PointerStabilityAfterProjectFilesGrow) {
 	File file;
 	file.path = "test.rls";
 	std::vector<Param> params;
-	params.emplace_back("d", std::nullopt, nullptr);
+	params.emplace_back(Name("d"), std::nullopt, nullptr);
 	file.declarations.emplace_back(DefineDecl(
-		"foo", std::move(params), makeExpr(Identifier{"d"})
+		Name("foo"), std::move(params), makeExpr(Identifier{Name("d")})
 	));
 	project.files.push_back(std::move(file));
 
@@ -597,7 +607,7 @@ TEST(TypeTableTests, PointerStabilityAfterProjectFilesGrow) {
 		File extra;
 		extra.path = "extra_" + std::to_string(i) + ".rls";
 		extra.declarations.emplace_back(DefineDecl(
-			"bar" + std::to_string(i), std::vector<Param>{},
+			Name("bar" + std::to_string(i)), std::vector<Param>{},
 			makeExpr(BoolLiteral{true})
 		));
 		project.files.push_back(std::move(extra));

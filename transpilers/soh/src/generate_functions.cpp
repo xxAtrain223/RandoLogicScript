@@ -28,7 +28,7 @@ std::string nodeType(const rls::ast::Project& p, const T* node) {
         case AT::Dungeon: return "DungeonKey";
         case AT::Area: return "RandomizerArea";
         case AT::Trial: return "TrialKey";
-        case AT::WaterLevel: return "RandoWaterLeve";
+        case AT::WaterLevel: return "RandoWaterLevel";
         default: return "unsupported_type";
     }
 }
@@ -40,10 +40,10 @@ std::string functionSignature(
     const bool includeDefaults)
 {
     std::ostringstream sig;
-    sig << nodeType(p, decl->body.get()) << " " << decl->name << "(";
+    sig << nodeType(p, decl->body.get()) << " " << decl->name.text << "(";
     for (int i = 0; i < decl->params.size(); i++) {
         const auto& param = decl->params[i];
-        sig << "const " << nodeType(p, &param) << " " << param.name;
+        sig << "const " << nodeType(p, &param) << " " << param.name.text;
         if (includeDefaults && param.defaultValue != nullptr) {
 			sig << " = " + transpiler.GenerateExpression(param.defaultValue);
         }

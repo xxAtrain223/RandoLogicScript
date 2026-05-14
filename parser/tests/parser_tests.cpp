@@ -196,7 +196,12 @@ TEST(ParseExpr, NegativeInteger) {
 TEST(ParseExpr, Identifier) {
 	const auto& e = parseExpr("RG_HOOKSHOT");
 	ASSERT_TRUE(std::holds_alternative<Identifier>(e.node));
-	EXPECT_EQ(std::get<Identifier>(e.node).name, "RG_HOOKSHOT");
+	const auto& ident = std::get<Identifier>(e.node);
+	EXPECT_EQ(ident.name, "RG_HOOKSHOT");
+	EXPECT_EQ(ident.name.span.start.line, 1u);
+	EXPECT_EQ(ident.name.span.start.column, 13u);
+	EXPECT_EQ(ident.name.span.end.line, 1u);
+	EXPECT_EQ(ident.name.span.end.column, 24u);
 }
 
 // == Unary expression =========================================================
@@ -356,7 +361,7 @@ TEST(ParseExpr, CallNoArgs) {
 	const auto& e = parseExpr("has_explosives()");
 	ASSERT_TRUE(std::holds_alternative<CallExpr>(e.node));
 	const auto& call = std::get<CallExpr>(e.node);
-	EXPECT_EQ(call.function, "has_explosives");
+	EXPECT_EQ(call.callee.text, "has_explosives");
 	EXPECT_TRUE(call.args.empty());
 }
 
@@ -364,7 +369,7 @@ TEST(ParseExpr, CallSinglePositionalArg) {
 	const auto& e = parseExpr("has(RG_HOOKSHOT)");
 	ASSERT_TRUE(std::holds_alternative<CallExpr>(e.node));
 	const auto& call = std::get<CallExpr>(e.node);
-	EXPECT_EQ(call.function, "has");
+	EXPECT_EQ(call.callee.text, "has");
 	ASSERT_EQ(call.args.size(), 1u);
 	EXPECT_FALSE(call.args[0].name.has_value());
 	EXPECT_TRUE(std::holds_alternative<Identifier>(call.args[0].value->node));
@@ -374,7 +379,7 @@ TEST(ParseExpr, CallMultipleArgs) {
 	const auto& e = parseExpr("can_kill(RE_ARMOS, ED_CLOSE, false)");
 	ASSERT_TRUE(std::holds_alternative<CallExpr>(e.node));
 	const auto& call = std::get<CallExpr>(e.node);
-	EXPECT_EQ(call.function, "can_kill");
+	EXPECT_EQ(call.callee.text, "can_kill");
 	ASSERT_EQ(call.args.size(), 3u);
 	EXPECT_FALSE(call.args[0].name.has_value());
 	EXPECT_FALSE(call.args[1].name.has_value());
@@ -385,11 +390,18 @@ TEST(ParseExpr, CallNamedArg) {
 	const auto& e = parseExpr("foo(x: 1, y: 2)");
 	ASSERT_TRUE(std::holds_alternative<CallExpr>(e.node));
 	const auto& call = std::get<CallExpr>(e.node);
+	EXPECT_EQ(call.callee.span.start.line, 1u);
+	EXPECT_EQ(call.callee.span.start.column, 13u);
+	EXPECT_EQ(call.callee.span.end.column, 16u);
 	ASSERT_EQ(call.args.size(), 2u);
 	ASSERT_TRUE(call.args[0].name.has_value());
 	EXPECT_EQ(*call.args[0].name, "x");
+	EXPECT_EQ(call.args[0].name->span.start.column, 17u);
+	EXPECT_EQ(call.args[0].name->span.end.column, 18u);
 	ASSERT_TRUE(call.args[1].name.has_value());
 	EXPECT_EQ(*call.args[1].name, "y");
+	EXPECT_EQ(call.args[1].name->span.start.column, 23u);
+	EXPECT_EQ(call.args[1].name->span.end.column, 24u);
 }
 
 TEST(ParseExpr, CallMixedArgs) {
@@ -409,7 +421,7 @@ TEST(ParseExpr, NestedCalls) {
 	ASSERT_EQ(outer.args.size(), 1u);
 	ASSERT_TRUE(std::holds_alternative<CallExpr>(outer.args[0].value->node));
 	const auto& inner = std::get<CallExpr>(outer.args[0].value->node);
-	EXPECT_EQ(inner.function, "setting");
+	EXPECT_EQ(inner.callee.text, "setting");
 }
 
 // == Shared block =============================================================
@@ -471,11 +483,13 @@ TEST(ParseExpr, MatchSingleArm) {
 	);
 	ASSERT_TRUE(std::holds_alternative<MatchExpr>(e.node));
 	const auto& m = std::get<MatchExpr>(e.node);
-	EXPECT_EQ(m.discriminant, "distance");
+	ASSERT_TRUE(std::holds_alternative<Identifier>(m.discriminant->node));
+	EXPECT_EQ(std::get<Identifier>(m.discriminant->node).name, "distance");
 	ASSERT_EQ(m.arms.size(), 1u);
 	EXPECT_FALSE(m.arms[0].isDefault);
 	ASSERT_EQ(m.arms[0].patterns.size(), 1u);
-	EXPECT_EQ(m.arms[0].patterns[0], "ED_CLOSE");
+	ASSERT_TRUE(std::holds_alternative<Identifier>(m.arms[0].patterns[0]->node));
+	EXPECT_EQ(std::get<Identifier>(m.arms[0].patterns[0]->node).name, "ED_CLOSE");
 	EXPECT_FALSE(m.arms[0].fallthrough);
 }
 
@@ -489,8 +503,10 @@ TEST(ParseExpr, MatchMultipleArms) {
 	ASSERT_TRUE(std::holds_alternative<MatchExpr>(e.node));
 	const auto& m = std::get<MatchExpr>(e.node);
 	ASSERT_EQ(m.arms.size(), 2u);
-	EXPECT_EQ(m.arms[0].patterns[0], "ED_CLOSE");
-	EXPECT_EQ(m.arms[1].patterns[0], "ED_FAR");
+	ASSERT_TRUE(std::holds_alternative<Identifier>(m.arms[0].patterns[0]->node));
+	ASSERT_TRUE(std::holds_alternative<Identifier>(m.arms[1].patterns[0]->node));
+	EXPECT_EQ(std::get<Identifier>(m.arms[0].patterns[0]->node).name, "ED_CLOSE");
+	EXPECT_EQ(std::get<Identifier>(m.arms[1].patterns[0]->node).name, "ED_FAR");
 }
 
 TEST(ParseExpr, MatchArmWithOrPatterns) {
@@ -503,8 +519,10 @@ TEST(ParseExpr, MatchArmWithOrPatterns) {
 	const auto& arm = std::get<MatchExpr>(e.node).arms[0];
 	EXPECT_FALSE(arm.isDefault);
 	ASSERT_EQ(arm.patterns.size(), 2u);
-	EXPECT_EQ(arm.patterns[0], "A");
-	EXPECT_EQ(arm.patterns[1], "B");
+	ASSERT_TRUE(std::holds_alternative<Identifier>(arm.patterns[0]->node));
+	ASSERT_TRUE(std::holds_alternative<Identifier>(arm.patterns[1]->node));
+	EXPECT_EQ(std::get<Identifier>(arm.patterns[0]->node).name, "A");
+	EXPECT_EQ(std::get<Identifier>(arm.patterns[1]->node).name, "B");
 }
 
 TEST(ParseExpr, MatchDefaultArm) {
@@ -583,8 +601,13 @@ TEST(ParseDefine, ParamWithType) {
 	const auto& decl = parseDecl("define foo(x: int): true");
 	const auto& def = std::get<DefineDecl>(decl);
 	ASSERT_EQ(def.params.size(), 1u);
+	EXPECT_EQ(def.params[0].name.span.start.line, 1u);
+	EXPECT_EQ(def.params[0].name.span.start.column, 12u);
+	EXPECT_EQ(def.params[0].name.span.end.column, 13u);
 	ASSERT_TRUE(def.params[0].type.has_value());
 	EXPECT_EQ(*def.params[0].type, "int");
+	EXPECT_EQ(def.params[0].type->name.span.start.column, 15u);
+	EXPECT_EQ(def.params[0].type->name.span.end.column, 18u);
 	EXPECT_EQ(def.params[0].defaultValue, nullptr);
 }
 
@@ -620,7 +643,7 @@ TEST(ParseDefine, ComplexBody) {
 	EXPECT_EQ(def.name, "spirit_key_logic");
 	ASSERT_TRUE(std::holds_alternative<CallExpr>(def.body->node));
 	const auto& call = std::get<CallExpr>(def.body->node);
-	EXPECT_EQ(call.function, "keys");
+	EXPECT_EQ(call.callee.text, "keys");
 	ASSERT_EQ(call.args.size(), 2u);
 	// Second arg should be a ternary
 	EXPECT_TRUE(std::holds_alternative<TernaryExpr>(call.args[1].value->node));
@@ -666,8 +689,13 @@ TEST(ParseRegion, MinimalRegion) {
 	const auto& decl = parseDecl("region RR_TEST { name: \"Test\" scene: SCENE_TEST }");
 	const auto& region = std::get<RegionDecl>(decl);
 	EXPECT_EQ(region.key, "RR_TEST");
+	EXPECT_EQ(region.key.span.start.line, 1u);
+	EXPECT_EQ(region.key.span.start.column, 8u);
+	EXPECT_EQ(region.key.span.end.column, 15u);
 	ASSERT_TRUE(region.body.scene.has_value());
 	EXPECT_EQ(*region.body.scene, "SCENE_TEST");
+	EXPECT_EQ(region.body.scene->span.start.column, 38u);
+	EXPECT_EQ(region.body.scene->span.end.column, 48u);
 	EXPECT_EQ(region.body.timePasses, TimePasses::Auto);
 	EXPECT_TRUE(region.body.areas.empty());
 	EXPECT_TRUE(region.body.sections.empty());
@@ -709,6 +737,10 @@ TEST(ParseRegion, WithAreas) {
 	ASSERT_EQ(region.body.areas.size(), 2u);
 	EXPECT_EQ(region.body.areas[0], "AREA_A");
 	EXPECT_EQ(region.body.areas[1], "AREA_B");
+	EXPECT_EQ(region.body.areas[0].span.start.line, 4u);
+	EXPECT_EQ(region.body.areas[0].span.start.column, 10u);
+	EXPECT_EQ(region.body.areas[1].span.start.line, 4u);
+	EXPECT_EQ(region.body.areas[1].span.start.column, 18u);
 }
 
 TEST(ParseRegion, WithSections) {
@@ -900,7 +932,7 @@ TEST(ParseFile, ExternDefineCallNamedArgsPreserved) {
 	const auto& def = std::get<DefineDecl>(file.declarations[1]);
 	ASSERT_TRUE(std::holds_alternative<CallExpr>(def.body->node));
 	const auto& call = std::get<CallExpr>(def.body->node);
-	EXPECT_EQ(call.function, "keys");
+	EXPECT_EQ(call.callee.text, "keys");
 	ASSERT_EQ(call.args.size(), 2u);
 
 	ASSERT_TRUE(call.args[0].name.has_value());
@@ -983,7 +1015,8 @@ TEST(ParseRealistic, DefineWithMatch) {
 	EXPECT_EQ(def.params[1].name, "inWater");
 	ASSERT_TRUE(std::holds_alternative<MatchExpr>(def.body->node));
 	const auto& m = std::get<MatchExpr>(def.body->node);
-	EXPECT_EQ(m.discriminant, "distance");
+	ASSERT_TRUE(std::holds_alternative<Identifier>(m.discriminant->node));
+	EXPECT_EQ(std::get<Identifier>(m.discriminant->node).name, "distance");
 	ASSERT_EQ(m.arms.size(), 3u);
 	EXPECT_TRUE(m.arms[0].fallthrough);
 	EXPECT_TRUE(m.arms[1].fallthrough);

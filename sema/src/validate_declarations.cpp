@@ -47,11 +47,11 @@ static void checkDuplicateEntries(
 			for (const auto& section : sections) {
 				auto& set = seen[section.kind];
 				for (const auto& entry : section.entries) {
-					if (!set.insert(entry.name).second) {
+					if (!set.insert(entry.name.text).second) {
 						diags.push_back({
 							ast::DiagnosticLevel::Error,
 							std::format("duplicate {} '{}' in region '{}'",
-								sectionKindName(section.kind), entry.name, regionName),
+								sectionKindName(section.kind), entry.name.text, regionName),
 							entry.span
 						});
 					}
@@ -84,7 +84,7 @@ static void checkEntryConditionTypes(
 					diags.push_back({
 						ast::DiagnosticLevel::Error,
 						std::format("{} condition for '{}' in region '{}' must be Bool, got {}",
-							sectionKindName(section.kind), entry.name, regionName,
+							sectionKindName(section.kind), entry.name.text, regionName,
 							typeName(*condType)),
 						entry.span
 					});
@@ -117,7 +117,7 @@ static void checkRegionReachability(
 		for (const auto& section : decl->body.sections) {
 			if (section.kind == ast::SectionKind::Exits) {
 				for (const auto& entry : section.entries) {
-					targets.insert(entry.name);
+					targets.insert(entry.name.text);
 				}
 			}
 		}
@@ -129,7 +129,7 @@ static void checkRegionReachability(
 			for (const auto& section : decl->sections) {
 				if (section.kind == ast::SectionKind::Exits) {
 					for (const auto& entry : section.entries) {
-						targets.insert(entry.name);
+						targets.insert(entry.name.text);
 					}
 				}
 			}
@@ -223,12 +223,12 @@ static void checkFunctionSignatures(
 		bool seenDefault = false;
 
 		for (const auto& param : params) {
-			if (!seenNames.insert(param.name).second) {
+			if (!seenNames.insert(param.name.text).second) {
 				diags.push_back({
 					ast::DiagnosticLevel::Error,
 					std::format(
 						"duplicate parameter '{}' in {} '{}'",
-						param.name, kind, name),
+						param.name.text, kind, name),
 					declSpan
 				});
 			}
@@ -240,7 +240,7 @@ static void checkFunctionSignatures(
 					ast::DiagnosticLevel::Error,
 					std::format(
 						"required parameter '{}' cannot follow optional parameters in {} '{}'",
-						param.name, kind, name),
+						param.name.text, kind, name),
 					declSpan
 				});
 			}
@@ -251,7 +251,7 @@ static void checkFunctionSignatures(
 					std::format(
 						"extern define '{}' parameter '{}' must have a type annotation or a default value",
 						name,
-						param.name),
+							param.name.text),
 					declSpan
 				});
 				continue;
@@ -265,7 +265,7 @@ static void checkFunctionSignatures(
 						std::format(
 							"extern define '{}' parameter '{}' needs an explicit type or an inferrable default",
 							name,
-							param.name),
+							param.name.text),
 						param.defaultValue->span
 					});
 				}
@@ -285,7 +285,7 @@ static void checkFunctionSignatures(
 					ast::DiagnosticLevel::Error,
 					std::format(
 						"default value for parameter '{}' in {} '{}' has type {}, expected {}",
-						param.name,
+						param.name.text,
 						kind,
 						name,
 						typeName(*defaultType),
@@ -311,12 +311,12 @@ static void checkFunctionSignatures(
 			continue;
 		}
 
-		if (!typeFromAnnotation(*decl->returnType)) {
+		if (!typeFromAnnotation(decl->returnType->name.text)) {
 			diags.push_back({
 				ast::DiagnosticLevel::Error,
 				std::format(
 					"unknown return type annotation '{}' for extern define '{}'",
-					*decl->returnType,
+					decl->returnType->name.text,
 					name),
 				decl->span
 			});

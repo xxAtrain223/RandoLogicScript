@@ -30,38 +30,38 @@ std::vector<ast::Diagnostic> collectDeclarations(ast::Project& project) {
 				using T = std::decay_t<decltype(d)>;
 
 				if constexpr (std::is_same_v<T, ast::RegionDecl>) {
-					auto [it, inserted] = project.RegionDecls.try_emplace(d.key, &d);
+					auto [it, inserted] = project.RegionDecls.try_emplace(d.key.text, &d);
 					if (!inserted) {
-						emitDuplicate("region", d.key, it->second->span, d.span);
+						emitDuplicate("region", d.key.text, it->second->span, d.span);
 					}
 				}
 				else if constexpr (std::is_same_v<T, ast::ExtendRegionDecl>) {
-					project.ExtendRegionDecls[d.name].push_back(&d);
+					project.ExtendRegionDecls[d.name.text].push_back(&d);
 				}
 				else if constexpr (std::is_same_v<T, ast::DefineDecl>) {
-					if (auto it = project.DefineDecls.find(d.name);
+					if (auto it = project.DefineDecls.find(d.name.text);
 						it != project.DefineDecls.end()) {
-						emitDuplicate("define", d.name, it->second->span, d.span);
+						emitDuplicate("define", d.name.text, it->second->span, d.span);
 					}
-					else if (auto it = project.ExternDefineDecls.find(d.name);
+					else if (auto it = project.ExternDefineDecls.find(d.name.text);
 					         it != project.ExternDefineDecls.end()) {
-						emitDuplicate("function", d.name, it->second->span, d.span);
+						emitDuplicate("function", d.name.text, it->second->span, d.span);
 					}
 					else {
-						project.DefineDecls.emplace(d.name, &d);
+						project.DefineDecls.emplace(d.name.text, &d);
 					}
 				}
 				else if constexpr (std::is_same_v<T, ast::ExternDefineDecl>) {
-					if (auto it = project.ExternDefineDecls.find(d.name);
+					if (auto it = project.ExternDefineDecls.find(d.name.text);
 						it != project.ExternDefineDecls.end()) {
-						emitDuplicate("extern define", d.name, it->second->span, d.span);
+						emitDuplicate("extern define", d.name.text, it->second->span, d.span);
 					}
-					else if (auto it = project.DefineDecls.find(d.name);
+					else if (auto it = project.DefineDecls.find(d.name.text);
 					         it != project.DefineDecls.end()) {
-						emitDuplicate("function", d.name, it->second->span, d.span);
+						emitDuplicate("function", d.name.text, it->second->span, d.span);
 					}
 					else {
-						project.ExternDefineDecls.emplace(d.name, &d);
+						project.ExternDefineDecls.emplace(d.name.text, &d);
 					}
 				}
 			}, decl);
