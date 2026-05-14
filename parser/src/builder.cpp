@@ -33,6 +33,10 @@ ast::Span makeSpan(const Node& n) {
 	return span;
 }
 
+ast::Name makeName(const Node& n) {
+	return ast::Name(std::string(n.string_view()), makeSpan(n));
+}
+
 // =============================================================================
 // Diagnostic helper
 // =============================================================================
@@ -127,7 +131,7 @@ ast::ExprPtr buildExpr(const Node& n, Diags& diags) {
 
 	if (n.is_type<grammar::ident>()) {
 		return ast::makeExpr(
-			ast::Identifier{ast::Name(std::string(n.string_view()))}, makeSpan(n));
+			ast::Identifier{makeName(n)}, makeSpan(n));
 	}
 
 	if (n.is_type<grammar::integer>()) {
@@ -202,13 +206,13 @@ ast::ExprPtr buildExpr(const Node& n, Diags& diags) {
 	if (n.is_type<grammar::call>()) {
 		// children: [ident(funcName), arg, arg, ...]
 		// Each arg is either a named_arg node or a bare expression node.
-		std::string funcName(n.children[0]->string_view());
+		auto funcName = makeName(*n.children[0]);
 		std::vector<ast::Arg> args;
 		for (size_t i = 1; i < n.children.size(); ++i) {
 			const auto& child = *n.children[i];
 			if (child.is_type<grammar::named_arg>()) {
 				// named_arg children: [ident(name), expr]
-				ast::Name argName(std::string(child.children[0]->string_view()));
+				ast::Name argName(makeName(*child.children[0]));
 				args.emplace_back(std::move(argName), buildExpr(*child.children[1], diags));
 			} else {
 				// Positional argument — the child IS the expression.
@@ -216,7 +220,7 @@ ast::ExprPtr buildExpr(const Node& n, Diags& diags) {
 			}
 		}
 		return ast::makeExpr(
-			ast::CallExpr(ast::Name(std::move(funcName)), std::move(args)), makeSpan(n));
+			ast::CallExpr(std::move(funcName), std::move(args)), makeSpan(n));
 	}
 
 	// -- Shared block ---------------------------------------------------------
@@ -232,7 +236,7 @@ ast::ExprPtr buildExpr(const Node& n, Diags& diags) {
 				// shared_branch children: [kw_here|ident, expr]
 				std::optional<ast::Name> region;
 				if (!child->children[0]->is_type<grammar::kw_here>()) {
-					region = ast::Name(std::string(child->children[0]->string_view()));
+					region = makeName(*child->children[0]);
 				}
 				branches.emplace_back(std::move(region),
 					buildExpr(*child->children[1], diags));
@@ -254,7 +258,7 @@ ast::ExprPtr buildExpr(const Node& n, Diags& diags) {
 
 	if (n.is_type<grammar::match_expr>()) {
 		// children: [ident(discriminant), match_arm, match_arm, ...]
-		ast::Name discriminant(std::string(n.children[0]->string_view()));
+		ast::Name discriminant(makeName(*n.children[0]));
 		std::vector<ast::MatchArm> arms;
 
 		for (size_t i = 1; i < n.children.size(); ++i) {
@@ -269,7 +273,7 @@ ast::ExprPtr buildExpr(const Node& n, Diags& diags) {
 				if (p->is_type<grammar::match_default>()) {
 					isDefault = true;
 				} else {
-					patterns.emplace_back(std::string(p->string_view()));
+					patterns.emplace_back(makeName(*p));
 				}
 			}
 
@@ -299,13 +303,13 @@ ast::ExprPtr buildExpr(const Node& n, Diags& diags) {
 
 ast::Param buildParam(const Node& n, Diags& diags) {
 	// param children: [ident(name), optional type, optional default_expr]
-	ast::Name name(std::string(n.children[0]->string_view()));
+	ast::Name name(makeName(*n.children[0]));
 	std::optional<ast::TypeRef> type;
 	ast::ExprPtr defaultValue;
 
 	for (size_t i = 1; i < n.children.size(); ++i) {
 		if (n.children[i]->is_type<grammar::type>()) {
-			type = ast::TypeRef(ast::Name(std::string(n.children[i]->string_view())));
+			type = ast::TypeRef(makeName(*n.children[i]));
 		} else {
 			defaultValue = buildExpr(*n.children[i], diags);
 		}
@@ -320,7 +324,7 @@ ast::Param buildParam(const Node& n, Diags& diags) {
 
 ast::Entry buildEntry(const Node& n, Diags& diags) {
 	// entry children: [ident(name), expr]
-	ast::Name name(std::string(n.children[0]->string_view()));
+	ast::Name name(makeName(*n.children[0]));
 	return ast::Entry(std::move(name), buildExpr(*n.children[1], diags), makeSpan(n));
 }
 
@@ -351,7 +355,7 @@ ast::Section buildSection(const Node& n, Diags& diags) {
 ast::RegionDecl buildRegionDecl(const Node& n, Diags& diags) {
 	// children: [ident(key), name_prop, scene_prop, optional time_prop,
 	//            optional areas_prop, section, section, ...]
-	std::string key(n.children[0]->string_view());
+	auto key = makeName(*n.children[0]);
 
 	std::string name;
 	std::optional<ast::Name> scene;
@@ -381,7 +385,7 @@ ast::RegionDecl buildRegionDecl(const Node& n, Diags& diags) {
 			name = std::move(unescaped);
 		} else if (child.is_type<grammar::scene_prop>()) {
 			// scene_prop children: [ident(scene_name)]
-			scene = ast::Name(std::string(child.children[0]->string_view()));
+			scene = makeName(*child.children[0]);
 		} else if (child.is_type<grammar::time_prop>()) {
 			timePasses = (child.string_view() == "time_passes")
 				? ast::TimePasses::Yes
@@ -389,7 +393,7 @@ ast::RegionDecl buildRegionDecl(const Node& n, Diags& diags) {
 		} else if (child.is_type<grammar::areas_prop>()) {
 			// areas_prop children: [ident, ident, ...]
 			for (const auto& area : child.children) {
-				areas.emplace_back(std::string(area->string_view()));
+				areas.emplace_back(makeName(*area));
 			}
 		} else if (child.is_type<grammar::section>()) {
 			sections.push_back(buildSection(child, diags));
@@ -397,7 +401,7 @@ ast::RegionDecl buildRegionDecl(const Node& n, Diags& diags) {
 	}
 
 	return ast::RegionDecl(
-		ast::Name(std::move(key)),
+		std::move(key),
 		ast::RegionBody(std::move(name), std::move(scene), timePasses,
 			std::move(areas), std::move(sections)),
 		makeSpan(n));
@@ -405,7 +409,7 @@ ast::RegionDecl buildRegionDecl(const Node& n, Diags& diags) {
 
 ast::ExtendRegionDecl buildExtendDecl(const Node& n, Diags& diags) {
 	// children: [ident(name), section, section, ...]
-	ast::Name name(std::string(n.children[0]->string_view()));
+	ast::Name name(makeName(*n.children[0]));
 	std::vector<ast::Section> sections;
 	for (size_t i = 1; i < n.children.size(); ++i) {
 		sections.push_back(buildSection(*n.children[i], diags));
@@ -416,7 +420,7 @@ ast::ExtendRegionDecl buildExtendDecl(const Node& n, Diags& diags) {
 
 ast::DefineDecl buildDefineDecl(const Node& n, Diags& diags) {
 	// children: [ident(name), param, param, ..., body_expr]
-	ast::Name name(std::string(n.children[0]->string_view()));
+	ast::Name name(makeName(*n.children[0]));
 	std::vector<ast::Param> params;
 	ast::ExprPtr body;
 
@@ -434,7 +438,7 @@ ast::DefineDecl buildDefineDecl(const Node& n, Diags& diags) {
 
 ast::ExternDefineDecl buildExternDefineDecl(const Node& n, Diags& diags) {
 	// children: [ident(name), param, param, ..., type(returnType)]
-	ast::Name name(std::string(n.children[0]->string_view()));
+	ast::Name name(makeName(*n.children[0]));
 	std::vector<ast::Param> params;
 	std::optional<ast::TypeRef> returnType;
 
@@ -442,7 +446,7 @@ ast::ExternDefineDecl buildExternDefineDecl(const Node& n, Diags& diags) {
 		if (n.children[i]->is_type<grammar::param>()) {
 			params.push_back(buildParam(*n.children[i], diags));
 		} else if (n.children[i]->is_type<grammar::type>()) {
-			returnType = ast::TypeRef(ast::Name(std::string(n.children[i]->string_view())));
+			returnType = ast::TypeRef(makeName(*n.children[i]));
 		}
 	}
 

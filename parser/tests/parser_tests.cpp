@@ -196,7 +196,12 @@ TEST(ParseExpr, NegativeInteger) {
 TEST(ParseExpr, Identifier) {
 	const auto& e = parseExpr("RG_HOOKSHOT");
 	ASSERT_TRUE(std::holds_alternative<Identifier>(e.node));
-	EXPECT_EQ(std::get<Identifier>(e.node).name, "RG_HOOKSHOT");
+	const auto& ident = std::get<Identifier>(e.node);
+	EXPECT_EQ(ident.name, "RG_HOOKSHOT");
+	EXPECT_EQ(ident.name.span.start.line, 1u);
+	EXPECT_EQ(ident.name.span.start.column, 13u);
+	EXPECT_EQ(ident.name.span.end.line, 1u);
+	EXPECT_EQ(ident.name.span.end.column, 24u);
 }
 
 // == Unary expression =========================================================
@@ -385,11 +390,18 @@ TEST(ParseExpr, CallNamedArg) {
 	const auto& e = parseExpr("foo(x: 1, y: 2)");
 	ASSERT_TRUE(std::holds_alternative<CallExpr>(e.node));
 	const auto& call = std::get<CallExpr>(e.node);
+	EXPECT_EQ(call.callee.span.start.line, 1u);
+	EXPECT_EQ(call.callee.span.start.column, 13u);
+	EXPECT_EQ(call.callee.span.end.column, 16u);
 	ASSERT_EQ(call.args.size(), 2u);
 	ASSERT_TRUE(call.args[0].name.has_value());
 	EXPECT_EQ(*call.args[0].name, "x");
+	EXPECT_EQ(call.args[0].name->span.start.column, 17u);
+	EXPECT_EQ(call.args[0].name->span.end.column, 18u);
 	ASSERT_TRUE(call.args[1].name.has_value());
 	EXPECT_EQ(*call.args[1].name, "y");
+	EXPECT_EQ(call.args[1].name->span.start.column, 23u);
+	EXPECT_EQ(call.args[1].name->span.end.column, 24u);
 }
 
 TEST(ParseExpr, CallMixedArgs) {
@@ -583,8 +595,13 @@ TEST(ParseDefine, ParamWithType) {
 	const auto& decl = parseDecl("define foo(x: int): true");
 	const auto& def = std::get<DefineDecl>(decl);
 	ASSERT_EQ(def.params.size(), 1u);
+	EXPECT_EQ(def.params[0].name.span.start.line, 1u);
+	EXPECT_EQ(def.params[0].name.span.start.column, 12u);
+	EXPECT_EQ(def.params[0].name.span.end.column, 13u);
 	ASSERT_TRUE(def.params[0].type.has_value());
 	EXPECT_EQ(*def.params[0].type, "int");
+	EXPECT_EQ(def.params[0].type->name.span.start.column, 15u);
+	EXPECT_EQ(def.params[0].type->name.span.end.column, 18u);
 	EXPECT_EQ(def.params[0].defaultValue, nullptr);
 }
 
@@ -666,8 +683,13 @@ TEST(ParseRegion, MinimalRegion) {
 	const auto& decl = parseDecl("region RR_TEST { name: \"Test\" scene: SCENE_TEST }");
 	const auto& region = std::get<RegionDecl>(decl);
 	EXPECT_EQ(region.key, "RR_TEST");
+	EXPECT_EQ(region.key.span.start.line, 1u);
+	EXPECT_EQ(region.key.span.start.column, 8u);
+	EXPECT_EQ(region.key.span.end.column, 15u);
 	ASSERT_TRUE(region.body.scene.has_value());
 	EXPECT_EQ(*region.body.scene, "SCENE_TEST");
+	EXPECT_EQ(region.body.scene->span.start.column, 38u);
+	EXPECT_EQ(region.body.scene->span.end.column, 48u);
 	EXPECT_EQ(region.body.timePasses, TimePasses::Auto);
 	EXPECT_TRUE(region.body.areas.empty());
 	EXPECT_TRUE(region.body.sections.empty());
@@ -709,6 +731,10 @@ TEST(ParseRegion, WithAreas) {
 	ASSERT_EQ(region.body.areas.size(), 2u);
 	EXPECT_EQ(region.body.areas[0], "AREA_A");
 	EXPECT_EQ(region.body.areas[1], "AREA_B");
+	EXPECT_EQ(region.body.areas[0].span.start.line, 4u);
+	EXPECT_EQ(region.body.areas[0].span.start.column, 10u);
+	EXPECT_EQ(region.body.areas[1].span.start.line, 4u);
+	EXPECT_EQ(region.body.areas[1].span.start.column, 18u);
 }
 
 TEST(ParseRegion, WithSections) {

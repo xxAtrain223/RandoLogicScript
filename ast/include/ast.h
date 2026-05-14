@@ -61,9 +61,11 @@ enum class IdentifierKind {
 /// A syntactic name token used for declarations, labels, and symbolic refs.
 struct Name {
 	std::string text;
+	Span span;
 
 	Name() = default;
-	explicit Name(std::string text) : text(std::move(text)) {}
+	explicit Name(std::string text, Span span = {})
+		: text(std::move(text)), span(std::move(span)) {}
 
 	std::string_view view() const { return text; }
 };
