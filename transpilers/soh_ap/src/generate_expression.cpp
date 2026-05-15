@@ -16,35 +16,39 @@ std::string SohApTranspiler::GenerateExpression(const rls::ast::IntLiteral& node
 }
 
 std::string SohApTranspiler::GenerateExpression(const rls::ast::Identifier& node) const {
-    return node.name;
-    // auto type = project.getType(&node);
-    // if (!type.has_value()) {
-    //     return node.name;
-    // }
-    // switch (type.value()) {
-    //     case rls::ast::Type::Item:
-    //         return "RandomizerGet." + node.name;
-    //     case rls::ast::Type::Enemy:
-    //         return "RandomizerEnemy." + node.name;
-    //     case rls::ast::Type::Distance:
-    //         return "EnemyDistance." + node.name;
-    //     case rls::ast::Type::Trick:
-    //         return "RandomizerTrick." + node.name;
-    //     case rls::ast::Type::Setting:
-    //         return "world.options." + node.name;
-    //     case rls::ast::Type::Region:
-    //         return "RandomizerRegion." + node.name;
-    //     case rls::ast::Type::Check:
-    //         return "RandomizerCheck." + node.name;
-    //     case rls::ast::Type::Dungeon:
-    //         return "Dungeon." + node.name;
-    //     case rls::ast::Type::Trial:
-    //         return "Trial." + node.name;
-    //     case rls::ast::Type::WaterLevel:
-    //         return "WaterLevel." + node.name;
-    //     default:
-    //         return node.name;
-    // }
+    if (node.kind == rls::ast::IdentifierKind::EnumValue) {
+        auto type = project.getType(&node);
+        if (!type.has_value()) {
+            return node.name.text;
+        }
+        switch (type.value()) {
+            case rls::ast::Type::Item: return "RandomizerGet." + node.name.text;
+            case rls::ast::Type::Enemy: return "RandomizerEnemy." + node.name.text;
+            case rls::ast::Type::Distance: return "EnemyDistance." + node.name.text;
+            case rls::ast::Type::Trick: return "RandomizerTrick." + node.name.text;
+            /*
+                AP has a couple ways we could use for comparing options. Ideally we use OptionFilter as that is rule builder compatible
+                `OptionFilter(OptionClassName, value, "operator")` -> `OptionFilter(SkipChildZelda, True)`
+
+                If we aren't using rule builder we could go the classic comparison
+                `world.options.settingsJsonName == value` -> `world.options.skip_child_zelda == True` // Could also just be used without the True comparison. `world.options.skip_child_zelda` converts to a bool.
+
+                In AP since each option has its own class, this is going to be tricky to do right. We may have to build a mapping between what RLS Option and AP settings classes/settingsJsonNames.
+                
+                For the values, we could probabaly make an enum to house them and use the enums in the options classes
+            */
+            //case rls::ast::Type::Setting: return "RandomizerSettingKey::" + node.name.text;
+            case rls::ast::Type::Region: return "RandomizerRegion." + node.name.text;
+            case rls::ast::Type::Check: return "RandomizerCheck." + node.name.text;
+            case rls::ast::Type::Trial: return "TrialKey." + node.name.text;
+            default: return node.name.text;
+        }
+    } else if (node.kind == rls::ast::IdentifierKind::Parameter) {
+        return node.name.text;
+    } else {
+        // Unresolved identifiers should have been blocked earlier in sema; emit empty as a defensive fallback.
+        return "";
+    }
 }
 
 // Returns the Python operator precedence for an expression node.
@@ -141,7 +145,6 @@ std::string SohApTranspiler::GenerateExpression(const rls::ast::TernaryExpr& nod
 		   GenerateExpression(node.elseBranch);
 }
 
-// TODO Handle Host Functions
 std::string SohApTranspiler::GenerateExpression(const rls::ast::CallExpr& node) const {
     auto resolvedPtr = project.getResolvedCallArgs(&node);
     if (resolvedPtr == nullptr) {
@@ -152,14 +155,22 @@ std::string SohApTranspiler::GenerateExpression(const rls::ast::CallExpr& node) 
     const auto& resolved = *resolvedPtr;
 
     std::ostringstream oss;
-    oss << node.function << "(";
-    for (size_t i = 0; i < resolved.size(); ++i) {
-        if (i > 0) {
+
+    // Handle settings differently
+    if (node.callee.text == "setting") {
+        oss << "bundle[2].options." << GenerateExpression(resolved[0]->node);
+    } else {
+        oss << node.callee.text << "(bundle";
+        for (size_t i = 0; i < resolved.size(); ++i) {
+            // if (i > 0) {
+            //     oss << ", ";
+            // }
             oss << ", ";
+
+            oss << GenerateExpression(resolved[i]->node);
         }
-        oss << GenerateExpression(resolved[i]->node);
+        oss << ")";
     }
-    oss << ")";
     return oss.str();
 }
 
@@ -169,13 +180,13 @@ std::string SohApTranspiler::GenerateExpression(const rls::ast::SharedBlock& nod
     std::ostringstream oss;
 
     const auto& firstBranch = node.branches[0];
-    oss << "spirit_shared(" << firstBranch.region.value_or("") << ", "
+    oss << "spirit_shared(" << firstBranch.region->text << ", "
         << "(lambda: " << GenerateExpression(firstBranch.condition) << "), "
         << (node.anyAge ? "true" : "false");
 
     for (int i = 1; i < node.branches.size(); i++) {
-        oss << ", " << node.branches[i].region.value_or("") << ", "
-            << "(labmda:" << GenerateExpression(node.branches[i].condition) << ")";
+        oss << ", " << node.branches[i].region->text << ", "
+            << "(lambda:" << GenerateExpression(node.branches[i].condition) << ")";
     }
 
     oss << ")";
@@ -202,10 +213,10 @@ std::string SohApTranspiler::GenerateExpression(const rls::ast::MatchExpr& node)
         if (arm.isDefault) {
             oss << "(lambda: true), ";
         } else {
-            oss << "(lambda " << node.discriminant << "=" << node.discriminant << ": ";
+            oss << "(lambda " << GenerateExpression(node.discriminant) << "=" << GenerateExpression(node.discriminant) << ": ";
             for (size_t j = 0; j < arm.patterns.size(); j++) {
                 if (j > 0) oss << " or ";
-                oss << node.discriminant << " == " << arm.patterns[j];
+                oss << GenerateExpression(node.discriminant) << " == " << GenerateExpression(arm.patterns[j]);
             }
             oss << "), ";
         }

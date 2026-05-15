@@ -13,6 +13,7 @@ public:
 
 	void GenerateFunctionDefinitionsSource(rls::OutputWriter& out) const;
 	void GenerateRegionsSource(rls::OutputWriter& out) const;
+	void GenerateEnumsSource(rls::OutputWriter& out) const;
 	std::string GenerateExpression(const rls::ast::ExprPtr& expr) const;
 
 private:
