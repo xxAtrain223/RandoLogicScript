@@ -66,7 +66,7 @@ void SohApTranspiler::GenerateRegionsSource(rls::OutputWriter& out) const {
             extendRegionDecls = extendRegionIt->second;
         }
 
-        std::string creationString = "Regions." + region->key.text + ", world, [\n";
+        std::string creationString = "RandomizerRegion." + region->key.text + ", world, [\n";
 
         source 
             << "    # " << region->body.name << "\n"
