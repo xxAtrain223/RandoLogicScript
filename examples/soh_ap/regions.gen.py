@@ -6,45 +6,24 @@ if TYPE_CHECKING:
 
 def set_region_rules(world: "SohWorld") -> None:
     # Adult Spawn
-    # Events
-    add_events(RandomizerRegion.RR_ADULT_SPAWN, world, [
-    ])
-    # Locations
-    add_locations(RandomizerRegion.RR_ADULT_SPAWN, world, [
-    ])
     # Exits
     connect_regions(RandomizerRegion.RR_ADULT_SPAWN, world, [
         (RandomizerRegion.RR_TEMPLE_OF_TIME, lambda bundle: True),
     ])
 
     # Bolero of Fire Warp
-    # Events
-    add_events(RandomizerRegion.RR_BOLERO_OF_FIRE_WARP, world, [
-    ])
-    # Locations
-    add_locations(RandomizerRegion.RR_BOLERO_OF_FIRE_WARP, world, [
-    ])
     # Exits
     connect_regions(RandomizerRegion.RR_BOLERO_OF_FIRE_WARP, world, [
         (RandomizerRegion.RR_DMC_PAD_ENTRY, lambda bundle: True),
     ])
 
     # Child Spawn
-    # Events
-    add_events(RandomizerRegion.RR_CHILD_SPAWN, world, [
-    ])
-    # Locations
-    add_locations(RandomizerRegion.RR_CHILD_SPAWN, world, [
-    ])
     # Exits
     connect_regions(RandomizerRegion.RR_CHILD_SPAWN, world, [
         (RandomizerRegion.RR_KF_LINKS_HOUSE, lambda bundle: True),
     ])
 
     # KF Boulder Loop
-    # Events
-    add_events(RandomizerRegion.RR_KF_BOULDER_LOOP, world, [
-    ])
     # Locations
     add_locations(RandomizerRegion.RR_KF_BOULDER_LOOP, world, [
         (RandomizerCheck.RC_KF_KOKIRI_SWORD_CHEST, lambda bundle: is_child(bundle) and has(bundle, RandomizerGet.RG_OPEN_CHEST)),
@@ -60,9 +39,6 @@ def set_region_rules(world: "SohWorld") -> None:
     ])
 
     # KF House of Twins
-    # Events
-    add_events(RandomizerRegion.RR_KF_HOUSE_OF_TWINS, world, [
-    ])
     # Locations
     add_locations(RandomizerRegion.RR_KF_HOUSE_OF_TWINS, world, [
         (RandomizerCheck.RC_KF_TWINS_HOUSE_POT_1, lambda bundle: has(bundle, RandomizerGet.RG_POWER_BRACELET)),
@@ -74,9 +50,6 @@ def set_region_rules(world: "SohWorld") -> None:
     ])
 
     # KF Know It All House
-    # Events
-    add_events(RandomizerRegion.RR_KF_KNOW_IT_ALL_HOUSE, world, [
-    ])
     # Locations
     add_locations(RandomizerRegion.RR_KF_KNOW_IT_ALL_HOUSE, world, [
         (RandomizerCheck.RC_KF_BROTHERS_HOUSE_POT_1, lambda bundle: has(bundle, RandomizerGet.RG_POWER_BRACELET)),
@@ -88,9 +61,6 @@ def set_region_rules(world: "SohWorld") -> None:
     ])
 
     # KF Kokiri Shop
-    # Events
-    add_events(RandomizerRegion.RR_KF_KOKIRI_SHOP, world, [
-    ])
     # Locations
     add_locations(RandomizerRegion.RR_KF_KOKIRI_SHOP, world, [
         (RandomizerCheck.RC_KF_SHOP_ITEM_1, lambda bundle: has(bundle, RandomizerGet.RG_SPEAK_KOKIRI) and check_price(bundle, RandomizerCheck.RC_UNKNOWN_CHECK) <= wallet_capacity(bundle)),
@@ -108,9 +78,6 @@ def set_region_rules(world: "SohWorld") -> None:
     ])
 
     # KF Link's House
-    # Events
-    add_events(RandomizerRegion.RR_KF_LINKS_HOUSE, world, [
-    ])
     # Locations
     add_locations(RandomizerRegion.RR_KF_LINKS_HOUSE, world, [
         (RandomizerCheck.RC_KF_LINKS_HOUSE_COW, lambda bundle: is_adult(bundle) and can_use(bundle, RandomizerGet.RG_EPONAS_SONG) and flag(bundle, LOGIC_LINKS_COW)),
@@ -122,12 +89,6 @@ def set_region_rules(world: "SohWorld") -> None:
     ])
 
     # KF Link's Porch
-    # Events
-    add_events(RandomizerRegion.RR_KF_LINKS_PORCH, world, [
-    ])
-    # Locations
-    add_locations(RandomizerRegion.RR_KF_LINKS_PORCH, world, [
-    ])
     # Exits
     connect_regions(RandomizerRegion.RR_KF_LINKS_PORCH, world, [
         (RandomizerRegion.RR_KF_LINKS_HOUSE, lambda bundle: True),
@@ -135,9 +96,6 @@ def set_region_rules(world: "SohWorld") -> None:
     ])
 
     # KF Mido's House
-    # Events
-    add_events(RandomizerRegion.RR_KF_MIDOS_HOUSE, world, [
-    ])
     # Locations
     add_locations(RandomizerRegion.RR_KF_MIDOS_HOUSE, world, [
         (RandomizerCheck.RC_KF_MIDOS_TOP_LEFT_CHEST, lambda bundle: has(bundle, RandomizerGet.RG_OPEN_CHEST)),
@@ -174,9 +132,6 @@ def set_region_rules(world: "SohWorld") -> None:
     ])
 
     # KF Outside Lost Woods
-    # Events
-    add_events(RandomizerRegion.RR_KF_OUTSIDE_LOST_WOODS, world, [
-    ])
     # Locations
     add_locations(RandomizerRegion.RR_KF_OUTSIDE_LOST_WOODS, world, [
         (RandomizerCheck.RC_KF_GOSSIP_STONE_FAIRY, lambda bundle: call_gossip_fairy_except_suns(bundle)),
@@ -199,9 +154,6 @@ def set_region_rules(world: "SohWorld") -> None:
     ])
 
     # KF Alcove
-    # Events
-    add_events(RandomizerRegion.RR_KF_RUPEE_ALCOVE, world, [
-    ])
     # Locations
     add_locations(RandomizerRegion.RR_KF_RUPEE_ALCOVE, world, [
         (RandomizerCheck.RC_KF_BEAN_RUPEE_1, lambda bundle: is_adult(bundle) and can_use(bundle, RandomizerGet.RG_HOVER_BOOTS)),
@@ -218,9 +170,6 @@ def set_region_rules(world: "SohWorld") -> None:
     ])
 
     # KF Saria's House
-    # Events
-    add_events(RandomizerRegion.RR_KF_SARIAS_HOUSE, world, [
-    ])
     # Locations
     add_locations(RandomizerRegion.RR_KF_SARIAS_HOUSE, world, [
         (RandomizerCheck.RC_KF_SARIAS_TOP_LEFT_HEART, lambda bundle: True),
@@ -338,48 +287,24 @@ def set_region_rules(world: "SohWorld") -> None:
     ])
 
     # Minuet of Forest Warp
-    # Events
-    add_events(RandomizerRegion.RR_MINUET_OF_FOREST_WARP, world, [
-    ])
-    # Locations
-    add_locations(RandomizerRegion.RR_MINUET_OF_FOREST_WARP, world, [
-    ])
     # Exits
     connect_regions(RandomizerRegion.RR_MINUET_OF_FOREST_WARP, world, [
         (RandomizerRegion.RR_SACRED_FOREST_MEADOW, lambda bundle: True),
     ])
 
     # Nocturne of Shadow Warp
-    # Events
-    add_events(RandomizerRegion.RR_NOCTURNE_OF_SHADOW_WARP, world, [
-    ])
-    # Locations
-    add_locations(RandomizerRegion.RR_NOCTURNE_OF_SHADOW_WARP, world, [
-    ])
     # Exits
     connect_regions(RandomizerRegion.RR_NOCTURNE_OF_SHADOW_WARP, world, [
         (RandomizerRegion.RR_GRAVEYARD_WARP_PAD_REGION, lambda bundle: True),
     ])
 
     # Prelude of Light Warp
-    # Events
-    add_events(RandomizerRegion.RR_PRELUDE_OF_LIGHT_WARP, world, [
-    ])
-    # Locations
-    add_locations(RandomizerRegion.RR_PRELUDE_OF_LIGHT_WARP, world, [
-    ])
     # Exits
     connect_regions(RandomizerRegion.RR_PRELUDE_OF_LIGHT_WARP, world, [
         (RandomizerRegion.RR_TEMPLE_OF_TIME, lambda bundle: True),
     ])
 
     # Requiem of Spirit Warp
-    # Events
-    add_events(RandomizerRegion.RR_REQUIEM_OF_SPIRIT_WARP, world, [
-    ])
-    # Locations
-    add_locations(RandomizerRegion.RR_REQUIEM_OF_SPIRIT_WARP, world, [
-    ])
     # Exits
     connect_regions(RandomizerRegion.RR_REQUIEM_OF_SPIRIT_WARP, world, [
         (RandomizerRegion.RR_DESERT_COLOSSUS, lambda bundle: True),
@@ -412,12 +337,6 @@ def set_region_rules(world: "SohWorld") -> None:
     ])
 
     # Root Exits
-    # Events
-    add_events(RandomizerRegion.RR_ROOT_EXITS, world, [
-    ])
-    # Locations
-    add_locations(RandomizerRegion.RR_ROOT_EXITS, world, [
-    ])
     # Exits
     connect_regions(RandomizerRegion.RR_ROOT_EXITS, world, [
         (RandomizerRegion.RR_CHILD_SPAWN, lambda bundle: is_child(bundle)),
@@ -431,12 +350,6 @@ def set_region_rules(world: "SohWorld") -> None:
     ])
 
     # Serenade of Water Warp
-    # Events
-    add_events(RandomizerRegion.RR_SERENADE_OF_WATER_WARP, world, [
-    ])
-    # Locations
-    add_locations(RandomizerRegion.RR_SERENADE_OF_WATER_WARP, world, [
-    ])
     # Exits
     connect_regions(RandomizerRegion.RR_SERENADE_OF_WATER_WARP, world, [
         (RandomizerRegion.RR_LAKE_HYLIA, lambda bundle: True),

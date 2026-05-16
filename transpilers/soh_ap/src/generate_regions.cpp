@@ -1,6 +1,7 @@
 #include "soh_ap.h"
 
 #include <functional>
+#include <sstream>
 
 namespace rls::transpilers::soh_ap {
 
@@ -58,6 +59,10 @@ void SohApTranspiler::GenerateRegionsSource(rls::OutputWriter& out) const {
         << "\n"
         << "def set_region_rules(world: \"SohWorld\") -> None:\n";
 
+    std::ostringstream events;
+    std::ostringstream locations;
+    std::ostringstream exits;
+
     for (const auto& [regionName, region] : project.RegionDecls) {
         const auto extendRegionIt = project.ExtendRegionDecls.find(region->key.text);
 
@@ -68,30 +73,63 @@ void SohApTranspiler::GenerateRegionsSource(rls::OutputWriter& out) const {
 
         std::string creationString = "RandomizerRegion." + region->key.text + ", world, [\n";
 
-        source 
-            << "    # " << region->body.name << "\n"
-            << "    # Events\n";
+        source << "    # " << region->body.name << "\n";
+        events 
+            << "    # Events\n"
+            << "    add_events(" << creationString;
 
-        source << "    add_events(" << creationString;
-        WriteEvents(*this, source, region->key.text, region->body.sections);
+        WriteEvents(*this, events, region->key.text, region->body.sections);
         for (const auto* extendRegion : extendRegionDecls) {
-            WriteEvents(*this, source, region->key.text, extendRegion->sections);
+            WriteEvents(*this, events, region->key.text, extendRegion->sections);
         }
-        source 
-            << "    ])\n    # Locations\n"
+        
+        events << "    ])\n";
+
+        if (events.str() == "    # Events\n    add_events(" + creationString + "    ])\n") {
+            events.str("");
+        }
+
+        locations 
+            << "    # Locations\n"
             << "    add_locations(" << creationString;
-        WriteLocations(*this, source, region->body.sections);
+
+        WriteLocations(*this, locations, region->body.sections);
         for (const auto* extendRegion : extendRegionDecls) {
-            WriteLocations(*this, source, extendRegion->sections);
+            WriteLocations(*this, locations, extendRegion->sections);
         }
-        source 
-            << "    ])\n    # Exits\n"
+
+        locations << "    ])\n";
+
+        if (locations.str() == "    # Locations\n    add_locations(" + creationString + "    ])\n") {
+            locations.str("");
+        }
+
+
+        exits 
+            << "    # Exits\n"
             << "    connect_regions(" << creationString;
-        WriteExits(*this, source, region->body.sections);
+
+        WriteExits(*this, exits, region->body.sections);
         for (const auto* extendRegion : extendRegionDecls) {
-            WriteExits(*this, source, extendRegion->sections);
+            WriteExits(*this, exits, extendRegion->sections);
         }
-        source << "    ])\n\n";
+
+        exits << "    ])\n";
+
+        if (exits.str() == "    # Exits\n    connect_regions(" + creationString + "    ])\n") {
+            exits.str("");
+        }
+
+        // Add things to source
+        source << events.str();
+        source << locations.str();
+        source << exits.str();
+        source << "\n";
+
+        // Clear ostringstreams
+        events.str("");
+        locations.str("");
+        exits.str("");
     }
 }
 
