@@ -30,6 +30,10 @@ private:
 	std::string GenerateExpression(const rls::ast::AnyAgeBlock& node) const;
 	std::string GenerateExpression(const rls::ast::MatchExpr& node) const;
 	std::string GenerateExpression(const rls::ast::Expr::Variant& node) const;
+	
+	// Helper to convert setting(KEY) == VALUE expressions to OptionFilter(...) form for RuleBuilder.
+	// Returns empty string if not a setting comparison; caller should use fallback.
+	std::string TryGenerateOptionFilter(const rls::ast::BinaryExpr& node) const;
 
 	const rls::ast::Project& project;
 };

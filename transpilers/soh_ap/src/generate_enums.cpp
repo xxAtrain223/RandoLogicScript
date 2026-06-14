@@ -3,8 +3,19 @@
 
 #include <functional>
 #include <sstream>
+# include <set>
 
 namespace rls::transpilers::soh_ap {
+
+void InsertToSet(const std::vector<rls::ast::Section>& sections, rls::ast::SectionKind sectionKind, std::set<std::string>& emittedValues) {
+    for (const auto& section : sections) {
+        if (section.kind == sectionKind) {
+            for (const auto& entry : section.entries) {
+                emittedValues.insert(entry.name.text);
+            }
+        }
+    }
+}
 
 void WriteEventLocations(
 	const SohApTranspiler& transpiler,
@@ -14,26 +25,6 @@ void WriteEventLocations(
 {
     WriteEntries(sections, rls::ast::SectionKind::Events, [&](const rls::ast::Entry& entry){
         source << "    " << region << "_" << entry.name << " = auto()\n";
-    });
-}
-
-void WriteEvents(
-	const SohApTranspiler& transpiler,
-	std::ostream& source,
-	const std::vector<rls::ast::Section>& sections)
-{
-    WriteEntries(sections, rls::ast::SectionKind::Events, [&](const rls::ast::Entry& entry){
-        source << "    " << entry.name << " = auto()\n";
-    });
-}
-
-void WriteLocationsEnum(
-	const SohApTranspiler& transpiler,
-	std::ostream& source,
-	const std::vector<rls::ast::Section>& sections)
-{
-    WriteEntries(sections, rls::ast::SectionKind::Locations, [&](const rls::ast::Entry& entry){
-        source << "    " << entry.name << " = auto()\n";
     });
 }
 
@@ -49,10 +40,26 @@ void SohApTranspiler::GenerateEnumsSource(rls::OutputWriter& out) const {
     std::ostringstream regions;
     std::ostringstream locations;
 
-    eventLocations << "class EventLocations(StrEnum):\n";
-    events << "class Events(StrEnum):\n";
-    regions << "class RandomizerRegions(StrEnum):\n";;
-    locations << "class RandomizerChecks(StrEnum):\n";;
+    // Sets to track which enum values have already been emitted, to avoid duplicates across regions and extended regions
+    std::set<std::string> emittedEvents;
+    std::set<std::string> emittedLocations;
+
+    eventLocations << "class EventLocations(StrEnum):\n"
+        << "    @staticmethod\n"
+        << "    def _generate_next_value_(name, start, count, last_values):\n"
+        << "        new_name = name.replace(\"RR_\", \"\").replace(\"_\", \" \").title()\n"
+        << "        return new_name\n";
+    events << "class Events(StrEnum):\n"
+        << "    @staticmethod\n"
+        << "    def _generate_next_value_(name, start, count, last_values):\n"
+        << "        new_name = name.replace(\"LOGIC_\", \"\").replace(\"_\", \" \").title()\n"
+        << "        return new_name\n";
+    regions << "class Regions(StrEnum):\n" ;
+    locations << "class Locations(StrEnum):\n"
+        << "    @staticmethod\n"
+        << "    def _generate_next_value_(name, start, count, last_values):\n"
+        << "        new_name = name.replace(\"RC_\", \"\").replace(\"_\", \" \").title()\n"
+        << "        return new_name\n";
 
     for (const auto& [regionName, region] : project.RegionDecls) {
         // Do Regions while here
@@ -72,16 +79,24 @@ void SohApTranspiler::GenerateEnumsSource(rls::OutputWriter& out) const {
         }
 
         // Events
-        WriteEvents(*this, events, region->body.sections);
+        InsertToSet(region->body.sections, rls::ast::SectionKind::Events, emittedEvents);
         for (const auto* extendRegion : extendRegionDecls) {
-            WriteEvents(*this, events, extendRegion->sections);
+            InsertToSet(extendRegion->sections, rls::ast::SectionKind::Events, emittedEvents);
         }
 
         // Locations
-        WriteLocationsEnum(*this, locations, region->body.sections);
+        InsertToSet(region->body.sections, rls::ast::SectionKind::Locations, emittedLocations);
         for (const auto* extendRegion : extendRegionDecls) {
-            WriteLocationsEnum(*this, locations, extendRegion->sections);
+            InsertToSet(extendRegion->sections, rls::ast::SectionKind::Locations, emittedLocations);
         }
+    }
+
+    // Add distinct events and locations from all regions to the main Events and Locations enums
+    for (const auto& event : emittedEvents) {
+        events << "    " << event << " = auto()\n";
+    }
+    for (const auto& location : emittedLocations) {
+        locations << "    " << location << " = auto()\n";
     }
 
     // Output to source

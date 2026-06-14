@@ -7,8 +7,45 @@
 
 namespace rls::transpilers::soh_ap {
 
+// Try to generate an OptionFilter expression for setting comparisons.
+// Returns empty string if not a setting comparison; caller should use standard binary expression.
+std::string SohApTranspiler::TryGenerateOptionFilter(const rls::ast::BinaryExpr& node) const {
+	// Only handle == and != comparisons
+	if (node.op != rls::ast::BinaryOp::Eq && node.op != rls::ast::BinaryOp::NotEq) {
+		return "";
+	}
+
+	// Check if left side is a setting() call and right is an identifier (the enum value)
+	auto* leftCall = std::get_if<rls::ast::CallExpr>(&node.left->node);
+	auto* rightId = std::get_if<rls::ast::Identifier>(&node.right->node);
+
+	if (!leftCall || !rightId || leftCall->callee.text != "setting") {
+		return "";
+	}
+
+	// Get the setting key argument (RSK_*)
+	auto resolvedPtr = project.getResolvedCallArgs(leftCall);
+	if (!resolvedPtr || resolvedPtr->empty()) {
+		return "";
+	}
+	
+	auto* settingKeyId = std::get_if<rls::ast::Identifier>(&resolvedPtr->front()->node);
+	if (!settingKeyId) {
+		return "";
+	}
+
+	std::ostringstream result;
+	result << "OptionFilter(" << settingKeyId->name.text << ", " << GenerateExpression(*rightId);
+	if (node.op == rls::ast::BinaryOp::NotEq) {
+		result << ", \"ne\"";
+	}
+	result << ")";
+	
+	return result.str();
+}
+
 std::string SohApTranspiler::GenerateExpression(const rls::ast::BoolLiteral& node) const {
-	return node.value ? "True" : "False";
+	return node.value ? "True_()" : "False_()";
 }
 
 std::string SohApTranspiler::GenerateExpression(const rls::ast::IntLiteral& node) const {
@@ -22,24 +59,14 @@ std::string SohApTranspiler::GenerateExpression(const rls::ast::Identifier& node
             return node.name.text;
         }
         switch (type.value()) {
-            case rls::ast::Type::Item: return "RandomizerGet." + node.name.text;
-            case rls::ast::Type::Enemy: return "RandomizerEnemy." + node.name.text;
+            case rls::ast::Type::Item: return "Items." + node.name.text;
+            case rls::ast::Type::Enemy: return "Enemies." + node.name.text;
             case rls::ast::Type::Distance: return "EnemyDistance." + node.name.text;
-            case rls::ast::Type::Trick: return "RandomizerTrick." + node.name.text;
-            /*
-                AP has a couple ways we could use for comparing options. Ideally we use OptionFilter as that is rule builder compatible
-                `OptionFilter(OptionClassName, value, "operator")` -> `OptionFilter(SkipChildZelda, True)`
-
-                If we aren't using rule builder we could go the classic comparison
-                `world.options.settingsJsonName == value` -> `world.options.skip_child_zelda == True` // Could also just be used without the True comparison. `world.options.skip_child_zelda` converts to a bool.
-
-                In AP since each option has its own class, this is going to be tricky to do right. We may have to build a mapping between what RLS Option and AP settings classes/settingsJsonNames.
-                
-                For the values, we could probabaly make an enum to house them and use the enums in the options classes
-            */
-            //case rls::ast::Type::Setting: return "RandomizerSettingKey::" + node.name.text;
-            case rls::ast::Type::Region: return "RandomizerRegion." + node.name.text;
-            case rls::ast::Type::Check: return "RandomizerCheck." + node.name.text;
+            case rls::ast::Type::Trick: return "Tricks." + node.name.text;
+            case rls::ast::Type::Logic: return "Events." + node.name.text;
+            case rls::ast::Type::Setting: return "RandomizerSettingKey." + node.name.text;
+            case rls::ast::Type::Region: return "Regions." + node.name.text;
+            case rls::ast::Type::Check: return "Locations." + node.name.text;
             case rls::ast::Type::Trial: return "TrialKey." + node.name.text;
             default: return node.name.text;
         }
@@ -51,9 +78,15 @@ std::string SohApTranspiler::GenerateExpression(const rls::ast::Identifier& node
     }
 }
 
-// Returns the Python operator precedence for an expression node.
-// Lower values bind tighter. Non-compound nodes return 0 (tightest).
-// Precedence is from https://docs.python.org/3/reference/expressions.html#operator-precedence
+// Returns the RuleBuilder operator precedence for an expression node.
+// Precedence adjusted for RuleBuilder bitwise operators (&, |, ~) as used in Archipelago:
+// - Arithmetic (*, /): 6
+// - Arithmetic (+, -): 7
+// - Bitwise AND (&): 9
+// - Bitwise OR (|): 11
+// - Comparisons (==, !=, <, etc.): 12
+// - Ternary: 16
+// Unary bitwise NOT (~) and function calls have precedence 3 (very tight).
 int SohApTranspiler::GetPythonPrecedence(const rls::ast::ExprPtr& expr) const {
 	if (auto* bin = std::get_if<rls::ast::BinaryExpr>(&expr->node)) {
 		switch (bin->op) {
@@ -63,6 +96,8 @@ int SohApTranspiler::GetPythonPrecedence(const rls::ast::ExprPtr& expr) const {
 		case rls::ast::BinaryOp::Add:
 		case rls::ast::BinaryOp::Sub:
             return 7;
+		case rls::ast::BinaryOp::And:
+            return 9;  // Bitwise AND (&)
 		case rls::ast::BinaryOp::Lt:
 		case rls::ast::BinaryOp::LtEq:
 		case rls::ast::BinaryOp::Gt:
@@ -70,10 +105,8 @@ int SohApTranspiler::GetPythonPrecedence(const rls::ast::ExprPtr& expr) const {
 		case rls::ast::BinaryOp::Eq:
 		case rls::ast::BinaryOp::NotEq:
             return 12;
-		case rls::ast::BinaryOp::And:
-            return 14;
 		case rls::ast::BinaryOp::Or:
-            return 15;
+            return 11;  // Bitwise OR (|)
 		default: return 0;
 		}
 	}
@@ -100,19 +133,62 @@ std::string SohApTranspiler::GenerateChildExpression(
 
 std::string SohApTranspiler::GenerateExpression(const rls::ast::UnaryExpr& node) const {
 	switch (node.op) {
-	case rls::ast::UnaryOp::Not:
-		return "not " + GenerateChildExpression(node.operand, 3);
+	case rls::ast::UnaryOp::Not: {
+		// RuleBuilder doesn't support negation of rules. Negation on settings is handled
+		// via OptionFilter with a false value for direct setting() calls.
+		if (auto* call = std::get_if<rls::ast::CallExpr>(&node.operand->node);
+			call && call->callee.text == "setting") {
+			auto resolvedPtr = project.getResolvedCallArgs(call);
+			if (resolvedPtr && !resolvedPtr->empty()) {
+				auto* settingKeyId = std::get_if<rls::ast::Identifier>(&resolvedPtr->front()->node);
+				if (settingKeyId) {
+					return std::string("OptionFilter(") + settingKeyId->name.text + ", False)";
+				}
+			}
+		}
+		return GenerateExpression(node.operand);
+	}
 	default:
 		return "";
 	}
 }
 
 std::string SohApTranspiler::GenerateExpression(const rls::ast::BinaryExpr& node) const {
+    // Try to generate OptionFilter for setting comparisons
+    std::string optionFilter = TryGenerateOptionFilter(node);
+    if (!optionFilter.empty()) {
+        return optionFilter;
+    }
+
+    // Special case: check_price(...) <= wallet_capacity(...) should only output check_price(...)
+    if (node.op == rls::ast::BinaryOp::LtEq) {
+        auto* leftCall = std::get_if<rls::ast::CallExpr>(&node.left->node);
+        auto* rightCall = std::get_if<rls::ast::CallExpr>(&node.right->node);
+        
+        if (leftCall && rightCall && 
+            leftCall->callee.text == "check_price" && 
+            rightCall->callee.text == "wallet_capacity") {
+            return GenerateExpression(node.left);
+        }
+    }
+
+    // Special case: collected_triforce_pieces(...) >= required_triforce_pieces(...) should output CanWinTriforceHunt()
+    if (node.op == rls::ast::BinaryOp::GtEq) {
+        auto* leftCall = std::get_if<rls::ast::CallExpr>(&node.left->node);
+        auto* rightCall = std::get_if<rls::ast::CallExpr>(&node.right->node);
+        
+        if (leftCall && rightCall && 
+            leftCall->callee.text == "collected_triforce_pieces" && 
+            rightCall->callee.text == "required_triforce_pieces") {
+            return "CanWinTriforceHunt()";
+        }
+    }
+
     switch (node.op) {
     case rls::ast::BinaryOp::And:
-        return GenerateChildExpression(node.left, 14) + " and " + GenerateChildExpression(node.right, 14, true);
+        return GenerateChildExpression(node.left, 9) + " & " + GenerateChildExpression(node.right, 9, true);
     case rls::ast::BinaryOp::Or:
-        return GenerateChildExpression(node.left, 15) + " or " + GenerateChildExpression(node.right, 15, true);
+        return GenerateChildExpression(node.left, 11) + " | " + GenerateChildExpression(node.right, 11, true);
     case rls::ast::BinaryOp::Eq:
         return GenerateChildExpression(node.left, 12) + " == " + GenerateChildExpression(node.right, 12, true);
     case rls::ast::BinaryOp::NotEq:
@@ -158,7 +234,15 @@ std::string SohApTranspiler::GenerateExpression(const rls::ast::CallExpr& node) 
 
     // Handle settings differently
     if (node.callee.text == "setting") {
-        oss << "bundle[2].options." << GenerateExpression(resolved[0]->node);
+        if (auto* id = std::get_if<rls::ast::Identifier>(&resolved[0]->node)) {
+            oss << "OptionFilter(" << id->name.text << ", True)";
+        }
+    } else if (node.callee.text == "has" || node.callee.text == "flag") {
+        oss << "has_item(bundle, " << GenerateExpression(resolved[0]->node) << ")";
+    } else if (node.callee.text == "trick") {
+        oss << "can_do_trick(bundle, " << GenerateExpression(resolved[0]->node) << ")";
+    } else if (node.callee.text == "check_price") {
+        oss << "can_afford_slot(" << GenerateExpression(resolved[0]->node) << ")";
     } else {
         oss << node.callee.text << "(bundle";
         for (size_t i = 0; i < resolved.size(); ++i) {
@@ -167,6 +251,15 @@ std::string SohApTranspiler::GenerateExpression(const rls::ast::CallExpr& node) 
             // }
             oss << ", ";
 
+            // Special case functions parameters use Python's True/False instead of True_()/False_(). 
+            if (auto* id = std::get_if<rls::ast::BoolLiteral>(&resolved[i]->node)) {
+                if (id->value) {
+                    oss << "True";
+                } else {
+                    oss << "False";
+                }
+                continue;
+            }
             oss << GenerateExpression(resolved[i]->node);
         }
         oss << ")";
@@ -182,7 +275,7 @@ std::string SohApTranspiler::GenerateExpression(const rls::ast::SharedBlock& nod
     const auto& firstBranch = node.branches[0];
     oss << "spirit_shared(" << firstBranch.region->text << ", "
         << "(lambda: " << GenerateExpression(firstBranch.condition) << "), "
-        << (node.anyAge ? "true" : "false");
+        << (node.anyAge ? "True" : "False");
 
     for (int i = 1; i < node.branches.size(); i++) {
         oss << ", " << node.branches[i].region->text << ", "

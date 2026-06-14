@@ -6,7 +6,7 @@ SohApTranspiler::SohApTranspiler(const rls::ast::Project& project)
 	: project(project) {}
 
 void SohApTranspiler::Transpile(rls::OutputWriter& out) const {
-	GenerateFunctionDefinitionsSource(out);
+	//GenerateFunctionDefinitionsSource(out);
 	GenerateRegionsSource(out);
 	GenerateEnumsSource(out);
 }
