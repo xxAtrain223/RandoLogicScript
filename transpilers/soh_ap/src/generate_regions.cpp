@@ -34,7 +34,9 @@ void WriteLocations(
 	const std::vector<rls::ast::Section>& sections)
 {
     WriteEntries(sections, rls::ast::SectionKind::Locations, [&](const rls::ast::Entry& entry){
+        transpiler.SetCurrentLocation(std::optional<std::string>(entry.name.text));
         source << "        (Locations." << entry.name << ", lambda bundle: " << transpiler.GenerateExpression(entry.condition) << "),\n";
+        transpiler.SetCurrentLocation(std::nullopt);
     });
 }
 

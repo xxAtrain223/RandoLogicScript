@@ -242,7 +242,14 @@ std::string SohApTranspiler::GenerateExpression(const rls::ast::CallExpr& node) 
     } else if (node.callee.text == "trick") {
         oss << "can_do_trick(bundle, " << GenerateExpression(resolved[0]->node) << ")";
     } else if (node.callee.text == "check_price") {
-        oss << "can_afford_slot(" << GenerateExpression(resolved[0]->node) << ")";
+        // Special case: check_price(...) should output can_afford_slot(...)
+        // If the argument is an RC_UNKNOWN_CHECK identifier, use the current location from context
+        if (auto* id = std::get_if<rls::ast::Identifier>(&resolved[0]->node);
+            id && id->name.text == "RC_UNKNOWN_CHECK" && currentLocationName.has_value()) {
+            oss << "can_afford_slot(Locations." << currentLocationName.value() << ")";
+        } else {
+            oss << "can_afford_slot(" << GenerateExpression(resolved[0]->node) << ")";
+        }
     } else {
         oss << node.callee.text << "(bundle";
         for (size_t i = 0; i < resolved.size(); ++i) {
@@ -333,6 +340,10 @@ std::string SohApTranspiler::GenerateExpression(const rls::ast::Expr::Variant& n
 
 std::string SohApTranspiler::GenerateExpression(const rls::ast::ExprPtr& expr) const {
 	return GenerateExpression(expr->node);
+}
+
+void SohApTranspiler::SetCurrentLocation(std::optional<std::string> location) const {
+    currentLocationName = std::move(location);
 }
 
 } // rls::transpilers::soh_ap

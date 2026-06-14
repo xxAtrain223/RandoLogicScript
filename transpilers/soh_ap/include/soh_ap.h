@@ -15,6 +15,7 @@ public:
 	void GenerateRegionsSource(rls::OutputWriter& out) const;
 	void GenerateEnumsSource(rls::OutputWriter& out) const;
 	std::string GenerateExpression(const rls::ast::ExprPtr& expr) const;
+    void SetCurrentLocation(std::optional<std::string> location) const;
 
 private:
 	int GetPythonPrecedence(const rls::ast::ExprPtr& expr) const;
@@ -36,6 +37,7 @@ private:
 	std::string TryGenerateOptionFilter(const rls::ast::BinaryExpr& node) const;
 
 	const rls::ast::Project& project;
+	mutable std::optional<std::string> currentLocationName;
 };
 
 void Transpile(const rls::ast::Project& project, rls::OutputWriter& out);
