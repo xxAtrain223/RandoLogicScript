@@ -7,41 +7,50 @@
 
 namespace rls::transpilers::soh_ap {
 
+std::string SohApTranspiler::WrapOptionFilter(const std::string& optionFilterArgs) const {
+	return "True_(options=[OptionFilter(" + optionFilterArgs + ")])";
+}
+
+// True if this binary expression is a `setting(KEY) == VALUE` / `!= VALUE` comparison.
+bool SohApTranspiler::IsSettingComparison(const rls::ast::BinaryExpr& node) const {
+	// Only == and != comparisons
+	if (node.op != rls::ast::BinaryOp::Eq && node.op != rls::ast::BinaryOp::NotEq) {
+		return false;
+	}
+
+	// Left side must be a setting() call and right must be an identifier (the enum value)
+	auto* leftCall = std::get_if<rls::ast::CallExpr>(&node.left->node);
+	auto* rightId = std::get_if<rls::ast::Identifier>(&node.right->node);
+	if (!leftCall || !rightId || leftCall->callee.text != "setting") {
+		return false;
+	}
+
+	// The setting key argument (RSK_*) must resolve to an identifier
+	auto resolvedPtr = project.getResolvedCallArgs(leftCall);
+	if (!resolvedPtr || resolvedPtr->empty()) {
+		return false;
+	}
+	return std::get_if<rls::ast::Identifier>(&resolvedPtr->front()->node) != nullptr;
+}
+
 // Try to generate an OptionFilter expression for setting comparisons.
 // Returns empty string if not a setting comparison; caller should use standard binary expression.
 std::string SohApTranspiler::TryGenerateOptionFilter(const rls::ast::BinaryExpr& node) const {
-	// Only handle == and != comparisons
-	if (node.op != rls::ast::BinaryOp::Eq && node.op != rls::ast::BinaryOp::NotEq) {
+	if (!IsSettingComparison(node)) {
 		return "";
 	}
 
-	// Check if left side is a setting() call and right is an identifier (the enum value)
-	auto* leftCall = std::get_if<rls::ast::CallExpr>(&node.left->node);
 	auto* rightId = std::get_if<rls::ast::Identifier>(&node.right->node);
+	auto* leftCall = std::get_if<rls::ast::CallExpr>(&node.left->node);
+	auto* settingKeyId = std::get_if<rls::ast::Identifier>(&project.getResolvedCallArgs(leftCall)->front()->node);
 
-	if (!leftCall || !rightId || leftCall->callee.text != "setting") {
-		return "";
-	}
-
-	// Get the setting key argument (RSK_*)
-	auto resolvedPtr = project.getResolvedCallArgs(leftCall);
-	if (!resolvedPtr || resolvedPtr->empty()) {
-		return "";
-	}
-	
-	auto* settingKeyId = std::get_if<rls::ast::Identifier>(&resolvedPtr->front()->node);
-	if (!settingKeyId) {
-		return "";
-	}
-
-	std::ostringstream result;
-	result << "OptionFilter(" << settingKeyId->name.text << ", " << GenerateExpression(*rightId);
+	std::ostringstream args;
+	args << settingKeyId->name.text << ", " << GenerateExpression(*rightId);
 	if (node.op == rls::ast::BinaryOp::NotEq) {
-		result << ", \"ne\"";
+		args << ", \"ne\"";
 	}
-	result << ")";
-	
-	return result.str();
+
+	return WrapOptionFilter(args.str());
 }
 
 std::string SohApTranspiler::GenerateExpression(const rls::ast::BoolLiteral& node) const {
@@ -64,7 +73,14 @@ std::string SohApTranspiler::GenerateExpression(const rls::ast::Identifier& node
             case rls::ast::Type::Distance: return "EnemyDistance." + node.name.text;
             case rls::ast::Type::Trick: return "Tricks." + node.name.text;
             case rls::ast::Type::Logic: return "Events." + node.name.text;
-            case rls::ast::Type::Setting: return "RandomizerSettingKey." + node.name.text;
+            case rls::ast::Type::Setting: 
+                // Catch the case where it is generic on or off
+                if (node.name.text == "RO_GENERIC_YES") {
+                    return "True";
+                } else if (node.name.text == "RO_GENERIC_NO") {
+                    return "False";
+                }
+                return "RandomizerSettingKey." + node.name.text;
             case rls::ast::Type::Region: return "Regions." + node.name.text;
             case rls::ast::Type::Check: return "Locations." + node.name.text;
             case rls::ast::Type::Trial: return "TrialKey." + node.name.text;
@@ -89,6 +105,11 @@ std::string SohApTranspiler::GenerateExpression(const rls::ast::Identifier& node
 // Unary bitwise NOT (~) and function calls have precedence 3 (very tight).
 int SohApTranspiler::GetPythonPrecedence(const rls::ast::ExprPtr& expr) const {
 	if (auto* bin = std::get_if<rls::ast::BinaryExpr>(&expr->node)) {
+		// Setting comparisons are emitted as an atomic OptionFilter rule call, not a
+		// Python comparison, so they bind as tightly as a call (no parentheses needed).
+		if (IsSettingComparison(*bin)) {
+			return 0;
+		}
 		switch (bin->op) {
 		case rls::ast::BinaryOp::Mul:
 		case rls::ast::BinaryOp::Div:
@@ -142,7 +163,7 @@ std::string SohApTranspiler::GenerateExpression(const rls::ast::UnaryExpr& node)
 			if (resolvedPtr && !resolvedPtr->empty()) {
 				auto* settingKeyId = std::get_if<rls::ast::Identifier>(&resolvedPtr->front()->node);
 				if (settingKeyId) {
-					return std::string("OptionFilter(") + settingKeyId->name.text + ", False)";
+					return WrapOptionFilter(settingKeyId->name.text + ", False");
 				}
 			}
 		}
@@ -235,7 +256,7 @@ std::string SohApTranspiler::GenerateExpression(const rls::ast::CallExpr& node) 
     // Handle settings differently
     if (node.callee.text == "setting") {
         if (auto* id = std::get_if<rls::ast::Identifier>(&resolved[0]->node)) {
-            oss << "OptionFilter(" << id->name.text << ", True)";
+            oss << WrapOptionFilter(id->name.text + std::string(", True"));
         }
     } else if (node.callee.text == "has" || node.callee.text == "flag") {
         oss << "has_item(bundle, " << GenerateExpression(resolved[0]->node) << ")";
@@ -251,6 +272,7 @@ std::string SohApTranspiler::GenerateExpression(const rls::ast::CallExpr& node) 
             oss << "can_afford_slot(" << GenerateExpression(resolved[0]->node) << ")";
         }
     } else {
+        // Regular function call
         oss << node.callee.text << "(bundle";
         for (size_t i = 0; i < resolved.size(); ++i) {
             // if (i > 0) {

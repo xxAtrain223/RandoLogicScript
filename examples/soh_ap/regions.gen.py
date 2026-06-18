@@ -127,8 +127,8 @@ def set_region_rules(world: "SohWorld") -> None:
     ])
     # Exits
     connect_regions(Regions.RR_KF_OUTSIDE_DEKU_TREE, world, [
-        (Regions.RR_DEKU_TREE_ENTRYWAY, lambda bundle: is_child(bundle) | (OptionFilter(RSK_SHUFFLE_DUNGEON_ENTRANCES, RandomizerSettingKey.RO_DUNGEON_ENTRANCE_SHUFFLE_OFF, "ne")) & ((OptionFilter(RSK_FOREST, RandomizerSettingKey.RO_CLOSED_FOREST_OFF)) | has_item(bundle, Events.LOGIC_SHOWED_MIDO_SWORD_AND_SHIELD))),
-        (Regions.RR_KOKIRI_FOREST, lambda bundle: is_adult(bundle) & (can_pass(bundle, Enemies.RE_BIG_SKULLTULA, EnemyDistance.ED_CLOSE, True) | has_item(bundle, Events.LOGIC_DEKU_TREE_CLEAR)) | (OptionFilter(RSK_FOREST, RandomizerSettingKey.RO_CLOSED_FOREST_OFF)) | has_item(bundle, Events.LOGIC_SHOWED_MIDO_SWORD_AND_SHIELD)),
+        (Regions.RR_DEKU_TREE_ENTRYWAY, lambda bundle: is_child(bundle) | True_(options=[OptionFilter(RSK_SHUFFLE_DUNGEON_ENTRANCES, RandomizerSettingKey.RO_DUNGEON_ENTRANCE_SHUFFLE_OFF, "ne")]) & (True_(options=[OptionFilter(RSK_FOREST, RandomizerSettingKey.RO_CLOSED_FOREST_OFF)]) | has_item(bundle, Events.LOGIC_SHOWED_MIDO_SWORD_AND_SHIELD))),
+        (Regions.RR_KOKIRI_FOREST, lambda bundle: is_adult(bundle) & (can_pass(bundle, Enemies.RE_BIG_SKULLTULA, EnemyDistance.ED_CLOSE, True) | has_item(bundle, Events.LOGIC_DEKU_TREE_CLEAR)) | True_(options=[OptionFilter(RSK_FOREST, RandomizerSettingKey.RO_CLOSED_FOREST_OFF)]) | has_item(bundle, Events.LOGIC_SHOWED_MIDO_SWORD_AND_SHIELD)),
     ])
 
     # KF Outside Lost Woods
@@ -280,10 +280,10 @@ def set_region_rules(world: "SohWorld") -> None:
         (Regions.RR_KF_HOUSE_OF_TWINS, lambda bundle: True_()),
         (Regions.RR_KF_KNOW_IT_ALL_HOUSE, lambda bundle: True_()),
         (Regions.RR_KF_KOKIRI_SHOP, lambda bundle: True_()),
-        (Regions.RR_KF_OUTSIDE_DEKU_TREE, lambda bundle: has_item(bundle, Events.LOGIC_SHOWED_MIDO_SWORD_AND_SHIELD) | (OptionFilter(RSK_FOREST, RandomizerSettingKey.RO_CLOSED_FOREST_OFF)) | is_adult(bundle) & (can_pass(bundle, Enemies.RE_BIG_SKULLTULA, EnemyDistance.ED_CLOSE, True) | has_item(bundle, Events.LOGIC_FOREST_TEMPLE_CLEAR))),
+        (Regions.RR_KF_OUTSIDE_DEKU_TREE, lambda bundle: has_item(bundle, Events.LOGIC_SHOWED_MIDO_SWORD_AND_SHIELD) | True_(options=[OptionFilter(RSK_FOREST, RandomizerSettingKey.RO_CLOSED_FOREST_OFF)]) | is_adult(bundle) & (can_pass(bundle, Enemies.RE_BIG_SKULLTULA, EnemyDistance.ED_CLOSE, True) | has_item(bundle, Events.LOGIC_FOREST_TEMPLE_CLEAR))),
         (Regions.RR_KF_OUTSIDE_LOST_WOODS, lambda bundle: has_item(bundle, Items.RG_CLIMB) | can_use(bundle, Items.RG_HOOKSHOT) | is_adult(bundle) & (can_plant_bean(bundle, Regions.RR_KOKIRI_FOREST, Items.RG_KOKIRI_FOREST_BEAN_SOUL) | can_do_trick(bundle, Tricks.RT_UNINTUITIVE_JUMPS))),
         (Regions.RR_KF_RUPEE_ALCOVE, lambda bundle: is_adult(bundle) & can_plant_bean(bundle, Regions.RR_KOKIRI_FOREST, Items.RG_KOKIRI_FOREST_BEAN_SOUL)),
-        (Regions.RR_LW_BRIDGE_FROM_FOREST, lambda bundle: is_adult(bundle) | (OptionFilter(RSK_FOREST, RandomizerSettingKey.RO_CLOSED_FOREST_ON, "ne")) | has_item(bundle, Events.LOGIC_DEKU_TREE_CLEAR)),
+        (Regions.RR_LW_BRIDGE_FROM_FOREST, lambda bundle: is_adult(bundle) | True_(options=[OptionFilter(RSK_FOREST, RandomizerSettingKey.RO_CLOSED_FOREST_ON, "ne")]) | has_item(bundle, Events.LOGIC_DEKU_TREE_CLEAR)),
     ])
 
     # Minuet of Forest Warp
@@ -313,23 +313,23 @@ def set_region_rules(world: "SohWorld") -> None:
     # Root
     # Events
     add_events(Regions.RR_ROOT, world, [
-        (EventLocations.RR_ROOT_LOGIC_KAKARIKO_GATE_OPEN, Events.LOGIC_KAKARIKO_GATE_OPEN, lambda bundle: OptionFilter(RSK_KAK_GATE, RandomizerSettingKey.RO_KAK_GATE_OPEN)),
-        (EventLocations.RR_ROOT_LOGIC_TH_COULD_FREE_1_TORCH_CARPENTER, Events.LOGIC_TH_COULD_FREE_1_TORCH_CARPENTER, lambda bundle: OptionFilter(RSK_GERUDO_FORTRESS, RandomizerSettingKey.RO_GF_CARPENTERS_FREE)),
-        (EventLocations.RR_ROOT_LOGIC_TH_COULD_FREE_DOUBLE_CELL_CARPENTER, Events.LOGIC_TH_COULD_FREE_DOUBLE_CELL_CARPENTER, lambda bundle: (OptionFilter(RSK_GERUDO_FORTRESS, RandomizerSettingKey.RO_GF_CARPENTERS_FREE)) | (OptionFilter(RSK_GERUDO_FORTRESS, RandomizerSettingKey.RO_GF_CARPENTERS_FAST))),
-        (EventLocations.RR_ROOT_LOGIC_TH_COULD_FREE_DEAD_END_CARPENTER, Events.LOGIC_TH_COULD_FREE_DEAD_END_CARPENTER, lambda bundle: (OptionFilter(RSK_GERUDO_FORTRESS, RandomizerSettingKey.RO_GF_CARPENTERS_FREE)) | (OptionFilter(RSK_GERUDO_FORTRESS, RandomizerSettingKey.RO_GF_CARPENTERS_FAST))),
-        (EventLocations.RR_ROOT_LOGIC_TH_COULD_FREE_SLOPE_CARPENTER, Events.LOGIC_TH_COULD_FREE_SLOPE_CARPENTER, lambda bundle: (OptionFilter(RSK_GERUDO_FORTRESS, RandomizerSettingKey.RO_GF_CARPENTERS_FREE)) | (OptionFilter(RSK_GERUDO_FORTRESS, RandomizerSettingKey.RO_GF_CARPENTERS_FAST))),
-        (EventLocations.RR_ROOT_LOGIC_TH_RESCUED_ALL_CARPENTERS, Events.LOGIC_TH_RESCUED_ALL_CARPENTERS, lambda bundle: OptionFilter(RSK_GERUDO_FORTRESS, RandomizerSettingKey.RO_GF_CARPENTERS_FREE)),
-        (EventLocations.RR_ROOT_LOGIC_FREED_EPONA, Events.LOGIC_FREED_EPONA, lambda bundle: OptionFilter(RSK_SKIP_EPONA_RACE, RandomizerSettingKey.RO_GENERIC_YES)),
+        (EventLocations.RR_ROOT_LOGIC_KAKARIKO_GATE_OPEN, Events.LOGIC_KAKARIKO_GATE_OPEN, lambda bundle: True_(options=[OptionFilter(RSK_KAK_GATE, RandomizerSettingKey.RO_KAK_GATE_OPEN)])),
+        (EventLocations.RR_ROOT_LOGIC_TH_COULD_FREE_1_TORCH_CARPENTER, Events.LOGIC_TH_COULD_FREE_1_TORCH_CARPENTER, lambda bundle: True_(options=[OptionFilter(RSK_GERUDO_FORTRESS, RandomizerSettingKey.RO_GF_CARPENTERS_FREE)])),
+        (EventLocations.RR_ROOT_LOGIC_TH_COULD_FREE_DOUBLE_CELL_CARPENTER, Events.LOGIC_TH_COULD_FREE_DOUBLE_CELL_CARPENTER, lambda bundle: True_(options=[OptionFilter(RSK_GERUDO_FORTRESS, RandomizerSettingKey.RO_GF_CARPENTERS_FREE)]) | True_(options=[OptionFilter(RSK_GERUDO_FORTRESS, RandomizerSettingKey.RO_GF_CARPENTERS_FAST)])),
+        (EventLocations.RR_ROOT_LOGIC_TH_COULD_FREE_DEAD_END_CARPENTER, Events.LOGIC_TH_COULD_FREE_DEAD_END_CARPENTER, lambda bundle: True_(options=[OptionFilter(RSK_GERUDO_FORTRESS, RandomizerSettingKey.RO_GF_CARPENTERS_FREE)]) | True_(options=[OptionFilter(RSK_GERUDO_FORTRESS, RandomizerSettingKey.RO_GF_CARPENTERS_FAST)])),
+        (EventLocations.RR_ROOT_LOGIC_TH_COULD_FREE_SLOPE_CARPENTER, Events.LOGIC_TH_COULD_FREE_SLOPE_CARPENTER, lambda bundle: True_(options=[OptionFilter(RSK_GERUDO_FORTRESS, RandomizerSettingKey.RO_GF_CARPENTERS_FREE)]) | True_(options=[OptionFilter(RSK_GERUDO_FORTRESS, RandomizerSettingKey.RO_GF_CARPENTERS_FAST)])),
+        (EventLocations.RR_ROOT_LOGIC_TH_RESCUED_ALL_CARPENTERS, Events.LOGIC_TH_RESCUED_ALL_CARPENTERS, lambda bundle: True_(options=[OptionFilter(RSK_GERUDO_FORTRESS, RandomizerSettingKey.RO_GF_CARPENTERS_FREE)])),
+        (EventLocations.RR_ROOT_LOGIC_FREED_EPONA, Events.LOGIC_FREED_EPONA, lambda bundle: True_(options=[OptionFilter(RSK_SKIP_EPONA_RACE, True)])),
     ])
     # Locations
     add_locations(Regions.RR_ROOT, world, [
         (Locations.RC_LINKS_POCKET, lambda bundle: True_()),
         (Locations.RC_TRIFORCE_COMPLETED, lambda bundle: CanWinTriforceHunt()),
         (Locations.RC_SARIA_SONG_HINT, lambda bundle: can_use(bundle, Items.RG_SARIAS_SONG)),
-        (Locations.RC_SONG_FROM_IMPA, lambda bundle: OptionFilter(RSK_SKIP_CHILD_ZELDA, RandomizerSettingKey.RO_GENERIC_YES)),
-        (Locations.RC_HC_MALON_EGG, lambda bundle: OptionFilter(RSK_SKIP_CHILD_ZELDA, RandomizerSettingKey.RO_GENERIC_YES)),
-        (Locations.RC_HC_ZELDAS_LETTER, lambda bundle: OptionFilter(RSK_SKIP_CHILD_ZELDA, RandomizerSettingKey.RO_GENERIC_YES)),
-        (Locations.RC_TOT_MASTER_SWORD, lambda bundle: OptionFilter(RSK_SELECTED_STARTING_AGE, RandomizerSettingKey.RO_AGE_ADULT)),
+        (Locations.RC_SONG_FROM_IMPA, lambda bundle: True_(options=[OptionFilter(RSK_SKIP_CHILD_ZELDA, True)])),
+        (Locations.RC_HC_MALON_EGG, lambda bundle: True_(options=[OptionFilter(RSK_SKIP_CHILD_ZELDA, True)])),
+        (Locations.RC_HC_ZELDAS_LETTER, lambda bundle: True_(options=[OptionFilter(RSK_SKIP_CHILD_ZELDA, True)])),
+        (Locations.RC_TOT_MASTER_SWORD, lambda bundle: True_(options=[OptionFilter(RSK_SELECTED_STARTING_AGE, RandomizerSettingKey.RO_AGE_ADULT)])),
     ])
     # Exits
     connect_regions(Regions.RR_ROOT, world, [

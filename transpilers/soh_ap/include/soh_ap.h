@@ -32,9 +32,19 @@ private:
 	std::string GenerateExpression(const rls::ast::MatchExpr& node) const;
 	std::string GenerateExpression(const rls::ast::Expr::Variant& node) const;
 	
+	// True if this binary expression is a `setting(KEY) == VALUE` / `!= VALUE` comparison,
+	// which is emitted as an atomic OptionFilter rule rather than a Python comparison.
+	bool IsSettingComparison(const rls::ast::BinaryExpr& node) const;
+
 	// Helper to convert setting(KEY) == VALUE expressions to OptionFilter(...) form for RuleBuilder.
 	// Returns empty string if not a setting comparison; caller should use fallback.
 	std::string TryGenerateOptionFilter(const rls::ast::BinaryExpr& node) const;
+
+	// Wraps an OptionFilter argument list as a standalone RuleBuilder rule:
+	// `True_(options=[OptionFilter(<args>)])`. A bare OptionFilter is not a Rule and cannot
+	// combine with another OptionFilter via & / |, so every setting comparison is wrapped in
+	// its own rule. This keeps each comparison a valid standalone rule that composes normally.
+	std::string WrapOptionFilter(const std::string& optionFilterArgs) const;
 
 	const rls::ast::Project& project;
 	mutable std::optional<std::string> currentLocationName;

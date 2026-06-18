@@ -13,5 +13,5 @@ if(BUILD_TESTING)
     )
 
     rls_add_gtest(ap_tests ${ap_test_sources})
-    target_link_libraries(ap_tests PRIVATE soh_ap)
+    target_link_libraries(ap_tests PRIVATE soh_ap parser sema)
 endif()
