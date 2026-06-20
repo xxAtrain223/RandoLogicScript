@@ -471,6 +471,15 @@ TEST(SohExpressions, CallDefinedFunctions) {
 		"    any_age(cond)\n",
 		"gate")),
 		"any_age(cond)");
+
+	EXPECT_EQ(GenerateExpression(sourceToExpression(
+		"define make_cond(cond: Condition):\n"
+		"    cond\n"
+		"\n"
+		"define test(cond: Condition):\n"
+		"    make_cond(cond)()\n",
+		"test")),
+		"make_cond(cond)()");
 }
 
 TEST(SohExpressions, AnyAgeBlockSimple) {

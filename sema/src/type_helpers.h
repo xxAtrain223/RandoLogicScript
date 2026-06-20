@@ -102,6 +102,8 @@ inline void collectCallNames(
 			for (const auto& arg : node.args) {
 				collectCallNames(*arg.value, out);
 			}
+		} else if constexpr (std::is_same_v<N, ast::InvokeExpr>) {
+			collectCallNames(*node.callee, out);
 		} else if constexpr (std::is_same_v<N, ast::SharedBlock>) {
 			for (const auto& branch : node.branches) {
 				collectCallNames(*branch.condition, out);

@@ -209,6 +209,10 @@ std::string SohTranspiler::GenerateExpression(const rls::ast::CallExpr& node) co
     return oss.str();
 }
 
+std::string SohTranspiler::GenerateExpression(const rls::ast::InvokeExpr& node) const {
+    return GenerateExpression(node.callee) + "()";
+}
+
 std::string SohTranspiler::GenerateExpression(const rls::ast::SharedBlock& node) const {
     std::ostringstream oss;
 

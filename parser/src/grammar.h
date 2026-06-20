@@ -280,6 +280,13 @@ struct arg_list : opt<list<arg, seq<_, comma, _>>> {};
 /// Function call:  IDENT "(" arg_list ")"
 struct call : seq<ident, _, open_paren, must<_, arg_list, _, close_paren>> {};
 
+/// Invoke-call suffix for callable evaluation: "()".
+struct invoke_suffix : seq<open_paren, _, close_paren> {};
+
+/// Callable invocation from a call result: call "()"+
+/// Example: make_cond(has(RG_HOOKSHOT))()
+struct invoke_call : seq<call, plus<seq<_, invoke_suffix>>> {};
+
 /// shared_branch = "from" (IDENT | "here") ":" expr
 struct shared_branch : seq<kw<kw_from>, must<_, sor<kw<kw_here>, ident>, _, colon, _, expr>> {};
 
@@ -302,13 +309,14 @@ struct match_expr;
 /// Parenthesised expression: "(" expr ")"
 struct paren_expr : seq<open_paren, must<_, expr, _, close_paren>> {};
 
-/// primary = call | shared_block | any_age_block | match_expr | atom | "(" expr ")"
+/// primary = invoke_call | call | shared_block | any_age_block | match_expr | atom | "(" expr ")"
 ///
 /// Ordering matters:
+///   - `invoke_call` before `call` (both start with a call prefix)
 ///   - `call` before `atom` (both start with `ident`, but call continues with "(")
 ///   - `shared_block` before `any_age_block` (shared can contain "any_age")
 ///   - `match_expr` before `atom` (match starts with `kw_match` keyword)
-struct primary : sor<call, shared_block, any_age_block, match_expr, paren_expr, atom> {};
+struct primary : sor<invoke_call, call, shared_block, any_age_block, match_expr, paren_expr, atom> {};
 
 // -- Unary / binary / ternary -------------------------------------------------
 

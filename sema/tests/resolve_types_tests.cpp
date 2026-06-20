@@ -603,6 +603,19 @@ TEST(ResolveTypes, DefineConditionRequiresInvocationParentheses) {
 	EXPECT_NE(diags[0].message.find("'and' requires Bool operands, left is Condition"), std::string::npos);
 }
 
+TEST(ResolveTypes, DefineCanReturnCallableAndInvokeResult) {
+	auto [project, diags] = resolveFromSource(
+		"define make_cond(cond: Condition): cond\n"
+		"define run(cond: Condition): make_cond(cond)()\n"
+		"region RR_TEST {\n"
+		"    name: \"Test\"\n"
+		"    scene: SCENE_TEST\n"
+		"    locations { TEST_LOC: run(has(RG_BOOMERANG)) }\n"
+		"}\n");
+	EXPECT_TRUE(diags.empty());
+	EXPECT_EQ(project.getType(findRegionEntry(project)), Type::Bool);
+}
+
 TEST(ResolveTypes, DefineCallArgTypeMatch) {
 	// define foo(x: Item): has(x)
 	// Call: foo(RG_HOOKSHOT) — correct arg type.

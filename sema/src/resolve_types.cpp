@@ -656,6 +656,24 @@ struct ExprResolver {
 		return T::Error;
 	}
 
+	ast::Type resolve(const ast::InvokeExpr& node, const ast::Expr& expr) {
+		auto calleeType = resolveExpr(*node.callee);
+		if (calleeType == T::Error) {
+			return T::Error;
+		}
+
+		if (calleeType != T::Callable && calleeType != T::Condition) {
+			diags.push_back({
+				ast::DiagnosticLevel::Error,
+				std::format("expression is not callable (type {})", typeName(calleeType)),
+				expr.span
+			});
+			return T::Error;
+		}
+
+		return T::Bool;
+	}
+
 	ast::Type resolve(const ast::SharedBlock& node, const ast::Expr&) {
 		for (auto& branch : node.branches) {
 			inferUntypedParamIdentifier(*branch.condition, ast::Type::Bool);

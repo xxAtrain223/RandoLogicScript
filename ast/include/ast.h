@@ -175,6 +175,14 @@ struct CallExpr {
 		: callee(std::move(callee)), args(std::move(args)) {}
 };
 
+/// Invoke a callable expression result: `<callee>()`.
+struct InvokeExpr {
+	ExprPtr callee;
+
+	InvokeExpr(ExprPtr callee)
+		: callee(std::move(callee)) {}
+};
+
 /// One branch of a `shared` block: `from <region>: <condition>` or
 /// `from here: <condition>`.
 struct SharedBranch {
@@ -237,6 +245,7 @@ struct Expr {
 		BinaryExpr,
 		TernaryExpr,
 		CallExpr,
+		InvokeExpr,
 		SharedBlock,
 		AnyAgeBlock,
 		MatchExpr

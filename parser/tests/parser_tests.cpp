@@ -374,6 +374,16 @@ TEST(ParseExpr, AnyAgeFunctionCall) {
 	EXPECT_TRUE(std::holds_alternative<CallExpr>(c.args[0].value->node));
 }
 
+TEST(ParseExpr, InvokeCallResult) {
+	const auto& e = parseExpr("make_cond(has(RG_HOOKSHOT))()");
+	ASSERT_TRUE(std::holds_alternative<InvokeExpr>(e.node));
+	const auto& invoke = std::get<InvokeExpr>(e.node);
+	ASSERT_TRUE(std::holds_alternative<CallExpr>(invoke.callee->node));
+	const auto& call = std::get<CallExpr>(invoke.callee->node);
+	EXPECT_EQ(call.callee.text, "make_cond");
+	ASSERT_EQ(call.args.size(), 1u);
+}
+
 TEST(ParseExpr, CallSinglePositionalArg) {
 	const auto& e = parseExpr("has(RG_HOOKSHOT)");
 	ASSERT_TRUE(std::holds_alternative<CallExpr>(e.node));
