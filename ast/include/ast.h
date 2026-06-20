@@ -422,6 +422,8 @@ struct File {
 enum class Type {
     Bool,       // true, false, always, never, and/or/not, conditions
     Int,        // integer literals, arithmetic results, hearts(), keys(), etc.
+	Callable,   // generic callable value
+	Condition,  // callable with signature () -> Bool
     Item,       // RG_*
     Enemy,      // RE_*
     Distance,   // ED_*

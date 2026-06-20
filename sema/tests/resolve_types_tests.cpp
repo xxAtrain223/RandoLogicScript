@@ -52,6 +52,7 @@ static std::string withHostExterns(const std::string& source) {
 		"extern define keys(sc: Scene, amount: Int) -> Bool\n"
 		"extern define setting(opt: Setting) -> Setting\n"
 		"extern define trick(rule: Trick) -> Bool\n"
+		"extern define any_age(condition: Condition) -> Bool\n"
 		"extern define hearts() -> Int\n"
 		"extern define check_price(chk: Check = RC_UNKNOWN_CHECK) -> Int\n"
 		+ source;
@@ -516,6 +517,17 @@ TEST(ResolveTypes, HostCallMissingRequiredNamedArg) {
 		"}\n");
 	EXPECT_EQ(countErrors(diags), 1u);
 	EXPECT_NE(diags[0].message.find("missing required argument(s): sc"), std::string::npos);
+}
+
+TEST(ResolveTypes, HostCallConditionArgAcceptsBoolExpression) {
+	auto [project, diags] = resolveFromSource(
+		"region RR_TEST {\n"
+		"    name: \"Test\"\n"
+		"    scene: SCENE_TEST\n"
+		"    locations { TEST_LOC: any_age(has(RG_HOOKSHOT) or can_use(RG_BOOMERANG)) }\n"
+		"}\n");
+	EXPECT_TRUE(diags.empty());
+	EXPECT_EQ(project.getType(findRegionEntry(project)), Type::Bool);
 }
 
 // -- Unknown function ---------------------------------------------------------
@@ -1326,6 +1338,8 @@ TEST(ResolveTypes, CompositeExpression) {
 TEST(TypeAnnotation, AllTypes) {
 	EXPECT_EQ(typeFromAnnotation("Bool"),       Type::Bool);
 	EXPECT_EQ(typeFromAnnotation("Int"),        Type::Int);
+	EXPECT_EQ(typeFromAnnotation("Callable"),   Type::Callable);
+	EXPECT_EQ(typeFromAnnotation("Condition"),  Type::Condition);
 	EXPECT_EQ(typeFromAnnotation("Item"),       Type::Item);
 	EXPECT_EQ(typeFromAnnotation("Enemy"),      Type::Enemy);
 	EXPECT_EQ(typeFromAnnotation("Distance"),   Type::Distance);

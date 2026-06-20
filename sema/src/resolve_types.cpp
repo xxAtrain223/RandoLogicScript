@@ -455,6 +455,16 @@ struct ExprResolver {
 		const ast::CallExpr& node,
 		GetParamType&& getParamType)
 	{
+		auto isCallArgCompatible = [](T expected, T actual) {
+			if (expected == T::Condition) {
+				return actual == T::Condition || isBoolCompatible(actual);
+			}
+			if (expected == T::Callable) {
+				return actual == T::Callable || actual == T::Condition || isBoolCompatible(actual);
+			}
+			return actual == expected;
+		};
+
 		for (size_t argIndex = 0; argIndex < argTypes.size(); ++argIndex) {
 			if (!binding.argToParam[argIndex]) continue;
 
@@ -468,7 +478,7 @@ struct ExprResolver {
 			}
 
 			if (argTypes[argIndex] == T::Error) continue;
-			if (argTypes[argIndex] == *paramType) continue;
+			if (isCallArgCompatible(*paramType, argTypes[argIndex])) continue;
 
 			diags.push_back({
 				ast::DiagnosticLevel::Error,

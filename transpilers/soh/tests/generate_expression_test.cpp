@@ -373,6 +373,13 @@ TEST(SohExpressions, CallHostFunctions) {
 		"    big_poes()\n",
 		"test")),
 		"big_poes()");
+
+	EXPECT_EQ(GenerateExpression(sourceToExpression(
+		"extern define any_age(condition: Condition) -> Bool\n"
+		"define test():\n"
+		"    any_age(has(RG_HOOKSHOT) or can_use(RG_BOOMERANG))\n",
+		"test")),
+		"any_age([]{return has(RandomizerGet::RG_HOOKSHOT) || can_use(RandomizerGet::RG_BOOMERANG);})");
 }
 
 TEST(SohExpressions, CallExternDefineReorderedAndDefaultedArgs) {

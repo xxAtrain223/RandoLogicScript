@@ -365,6 +365,15 @@ TEST(ParseExpr, CallNoArgs) {
 	EXPECT_TRUE(call.args.empty());
 }
 
+TEST(ParseExpr, AnyAgeFunctionCall) {
+	const auto& e = parseExpr("any_age(has(RG_HOOKSHOT))");
+	ASSERT_TRUE(std::holds_alternative<CallExpr>(e.node));
+	const auto& c = std::get<CallExpr>(e.node);
+	EXPECT_EQ(c.callee.text, "any_age");
+	ASSERT_EQ(c.args.size(), 1u);
+	EXPECT_TRUE(std::holds_alternative<CallExpr>(c.args[0].value->node));
+}
+
 TEST(ParseExpr, CallSinglePositionalArg) {
 	const auto& e = parseExpr("has(RG_HOOKSHOT)");
 	ASSERT_TRUE(std::holds_alternative<CallExpr>(e.node));

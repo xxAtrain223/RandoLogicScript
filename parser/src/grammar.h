@@ -193,8 +193,6 @@ struct reserved : sor<
 	kw<kw_not>,
 	// Comparison alias
 	kw<kw_is>,
-	// Age and time
-	kw<kw_any_age>,
 	// Shared blocks
 	kw<kw_shared>,
 	kw<kw_from>,
