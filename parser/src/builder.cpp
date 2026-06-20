@@ -255,14 +255,6 @@ ast::ExprPtr buildExpr(const Node& n, Diags& diags) {
 			ast::SharedBlock(anyAge, std::move(branches)), makeSpan(n));
 	}
 
-	// -- Any-age block --------------------------------------------------------
-
-	if (n.is_type<grammar::any_age_block>()) {
-		// children: [kw_any_age, body_expr]
-		return ast::makeExpr(
-			ast::AnyAgeBlock(buildExpr(*n.children.back(), diags)), makeSpan(n));
-	}
-
 	// -- Match expression -----------------------------------------------------
 
 	if (n.is_type<grammar::match_expr>()) {

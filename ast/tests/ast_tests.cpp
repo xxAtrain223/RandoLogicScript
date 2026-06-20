@@ -152,14 +152,16 @@ TEST(ExprTests, SharedBlockAnyAge) {
 	EXPECT_TRUE(std::get<SharedBlock>(expr->node).anyAge);
 }
 
-TEST(ExprTests, AnyAgeBlock) {
-	// any_age { can_kill(RE_ARMOS) }
-	auto expr = makeExpr(AnyAgeBlock(
-		makeExpr(CallExpr(Name("can_kill"), {}))
-	));
-	ASSERT_TRUE(std::holds_alternative<AnyAgeBlock>(expr->node));
-	const auto& inner = std::get<AnyAgeBlock>(expr->node).body;
-	EXPECT_TRUE(std::holds_alternative<CallExpr>(inner->node));
+TEST(ExprTests, AnyAgeHostCall) {
+	// any_age(can_kill(RE_ARMOS))
+	std::vector<Arg> args;
+	args.emplace_back(std::nullopt, makeExpr(CallExpr(Name("can_kill"), {})));
+	auto expr = makeExpr(CallExpr(Name("any_age"), std::move(args)));
+	ASSERT_TRUE(std::holds_alternative<CallExpr>(expr->node));
+	const auto& call = std::get<CallExpr>(expr->node);
+	EXPECT_EQ(call.callee, "any_age");
+	ASSERT_EQ(call.args.size(), 1u);
+	EXPECT_TRUE(std::holds_alternative<CallExpr>(call.args[0].value->node));
 }
 
 TEST(ExprTests, MatchExpr) {

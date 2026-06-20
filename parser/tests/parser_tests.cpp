@@ -483,13 +483,15 @@ TEST(ParseExpr, SharedMultipleBranches) {
 	EXPECT_EQ(std::get<SharedBlock>(e.node).branches.size(), 3u);
 }
 
-// == Any-age block ============================================================
+// == Any-age host function ====================================================
 
-TEST(ParseExpr, AnyAgeBlock) {
-	const auto& e = parseExpr("any_age { has(RG_HOOKSHOT) }");
-	ASSERT_TRUE(std::holds_alternative<AnyAgeBlock>(e.node));
-	const auto& aab = std::get<AnyAgeBlock>(e.node);
-	EXPECT_TRUE(std::holds_alternative<CallExpr>(aab.body->node));
+TEST(ParseExpr, AnyAgeCall) {
+	const auto& e = parseExpr("any_age(has(RG_HOOKSHOT))");
+	ASSERT_TRUE(std::holds_alternative<CallExpr>(e.node));
+	const auto& call = std::get<CallExpr>(e.node);
+	EXPECT_EQ(call.callee, "any_age");
+	ASSERT_EQ(call.args.size(), 1u);
+	EXPECT_TRUE(std::holds_alternative<CallExpr>(call.args[0].value->node));
 }
 
 // == Match expression =========================================================
@@ -1066,17 +1068,19 @@ TEST(ParseRealistic, SharedInRegionExit) {
 	EXPECT_FALSE(sb.branches[1].region.has_value());
 }
 
-TEST(ParseRealistic, AnyAgeInRegionExit) {
+TEST(ParseRealistic, AnyAgeCallInRegionExit) {
 	const auto file = parse(
 		"region RR_TEST {\n"
 		"  name: \"Test\"\n"
 		"  scene: SCENE_TEST\n"
 		"  exits {\n"
-		"    RR_TARGET: any_age { has(RG_HOOKSHOT) or has(RG_BOOMERANG) }\n"
+		"    RR_TARGET: any_age(has(RG_HOOKSHOT) or has(RG_BOOMERANG))\n"
 		"  }\n"
 		"}\n"
 	);
 	const auto& region = std::get<RegionDecl>(file.declarations[0]);
 	const auto& exits = region.body.sections[0];
-	ASSERT_TRUE(std::holds_alternative<AnyAgeBlock>(exits.entries[0].condition->node));
+	ASSERT_TRUE(std::holds_alternative<CallExpr>(exits.entries[0].condition->node));
+	const auto& call = std::get<CallExpr>(exits.entries[0].condition->node);
+	EXPECT_EQ(call.callee, "any_age");
 }

@@ -772,20 +772,6 @@ struct ExprResolver {
 		return ast::Type::Bool;
 	}
 
-	ast::Type resolve(const ast::AnyAgeBlock& node, const ast::Expr&) {
-		inferUntypedParamIdentifier(*node.body, ast::Type::Bool);
-		auto bodyType = resolveExpr(*node.body);
-		if (bodyType != ast::Type::Error && !isBoolCompatible(bodyType)) {
-			diags.push_back({
-				ast::DiagnosticLevel::Error,
-				std::format("any_age body must be Bool, got {}",
-					typeName(bodyType)),
-				node.body->span
-			});
-		}
-		return ast::Type::Bool;
-	}
-
 	ast::Type resolve(const ast::MatchExpr& node, const ast::Expr& expr) {
 		using T = ast::Type;
 
@@ -943,8 +929,6 @@ static void collectDefineCalls(
 			for (const auto& branch : node.branches) {
 				collectDefineCalls(*branch.condition, defines, out);
 			}
-		} else if constexpr (std::is_same_v<N, ast::AnyAgeBlock>) {
-			collectDefineCalls(*node.body, defines, out);
 		} else if constexpr (std::is_same_v<N, ast::MatchExpr>) {
 			collectDefineCalls(*node.discriminant, defines, out);
 			for (const auto& arm : node.arms) {
@@ -1205,9 +1189,6 @@ std::vector<ast::Diagnostic> resolveTypes(ast::Project& project) {
 						}
 						populateHere(region, branch.condition);
 					}
-				}
-				else if constexpr (std::is_same_v<T, ast::AnyAgeBlock>) {
-					populateHere(region, node.body);
 				}
 				else if constexpr (std::is_same_v<T, ast::MatchExpr>) {
 					for (auto& arm : node.arms) {

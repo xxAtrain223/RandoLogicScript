@@ -1136,29 +1136,29 @@ TEST(ResolveTypes, SharedBlockFromHereInExit) {
 	EXPECT_EQ(shared.branches[1].region.value(), "RR_SPIRIT_TEMPLE_ADULT");
 }
 
-// -- Any-age block ------------------------------------------------------------
+// -- Any-age host function ----------------------------------------------------
 
-TEST(ResolveTypes, AnyAgeBlockBool) {
+TEST(ResolveTypes, AnyAgeCallBool) {
 	auto [project, diags] = resolveFromSource(
 		"region RR_TEST {\n"
 		"    name: \"Test\"\n"
 		"    scene: SCENE_TEST\n"
-		"    locations { TEST_LOC: any_age { true } }\n"
+		"    locations { TEST_LOC: any_age(true) }\n"
 		"}\n");
 	EXPECT_TRUE(diags.empty());
 	EXPECT_EQ(project.getType(findRegionEntry(project)), Type::Bool);
 }
 
-TEST(ResolveTypes, AnyAgeBlockNonBool) {
-	// any_age { RG_HOOKSHOT } — body is Item, not Bool.
+TEST(ResolveTypes, AnyAgeCallNonBoolArg) {
+	// any_age(RG_HOOKSHOT) — Item is not Condition-compatible.
 	auto [project, diags] = resolveFromSource(
 		"region RR_TEST {\n"
 		"    name: \"Test\"\n"
 		"    scene: SCENE_TEST\n"
-		"    locations { TEST_LOC: any_age { RG_HOOKSHOT } }\n"
+		"    locations { TEST_LOC: any_age(RG_HOOKSHOT) }\n"
 		"}\n");
 	EXPECT_EQ(countErrors(diags), 1u);
-	EXPECT_NE(diags[0].message.find("any_age body must be Bool"), std::string::npos);
+	EXPECT_NE(diags[0].message.find("argument 1 expected Condition, got Item"), std::string::npos);
 }
 
 // -- Match expression ---------------------------------------------------------

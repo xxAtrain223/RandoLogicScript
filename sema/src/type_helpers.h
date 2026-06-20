@@ -108,8 +108,6 @@ inline void collectCallNames(
 			for (const auto& branch : node.branches) {
 				collectCallNames(*branch.condition, out);
 			}
-		} else if constexpr (std::is_same_v<N, ast::AnyAgeBlock>) {
-			collectCallNames(*node.body, out);
 		} else if constexpr (std::is_same_v<N, ast::MatchExpr>) {
 			for (const auto& arm : node.arms) {
 				collectCallNames(*arm.body, out);

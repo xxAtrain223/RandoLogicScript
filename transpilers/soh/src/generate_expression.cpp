@@ -233,10 +233,6 @@ std::string SohTranspiler::GenerateExpression(const rls::ast::SharedBlock& node)
 	return oss.str();
 }
 
-std::string SohTranspiler::GenerateExpression(const rls::ast::AnyAgeBlock& node) const {
-	return "AnyAgeTime([]{return " + GenerateExpression(node.body) + ";})";
-}
-
 std::string SohTranspiler::GenerateExpression(const rls::ast::MatchExpr& node) const {
 	std::ostringstream oss;
 	oss << "rls::match(";

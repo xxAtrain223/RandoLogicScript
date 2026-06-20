@@ -310,9 +310,6 @@ struct shared_block : seq<
 	close_brace>
 > {};
 
-/// any_age_block = "any_age" "{" expr "}"
-struct any_age_block : seq<kw<kw_any_age>, must<_, open_brace, _, expr, _, close_brace>> {};
-
 // Forward declaration — match_expr is defined after ternary because its arms
 // need the match-aware or_expr variant (which depends on and_expr).
 struct match_expr;
@@ -320,14 +317,13 @@ struct match_expr;
 /// Parenthesised expression: "(" expr ")"
 struct paren_expr : seq<open_paren, must<_, expr, _, close_paren>> {};
 
-/// primary = invoke_call | call | shared_block | any_age_block | match_expr | atom | "(" expr ")"
+/// primary = invoke_call | call | shared_block | match_expr | atom | "(" expr ")"
 ///
 /// Ordering matters:
 ///   - `invoke_call` before `call` (both start with a call prefix)
 ///   - `call` before `atom` (both start with `ident`, but call continues with "(")
-///   - `shared_block` before `any_age_block` (shared can contain "any_age")
 ///   - `match_expr` before `atom` (match starts with `kw_match` keyword)
-struct primary : sor<invoke_call, call, shared_block, any_age_block, match_expr, paren_expr, atom> {};
+struct primary : sor<invoke_call, call, shared_block, match_expr, paren_expr, atom> {};
 
 // -- Unary / binary / ternary -------------------------------------------------
 

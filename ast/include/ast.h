@@ -203,13 +203,6 @@ struct SharedBlock {
 		: anyAge(anyAge), branches(std::move(branches)) {}
 };
 
-/// Any-age evaluation block: `any_age { <body> }`.
-struct AnyAgeBlock {
-	ExprPtr body;
-
-	AnyAgeBlock(ExprPtr body) : body(std::move(body)) {}
-};
-
 /// One arm of a `match` expression.
 struct MatchArm {
 	std::vector<ExprPtr> patterns;      // one or more match expressions
@@ -248,7 +241,6 @@ struct Expr {
 		CallExpr,
 		InvokeExpr,
 		SharedBlock,
-		AnyAgeBlock,
 		MatchExpr
 	>;
 

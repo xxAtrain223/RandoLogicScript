@@ -75,7 +75,6 @@ using selector = tao::pegtl::parse_tree::selector<
 		grammar::named_arg,
 		grammar::shared_block,
 		grammar::shared_branch,
-		grammar::any_age_block,
 		grammar::match_expr,
 		grammar::match_arm,
 		grammar::match_pattern
