@@ -503,6 +503,41 @@ TEST(SohExpressions, CallDefinedFunctions) {
 		"return_cond()");
 }
 
+TEST(SohExpressions, CallConditionParametersAndDefaults) {
+	EXPECT_EQ(GenerateExpression(sourceToExpression(
+		"define both(left: Condition, right: Condition):\n"
+		"    left() and right()\n"
+		"\n"
+		"define test():\n"
+		"    both(has(RG_HOOKSHOT) or can_use(RG_BOOMERANG), has(RG_FAIRY_BOW))\n",
+		"test")),
+		"both([]{return has(RandomizerGet::RG_HOOKSHOT) || can_use(RandomizerGet::RG_BOOMERANG);}, []{return has(RandomizerGet::RG_FAIRY_BOW);})");
+
+	EXPECT_EQ(GenerateExpression(sourceToExpression(
+		"define always_true():\n"
+		"    true\n"
+		"\n"
+		"define gate(cond: Condition = always_true):\n"
+		"    cond()\n"
+		"\n"
+		"define test():\n"
+		"    gate()\n",
+		"test")),
+		"gate(always_true)");
+
+	EXPECT_EQ(GenerateExpression(sourceToExpression(
+		"define always_true():\n"
+		"    true\n"
+		"\n"
+		"define gate(cond: Condition = always_true):\n"
+		"    cond()\n"
+		"\n"
+		"define test():\n"
+		"    gate(can_use(RG_BOOMERANG))\n",
+		"test")),
+		"gate([]{return can_use(RandomizerGet::RG_BOOMERANG);})");
+}
+
 TEST(SohExpressions, AnyAgeBlockSimple) {
 	auto expr = sourceToExpression(
 		"define test():\n"

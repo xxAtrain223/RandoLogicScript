@@ -616,6 +616,54 @@ TEST(ResolveTypes, DefineCanReturnCallableAndInvokeResult) {
 	EXPECT_EQ(project.getType(findRegionEntry(project)), Type::Bool);
 }
 
+TEST(ResolveTypes, DefineConditionParameterAcceptsCompoundExpression) {
+	auto [project, diags] = resolveFromSource(
+		"define gate(cond: Condition): cond() and has(RG_HOOKSHOT)\n"
+		"region RR_TEST {\n"
+		"    name: \"Test\"\n"
+		"    scene: SCENE_TEST\n"
+		"    locations { TEST_LOC: gate(has(RG_BOOMERANG) or can_use(RG_HOOKSHOT)) }\n"
+		"}\n");
+	EXPECT_TRUE(diags.empty());
+	EXPECT_EQ(project.getType(findRegionEntry(project)), Type::Bool);
+}
+
+TEST(ResolveTypes, DefineConditionParametersMultipleArguments) {
+	auto [project, diags] = resolveFromSource(
+		"define both(left: Condition, right: Condition): left() and right()\n"
+		"region RR_TEST {\n"
+		"    name: \"Test\"\n"
+		"    scene: SCENE_TEST\n"
+		"    locations { TEST_LOC: both(has(RG_HOOKSHOT), can_use(RG_BOOMERANG)) }\n"
+		"}\n");
+	EXPECT_TRUE(diags.empty());
+	EXPECT_EQ(project.getType(findRegionEntry(project)), Type::Bool);
+}
+
+TEST(ResolveTypes, DefineConditionDefaultUsedWhenOmitted) {
+	auto [project, diags] = resolveFromSource(
+		"define gate(cond: Condition = has(RG_HOOKSHOT)): cond()\n"
+		"region RR_TEST {\n"
+		"    name: \"Test\"\n"
+		"    scene: SCENE_TEST\n"
+		"    locations { TEST_LOC: gate() }\n"
+		"}\n");
+	EXPECT_TRUE(diags.empty());
+	EXPECT_EQ(project.getType(findRegionEntry(project)), Type::Bool);
+}
+
+TEST(ResolveTypes, DefineConditionDefaultCanBeOverridden) {
+	auto [project, diags] = resolveFromSource(
+		"define gate(cond: Condition = has(RG_HOOKSHOT)): cond()\n"
+		"region RR_TEST {\n"
+		"    name: \"Test\"\n"
+		"    scene: SCENE_TEST\n"
+		"    locations { TEST_LOC: gate(can_use(RG_BOOMERANG)) }\n"
+		"}\n");
+	EXPECT_TRUE(diags.empty());
+	EXPECT_EQ(project.getType(findRegionEntry(project)), Type::Bool);
+}
+
 TEST(ResolveTypes, DefineCanReturnFunctionReferenceAsCondition) {
 	auto [project, diags] = resolveFromSource(
 		"define always_true(): true\n"

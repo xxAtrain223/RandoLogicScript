@@ -432,6 +432,7 @@ struct File {
 enum class Type {
     Bool,       // true, false, always, never, and/or/not, conditions
     Int,        // integer literals, arithmetic results, hearts(), keys(), etc.
+	// TODO: Implement parameterized callable syntax (e.g., (Item) -> Bool).
 	Callable,   // generic callable value
 	Condition,  // callable with signature () -> Bool
     Item,       // RG_*

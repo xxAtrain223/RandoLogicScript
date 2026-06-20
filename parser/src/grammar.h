@@ -287,6 +287,17 @@ struct invoke_suffix : seq<open_paren, _, close_paren> {};
 /// Example: make_cond(has(RG_HOOKSHOT))()
 struct invoke_call : seq<call, plus<seq<_, invoke_suffix>>> {};
 
+// TODO: No Parameterized Callable Syntax - no grammar for function signatures.
+// Needed for generic callables: (Item) -> Bool, (Distance, Distance) -> Bool, etc.
+// Would require: (1) lambda/arrow syntax in grammar, (2) parameterized type checking,
+// (3) implicit thunking for callable parameter binding.
+// maybe [params] expr | IDENT -> expr | (Type, Type) -> Type
+
+// TODO: Function Composition Not Supported - cannot chain/nest callables.
+// Related to Gap #5: would need intermediate callable results.
+// Consider: (1) first-class function values with explicit types, (2) partial application,
+// (3) combinator syntax for composing multiple conditions.
+
 /// shared_branch = "from" (IDENT | "here") ":" expr
 struct shared_branch : seq<kw<kw_from>, must<_, sor<kw<kw_here>, ident>, _, colon, _, expr>> {};
 

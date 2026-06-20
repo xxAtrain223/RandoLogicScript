@@ -109,6 +109,7 @@ struct ExprResolver {
 		if (auto defIt = project.DefineDecls.find(node.name.text);
 			defIt != project.DefineDecls.end()) {
 			const auto* def = defIt->second;
+			// TODO: Zero-Argument Constraint — functions with parameters cannot be callable.
 			if (!def->params.empty()) {
 				diags.push_back({
 					ast::DiagnosticLevel::Error,
@@ -129,6 +130,7 @@ struct ExprResolver {
 				return ast::Type::Error;
 			}
 
+			// TODO: Bool-Return-Type Constraint — only () -> Bool functions become Condition.
 			if (*bodyType != ast::Type::Bool) {
 				diags.push_back({
 					ast::DiagnosticLevel::Error,
@@ -745,6 +747,11 @@ struct ExprResolver {
 			});
 			return T::Error;
 		}
+
+		// TODO: Nested Function Invocation Not Supported — InvokeExpr always returns Bool.
+		// To support foo()()(), InvokeExpr would need to return Callable/Condition types
+		// for chaining. Requires: (1) parameterized callable types, (2) higher-order logic,
+		// or (3) explicit curry syntax.
 
 		return T::Bool;
 	}
