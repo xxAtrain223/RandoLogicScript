@@ -176,27 +176,7 @@ can_use(RG_HOOKSHOT) or can_use(RG_BOOMERANG)
 has_explosives() or can_use(RG_MEGATON_HAMMER)
 ```
 
-### 4.2 Age & Time
-
-`any_age { ... }` evaluates its body across all age/time combinations that have access to the current region. The transpiler generates the appropriate `Region::AnyAgeTime()` call:
-
-```rls
-any_age { can_kill(RE_ARMOS) }     # region->AnyAgeTime([]{return logic->CanKillEnemy(RE_ARMOS);})
-```
-
-Since `any_age { ... }` is a first-class expression, it can appear anywhere a value is expected — including composed with `and`/`or` alongside other conditions:
-
-```rlsl
-can_hit_switch() and any_age { can_use(RG_DINS_FIRE) } and has(RG_OPEN_CHEST)
-```
-
-The transpiler generates:
-```cpp
-logic->CanHitSwitch() && AnyAgeTime([]{return logic->CanUse(RG_DINS_FIRE);})
-    && logic->HasItem(RG_OPEN_CHEST)
-```
-
-### 4.3 Region Definitions
+### 4.2 Region Definitions
 
 Events, locations, and exits are each `Name: condition` entries. The section header (`events`, `locations`, `exits`) determines the semantic meaning.
 
@@ -286,7 +266,7 @@ region RR_GERUDO_FORTRESS_FIGHT_2 {
 
 The transpiler treats this as a union - the location is reachable if *any* region containing it satisfies its condition. A duplicate location within the *same* region remains an error (see §8).
 
-### 4.4 Shared / Multi-Region Checks (Replacing SpiritShared)
+### 4.3 Shared / Multi-Region Checks (Replacing SpiritShared)
 
 The `SpiritShared` pattern is one of the most complex constructs. RLS replaces it with a `shared` block that makes the multi-region logic visually clear:
 
@@ -319,7 +299,7 @@ region RR_SPIRIT_TEMPLE_STATUE_ROOM_CHILD {
 
 #### `shared any_age` - AnyAge Evaluation within SpiritShared
 
-The C++ `SpiritShared()` function has a boolean `anyAge` parameter (default `false`). When `true`, it evaluates the condition with both Child and Adult access flags set based on which ages have CertainAccess to the region. This is used for events and checks where the result should reflect what *any* reachable age can accomplish - analogous to `any_age { ... }` but within the shared key-logic framework.
+The C++ `SpiritShared()` function has a boolean `anyAge` parameter (default `false`). When `true`, it evaluates the condition with both Child and Adult access flags set based on which ages have CertainAccess to the region. This is used for events and checks where the result should reflect what *any* reachable age can accomplish.
 
 In RLS, this is expressed by adding the `any_age` modifier after `shared`:
 
@@ -360,7 +340,7 @@ The `shared` block:
 4. The C++ transpiler generates the appropriate `SpiritShared()` call with lambdas.
 5. The expression tree generated for the logic tracker treats each `from` branch as a named child node, so the tracker can show which region's path is satisfied.
 
-### 4.5 Dungeon Variant Selection
+### 4.4 Dungeon Variant Selection
 
 ```rls
 region RR_SPIRIT_TEMPLE_ENTRYWAY {
@@ -377,7 +357,7 @@ region RR_SPIRIT_TEMPLE_ENTRYWAY {
 
 `is_vanilla()` / `is_mq()` transpiles to host functions of the same name. The dungeon is inferred from the region's scene.
 
-### 4.6 Functions
+### 4.5 Functions
 
 Reusable logic can be defined at file scope:
 
@@ -393,7 +373,7 @@ define spirit_east_to_switch():
 
 These are **pure** - no side effects, no mutation. The transpiler always generates them as callable functions (never inlined). For the C++ target, each `define` generates both a function (for the solver) and a named expression tree node (for the logic tracker, so users can see `spirit_explosive_key_logic()` as a collapsible node and drill into its children). For Python/Archipelago, they become Python functions.
 
-### 4.7 Ternary / Conditional Expressions
+### 4.6 Ternary / Conditional Expressions
 
 ```rls
 can_hit_switch(is_adult() and trick(RT_SPIRIT_LOWER_ADULT_SWITCH) ? ED_BOMB_THROW : ED_BOOMERANG)
@@ -405,7 +385,7 @@ logic->CanHitSwitch(logic->IsAdult && ctx->GetTrickOption(RT_SPIRIT_LOWER_ADULT_
     ? ED_BOMB_THROW : ED_BOOMERANG)
 ```
 
-### 4.8 Match Expressions
+### 4.7 Match Expressions
 
 Many combat and environment functions dispatch on a distance or enemy enum and need **fallthrough accumulation** - anything that works at close range also works at longer range. C++ uses `switch` with explicit fallthrough for this, but that pattern is error-prone and hard to read.
 
@@ -743,8 +723,6 @@ For `define` functions, the tree contains a node whose `DisplayText` is the func
 
 For `shared` blocks, each `from` branch becomes a named child node (e.g. `"from RR_SPIRIT_TEMPLE_GS_LEDGE"`), making it clear which region's path is contributing access.
 
-For `any_age { ... }` blocks, the tree node shows `"any_age { ... }"` and the tracker evaluates the child with all age/time flags set from the region.
-
 ### 6.2 Python / Archipelago Target
 
 The Python target generates code for the [Archipelago-SoH](https://github.com/HarbourMasters/Archipelago-SoH) project under `worlds/oot_soh/`. This is the primary reason for the Python target - so that SoH and Archipelago share the same logic source of truth, eliminating the manual porting that currently causes logic drift.
@@ -855,7 +833,7 @@ def set_region_rules(world: "SohWorld") -> None:
 The transpiler also generates:
 - `Regions`, `Locations`, `Items`, `Tricks`, `Events`, `Enemies` enum entries for any new values introduced by RLS files.
 - `item_name_to_id` and `location_name_to_id` mappings.
-- Flattened logic where needed - `shared` blocks are expanded into the appropriate per-path conditions, and `any_age { ... }` blocks are translated to the Archipelago model (which handles age/time differently than the C++ solver).
+- Flattened logic where needed - `shared` blocks are expanded into the appropriate per-path conditions, including `shared any_age` cases translated to the Archipelago model (which handles age/time differently than the C++ solver).
 
 #### Handling C++ ↔ Python Model Differences
 
@@ -871,7 +849,7 @@ The C++ and Archipelago models differ in important ways:
 
 The transpiler bridges these differences:
 - **`shared` blocks** → expanded into the union of per-path conditions in Python.
-- **`any_age { ... }`** → transpiled to conditions that check both ages where the Archipelago model requires it.
+- **`shared any_age { ... }`** → transpiled to conditions that check both ages where the Archipelago model requires it.
 - **Region mapping** → RLS regions map 1:1 to C++ regions. The Python transpiler can optionally merge regions that don't need to be separate in the Archipelago model (e.g. regions connected by `always`).
 - **`define` functions** → become Python helper functions at the top of the generated file.
 
@@ -912,7 +890,7 @@ comp_op       = "==" | "is" | "!=" | "is" "not" | ">=" | "<=" | ">" | "<" ;
 add_sub       = mul_div (("+" | "-") mul_div)* ;
 mul_div       = unary (("*" | "/") unary)* ;
 unary         = "not" unary | primary ;
-primary       = call | shared_block | any_age_block | match_expr | atom | "(" expr ")" ;
+primary       = call | shared_block | match_expr | atom | "(" expr ")" ;
 
 match_expr    = "match" IDENT "{" match_arm+ "}" ;
 match_arm     = match_pattern ":" expr trailing_or? ;
@@ -924,8 +902,6 @@ arg           = (IDENT ":" expr) | expr ;  /* named or positional */
 
 shared_block  = "shared" "any_age"? "{" shared_branch+ "}" ;
 shared_branch = "from" (IDENT | "here") ":" expr ;
-
-any_age_block = "any_age" "{" expr "}" ;
 
 atom          = "always" | "never"
               | "true" | "false"
@@ -940,7 +916,7 @@ type          = IDENT ;
 Key differences from the existing `LogicExpression` parser:
 - `and`/`or`/`not` keywords instead of `&&`/`||`/`!`. `is`/`is not` as aliases for `==`/`!=`.
 - `always`/`never` as keywords.
-- `shared { from ... }` and `any_age { ... }` as first-class expression blocks.
+- `shared { from ... }` as a first-class expression block.
 - `match <value> { ... }` expressions with trailing `or` for fallthrough accumulation.
 - File-level structure (`region`, `extend`, `define`, `extern define`).
 
@@ -1080,14 +1056,14 @@ region RR_SPIRIT_TEMPLE_CHILD_SIDE_HUB {
     events {
         LOGIC_NUT_ACCESS: can_break_small_crates()
         LOGIC_SPIRIT_SILVER_RUPEE_BRIDGE_TORCHES:
-            any_age { can_kill(RE_ARMOS) } and can_use(RG_STICKS)
+            can_kill(RE_ARMOS) and can_use(RG_STICKS)
     }
 
     exits {
         RR_SPIRIT_TEMPLE_FOYER:               can_use(RG_CRAWL)
         RR_SPIRIT_TEMPLE_CHILD_BOXES:         can_use(RG_CRAWL)
-        RR_SPIRIT_TEMPLE_SWITCH_BRIDGE_SOUTH: any_age { can_kill(RE_ARMOS) }
-        RR_SPIRIT_TEMPLE_RUPEE_BRIDGE_SOUTH:  any_age { can_kill(RE_ARMOS) }
+        RR_SPIRIT_TEMPLE_SWITCH_BRIDGE_SOUTH: can_kill(RE_ARMOS)
+        RR_SPIRIT_TEMPLE_RUPEE_BRIDGE_SOUTH:  can_kill(RE_ARMOS)
     }
 }
 
@@ -1171,7 +1147,6 @@ region RR_SPIRIT_TEMPLE_STATUE_ROOM_CHILD {
 | Boolean operators                | `&&` / `||` / `!`                                                                          | `and` / `or` / `not`                                                                    |
 | Setting comparisons              | `.Is(RO_*)` / `.IsNot(RO_*)` / `(bool)` cast                                               | `setting() is RO_*` / `is not RO_*` / bare truthiness                                   |
 | SpiritShared calls               | 3-region callback soup                                                                     | `shared { from ...: ... }` blocks                                                       |
-| Age/time helpers                 | `AnyAgeTime([]{...})`                                                                      | `any_age { ... }` blocks                                                                |
 | Variant selection                | `ctx->GetDungeon(...)->IsVanilla()`                                                        | `is_vanilla()` / `is_mq()` functions                                                    |
 | Logic tracker data               | Runtime parsing of stringified C++                                                         | Transpiler-generated `ExpressionNode` trees                                             |
 | Logic tracker display text       | `CleanConditionString(#condition)`                                                         | RLS source text embedded in generated structs                                           |
