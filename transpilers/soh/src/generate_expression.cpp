@@ -41,6 +41,8 @@ std::string SohTranspiler::GenerateExpression(const rls::ast::Identifier& node) 
         }
     } else if (node.kind == rls::ast::IdentifierKind::Parameter) {
         return node.name.text;
+    } else if (node.kind == rls::ast::IdentifierKind::FunctionRef) {
+        return node.name.text;
     } else {
         // Unresolved identifiers should have been blocked earlier in sema; emit empty as a defensive fallback.
         return "";

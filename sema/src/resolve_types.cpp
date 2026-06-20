@@ -106,6 +106,81 @@ struct ExprResolver {
 			return ast::Type::Error;
 		}
 
+		if (auto defIt = project.DefineDecls.find(node.name.text);
+			defIt != project.DefineDecls.end()) {
+			const auto* def = defIt->second;
+			if (!def->params.empty()) {
+				diags.push_back({
+					ast::DiagnosticLevel::Error,
+					std::format("function '{}' requires {} argument(s); only zero-argument functions can be used as callable values",
+						node.name.text, def->params.size()),
+					expr.span
+				});
+				return ast::Type::Error;
+			}
+
+			auto bodyType = project.getType(def->body.get());
+			if (!bodyType.has_value()) {
+				diags.push_back({
+					ast::DiagnosticLevel::Error,
+					std::format("function '{}' callable reference type is not available yet", node.name.text),
+					expr.span
+				});
+				return ast::Type::Error;
+			}
+
+			if (*bodyType != ast::Type::Bool) {
+				diags.push_back({
+					ast::DiagnosticLevel::Error,
+					std::format("function '{}' cannot be used as a Condition callable because it returns {}",
+						node.name.text, typeName(*bodyType)),
+					expr.span
+				});
+				return ast::Type::Error;
+			}
+
+			node.kind = ast::IdentifierKind::FunctionRef;
+			return ast::Type::Condition;
+		}
+
+		if (auto extIt = project.ExternDefineDecls.find(node.name.text);
+			extIt != project.ExternDefineDecls.end()) {
+			const auto* ext = extIt->second;
+			if (!ext->params.empty()) {
+				diags.push_back({
+					ast::DiagnosticLevel::Error,
+					std::format("function '{}' requires {} argument(s); only zero-argument functions can be used as callable values",
+						node.name.text, ext->params.size()),
+					expr.span
+				});
+				return ast::Type::Error;
+			}
+
+			if (!ext->returnType) {
+				diags.push_back({
+					ast::DiagnosticLevel::Error,
+					std::format("function '{}' cannot be used as callable value without a return type", node.name.text),
+					expr.span
+				});
+				return ast::Type::Error;
+			}
+
+			auto returnType = typeFromAnnotation(ext->returnType->name.text);
+			if (!returnType.has_value() || *returnType != ast::Type::Bool) {
+				diags.push_back({
+					ast::DiagnosticLevel::Error,
+					std::format("function '{}' cannot be used as a Condition callable because it returns {}",
+						node.name.text,
+						returnType.has_value() ? typeName(*returnType) : std::string_view{"<unknown>"}),
+					expr.span
+				});
+				return ast::Type::Error;
+			}
+
+			node.kind = ast::IdentifierKind::FunctionRef;
+			return ast::Type::Condition;
+		}
+
 		if (auto t = typeFromIdentifier(node.name.text)) {
 			node.kind = ast::IdentifierKind::EnumValue;
 			return *t;
@@ -833,13 +908,46 @@ static void collectDefineCalls(
 	const std::map<std::string, const ast::DefineDecl*>& defines,
 	std::unordered_set<std::string>& out)
 {
-	std::unordered_set<std::string> allCalls;
-	collectCallNames(expr, allCalls);
-	for (auto& name : allCalls) {
-		if (defines.contains(name)) {
-			out.insert(std::move(name));
+	std::visit([&](const auto& node) {
+		using N = std::decay_t<decltype(node)>;
+		if constexpr (std::is_same_v<N, ast::Identifier>) {
+			if (defines.contains(node.name.text)) {
+				out.insert(node.name.text);
+			}
+		} else if constexpr (std::is_same_v<N, ast::UnaryExpr>) {
+			collectDefineCalls(*node.operand, defines, out);
+		} else if constexpr (std::is_same_v<N, ast::BinaryExpr>) {
+			collectDefineCalls(*node.left, defines, out);
+			collectDefineCalls(*node.right, defines, out);
+		} else if constexpr (std::is_same_v<N, ast::TernaryExpr>) {
+			collectDefineCalls(*node.condition, defines, out);
+			collectDefineCalls(*node.thenBranch, defines, out);
+			collectDefineCalls(*node.elseBranch, defines, out);
+		} else if constexpr (std::is_same_v<N, ast::CallExpr>) {
+			if (defines.contains(node.callee.text)) {
+				out.insert(node.callee.text);
+			}
+			for (const auto& arg : node.args) {
+				collectDefineCalls(*arg.value, defines, out);
+			}
+		} else if constexpr (std::is_same_v<N, ast::InvokeExpr>) {
+			collectDefineCalls(*node.callee, defines, out);
+		} else if constexpr (std::is_same_v<N, ast::SharedBlock>) {
+			for (const auto& branch : node.branches) {
+				collectDefineCalls(*branch.condition, defines, out);
+			}
+		} else if constexpr (std::is_same_v<N, ast::AnyAgeBlock>) {
+			collectDefineCalls(*node.body, defines, out);
+		} else if constexpr (std::is_same_v<N, ast::MatchExpr>) {
+			collectDefineCalls(*node.discriminant, defines, out);
+			for (const auto& arm : node.arms) {
+				for (const auto& pattern : arm.patterns) {
+					collectDefineCalls(*pattern, defines, out);
+				}
+				collectDefineCalls(*arm.body, defines, out);
+			}
 		}
-	}
+	}, expr.node);
 }
 
 /// DFS helper for topological sort. Post-order traversal ensures callees

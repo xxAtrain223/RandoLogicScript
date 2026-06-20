@@ -54,6 +54,7 @@ enum class IdentifierKind {
 	Unresolved,
 	Parameter,
 	EnumValue,
+	FunctionRef,
 };
 
 // == Name-like syntax nodes ==================================================

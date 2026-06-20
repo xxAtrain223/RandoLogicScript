@@ -480,6 +480,27 @@ TEST(SohExpressions, CallDefinedFunctions) {
 		"    make_cond(cond)()\n",
 		"test")),
 		"make_cond(cond)()");
+
+	EXPECT_EQ(GenerateExpression(sourceToExpression(
+		"define always_true():\n"
+		"    true\n"
+		"\n"
+		"define return_cond():\n"
+		"    always_true\n",
+		"return_cond")),
+		"always_true");
+
+	EXPECT_EQ(GenerateExpression(sourceToExpression(
+		"define always_true():\n"
+		"    true\n"
+		"\n"
+		"define return_cond():\n"
+		"    always_true\n"
+		"\n"
+		"define test():\n"
+		"    return_cond()\n",
+		"test")),
+		"return_cond()");
 }
 
 TEST(SohExpressions, AnyAgeBlockSimple) {

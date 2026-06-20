@@ -616,6 +616,24 @@ TEST(ResolveTypes, DefineCanReturnCallableAndInvokeResult) {
 	EXPECT_EQ(project.getType(findRegionEntry(project)), Type::Bool);
 }
 
+TEST(ResolveTypes, DefineCanReturnFunctionReferenceAsCondition) {
+	auto [project, diags] = resolveFromSource(
+		"define always_true(): true\n"
+		"define return_cond(): always_true\n"
+		"define test(): return_cond()\n"
+		"region RR_TEST {\n"
+		"    name: \"Test\"\n"
+		"    scene: SCENE_TEST\n"
+		"    locations { TEST_LOC: test()() }\n"
+		"}\n");
+	EXPECT_TRUE(diags.empty());
+	EXPECT_EQ(project.getType(project.DefineDecls.at("return_cond")->body.get()), Type::Condition);
+	ASSERT_TRUE(std::holds_alternative<Identifier>(project.DefineDecls.at("return_cond")->body->node));
+	EXPECT_EQ(std::get<Identifier>(project.DefineDecls.at("return_cond")->body->node).kind, IdentifierKind::FunctionRef);
+	EXPECT_EQ(project.getType(project.DefineDecls.at("test")->body.get()), Type::Condition);
+	EXPECT_EQ(project.getType(findRegionEntry(project)), Type::Bool);
+}
+
 TEST(ResolveTypes, DefineCallArgTypeMatch) {
 	// define foo(x: Item): has(x)
 	// Call: foo(RG_HOOKSHOT) — correct arg type.
