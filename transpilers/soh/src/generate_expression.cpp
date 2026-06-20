@@ -140,6 +140,52 @@ std::string SohTranspiler::GenerateExpression(const rls::ast::TernaryExpr& node)
 		   GenerateExpression(node.elseBranch);
 }
 
+std::optional<rls::ast::Type> SohTranspiler::ResolveCallParamType(
+    const rls::ast::CallExpr& node,
+    size_t index) const
+{
+    if (auto externIt = project.ExternDefineDecls.find(node.callee.text);
+        externIt != project.ExternDefineDecls.end() && index < externIt->second->params.size()) {
+        return project.getType(&externIt->second->params[index]);
+    }
+
+    if (auto defineIt = project.DefineDecls.find(node.callee.text);
+        defineIt != project.DefineDecls.end() && index < defineIt->second->params.size()) {
+        return project.getType(&defineIt->second->params[index]);
+    }
+
+    return std::nullopt;
+}
+
+std::string SohTranspiler::GenerateCallArgument(
+    const rls::ast::Expr* argExpr,
+    std::optional<rls::ast::Type> paramType) const
+{
+    auto argType = project.getType(argExpr);
+    bool passConditionByValue = paramType.has_value()
+        && paramType.value() == rls::ast::Type::Condition
+        && argType.has_value()
+        && argType.value() == rls::ast::Type::Condition;
+
+    bool emitConditionThunk = paramType.has_value()
+        && paramType.value() == rls::ast::Type::Condition
+        && !passConditionByValue;
+
+    if (passConditionByValue) {
+        if (auto id = std::get_if<rls::ast::Identifier>(&argExpr->node);
+            id != nullptr && id->kind == rls::ast::IdentifierKind::Parameter) {
+            return id->name.text;
+        }
+        return GenerateExpression(argExpr->node);
+    }
+
+    if (emitConditionThunk) {
+        return "[]{return " + GenerateExpression(argExpr->node) + ";}";
+    }
+
+    return GenerateExpression(argExpr->node);
+}
+
 std::string SohTranspiler::GenerateExpression(const rls::ast::CallExpr& node) const {
     auto resolvedPtr = project.getResolvedCallArgs(&node);
     if (resolvedPtr == nullptr) {
@@ -149,12 +195,6 @@ std::string SohTranspiler::GenerateExpression(const rls::ast::CallExpr& node) co
     }
     const auto& resolved = *resolvedPtr;
 
-    const rls::ast::ExternDefineDecl* externDecl = nullptr;
-    auto externIt = project.ExternDefineDecls.find(node.callee.text);
-    if (externIt != project.ExternDefineDecls.end()) {
-        externDecl = externIt->second;
-    }
-
     std::ostringstream oss;
     oss << node.callee.text << "(";
     for (size_t i = 0; i < resolved.size(); ++i) {
@@ -162,20 +202,8 @@ std::string SohTranspiler::GenerateExpression(const rls::ast::CallExpr& node) co
             oss << ", ";
         }
 
-        bool emitConditionThunk = false;
-        if (externDecl != nullptr && i < externDecl->params.size()) {
-            auto paramType = project.getType(&externDecl->params[i]);
-            auto argType = project.getType(resolved[i]);
-            emitConditionThunk = paramType.has_value()
-                && paramType.value() == rls::ast::Type::Condition
-                && (!argType.has_value() || argType.value() != rls::ast::Type::Condition);
-        }
-
-        if (emitConditionThunk) {
-            oss << "[]{return " << GenerateExpression(resolved[i]->node) << ";}";
-        } else {
-            oss << GenerateExpression(resolved[i]->node);
-        }
+        auto paramType = ResolveCallParamType(node, i);
+        oss << GenerateCallArgument(resolved[i], paramType);
     }
     oss << ")";
     return oss.str();

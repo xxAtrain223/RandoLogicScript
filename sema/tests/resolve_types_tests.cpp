@@ -579,6 +579,30 @@ TEST(ResolveTypes, UserDefineCallResolvesReturnType) {
 	EXPECT_EQ(project.getType(findRegionEntry(project)), Type::Bool);
 }
 
+TEST(ResolveTypes, DefineCanEvaluateConditionParameter) {
+	auto [project, diags] = resolveFromSource(
+		"define gate(cond: Condition): cond() and has(RG_HOOKSHOT)\n"
+		"region RR_TEST {\n"
+		"    name: \"Test\"\n"
+		"    scene: SCENE_TEST\n"
+		"    locations { TEST_LOC: gate(has(RG_BOOMERANG)) }\n"
+		"}\n");
+	EXPECT_TRUE(diags.empty());
+	EXPECT_EQ(project.getType(findRegionEntry(project)), Type::Bool);
+}
+
+TEST(ResolveTypes, DefineConditionRequiresInvocationParentheses) {
+	auto [project, diags] = resolveFromSource(
+		"define gate(cond: Condition): cond and has(RG_HOOKSHOT)\n"
+		"region RR_TEST {\n"
+		"    name: \"Test\"\n"
+		"    scene: SCENE_TEST\n"
+		"    locations { TEST_LOC: gate(has(RG_BOOMERANG)) }\n"
+		"}\n");
+	EXPECT_EQ(countErrors(diags), 1u);
+	EXPECT_NE(diags[0].message.find("'and' requires Bool operands, left is Condition"), std::string::npos);
+}
+
 TEST(ResolveTypes, DefineCallArgTypeMatch) {
 	// define foo(x: Item): has(x)
 	// Call: foo(RG_HOOKSHOT) — correct arg type.

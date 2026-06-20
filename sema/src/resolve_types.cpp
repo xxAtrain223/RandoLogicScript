@@ -536,6 +536,40 @@ struct ExprResolver {
 			argTypes.push_back(resolveExpr(*arg.value));
 		}
 
+		auto isCallableType = [](T type) {
+			return type == T::Callable || type == T::Condition;
+		};
+
+		if (auto scopeIt = scope.find(node.callee.text); scopeIt != scope.end()) {
+			if (!scopeIt->second.has_value()) {
+				scopeIt->second = T::Condition;
+			}
+
+			auto calleeType = *scopeIt->second;
+			if (!isCallableType(calleeType)) {
+				diags.push_back({
+					ast::DiagnosticLevel::Error,
+					std::format("'{}' is not callable (type {})",
+						node.callee.text, typeName(calleeType)),
+					expr.span
+				});
+				return T::Error;
+			}
+
+			if (!node.args.empty()) {
+				diags.push_back({
+					ast::DiagnosticLevel::Error,
+					std::format("'{}' expects 0 argument(s), got {}",
+						node.callee.text, node.args.size()),
+					expr.span
+				});
+				return T::Error;
+			}
+
+			project.setResolvedCallArgs(&node, {});
+			return T::Bool;
+		}
+
 		// Extern-defined host functions.
 		if (auto it = project.ExternDefineDecls.find(node.callee.text);
 			it != project.ExternDefineDecls.end()) {

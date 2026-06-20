@@ -455,6 +455,22 @@ TEST(SohExpressions, CallDefinedFunctions) {
 		"    CanHitSwitch(ED_BOOMERANG)\n",
 		"test")),
 		"CanHitSwitch(EnemyDistance::ED_BOOMERANG, false)");
+
+	EXPECT_EQ(GenerateExpression(sourceToExpression(
+		"define gate(cond: Condition):\n"
+		"    cond() and has(RG_HOOKSHOT)\n"
+		"\n"
+		"define test():\n"
+		"    gate(has(RG_BOOMERANG))\n",
+		"test")),
+		"gate([]{return has(RandomizerGet::RG_BOOMERANG);})");
+
+	EXPECT_EQ(GenerateExpression(sourceToExpression(
+		"extern define any_age(condition: Condition) -> Bool\n"
+		"define gate(cond: Condition):\n"
+		"    any_age(cond)\n",
+		"gate")),
+		"any_age(cond)");
 }
 
 TEST(SohExpressions, AnyAgeBlockSimple) {
