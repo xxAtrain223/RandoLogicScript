@@ -1,6 +1,8 @@
-// Tests for OptionFilter generation: how `setting()` expressions become RuleBuilder
-// OptionFilters wrapped in standalone rules. Other transpiler behavior is covered by
-// separate test files.
+// SoH-specific rendering tests, exercised through expression generation. The generic
+// OptionFilter mechanics (wrapping, "ne", bare/negated truthiness, composition, parens)
+// are owned by the base ApTranspiler and tested under transpilers/ap. These tests cover
+// only what the SoH hooks add on top: enum-class prefixes, the generic yes/no value
+// mapping, and host-call rewrites.
 #include "helpers.h"
 
 using namespace rls::transpilers::soh_ap_tests;
@@ -30,9 +32,8 @@ static ResolvedExpression sourceToExpression(const std::string& source, const st
 	};
 }
 
-// A bare OptionFilter is not a RuleBuilder Rule, so a `setting(KEY) is VALUE` comparison
-// is wrapped in its own True_(options=[...]) rule.
-TEST(ApOptionFilters, SettingComparisonIsWrappedAsRule) {
+// A setting value identifier is rendered with the SoH RandomizerSettingKey enum prefix.
+TEST(SohApRendering, SettingValueGetsEnumPrefix) {
 	EXPECT_EQ(GenerateExpression(sourceToExpression(
 		"define test():\n"
 		"    setting(RSK_FOO) is RO_BAR\n",
@@ -40,26 +41,8 @@ TEST(ApOptionFilters, SettingComparisonIsWrappedAsRule) {
 		"True_(options=[OptionFilter(RSK_FOO, RandomizerSettingKey.RO_BAR)])");
 }
 
-// `is not` carries the "ne" operator through into the OptionFilter.
-TEST(ApOptionFilters, NotEqualSettingComparisonUsesNeOperator) {
-	EXPECT_EQ(GenerateExpression(sourceToExpression(
-		"define test():\n"
-		"    setting(RSK_FOO) is not RO_BAR\n",
-		"test")),
-		"True_(options=[OptionFilter(RSK_FOO, RandomizerSettingKey.RO_BAR, \"ne\")])");
-}
-
-// A bare setting() call is a truthiness check, emitted as OptionFilter(KEY, True).
-TEST(ApOptionFilters, BareSettingCallChecksTrue) {
-	EXPECT_EQ(GenerateExpression(sourceToExpression(
-		"define test():\n"
-		"    setting(RSK_FOO)\n",
-		"test")),
-		"True_(options=[OptionFilter(RSK_FOO, True)])");
-}
-
-// `is RO_GENERIC_YES`, OptionFilter(KEY, True).
-TEST(ApOptionFilters, GenericYesSettingCallChecksTrue) {
+// `is RO_GENERIC_YES` maps to the bare Python True via the SoH enum-value override.
+TEST(SohApRendering, GenericYesMapsToTrue) {
 	EXPECT_EQ(GenerateExpression(sourceToExpression(
 		"define test():\n"
 		"    setting(RSK_FOO) is RO_GENERIC_YES\n",
@@ -67,17 +50,8 @@ TEST(ApOptionFilters, GenericYesSettingCallChecksTrue) {
 		"True_(options=[OptionFilter(RSK_FOO, True)])");
 }
 
-// `not setting()` is the negated truthiness check, OptionFilter(KEY, False).
-TEST(ApOptionFilters, NegatedSettingCallChecksFalse) {
-	EXPECT_EQ(GenerateExpression(sourceToExpression(
-		"define test():\n"
-		"    not setting(RSK_FOO)\n",
-		"test")),
-		"True_(options=[OptionFilter(RSK_FOO, False)])");
-}
-
-// `is RO_GENERIC_NO`, OptionFilter(KEY, False).
-TEST(ApOptionFilters, GenericNoSettingCallChecksFalse) {
+// `is RO_GENERIC_NO` maps to the bare Python False.
+TEST(SohApRendering, GenericNoMapsToFalse) {
 	EXPECT_EQ(GenerateExpression(sourceToExpression(
 		"define test():\n"
 		"    setting(RSK_FOO) is RO_GENERIC_NO\n",
@@ -85,40 +59,9 @@ TEST(ApOptionFilters, GenericNoSettingCallChecksFalse) {
 		"True_(options=[OptionFilter(RSK_FOO, False)])");
 }
 
-// Two setting comparisons OR'd together cannot combine as bare OptionFilters in RuleBuilder.
-// Each must be wrapped in its own rule and joined with `|` so it stays a valid Or of rules.
-TEST(ApOptionFilters, AdjacentOrOfSettingsBecomesSeparateWrappedRules) {
-	EXPECT_EQ(GenerateExpression(sourceToExpression(
-		"define test():\n"
-		"    setting(RSK_FOO) is RO_BAR or setting(RSK_FOO) is RO_BAZ\n",
-		"test")),
-		"True_(options=[OptionFilter(RSK_FOO, RandomizerSettingKey.RO_BAR)]) | "
-		"True_(options=[OptionFilter(RSK_FOO, RandomizerSettingKey.RO_BAZ)])");
-}
-
-// The same applies to AND: each wrapped rule joins with `&`.
-TEST(ApOptionFilters, AdjacentAndOfSettingsBecomesSeparateWrappedRules) {
-	EXPECT_EQ(GenerateExpression(sourceToExpression(
-		"define test():\n"
-		"    setting(RSK_FOO) is RO_BAR and setting(RSK_QUX) is RO_BAZ\n",
-		"test")),
-		"True_(options=[OptionFilter(RSK_FOO, RandomizerSettingKey.RO_BAR)]) & "
-		"True_(options=[OptionFilter(RSK_QUX, RandomizerSettingKey.RO_BAZ)])");
-}
-
-// A setting comparison combined with a real rule needs no extra parentheses around the
-// wrapped OptionFilter rule: it is emitted as an atomic call, not a Python comparison.
-TEST(ApOptionFilters, SettingComparisonMixedWithRuleHasNoExtraParens) {
-	EXPECT_EQ(GenerateExpression(sourceToExpression(
-		"define test():\n"
-		"    has(RG_HOOKSHOT) or setting(RSK_FOO) is RO_BAR\n",
-		"test")),
-		"has_item(bundle, Items.RG_HOOKSHOT) | "
-		"True_(options=[OptionFilter(RSK_FOO, RandomizerSettingKey.RO_BAR)])");
-}
-
-// Complex rule to test parenthesis
-TEST(ApOptionFilters, ComplexSettingParens) {
+// End-to-end SoH rendering across a complex rule: prefixes, host calls, yes-mapping and
+// the base precedence/parenthesization all compose.
+TEST(SohApRendering, ComplexSettingParens) {
 	EXPECT_EQ(GenerateExpression(sourceToExpression(
 		"define test():\n"
 		"    has(RG_HOOKSHOT) or setting(RSK_FOO) is RO_BAR and (setting(RSK_BAR) is RO_FOO or can_kill(RE_GOLD_SKULLTULA)) and (flag(LOGIC_BAZ) or setting(RSK_BAZ) is RO_GENERIC_YES)\n",

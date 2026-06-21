@@ -5,7 +5,7 @@ file(GLOB ap_sources CONFIGURE_DEPENDS
 add_library(soh_ap STATIC ${ap_sources})
 
 target_include_directories(soh_ap PUBLIC include)
-target_link_libraries(soh_ap PUBLIC ast)
+target_link_libraries(soh_ap PUBLIC ap_transpiler)
 
 if(BUILD_TESTING)
     file(GLOB ap_test_sources CONFIGURE_DEPENDS

@@ -1,53 +1,47 @@
 #pragma once
 
+#include <optional>
+#include <string>
+
 #include "ast.h"
 #include "output.h"
 
+#include "ap_transpiler.h"
+
 namespace rls::transpilers::soh_ap {
 
-class SohApTranspiler {
+// Ship of Harkinian (SoH) AP transpiler. Supplies the SoH/oot_soh world bindings
+// on top of the generic ApTranspiler: enum-class prefixes, host-call rewrites
+// (has/flag/trick/check_price), world special cases (wallet capacity, triforce
+// hunt, spirit-shared blocks), the region/enum file scaffolding, and Python type
+// names. The generic AP behavior lives entirely in the base class.
+class SohApTranspiler : public ap::ApTranspiler {
 public:
 	explicit SohApTranspiler(const rls::ast::Project& project);
 
-	void Transpile(rls::OutputWriter& out) const;
+	// SoH emits region rules and the supporting enums.
+	void Transpile(rls::OutputWriter& out) const override;
 
-	void GenerateFunctionDefinitionsSource(rls::OutputWriter& out) const;
-	void GenerateRegionsSource(rls::OutputWriter& out) const;
-	void GenerateEnumsSource(rls::OutputWriter& out) const;
-	std::string GenerateExpression(const rls::ast::ExprPtr& expr) const;
-    void SetCurrentLocation(std::optional<std::string> location) const;
+protected:
+	std::string ruleContextParam() const override;
+	std::string renderEnumValue(rls::ast::Type type, const std::string& name) const override;
+	std::optional<std::string> renderHostCall(const rls::ast::CallExpr& node) const override;
+	std::optional<std::string> renderBinarySpecialCase(const rls::ast::BinaryExpr& node) const override;
+	std::string renderSharedBlock(const rls::ast::SharedBlock& node) const override;
+	std::string renderAnyAgeBlock(const rls::ast::AnyAgeBlock& node) const override;
 
-private:
-	int GetPythonPrecedence(const rls::ast::ExprPtr& expr) const;
-	std::string GenerateChildExpression(const rls::ast::ExprPtr& expr, int parentPrec, bool isRightChild = false) const;
-	std::string GenerateExpression(const rls::ast::BoolLiteral& node) const;
-	std::string GenerateExpression(const rls::ast::IntLiteral& node) const;
-	std::string GenerateExpression(const rls::ast::Identifier& node) const;
-	std::string GenerateExpression(const rls::ast::UnaryExpr& node) const;
-	std::string GenerateExpression(const rls::ast::BinaryExpr& node) const;
-	std::string GenerateExpression(const rls::ast::TernaryExpr& node) const;
-	std::string GenerateExpression(const rls::ast::CallExpr& node) const;
-	std::string GenerateExpression(const rls::ast::SharedBlock& node) const;
-	std::string GenerateExpression(const rls::ast::AnyAgeBlock& node) const;
-	std::string GenerateExpression(const rls::ast::MatchExpr& node) const;
-	std::string GenerateExpression(const rls::ast::Expr::Variant& node) const;
-	
-	// True if this binary expression is a `setting(KEY) == VALUE` / `!= VALUE` comparison,
-	// which is emitted as an atomic OptionFilter rule rather than a Python comparison.
-	bool IsSettingComparison(const rls::ast::BinaryExpr& node) const;
-
-	// Helper to convert setting(KEY) == VALUE expressions to OptionFilter(...) form for RuleBuilder.
-	// Returns empty string if not a setting comparison; caller should use fallback.
-	std::string TryGenerateOptionFilter(const rls::ast::BinaryExpr& node) const;
-
-	// Wraps an OptionFilter argument list as a standalone RuleBuilder rule:
-	// `True_(options=[OptionFilter(<args>)])`. A bare OptionFilter is not a Rule and cannot
-	// combine with another OptionFilter via & / |, so every setting comparison is wrapped in
-	// its own rule. This keeps each comparison a valid standalone rule that composes normally.
-	std::string WrapOptionFilter(const std::string& optionFilterArgs) const;
-
-	const rls::ast::Project& project;
-	mutable std::optional<std::string> currentLocationName;
+	std::string regionsPreamble() const override;
+	std::string regionCreationArgs(const std::string& regionKey) const override;
+	std::string addEventsFn() const override;
+	std::string addLocationsFn() const override;
+	std::string connectRegionsFn() const override;
+	std::string eventEntryLine(
+		const std::string& regionKey, const std::string& entryName, const std::string& rule) const override;
+	std::string locationEntryLine(const std::string& entryName, const std::string& rule) const override;
+	std::string exitEntryLine(const std::string& entryName, const std::string& rule) const override;
+	void writeEnums(rls::OutputWriter& out) const override;
+	std::string functionsPreamble() const override;
+	std::string pythonTypeName(rls::ast::Type type) const override;
 };
 
 void Transpile(const rls::ast::Project& project, rls::OutputWriter& out);

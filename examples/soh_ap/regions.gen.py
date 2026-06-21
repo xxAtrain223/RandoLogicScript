@@ -63,14 +63,14 @@ def set_region_rules(world: "SohWorld") -> None:
     # KF Kokiri Shop
     # Locations
     add_locations(Regions.RR_KF_KOKIRI_SHOP, world, [
-        (Locations.RC_KF_SHOP_ITEM_1, lambda bundle: has_item(bundle, Items.RG_SPEAK_KOKIRI) & (can_afford_slot(Locations.RC_KF_SHOP_ITEM_1))),
-        (Locations.RC_KF_SHOP_ITEM_2, lambda bundle: has_item(bundle, Items.RG_SPEAK_KOKIRI) & (can_afford_slot(Locations.RC_KF_SHOP_ITEM_2))),
-        (Locations.RC_KF_SHOP_ITEM_3, lambda bundle: has_item(bundle, Items.RG_SPEAK_KOKIRI) & (can_afford_slot(Locations.RC_KF_SHOP_ITEM_3))),
-        (Locations.RC_KF_SHOP_ITEM_4, lambda bundle: has_item(bundle, Items.RG_SPEAK_KOKIRI) & (can_afford_slot(Locations.RC_KF_SHOP_ITEM_4))),
-        (Locations.RC_KF_SHOP_ITEM_5, lambda bundle: has_item(bundle, Items.RG_SPEAK_KOKIRI) & (can_afford_slot(Locations.RC_KF_SHOP_ITEM_5))),
-        (Locations.RC_KF_SHOP_ITEM_6, lambda bundle: has_item(bundle, Items.RG_SPEAK_KOKIRI) & (can_afford_slot(Locations.RC_KF_SHOP_ITEM_6))),
-        (Locations.RC_KF_SHOP_ITEM_7, lambda bundle: has_item(bundle, Items.RG_SPEAK_KOKIRI) & (can_afford_slot(Locations.RC_KF_SHOP_ITEM_7))),
-        (Locations.RC_KF_SHOP_ITEM_8, lambda bundle: has_item(bundle, Items.RG_SPEAK_KOKIRI) & (can_afford_slot(Locations.RC_KF_SHOP_ITEM_8))),
+        (Locations.RC_KF_SHOP_ITEM_1, lambda bundle: has_item(bundle, Items.RG_SPEAK_KOKIRI) & can_afford_slot(Locations.RC_KF_SHOP_ITEM_1)),
+        (Locations.RC_KF_SHOP_ITEM_2, lambda bundle: has_item(bundle, Items.RG_SPEAK_KOKIRI) & can_afford_slot(Locations.RC_KF_SHOP_ITEM_2)),
+        (Locations.RC_KF_SHOP_ITEM_3, lambda bundle: has_item(bundle, Items.RG_SPEAK_KOKIRI) & can_afford_slot(Locations.RC_KF_SHOP_ITEM_3)),
+        (Locations.RC_KF_SHOP_ITEM_4, lambda bundle: has_item(bundle, Items.RG_SPEAK_KOKIRI) & can_afford_slot(Locations.RC_KF_SHOP_ITEM_4)),
+        (Locations.RC_KF_SHOP_ITEM_5, lambda bundle: has_item(bundle, Items.RG_SPEAK_KOKIRI) & can_afford_slot(Locations.RC_KF_SHOP_ITEM_5)),
+        (Locations.RC_KF_SHOP_ITEM_6, lambda bundle: has_item(bundle, Items.RG_SPEAK_KOKIRI) & can_afford_slot(Locations.RC_KF_SHOP_ITEM_6)),
+        (Locations.RC_KF_SHOP_ITEM_7, lambda bundle: has_item(bundle, Items.RG_SPEAK_KOKIRI) & can_afford_slot(Locations.RC_KF_SHOP_ITEM_7)),
+        (Locations.RC_KF_SHOP_ITEM_8, lambda bundle: has_item(bundle, Items.RG_SPEAK_KOKIRI) & can_afford_slot(Locations.RC_KF_SHOP_ITEM_8)),
     ])
     # Exits
     connect_regions(Regions.RR_KF_KOKIRI_SHOP, world, [

@@ -3,12 +3,19 @@
 namespace rls::transpilers::soh_ap {
 
 SohApTranspiler::SohApTranspiler(const rls::ast::Project& project)
-	: project(project) {}
+	: ap::ApTranspiler(project) {}
 
 void SohApTranspiler::Transpile(rls::OutputWriter& out) const {
-	//GenerateFunctionDefinitionsSource(out);
 	GenerateRegionsSource(out);
 	GenerateEnumsSource(out);
+}
+
+std::string SohApTranspiler::ruleContextParam() const {
+	return "bundle";
+}
+
+void Transpile(const rls::ast::Project& project, rls::OutputWriter& out) {
+	SohApTranspiler(project).Transpile(out);
 }
 
 } // namespace rls::transpilers::soh_ap
