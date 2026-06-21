@@ -375,7 +375,6 @@ TEST(SohExpressions, CallHostFunctions) {
 		"big_poes()");
 
 	EXPECT_EQ(GenerateExpression(sourceToExpression(
-		"extern define any_age(condition: Condition) -> Bool\n"
 		"define test():\n"
 		"    any_age(has(RG_HOOKSHOT) or can_use(RG_BOOMERANG))\n",
 		"test")),
@@ -466,7 +465,6 @@ TEST(SohExpressions, CallDefinedFunctions) {
 		"gate([]{return has(RandomizerGet::RG_BOOMERANG);})");
 
 	EXPECT_EQ(GenerateExpression(sourceToExpression(
-		"extern define any_age(condition: Condition) -> Bool\n"
 		"define gate(cond: Condition):\n"
 		"    any_age(cond)\n",
 		"gate")),
