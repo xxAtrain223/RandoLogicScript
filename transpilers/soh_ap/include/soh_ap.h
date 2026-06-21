@@ -28,7 +28,6 @@ protected:
 	std::optional<std::string> renderHostCall(const rls::ast::CallExpr& node) const override;
 	std::optional<std::string> renderBinarySpecialCase(const rls::ast::BinaryExpr& node) const override;
 	std::string renderSharedBlock(const rls::ast::SharedBlock& node) const override;
-	std::string renderAnyAgeBlock(const rls::ast::AnyAgeBlock& node) const override;
 
 	std::string regionsPreamble() const override;
 	std::string regionCreationArgs(const std::string& regionKey) const override;

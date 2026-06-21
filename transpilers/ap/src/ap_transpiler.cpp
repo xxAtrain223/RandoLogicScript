@@ -36,8 +36,4 @@ std::string ApTranspiler::renderSharedBlock(const rls::ast::SharedBlock&) const 
 	return "";
 }
 
-std::string ApTranspiler::renderAnyAgeBlock(const rls::ast::AnyAgeBlock&) const {
-	return "";
-}
-
 } // namespace rls::transpilers::ap

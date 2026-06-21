@@ -67,6 +67,9 @@ std::string ApTranspiler::GenerateExpression(const rls::ast::Identifier& node) c
 		return renderEnumValue(type.value(), node.name.text);
 	} else if (node.kind == rls::ast::IdentifierKind::Parameter) {
 		return node.name.text;
+	} else if (node.kind == rls::ast::IdentifierKind::FunctionRef) {
+		// Bare reference to a function used as a callable value: emit the name.
+		return node.name.text;
 	} else {
 		// Unresolved identifiers should have been blocked earlier in sema; emit empty as a defensive fallback.
 		return "";
@@ -244,23 +247,61 @@ std::string ApTranspiler::GenerateExpression(const rls::ast::CallExpr& node) con
 		}
 		needComma = true;
 
-		// Function parameters use Python's True/False, not the True_()/False_() rule literals.
-		if (auto* lit = std::get_if<rls::ast::BoolLiteral>(&resolved[i]->node)) {
-			oss << (lit->value ? "True" : "False");
-			continue;
-		}
-		oss << GenerateExpression(resolved[i]->node);
+		oss << GenerateCallArgument(resolved[i], ResolveCallParamType(node, i));
 	}
 	oss << ")";
 	return oss.str();
 }
 
-std::string ApTranspiler::GenerateExpression(const rls::ast::SharedBlock& node) const {
-	return renderSharedBlock(node);
+std::optional<rls::ast::Type> ApTranspiler::ResolveCallParamType(
+	const rls::ast::CallExpr& node, size_t index) const {
+	if (auto externIt = project.ExternDefineDecls.find(node.callee.text);
+		externIt != project.ExternDefineDecls.end() && index < externIt->second->params.size()) {
+		return project.getType(&externIt->second->params[index]);
+	}
+
+	if (auto defineIt = project.DefineDecls.find(node.callee.text);
+		defineIt != project.DefineDecls.end() && index < defineIt->second->params.size()) {
+		return project.getType(&defineIt->second->params[index]);
+	}
+
+	return std::nullopt;
 }
 
-std::string ApTranspiler::GenerateExpression(const rls::ast::AnyAgeBlock& node) const {
-	return renderAnyAgeBlock(node);
+std::string ApTranspiler::GenerateCallArgument(
+	const rls::ast::Expr* argExpr, std::optional<rls::ast::Type> paramType) const {
+	const bool paramIsCondition = paramType == rls::ast::Type::Condition;
+	const bool argIsCondition = project.getType(argExpr) == rls::ast::Type::Condition;
+
+	// An argument already of Condition type is a callable value; pass it through unchanged.
+	if (paramIsCondition && argIsCondition) {
+		return GenerateExpression(argExpr->node);
+	}
+
+	// A non-Condition expression bound to a Condition parameter is wrapped in a thunk so the
+	// RuleBuilder evaluates it lazily: `(lambda <ctx>: <expr>)`.
+	if (paramIsCondition) {
+		return "(lambda " + ruleContextParam() + ": " + GenerateExpression(argExpr->node) + ")";
+	}
+
+	// Function parameters use Python's True/False, not the True_()/False_() rule literals.
+	if (auto* lit = std::get_if<rls::ast::BoolLiteral>(&argExpr->node)) {
+		return lit->value ? "True" : "False";
+	}
+
+	return GenerateExpression(argExpr->node);
+}
+
+std::string ApTranspiler::GenerateExpression(const rls::ast::InvokeExpr& node) const {
+	// Invoke a callable-valued result. A Condition is a rule callback typed
+	// `Callable[[bundle], Rule]`, so it is invoked with the rule-context receiver
+	// (e.g. SoH's `bundle`): `<callee>(bundle)`. This mirrors the thunk form produced
+	// for Condition arguments, so the two agree on arity.
+	return GenerateExpression(node.callee) + "(" + ruleContextParam() + ")";
+}
+
+std::string ApTranspiler::GenerateExpression(const rls::ast::SharedBlock& node) const {
+	return renderSharedBlock(node);
 }
 
 std::string ApTranspiler::GenerateExpression(const rls::ast::MatchExpr& node) const {

@@ -64,7 +64,6 @@ protected:
 
 	// World-specific block-node renderings. Default: empty string.
 	virtual std::string renderSharedBlock(const rls::ast::SharedBlock& node) const;
-	virtual std::string renderAnyAgeBlock(const rls::ast::AnyAgeBlock& node) const;
 
 	// == Game-specific scaffolding (pure virtual: no generic AP default) ======
 
@@ -101,8 +100,18 @@ private:
 	std::string GenerateExpression(const rls::ast::BinaryExpr& node) const;
 	std::string GenerateExpression(const rls::ast::TernaryExpr& node) const;
 	std::string GenerateExpression(const rls::ast::CallExpr& node) const;
+	std::string GenerateExpression(const rls::ast::InvokeExpr& node) const;
+
+	// The declared type of parameter `index` of the function `node` calls, looked up from
+	// the extern/define decl. std::nullopt if the callee or parameter cannot be resolved.
+	std::optional<rls::ast::Type> ResolveCallParamType(const rls::ast::CallExpr& node, size_t index) const;
+
+	// Render one call argument, accounting for Condition parameters: a non-Condition argument
+	// bound to a Condition parameter is wrapped in a `(lambda <ctx>: <expr>)` thunk so it is
+	// evaluated lazily; an argument already of Condition type is passed through unchanged.
+	std::string GenerateCallArgument(const rls::ast::Expr* argExpr, std::optional<rls::ast::Type> paramType) const;
+
 	std::string GenerateExpression(const rls::ast::SharedBlock& node) const;
-	std::string GenerateExpression(const rls::ast::AnyAgeBlock& node) const;
 	std::string GenerateExpression(const rls::ast::MatchExpr& node) const;
 
 	// True if this binary expression is a `setting(KEY) == VALUE` / `!= VALUE` comparison,

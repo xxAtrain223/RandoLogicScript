@@ -103,10 +103,4 @@ std::string SohApTranspiler::renderSharedBlock(const rls::ast::SharedBlock& node
 	return oss.str();
 }
 
-// This one I'm not quite sure how it works. Seems like Ship calls this recursively for the current region
-std::string SohApTranspiler::renderAnyAgeBlock(const rls::ast::AnyAgeBlock& node) const {
-	return "";
-	// return "AnyAgeTime((lambda:" + GenerateExpression(node.body) + "))";
-}
-
 } // namespace rls::transpilers::soh_ap
