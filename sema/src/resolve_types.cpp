@@ -106,6 +106,83 @@ struct ExprResolver {
 			return ast::Type::Error;
 		}
 
+		if (auto defIt = project.DefineDecls.find(node.name.text);
+			defIt != project.DefineDecls.end()) {
+			const auto* def = defIt->second;
+			// TODO: Zero-Argument Constraint — functions with parameters cannot be callable.
+			if (!def->params.empty()) {
+				diags.push_back({
+					ast::DiagnosticLevel::Error,
+					std::format("function '{}' requires {} argument(s); only zero-argument functions can be used as callable values",
+						node.name.text, def->params.size()),
+					expr.span
+				});
+				return ast::Type::Error;
+			}
+
+			auto bodyType = project.getType(def->body.get());
+			if (!bodyType.has_value()) {
+				diags.push_back({
+					ast::DiagnosticLevel::Error,
+					std::format("function '{}' callable reference type is not available yet", node.name.text),
+					expr.span
+				});
+				return ast::Type::Error;
+			}
+
+			// TODO: Bool-Return-Type Constraint — only () -> Bool functions become Condition.
+			if (*bodyType != ast::Type::Bool) {
+				diags.push_back({
+					ast::DiagnosticLevel::Error,
+					std::format("function '{}' cannot be used as a Condition callable because it returns {}",
+						node.name.text, typeName(*bodyType)),
+					expr.span
+				});
+				return ast::Type::Error;
+			}
+
+			node.kind = ast::IdentifierKind::FunctionRef;
+			return ast::Type::Condition;
+		}
+
+		if (auto extIt = project.ExternDefineDecls.find(node.name.text);
+			extIt != project.ExternDefineDecls.end()) {
+			const auto* ext = extIt->second;
+			if (!ext->params.empty()) {
+				diags.push_back({
+					ast::DiagnosticLevel::Error,
+					std::format("function '{}' requires {} argument(s); only zero-argument functions can be used as callable values",
+						node.name.text, ext->params.size()),
+					expr.span
+				});
+				return ast::Type::Error;
+			}
+
+			if (!ext->returnType) {
+				diags.push_back({
+					ast::DiagnosticLevel::Error,
+					std::format("function '{}' cannot be used as callable value without a return type", node.name.text),
+					expr.span
+				});
+				return ast::Type::Error;
+			}
+
+			auto returnType = typeFromAnnotation(ext->returnType->name.text);
+			if (!returnType.has_value() || *returnType != ast::Type::Bool) {
+				diags.push_back({
+					ast::DiagnosticLevel::Error,
+					std::format("function '{}' cannot be used as a Condition callable because it returns {}",
+						node.name.text,
+						returnType.has_value() ? typeName(*returnType) : std::string_view{"<unknown>"}),
+					expr.span
+				});
+				return ast::Type::Error;
+			}
+
+			node.kind = ast::IdentifierKind::FunctionRef;
+			return ast::Type::Condition;
+		}
+
 		if (auto t = typeFromIdentifier(node.name.text)) {
 			node.kind = ast::IdentifierKind::EnumValue;
 			return *t;
@@ -455,6 +532,16 @@ struct ExprResolver {
 		const ast::CallExpr& node,
 		GetParamType&& getParamType)
 	{
+		auto isCallArgCompatible = [](T expected, T actual) {
+			if (expected == T::Condition) {
+				return actual == T::Condition || isBoolCompatible(actual);
+			}
+			if (expected == T::Callable) {
+				return actual == T::Callable || actual == T::Condition || isBoolCompatible(actual);
+			}
+			return actual == expected;
+		};
+
 		for (size_t argIndex = 0; argIndex < argTypes.size(); ++argIndex) {
 			if (!binding.argToParam[argIndex]) continue;
 
@@ -468,7 +555,7 @@ struct ExprResolver {
 			}
 
 			if (argTypes[argIndex] == T::Error) continue;
-			if (argTypes[argIndex] == *paramType) continue;
+			if (isCallArgCompatible(*paramType, argTypes[argIndex])) continue;
 
 			diags.push_back({
 				ast::DiagnosticLevel::Error,
@@ -524,6 +611,40 @@ struct ExprResolver {
 		argTypes.reserve(node.args.size());
 		for (auto& arg : node.args) {
 			argTypes.push_back(resolveExpr(*arg.value));
+		}
+
+		auto isCallableType = [](T type) {
+			return type == T::Callable || type == T::Condition;
+		};
+
+		if (auto scopeIt = scope.find(node.callee.text); scopeIt != scope.end()) {
+			if (!scopeIt->second.has_value()) {
+				scopeIt->second = T::Condition;
+			}
+
+			auto calleeType = *scopeIt->second;
+			if (!isCallableType(calleeType)) {
+				diags.push_back({
+					ast::DiagnosticLevel::Error,
+					std::format("'{}' is not callable (type {})",
+						node.callee.text, typeName(calleeType)),
+					expr.span
+				});
+				return T::Error;
+			}
+
+			if (!node.args.empty()) {
+				diags.push_back({
+					ast::DiagnosticLevel::Error,
+					std::format("'{}' expects 0 argument(s), got {}",
+						node.callee.text, node.args.size()),
+					expr.span
+				});
+				return T::Error;
+			}
+
+			project.setResolvedCallArgs(&node, {});
+			return T::Bool;
 		}
 
 		// Extern-defined host functions.
@@ -612,6 +733,29 @@ struct ExprResolver {
 		return T::Error;
 	}
 
+	ast::Type resolve(const ast::InvokeExpr& node, const ast::Expr& expr) {
+		auto calleeType = resolveExpr(*node.callee);
+		if (calleeType == T::Error) {
+			return T::Error;
+		}
+
+		if (calleeType != T::Callable && calleeType != T::Condition) {
+			diags.push_back({
+				ast::DiagnosticLevel::Error,
+				std::format("expression is not callable (type {})", typeName(calleeType)),
+				expr.span
+			});
+			return T::Error;
+		}
+
+		// TODO: Nested Function Invocation Not Supported — InvokeExpr always returns Bool.
+		// To support foo()()(), InvokeExpr would need to return Callable/Condition types
+		// for chaining. Requires: (1) parameterized callable types, (2) higher-order logic,
+		// or (3) explicit curry syntax.
+
+		return T::Bool;
+	}
+
 	ast::Type resolve(const ast::SharedBlock& node, const ast::Expr&) {
 		for (auto& branch : node.branches) {
 			inferUntypedParamIdentifier(*branch.condition, ast::Type::Bool);
@@ -624,20 +768,6 @@ struct ExprResolver {
 					branch.condition->span
 				});
 			}
-		}
-		return ast::Type::Bool;
-	}
-
-	ast::Type resolve(const ast::AnyAgeBlock& node, const ast::Expr&) {
-		inferUntypedParamIdentifier(*node.body, ast::Type::Bool);
-		auto bodyType = resolveExpr(*node.body);
-		if (bodyType != ast::Type::Error && !isBoolCompatible(bodyType)) {
-			diags.push_back({
-				ast::DiagnosticLevel::Error,
-				std::format("any_age body must be Bool, got {}",
-					typeName(bodyType)),
-				node.body->span
-			});
 		}
 		return ast::Type::Bool;
 	}
@@ -771,13 +901,44 @@ static void collectDefineCalls(
 	const std::map<std::string, const ast::DefineDecl*>& defines,
 	std::unordered_set<std::string>& out)
 {
-	std::unordered_set<std::string> allCalls;
-	collectCallNames(expr, allCalls);
-	for (auto& name : allCalls) {
-		if (defines.contains(name)) {
-			out.insert(std::move(name));
+	std::visit([&](const auto& node) {
+		using N = std::decay_t<decltype(node)>;
+		if constexpr (std::is_same_v<N, ast::Identifier>) {
+			if (defines.contains(node.name.text)) {
+				out.insert(node.name.text);
+			}
+		} else if constexpr (std::is_same_v<N, ast::UnaryExpr>) {
+			collectDefineCalls(*node.operand, defines, out);
+		} else if constexpr (std::is_same_v<N, ast::BinaryExpr>) {
+			collectDefineCalls(*node.left, defines, out);
+			collectDefineCalls(*node.right, defines, out);
+		} else if constexpr (std::is_same_v<N, ast::TernaryExpr>) {
+			collectDefineCalls(*node.condition, defines, out);
+			collectDefineCalls(*node.thenBranch, defines, out);
+			collectDefineCalls(*node.elseBranch, defines, out);
+		} else if constexpr (std::is_same_v<N, ast::CallExpr>) {
+			if (defines.contains(node.callee.text)) {
+				out.insert(node.callee.text);
+			}
+			for (const auto& arg : node.args) {
+				collectDefineCalls(*arg.value, defines, out);
+			}
+		} else if constexpr (std::is_same_v<N, ast::InvokeExpr>) {
+			collectDefineCalls(*node.callee, defines, out);
+		} else if constexpr (std::is_same_v<N, ast::SharedBlock>) {
+			for (const auto& branch : node.branches) {
+				collectDefineCalls(*branch.condition, defines, out);
+			}
+		} else if constexpr (std::is_same_v<N, ast::MatchExpr>) {
+			collectDefineCalls(*node.discriminant, defines, out);
+			for (const auto& arm : node.arms) {
+				for (const auto& pattern : arm.patterns) {
+					collectDefineCalls(*pattern, defines, out);
+				}
+				collectDefineCalls(*arm.body, defines, out);
+			}
 		}
-	}
+	}, expr.node);
 }
 
 /// DFS helper for topological sort. Post-order traversal ensures callees
@@ -1028,9 +1189,6 @@ std::vector<ast::Diagnostic> resolveTypes(ast::Project& project) {
 						}
 						populateHere(region, branch.condition);
 					}
-				}
-				else if constexpr (std::is_same_v<T, ast::AnyAgeBlock>) {
-					populateHere(region, node.body);
 				}
 				else if constexpr (std::is_same_v<T, ast::MatchExpr>) {
 					for (auto& arm : node.arms) {

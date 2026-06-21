@@ -17,6 +17,8 @@ inline std::string_view typeName(ast::Type t) {
 	switch (t) {
 	case ast::Type::Bool:       return "Bool";
 	case ast::Type::Int:        return "Int";
+	case ast::Type::Callable:   return "Callable";
+	case ast::Type::Condition:  return "Condition";
 	case ast::Type::Item:       return "Item";
 	case ast::Type::Enemy:      return "Enemy";
 	case ast::Type::Distance:   return "Distance";
@@ -55,6 +57,8 @@ inline std::optional<ast::Type> typeFromAnnotation(std::string_view annotation) 
 	static constexpr Entry table[] = {
 		{"Bool",       ast::Type::Bool},
 		{"Int",        ast::Type::Int},
+		{"Callable",   ast::Type::Callable},
+		{"Condition",  ast::Type::Condition},
 		{"Item",       ast::Type::Item},
 		{"Enemy",      ast::Type::Enemy},
 		{"Distance",   ast::Type::Distance},
@@ -98,12 +102,12 @@ inline void collectCallNames(
 			for (const auto& arg : node.args) {
 				collectCallNames(*arg.value, out);
 			}
+		} else if constexpr (std::is_same_v<N, ast::InvokeExpr>) {
+			collectCallNames(*node.callee, out);
 		} else if constexpr (std::is_same_v<N, ast::SharedBlock>) {
 			for (const auto& branch : node.branches) {
 				collectCallNames(*branch.condition, out);
 			}
-		} else if constexpr (std::is_same_v<N, ast::AnyAgeBlock>) {
-			collectCallNames(*node.body, out);
 		} else if constexpr (std::is_same_v<N, ast::MatchExpr>) {
 			for (const auto& arm : node.arms) {
 				collectCallNames(*arm.body, out);

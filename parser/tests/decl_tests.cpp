@@ -517,13 +517,13 @@ TEST(DeclRealistic, SharedInRegionExit) {
 	));
 }
 
-TEST(DeclRealistic, AnyAgeInRegionExit) {
+TEST(DeclRealistic, AnyAgeCallInRegionExit) {
 	EXPECT_TRUE(matches<rls_file>(
 		"region RR_TEST {\n"
 		"  name: \"Test\"\n"
 		"  scene: SCENE_TEST\n"
 		"  exits {\n"
-		"    RR_TARGET: any_age { has(RG_HOOKSHOT) or has(RG_BOOMERANG) }\n"
+		"    RR_TARGET: any_age(has(RG_HOOKSHOT) or has(RG_BOOMERANG))\n"
 		"  }\n"
 		"}\n"
 	));

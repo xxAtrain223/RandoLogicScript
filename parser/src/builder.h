@@ -38,6 +38,7 @@ using selector = tao::pegtl::parse_tree::selector<
 		grammar::integer,
 		grammar::string_literal,
 		grammar::atom_keyword,
+		grammar::invoke_suffix,
 		grammar::type,
 		grammar::comp_op,
 		grammar::mul_div_op,
@@ -69,11 +70,11 @@ using selector = tao::pegtl::parse_tree::selector<
 		// Parameters
 		grammar::param,
 		// Expressions
+		grammar::invoke_call,
 		grammar::call,
 		grammar::named_arg,
 		grammar::shared_block,
 		grammar::shared_branch,
-		grammar::any_age_block,
 		grammar::match_expr,
 		grammar::match_arm,
 		grammar::match_pattern

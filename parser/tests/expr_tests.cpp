@@ -414,23 +414,23 @@ TEST(ExprShared, InOrExpr) {
 	));
 }
 
-// == Any-age blocks ===========================================================
+// == Any-age host function ====================================================
 
-TEST(ExprAnyAge, SimpleBlock) {
-	EXPECT_TRUE(matches<any_age_block>(
-		"any_age { has(RG_HOOKSHOT) }"
+TEST(ExprAnyAge, SimpleCall) {
+	EXPECT_TRUE(matches<call>(
+		"any_age(has(RG_HOOKSHOT))"
 	));
 }
 
 TEST(ExprAnyAge, WithComplexExpr) {
-	EXPECT_TRUE(matches<any_age_block>(
-		"any_age { is_adult() and has(RG_HOOKSHOT) or is_child() and has(RG_BOOMERANG) }"
+	EXPECT_TRUE(matches<call>(
+		"any_age(is_adult() and has(RG_HOOKSHOT) or is_child() and has(RG_BOOMERANG))"
 	));
 }
 
 TEST(ExprAnyAge, AsPrimary) {
 	EXPECT_TRUE(matches<primary>(
-		"any_age { true }"
+		"any_age(true)"
 	));
 }
 
@@ -562,7 +562,7 @@ TEST(ExprRealistic, SharedInExpr) {
 
 TEST(ExprRealistic, AnyAgeInExpr) {
 	EXPECT_TRUE(matches<expr>(
-		"any_age { has(RG_HOOKSHOT) or has(RG_BOOMERANG) }"
+		"any_age(has(RG_HOOKSHOT) or has(RG_BOOMERANG))"
 	));
 }
 

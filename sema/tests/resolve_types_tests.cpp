@@ -52,6 +52,7 @@ static std::string withHostExterns(const std::string& source) {
 		"extern define keys(sc: Scene, amount: Int) -> Bool\n"
 		"extern define setting(opt: Setting) -> Setting\n"
 		"extern define trick(rule: Trick) -> Bool\n"
+		"extern define any_age(condition: Condition) -> Bool\n"
 		"extern define hearts() -> Int\n"
 		"extern define check_price(chk: Check = RC_UNKNOWN_CHECK) -> Int\n"
 		+ source;
@@ -518,6 +519,17 @@ TEST(ResolveTypes, HostCallMissingRequiredNamedArg) {
 	EXPECT_NE(diags[0].message.find("missing required argument(s): sc"), std::string::npos);
 }
 
+TEST(ResolveTypes, HostCallConditionArgAcceptsBoolExpression) {
+	auto [project, diags] = resolveFromSource(
+		"region RR_TEST {\n"
+		"    name: \"Test\"\n"
+		"    scene: SCENE_TEST\n"
+		"    locations { TEST_LOC: any_age(has(RG_HOOKSHOT) or can_use(RG_BOOMERANG)) }\n"
+		"}\n");
+	EXPECT_TRUE(diags.empty());
+	EXPECT_EQ(project.getType(findRegionEntry(project)), Type::Bool);
+}
+
 // -- Unknown function ---------------------------------------------------------
 
 TEST(ResolveTypes, UnknownFunction) {
@@ -564,6 +576,109 @@ TEST(ResolveTypes, UserDefineCallResolvesReturnType) {
 		"    locations { TEST_LOC: has_explosives() }\n"
 		"}\n");
 	EXPECT_TRUE(diags.empty());
+	EXPECT_EQ(project.getType(findRegionEntry(project)), Type::Bool);
+}
+
+TEST(ResolveTypes, DefineCanEvaluateConditionParameter) {
+	auto [project, diags] = resolveFromSource(
+		"define gate(cond: Condition): cond() and has(RG_HOOKSHOT)\n"
+		"region RR_TEST {\n"
+		"    name: \"Test\"\n"
+		"    scene: SCENE_TEST\n"
+		"    locations { TEST_LOC: gate(has(RG_BOOMERANG)) }\n"
+		"}\n");
+	EXPECT_TRUE(diags.empty());
+	EXPECT_EQ(project.getType(findRegionEntry(project)), Type::Bool);
+}
+
+TEST(ResolveTypes, DefineConditionRequiresInvocationParentheses) {
+	auto [project, diags] = resolveFromSource(
+		"define gate(cond: Condition): cond and has(RG_HOOKSHOT)\n"
+		"region RR_TEST {\n"
+		"    name: \"Test\"\n"
+		"    scene: SCENE_TEST\n"
+		"    locations { TEST_LOC: gate(has(RG_BOOMERANG)) }\n"
+		"}\n");
+	EXPECT_EQ(countErrors(diags), 1u);
+	EXPECT_NE(diags[0].message.find("'and' requires Bool operands, left is Condition"), std::string::npos);
+}
+
+TEST(ResolveTypes, DefineCanReturnCallableAndInvokeResult) {
+	auto [project, diags] = resolveFromSource(
+		"define make_cond(cond: Condition): cond\n"
+		"define run(cond: Condition): make_cond(cond)()\n"
+		"region RR_TEST {\n"
+		"    name: \"Test\"\n"
+		"    scene: SCENE_TEST\n"
+		"    locations { TEST_LOC: run(has(RG_BOOMERANG)) }\n"
+		"}\n");
+	EXPECT_TRUE(diags.empty());
+	EXPECT_EQ(project.getType(findRegionEntry(project)), Type::Bool);
+}
+
+TEST(ResolveTypes, DefineConditionParameterAcceptsCompoundExpression) {
+	auto [project, diags] = resolveFromSource(
+		"define gate(cond: Condition): cond() and has(RG_HOOKSHOT)\n"
+		"region RR_TEST {\n"
+		"    name: \"Test\"\n"
+		"    scene: SCENE_TEST\n"
+		"    locations { TEST_LOC: gate(has(RG_BOOMERANG) or can_use(RG_HOOKSHOT)) }\n"
+		"}\n");
+	EXPECT_TRUE(diags.empty());
+	EXPECT_EQ(project.getType(findRegionEntry(project)), Type::Bool);
+}
+
+TEST(ResolveTypes, DefineConditionParametersMultipleArguments) {
+	auto [project, diags] = resolveFromSource(
+		"define both(left: Condition, right: Condition): left() and right()\n"
+		"region RR_TEST {\n"
+		"    name: \"Test\"\n"
+		"    scene: SCENE_TEST\n"
+		"    locations { TEST_LOC: both(has(RG_HOOKSHOT), can_use(RG_BOOMERANG)) }\n"
+		"}\n");
+	EXPECT_TRUE(diags.empty());
+	EXPECT_EQ(project.getType(findRegionEntry(project)), Type::Bool);
+}
+
+TEST(ResolveTypes, DefineConditionDefaultUsedWhenOmitted) {
+	auto [project, diags] = resolveFromSource(
+		"define gate(cond: Condition = has(RG_HOOKSHOT)): cond()\n"
+		"region RR_TEST {\n"
+		"    name: \"Test\"\n"
+		"    scene: SCENE_TEST\n"
+		"    locations { TEST_LOC: gate() }\n"
+		"}\n");
+	EXPECT_TRUE(diags.empty());
+	EXPECT_EQ(project.getType(findRegionEntry(project)), Type::Bool);
+}
+
+TEST(ResolveTypes, DefineConditionDefaultCanBeOverridden) {
+	auto [project, diags] = resolveFromSource(
+		"define gate(cond: Condition = has(RG_HOOKSHOT)): cond()\n"
+		"region RR_TEST {\n"
+		"    name: \"Test\"\n"
+		"    scene: SCENE_TEST\n"
+		"    locations { TEST_LOC: gate(can_use(RG_BOOMERANG)) }\n"
+		"}\n");
+	EXPECT_TRUE(diags.empty());
+	EXPECT_EQ(project.getType(findRegionEntry(project)), Type::Bool);
+}
+
+TEST(ResolveTypes, DefineCanReturnFunctionReferenceAsCondition) {
+	auto [project, diags] = resolveFromSource(
+		"define always_true(): true\n"
+		"define return_cond(): always_true\n"
+		"define test(): return_cond()\n"
+		"region RR_TEST {\n"
+		"    name: \"Test\"\n"
+		"    scene: SCENE_TEST\n"
+		"    locations { TEST_LOC: test()() }\n"
+		"}\n");
+	EXPECT_TRUE(diags.empty());
+	EXPECT_EQ(project.getType(project.DefineDecls.at("return_cond")->body.get()), Type::Condition);
+	ASSERT_TRUE(std::holds_alternative<Identifier>(project.DefineDecls.at("return_cond")->body->node));
+	EXPECT_EQ(std::get<Identifier>(project.DefineDecls.at("return_cond")->body->node).kind, IdentifierKind::FunctionRef);
+	EXPECT_EQ(project.getType(project.DefineDecls.at("test")->body.get()), Type::Condition);
 	EXPECT_EQ(project.getType(findRegionEntry(project)), Type::Bool);
 }
 
@@ -1021,29 +1136,29 @@ TEST(ResolveTypes, SharedBlockFromHereInExit) {
 	EXPECT_EQ(shared.branches[1].region.value(), "RR_SPIRIT_TEMPLE_ADULT");
 }
 
-// -- Any-age block ------------------------------------------------------------
+// -- Any-age host function ----------------------------------------------------
 
-TEST(ResolveTypes, AnyAgeBlockBool) {
+TEST(ResolveTypes, AnyAgeCallBool) {
 	auto [project, diags] = resolveFromSource(
 		"region RR_TEST {\n"
 		"    name: \"Test\"\n"
 		"    scene: SCENE_TEST\n"
-		"    locations { TEST_LOC: any_age { true } }\n"
+		"    locations { TEST_LOC: any_age(true) }\n"
 		"}\n");
 	EXPECT_TRUE(diags.empty());
 	EXPECT_EQ(project.getType(findRegionEntry(project)), Type::Bool);
 }
 
-TEST(ResolveTypes, AnyAgeBlockNonBool) {
-	// any_age { RG_HOOKSHOT } — body is Item, not Bool.
+TEST(ResolveTypes, AnyAgeCallNonBoolArg) {
+	// any_age(RG_HOOKSHOT) — Item is not Condition-compatible.
 	auto [project, diags] = resolveFromSource(
 		"region RR_TEST {\n"
 		"    name: \"Test\"\n"
 		"    scene: SCENE_TEST\n"
-		"    locations { TEST_LOC: any_age { RG_HOOKSHOT } }\n"
+		"    locations { TEST_LOC: any_age(RG_HOOKSHOT) }\n"
 		"}\n");
 	EXPECT_EQ(countErrors(diags), 1u);
-	EXPECT_NE(diags[0].message.find("any_age body must be Bool"), std::string::npos);
+	EXPECT_NE(diags[0].message.find("argument 1 expected Condition, got Item"), std::string::npos);
 }
 
 // -- Match expression ---------------------------------------------------------
@@ -1326,6 +1441,8 @@ TEST(ResolveTypes, CompositeExpression) {
 TEST(TypeAnnotation, AllTypes) {
 	EXPECT_EQ(typeFromAnnotation("Bool"),       Type::Bool);
 	EXPECT_EQ(typeFromAnnotation("Int"),        Type::Int);
+	EXPECT_EQ(typeFromAnnotation("Callable"),   Type::Callable);
+	EXPECT_EQ(typeFromAnnotation("Condition"),  Type::Condition);
 	EXPECT_EQ(typeFromAnnotation("Item"),       Type::Item);
 	EXPECT_EQ(typeFromAnnotation("Enemy"),      Type::Enemy);
 	EXPECT_EQ(typeFromAnnotation("Distance"),   Type::Distance);

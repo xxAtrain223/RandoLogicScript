@@ -193,8 +193,6 @@ struct reserved : sor<
 	kw<kw_not>,
 	// Comparison alias
 	kw<kw_is>,
-	// Age and time
-	kw<kw_any_age>,
 	// Shared blocks
 	kw<kw_shared>,
 	kw<kw_from>,
@@ -282,6 +280,24 @@ struct arg_list : opt<list<arg, seq<_, comma, _>>> {};
 /// Function call:  IDENT "(" arg_list ")"
 struct call : seq<ident, _, open_paren, must<_, arg_list, _, close_paren>> {};
 
+/// Invoke-call suffix for callable evaluation: "()".
+struct invoke_suffix : seq<open_paren, _, close_paren> {};
+
+/// Callable invocation from a call result: call "()"+
+/// Example: make_cond(has(RG_HOOKSHOT))()
+struct invoke_call : seq<call, plus<seq<_, invoke_suffix>>> {};
+
+// TODO: No Parameterized Callable Syntax - no grammar for function signatures.
+// Needed for generic callables: (Item) -> Bool, (Distance, Distance) -> Bool, etc.
+// Would require: (1) lambda/arrow syntax in grammar, (2) parameterized type checking,
+// (3) implicit thunking for callable parameter binding.
+// maybe [params] expr | IDENT -> expr | (Type, Type) -> Type
+
+// TODO: Function Composition Not Supported - cannot chain/nest callables.
+// Related to Gap #5: would need intermediate callable results.
+// Consider: (1) first-class function values with explicit types, (2) partial application,
+// (3) combinator syntax for composing multiple conditions.
+
 /// shared_branch = "from" (IDENT | "here") ":" expr
 struct shared_branch : seq<kw<kw_from>, must<_, sor<kw<kw_here>, ident>, _, colon, _, expr>> {};
 
@@ -294,9 +310,6 @@ struct shared_block : seq<
 	close_brace>
 > {};
 
-/// any_age_block = "any_age" "{" expr "}"
-struct any_age_block : seq<kw<kw_any_age>, must<_, open_brace, _, expr, _, close_brace>> {};
-
 // Forward declaration — match_expr is defined after ternary because its arms
 // need the match-aware or_expr variant (which depends on and_expr).
 struct match_expr;
@@ -304,13 +317,13 @@ struct match_expr;
 /// Parenthesised expression: "(" expr ")"
 struct paren_expr : seq<open_paren, must<_, expr, _, close_paren>> {};
 
-/// primary = call | shared_block | any_age_block | match_expr | atom | "(" expr ")"
+/// primary = invoke_call | call | shared_block | match_expr | atom | "(" expr ")"
 ///
 /// Ordering matters:
+///   - `invoke_call` before `call` (both start with a call prefix)
 ///   - `call` before `atom` (both start with `ident`, but call continues with "(")
-///   - `shared_block` before `any_age_block` (shared can contain "any_age")
 ///   - `match_expr` before `atom` (match starts with `kw_match` keyword)
-struct primary : sor<call, shared_block, any_age_block, match_expr, paren_expr, atom> {};
+struct primary : sor<invoke_call, call, shared_block, match_expr, paren_expr, atom> {};
 
 // -- Unary / binary / ternary -------------------------------------------------
 

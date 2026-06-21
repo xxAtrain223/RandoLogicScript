@@ -339,7 +339,6 @@ TEST(LexKeywordList, AllKeywordsRecognized) {
 		"true", "false", "always", "never",
 		"and", "or", "not",
 		"is",
-		"any_age",
 		"shared", "from", "here",
 		"match",
 	};
@@ -354,7 +353,7 @@ TEST(LexKeywordList, IdentifiersNotKeywords) {
 	const std::string identifiers[] = {
 		"RG_HOOKSHOT", "distance", "wallOrFloor",
 		"regions", "trueValue", "always_something",
-		"nothing", "matchResult", "is_something",
+		"nothing", "matchResult", "is_something", "any_age",
 	};
 
 	for (const auto& id : identifiers) {

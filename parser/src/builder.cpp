@@ -203,6 +203,15 @@ ast::ExprPtr buildExpr(const Node& n, Diags& diags) {
 
 	// -- Call -----------------------------------------------------------------
 
+	if (n.is_type<grammar::invoke_call>()) {
+		// children: [call, invoke_suffix, invoke_suffix, ...]
+		auto result = buildExpr(*n.children[0], diags);
+		for (size_t i = 1; i < n.children.size(); ++i) {
+			result = ast::makeExpr(ast::InvokeExpr(std::move(result)), makeSpan(*n.children[i]));
+		}
+		return result;
+	}
+
 	if (n.is_type<grammar::call>()) {
 		// children: [ident(funcName), arg, arg, ...]
 		// Each arg is either a named_arg node or a bare expression node.
@@ -244,14 +253,6 @@ ast::ExprPtr buildExpr(const Node& n, Diags& diags) {
 		}
 		return ast::makeExpr(
 			ast::SharedBlock(anyAge, std::move(branches)), makeSpan(n));
-	}
-
-	// -- Any-age block --------------------------------------------------------
-
-	if (n.is_type<grammar::any_age_block>()) {
-		// children: [kw_any_age, body_expr]
-		return ast::makeExpr(
-			ast::AnyAgeBlock(buildExpr(*n.children.back(), diags)), makeSpan(n));
 	}
 
 	// -- Match expression -----------------------------------------------------

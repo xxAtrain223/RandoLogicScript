@@ -95,12 +95,6 @@ Conditions are boolean expressions using short function names that the transpile
 | `trick(RT_SPIRIT_CHILD_CHU)`                         | `ctx->GetTrickOption(RT_SPIRIT_CHILD_CHU)`           |
 | `is_child()`, `is_adult()`, `at_day()`, `at_night()` | `logic->IsChild`, etc.                               |
 
-`any_age { ... }` evaluates across all age/time combinations with access to the current region:
-
-```RLS
-any_age { can_kill(RE_ARMOS) }     # → region->AnyAgeTime(...)
-```
-
 ---
 
 ## Functions (`define`)

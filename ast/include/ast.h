@@ -54,6 +54,7 @@ enum class IdentifierKind {
 	Unresolved,
 	Parameter,
 	EnumValue,
+	FunctionRef,
 };
 
 // == Name-like syntax nodes ==================================================
@@ -175,6 +176,14 @@ struct CallExpr {
 		: callee(std::move(callee)), args(std::move(args)) {}
 };
 
+/// Invoke a callable expression result: `<callee>()`.
+struct InvokeExpr {
+	ExprPtr callee;
+
+	InvokeExpr(ExprPtr callee)
+		: callee(std::move(callee)) {}
+};
+
 /// One branch of a `shared` block: `from <region>: <condition>` or
 /// `from here: <condition>`.
 struct SharedBranch {
@@ -192,13 +201,6 @@ struct SharedBlock {
 
 	SharedBlock(bool anyAge, std::vector<SharedBranch> branches)
 		: anyAge(anyAge), branches(std::move(branches)) {}
-};
-
-/// Any-age evaluation block: `any_age { <body> }`.
-struct AnyAgeBlock {
-	ExprPtr body;
-
-	AnyAgeBlock(ExprPtr body) : body(std::move(body)) {}
 };
 
 /// One arm of a `match` expression.
@@ -237,8 +239,8 @@ struct Expr {
 		BinaryExpr,
 		TernaryExpr,
 		CallExpr,
+		InvokeExpr,
 		SharedBlock,
-		AnyAgeBlock,
 		MatchExpr
 	>;
 
@@ -422,6 +424,9 @@ struct File {
 enum class Type {
     Bool,       // true, false, always, never, and/or/not, conditions
     Int,        // integer literals, arithmetic results, hearts(), keys(), etc.
+	// TODO: Implement parameterized callable syntax (e.g., (Item) -> Bool).
+	Callable,   // generic callable value
+	Condition,  // callable with signature () -> Bool
     Item,       // RG_*
     Enemy,      // RE_*
     Distance,   // ED_*
