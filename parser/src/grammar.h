@@ -120,9 +120,6 @@ struct kw_not : TAO_PEGTL_STRING("not") {};
 // Comparison operator alias
 struct kw_is : TAO_PEGTL_STRING("is") {};
 
-// Age and time
-struct kw_any_age : TAO_PEGTL_STRING("any_age") {};
-
 struct kw_here : TAO_PEGTL_STRING("here") {};
 
 // Match expressions
@@ -257,7 +254,7 @@ struct atom_keyword : sor<
 > {};
 
 /// atom = atom_keyword | IDENT | NUMBER
-/// (IDENT and NUMBER are tried last; call / shared / any_age / match are
+/// (IDENT and NUMBER are tried last; call / match are
 /// handled separately by `primary` so they take priority.)
 struct atom : sor<atom_keyword, ident, integer> {};
 
