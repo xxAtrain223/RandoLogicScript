@@ -58,6 +58,7 @@ struct ExprResolver {
 	ast::Project& project;
 	Scope& scope;
 	std::vector<ast::Diagnostic>& diags;
+	std::optional<ast::Name> currentRegion; // Set when resolving region/extend-region entries.
 
 	using T = ast::Type;
 
@@ -756,6 +757,19 @@ struct ExprResolver {
 		return T::Bool;
 	}
 
+	ast::Type resolve(ast::HereRef& node, ast::Expr& expr) {
+		if (!currentRegion.has_value()) {
+			diags.push_back({
+				ast::DiagnosticLevel::Error,
+				"'here' can only be used inside a region entry condition",
+				expr.span
+			});
+			return T::Error;
+		}
+		node.resolvedRegion = *currentRegion;
+		return T::Region;
+	}
+
 	ast::Type resolve(const ast::SharedBlock& node, const ast::Expr&) {
 		for (auto& branch : node.branches) {
 			inferUntypedParamIdentifier(*branch.condition, ast::Type::Bool);
@@ -1134,9 +1148,10 @@ std::vector<ast::Diagnostic> resolveTypes(ast::Project& project) {
 
 	// Resolve region entry conditions.
 	{
-		Scope regionScope;
-		ExprResolver resolver{project, regionScope, diags};
 		for (auto& [name, decl] : project.RegionDecls) {
+			Scope regionScope;
+			ExprResolver resolver{project, regionScope, diags};
+			resolver.currentRegion = decl->key;
 			for (const auto& section : decl->body.sections) {
 				for (const auto& entry : section.entries) {
 					resolver.resolveExpr(*entry.condition);
@@ -1147,10 +1162,11 @@ std::vector<ast::Diagnostic> resolveTypes(ast::Project& project) {
 
 	// Resolve extend-region entry conditions.
 	{
-		Scope extendScope;
-		ExprResolver resolver{project, extendScope, diags};
 		for (const auto& [name, decls] : project.ExtendRegionDecls) {
 			for (const auto* decl : decls) {
+				Scope extendScope;
+				ExprResolver resolver{project, extendScope, diags};
+				resolver.currentRegion = ast::Name(name);
 				for (const auto& section : decl->sections) {
 					for (const auto& entry : section.entries) {
 						resolver.resolveExpr(*entry.condition);

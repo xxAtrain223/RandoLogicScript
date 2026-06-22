@@ -668,6 +668,25 @@ TEST(SohExpressions, SharedBlockFromHereOnly) {
 		"SpiritShared(RR_SPIRIT_TEMPLE_SUN_BLOCK_CHEST_LEDGE, []{return true;}, true)");
 }
 
+// == here keyword =============================================================
+
+TEST(SohExpressions, HereEmitsCurrentRegion) {
+	auto expr = sourceToRegionExpression(
+		"region RR_SPIRIT_TEMPLE_STATUE_ROOM_CHILD {\n"
+		"    name: \"Spirit Temple Statue Room Child\"\n"
+		"    scene: SCENE_SPIRIT_TEMPLE\n"
+		"    exits {\n"
+		"        RR_OTHER: can_plant_bean(here, RG_KOKIRI_FOREST_BEAN_SOUL)\n"
+		"    }\n"
+		"}\n",
+		"RR_SPIRIT_TEMPLE_STATUE_ROOM_CHILD",
+		rls::ast::SectionKind::Exits,
+		"RR_OTHER");
+	EXPECT_EQ(GenerateExpression(expr),
+		"can_plant_bean(RandomizerRegion::RR_SPIRIT_TEMPLE_STATUE_ROOM_CHILD, "
+		"RandomizerGet::RG_KOKIRI_FOREST_BEAN_SOUL)");
+}
+
 // == Match expression =========================================================
 
 TEST(SohExpressions, MatchSingleArm) {

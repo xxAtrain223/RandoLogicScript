@@ -184,6 +184,12 @@ struct InvokeExpr {
 		: callee(std::move(callee)) {}
 };
 
+/// The `here` keyword: resolves to the current region's name during sema.
+/// Only valid inside region and extend-region entry conditions.
+struct HereRef {
+	Name resolvedRegion; ///< Filled in by sema; empty until resolved.
+};
+
 /// One branch of a `shared` block: `from <region>: <condition>` or
 /// `from here: <condition>`.
 struct SharedBranch {
@@ -240,6 +246,7 @@ struct Expr {
 		TernaryExpr,
 		CallExpr,
 		InvokeExpr,
+		HereRef,
 		SharedBlock,
 		MatchExpr
 	>;

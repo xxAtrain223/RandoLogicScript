@@ -434,6 +434,20 @@ TEST(ExprAnyAge, AsPrimary) {
 	));
 }
 
+// == here keyword =============================================================
+
+TEST(ExprHere, AsPrimary) {
+	EXPECT_TRUE(matches<primary>("here"));
+}
+
+TEST(ExprHere, InExpr) {
+	EXPECT_TRUE(matches<expr>("here"));
+}
+
+TEST(ExprHere, AsCallArg) {
+	EXPECT_TRUE(matches<call>("spirit_shared(here, true)"));
+}
+
 // == Match expressions ========================================================
 
 TEST(ExprMatch, SingleArm) {

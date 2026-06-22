@@ -164,6 +164,13 @@ TEST(ExprTests, AnyAgeHostCall) {
 	EXPECT_TRUE(std::holds_alternative<CallExpr>(call.args[0].value->node));
 }
 
+TEST(ExprTests, HereRef) {
+	auto expr = makeExpr(HereRef{});
+	ASSERT_TRUE(std::holds_alternative<HereRef>(expr->node));
+	// resolvedRegion is empty at construction — sema fills it in.
+	EXPECT_EQ(std::get<HereRef>(expr->node).resolvedRegion.text, "");
+}
+
 TEST(ExprTests, MatchExpr) {
 	// match distance { ED_CLOSE: expr or, ED_FAR: expr }
 	std::vector<MatchArm> arms;

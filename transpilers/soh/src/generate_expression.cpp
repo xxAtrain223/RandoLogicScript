@@ -215,6 +215,10 @@ std::string SohTranspiler::GenerateExpression(const rls::ast::InvokeExpr& node) 
     return GenerateExpression(node.callee) + "()";
 }
 
+std::string SohTranspiler::GenerateExpression(const rls::ast::HereRef& node) const {
+    return "RandomizerRegion::" + node.resolvedRegion.text;
+}
+
 std::string SohTranspiler::GenerateExpression(const rls::ast::SharedBlock& node) const {
     std::ostringstream oss;
 

@@ -1161,6 +1161,57 @@ TEST(ResolveTypes, AnyAgeCallNonBoolArg) {
 	EXPECT_NE(diags[0].message.find("argument 1 expected Condition, got Item"), std::string::npos);
 }
 
+// -- here keyword -------------------------------------------------------------
+
+TEST(ResolveTypes, HereResolvesToCurrentRegion) {
+	auto [project, diags] = resolveFromSource(
+		"extern define uses_region(r: Region) -> Bool\n"
+		"region RR_TEST {\n"
+		"    name: \"Test\"\n"
+		"    scene: SCENE_TEST\n"
+		"    exits { RR_OTHER: uses_region(here) }\n"
+		"}\n");
+	EXPECT_TRUE(diags.empty());
+	EXPECT_EQ(project.getType(findRegionEntry(project)), Type::Bool);
+
+	const auto* expr = findRegionEntry(project);
+	ASSERT_NE(expr, nullptr);
+	ASSERT_TRUE(std::holds_alternative<CallExpr>(expr->node));
+	const auto* resolved = project.getResolvedCallArgs(&std::get<CallExpr>(expr->node));
+	ASSERT_NE(resolved, nullptr);
+	ASSERT_EQ(resolved->size(), 1u);
+	ASSERT_TRUE(std::holds_alternative<HereRef>((*resolved)[0]->node));
+	EXPECT_EQ(std::get<HereRef>((*resolved)[0]->node).resolvedRegion, "RR_TEST");
+}
+
+TEST(ResolveTypes, HereInExtendRegionResolvesToTargetName) {
+	auto [project, diags] = resolveFromSource(
+		"extern define uses_region(r: Region) -> Bool\n"
+		"region RR_BASE {\n"
+		"    name: \"Base\"\n"
+		"    scene: SCENE_TEST\n"
+		"}\n"
+		"extend region RR_BASE {\n"
+		"    exits { RR_OTHER: uses_region(here) }\n"
+		"}\n");
+	EXPECT_TRUE(diags.empty());
+	auto it = project.ExtendRegionDecls.find("RR_BASE");
+	ASSERT_NE(it, project.ExtendRegionDecls.end());
+	const auto* expr = it->second[0]->sections[0].entries[0].condition.get();
+	const auto* resolved = project.getResolvedCallArgs(&std::get<CallExpr>(expr->node));
+	ASSERT_NE(resolved, nullptr);
+	ASSERT_TRUE(std::holds_alternative<HereRef>((*resolved)[0]->node));
+	EXPECT_EQ(std::get<HereRef>((*resolved)[0]->node).resolvedRegion, "RR_BASE");
+}
+
+TEST(ResolveTypes, HereOutsideRegionIsError) {
+	auto [project, diags] = resolveFromSource(
+		"extern define uses_region(r: Region) -> Bool\n"
+		"define test(): uses_region(here)\n");
+	EXPECT_EQ(countErrors(diags), 1u);
+	EXPECT_NE(diags[0].message.find("'here' can only be used"), std::string::npos);
+}
+
 // -- Match expression ---------------------------------------------------------
 
 TEST(ResolveTypes, MatchExprBasic) {

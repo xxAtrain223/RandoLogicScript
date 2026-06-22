@@ -258,7 +258,8 @@ struct expr;
 /// Keyword atoms that evaluate to a value by themselves.
 struct atom_keyword : sor<
 	kw<kw_always>, kw<kw_never>,
-	kw<kw_true>, kw<kw_false>
+	kw<kw_true>, kw<kw_false>,
+	kw<kw_here>          // resolves to the current region's name
 > {};
 
 /// atom = atom_keyword | IDENT | NUMBER

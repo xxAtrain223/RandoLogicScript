@@ -494,6 +494,15 @@ TEST(ParseExpr, AnyAgeCall) {
 	EXPECT_TRUE(std::holds_alternative<CallExpr>(call.args[0].value->node));
 }
 
+// == here keyword =============================================================
+
+TEST(ParseExpr, HereKeyword) {
+	const auto& e = parseExpr("here");
+	ASSERT_TRUE(std::holds_alternative<HereRef>(e.node));
+	// resolvedRegion is empty at parse time — sema fills it in.
+	EXPECT_EQ(std::get<HereRef>(e.node).resolvedRegion.text, "");
+}
+
 // == Match expression =========================================================
 
 TEST(ParseExpr, MatchSingleArm) {

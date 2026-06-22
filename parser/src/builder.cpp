@@ -125,6 +125,8 @@ ast::ExprPtr buildExpr(const Node& n, Diags& diags) {
 			return ast::makeExpr(ast::BoolLiteral{true}, makeSpan(n));
 		if (s == "false" || s == "never")
 			return ast::makeExpr(ast::BoolLiteral{false}, makeSpan(n));
+		if (s == "here")
+			return ast::makeExpr(ast::HereRef{}, makeSpan(n));
 		emitError(diags, "unknown atom keyword: " + std::string(s), n);
 		return ast::makeExpr(ast::BoolLiteral{false}, makeSpan(n));
 	}
