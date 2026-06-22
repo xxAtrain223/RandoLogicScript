@@ -219,24 +219,6 @@ std::string SohTranspiler::GenerateExpression(const rls::ast::HereRef& node) con
     return "RandomizerRegion::" + node.resolvedRegion.text;
 }
 
-std::string SohTranspiler::GenerateExpression(const rls::ast::SharedBlock& node) const {
-    std::ostringstream oss;
-
-    const auto& firstBranch = node.branches[0];
-        oss << "SpiritShared(" << firstBranch.region->text << ", "
-        << "[]{return " << GenerateExpression(firstBranch.condition) << ";}, "
-        << (node.anyAge ? "true" : "false");
-
-    for (int i = 1; i < node.branches.size(); i++) {
-		oss << ", " << node.branches[i].region->text << ", "
-            << "[]{return " << GenerateExpression(node.branches[i].condition) << ";}";
-    }
-
-    oss << ")";
-
-	return oss.str();
-}
-
 std::string SohTranspiler::GenerateExpression(const rls::ast::MatchExpr& node) const {
 	std::ostringstream oss;
 	oss << "rls::match(";

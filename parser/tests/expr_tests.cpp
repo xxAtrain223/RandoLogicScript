@@ -367,53 +367,6 @@ TEST(Expr, TrailingOpFails) {
 	EXPECT_FALSE(matches<expr>("a and"));
 }
 
-// == Shared blocks ============================================================
-
-TEST(ExprShared, SimpleBlock) {
-	EXPECT_TRUE(matches<shared_block>(
-		"shared { from RR_ROOM_A: has(RG_HOOKSHOT) }"
-	));
-}
-
-TEST(ExprShared, MultipleBranches) {
-	EXPECT_TRUE(matches<shared_block>(
-		"shared { from RR_ROOM_A: true from RR_ROOM_B: false }"
-	));
-}
-
-TEST(ExprShared, WithHere) {
-	EXPECT_TRUE(matches<shared_block>(
-		"shared { from here: always }"
-	));
-}
-
-TEST(ExprShared, WithAnyAge) {
-	EXPECT_TRUE(matches<shared_block>(
-		"shared any_age { from RR_ROOM_A: true }"
-	));
-}
-
-TEST(ExprShared, WithNewlines) {
-	EXPECT_TRUE(matches<shared_block>(
-		"shared {\n"
-		"  from RR_ROOM_A: has(RG_HOOKSHOT)\n"
-		"  from here: always\n"
-		"}"
-	));
-}
-
-TEST(ExprShared, AsPrimary) {
-	EXPECT_TRUE(matches<primary>(
-		"shared { from here: true }"
-	));
-}
-
-TEST(ExprShared, InOrExpr) {
-	EXPECT_TRUE(matches<expr>(
-		"shared { from here: true } or has(RG_LONGSHOT)"
-	));
-}
-
 // == Any-age host function ====================================================
 
 TEST(ExprAnyAge, SimpleCall) {
@@ -565,12 +518,14 @@ TEST(ExprRealistic, EffectiveHealthCheck) {
 	));
 }
 
-TEST(ExprRealistic, SharedInExpr) {
+TEST(ExprRealistic, SpiritSharedCallInExpr) {
 	EXPECT_TRUE(matches<expr>(
-		"shared {\n"
-		"  from here: can_use(RG_BOOMERANG)\n"
-		"  from RR_SPIRIT_TEMPLE_GS_LEDGE: has(RG_HOOKSHOT)\n"
-		"}"
+		"spirit_shared(\n"
+		"  first_region: here,\n"
+		"  first_condition: can_use(RG_BOOMERANG),\n"
+		"  second_region: RR_SPIRIT_TEMPLE_GS_LEDGE,\n"
+		"  second_condition: has(RG_HOOKSHOT)\n"
+		")"
 	));
 }
 

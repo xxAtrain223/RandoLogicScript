@@ -502,16 +502,18 @@ TEST(DeclRealistic, ExtendWithPots) {
 	));
 }
 
-TEST(DeclRealistic, SharedInRegionExit) {
+TEST(DeclRealistic, SpiritSharedCallInRegionExit) {
 	EXPECT_TRUE(matches<rls_file>(
 		"region RR_TEST {\n"
 		"  name: \"Test\"\n"
 		"  scene: SCENE_TEST\n"
 		"  exits {\n"
-		"    RR_TARGET: shared {\n"
-		"      from RR_ROOM_A: has(RG_HOOKSHOT)\n"
-		"      from here: can_use(RG_BOOMERANG)\n"
-		"    }\n"
+		"    RR_TARGET: spirit_shared(\n"
+		"      first_region: RR_ROOM_A,\n"
+		"      first_condition: has(RG_HOOKSHOT),\n"
+		"      second_region: here,\n"
+		"      second_condition: can_use(RG_BOOMERANG)\n"
+		"    )\n"
 		"  }\n"
 		"}\n"
 	));

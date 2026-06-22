@@ -73,8 +73,6 @@ using selector = tao::pegtl::parse_tree::selector<
 		grammar::invoke_call,
 		grammar::call,
 		grammar::named_arg,
-		grammar::shared_block,
-		grammar::shared_branch,
 		grammar::match_expr,
 		grammar::match_arm,
 		grammar::match_pattern

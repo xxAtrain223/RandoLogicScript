@@ -15,3 +15,7 @@ extern define collected_triforce_pieces() -> Int
 extern define check_price(check = RC_UNKNOWN_CHECK) -> Int
 extern define bottle_count() -> Int
 extern define any_age(condition: Condition) -> Bool
+extern define spirit_shared(
+    first_region: Region, first_condition: Condition, any_age: Bool = false,
+    second_region: Region = RR_NONE, second_condition: Condition = false,
+    third_region: Region = RR_NONE, third_condition: Condition = false) -> Bool

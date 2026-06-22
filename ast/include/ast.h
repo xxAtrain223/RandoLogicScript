@@ -190,25 +190,6 @@ struct HereRef {
 	Name resolvedRegion; ///< Filled in by sema; empty until resolved.
 };
 
-/// One branch of a `shared` block: `from <region>: <condition>` or
-/// `from here: <condition>`.
-struct SharedBranch {
-	std::optional<Name> region; // nullopt means "from here"
-	ExprPtr condition;
-
-	SharedBranch(std::optional<Name> region, ExprPtr condition)
-		: region(std::move(region)), condition(std::move(condition)) {}
-};
-
-/// Shared/multi-region check: `shared [any_age] { from ... }`.
-struct SharedBlock {
-	bool anyAge;
-	std::vector<SharedBranch> branches;
-
-	SharedBlock(bool anyAge, std::vector<SharedBranch> branches)
-		: anyAge(anyAge), branches(std::move(branches)) {}
-};
-
 /// One arm of a `match` expression.
 struct MatchArm {
 	std::vector<ExprPtr> patterns;      // one or more match expressions
@@ -247,7 +228,6 @@ struct Expr {
 		CallExpr,
 		InvokeExpr,
 		HereRef,
-		SharedBlock,
 		MatchExpr
 	>;
 

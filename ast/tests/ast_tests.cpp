@@ -128,30 +128,6 @@ TEST(ExprTests, CallWithNoArgs) {
 	EXPECT_TRUE(call.args.empty());
 }
 
-TEST(ExprTests, SharedBlock) {
-	// shared { from here: always, from RR_OTHER: condition }
-	std::vector<SharedBranch> branches;
-	branches.emplace_back(std::nullopt, makeExpr(BoolLiteral{true}));
-	branches.emplace_back(std::make_optional<Name>("RR_OTHER"), makeExpr(Identifier{Name("some_cond")}));
-
-	auto expr = makeExpr(SharedBlock(false, std::move(branches)));
-	ASSERT_TRUE(std::holds_alternative<SharedBlock>(expr->node));
-	const auto& shared = std::get<SharedBlock>(expr->node);
-	EXPECT_FALSE(shared.anyAge);
-	ASSERT_EQ(shared.branches.size(), 2u);
-	EXPECT_FALSE(shared.branches[0].region.has_value());
-	ASSERT_TRUE(shared.branches[1].region.has_value());
-	EXPECT_EQ(shared.branches[1].region.value(), "RR_OTHER");
-}
-
-TEST(ExprTests, SharedBlockAnyAge) {
-	std::vector<SharedBranch> branches;
-	branches.emplace_back(std::nullopt, makeExpr(BoolLiteral{true}));
-
-	auto expr = makeExpr(SharedBlock(true, std::move(branches)));
-	EXPECT_TRUE(std::get<SharedBlock>(expr->node).anyAge);
-}
-
 TEST(ExprTests, AnyAgeHostCall) {
 	// any_age(can_kill(RE_ARMOS))
 	std::vector<Arg> args;
