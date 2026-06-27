@@ -24,8 +24,6 @@ namespace {
 //     collected_triforce_pieces >= required_triforce_pieces -> CanWinTriforceHunt()
 //   Defines provided natively (isHostProvidedDefine, [kHostProvidedDefines]):
 //     has_bottle, wallet_capacity  -> skipped by function generation
-//   Shared blocks (renderSharedBlock):
-//     spirit_shared(...)
 //
 // Note on check_price -- it deliberately appears in TWO stages, which is the one
 // non-obvious thing here:
@@ -173,26 +171,6 @@ bool SohApTranspiler::isHostProvidedDefine(const std::string& name) const {
 		}
 	}
 	return false;
-}
-
-// Going to have to fiddle with this.
-// I think as long as we define the SharedSpirit functions and the SharedSpiritData map this could be done
-std::string SohApTranspiler::renderSharedBlock(const rls::ast::SharedBlock& node) const {
-	std::ostringstream oss;
-
-	const auto& firstBranch = node.branches[0];
-	oss << "spirit_shared(" << firstBranch.region->text << ", "
-		<< "(lambda: " << GenerateExpression(firstBranch.condition) << "), "
-		<< (node.anyAge ? "True" : "False");
-
-	for (size_t i = 1; i < node.branches.size(); i++) {
-		oss << ", " << node.branches[i].region->text << ", "
-			<< "(lambda:" << GenerateExpression(node.branches[i].condition) << ")";
-	}
-
-	oss << ")";
-
-	return oss.str();
 }
 
 } // namespace rls::transpilers::soh_ap

@@ -53,9 +53,10 @@ ApTranspiler::ValueClass ApTranspiler::ClassifyExpression(const rls::ast::Expr* 
 	if (std::holds_alternative<rls::ast::InvokeExpr>(node)) {
 		return ValueClass::Rule;
 	}
-	// Shared blocks lower to a rule-producing helper (e.g. spirit_shared).
-	if (std::holds_alternative<rls::ast::SharedBlock>(node)) {
-		return ValueClass::Rule;
+	// `here` resolves to a region name -- a build-time enum constant, like any other
+	// Region-typed identifier.
+	if (std::holds_alternative<rls::ast::HereRef>(node)) {
+		return ValueClass::BuildTime;
 	}
 
 	// `not` preserves class: `not setting(...)` is still an OptionFilter rule, while
@@ -223,7 +224,7 @@ bool ApTranspiler::IsPureOptionFilterRule(const rls::ast::Expr* expr) const {
 		// Host/extern calls (has, can_use, trick, flag, ...) are collection rules -- impure.
 		return false;
 	}
-	// Identifiers, ints, ternaries, matches, invokes, shared blocks: not option-filter rules.
+	// Identifiers, ints, ternaries, matches, invokes, here refs: not option-filter rules.
 	return false;
 }
 

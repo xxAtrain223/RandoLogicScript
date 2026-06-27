@@ -503,8 +503,10 @@ std::string ApTranspiler::GenerateExpression(const rls::ast::InvokeExpr& node) c
 	return GenerateExpression(node.callee) + "(" + ruleContextParam() + ")";
 }
 
-std::string ApTranspiler::GenerateExpression(const rls::ast::SharedBlock& node) const {
-	return renderSharedBlock(node);
+std::string ApTranspiler::GenerateExpression(const rls::ast::HereRef& node) const {
+	// `here` lowers to a reference to the enclosing region, resolved by sema. It renders
+	// like any other Region-typed enum value (e.g. SoH's `Regions.<name>`).
+	return renderEnumValue(rls::ast::Type::Region, node.resolvedRegion.text);
 }
 
 std::string ApTranspiler::GenerateExpression(const rls::ast::MatchExpr& node) const {

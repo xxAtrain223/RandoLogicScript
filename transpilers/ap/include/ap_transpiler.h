@@ -76,9 +76,6 @@ protected:
 	// (normal binary-operator handling).
 	virtual std::optional<std::string> renderBinarySpecialCase(const rls::ast::BinaryExpr& node) const;
 
-	// World-specific block-node renderings. Default: empty string.
-	virtual std::string renderSharedBlock(const rls::ast::SharedBlock& node) const;
-
 	// True if a user `define` of this name is supplied natively by the host world and so
 	// must NOT be emitted as a generated function. The canonical cases are defines whose AP
 	// lowering is a hand-written host rule (SoH's `has_bottle`) or that exist only to be
@@ -191,7 +188,7 @@ private:
 	// evaluated lazily; an argument already of Condition type is passed through unchanged.
 	std::string GenerateCallArgument(const rls::ast::Expr* argExpr, std::optional<rls::ast::Type> paramType) const;
 
-	std::string GenerateExpression(const rls::ast::SharedBlock& node) const;
+	std::string GenerateExpression(const rls::ast::HereRef& node) const;
 	std::string GenerateExpression(const rls::ast::MatchExpr& node) const;
 
 	// True if this binary expression is a `setting(KEY) == VALUE` / `!= VALUE` comparison,

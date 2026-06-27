@@ -40,10 +40,6 @@ std::optional<std::string> ApTranspiler::renderBinarySpecialCase(const rls::ast:
 	return std::nullopt;
 }
 
-std::string ApTranspiler::renderSharedBlock(const rls::ast::SharedBlock&) const {
-	return "";
-}
-
 bool ApTranspiler::isHostProvidedDefine(const std::string&) const {
 	return false;
 }

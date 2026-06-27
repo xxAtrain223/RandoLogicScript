@@ -27,7 +27,6 @@ protected:
 	std::string renderEnumValue(rls::ast::Type type, const std::string& name) const override;
 	std::optional<std::string> renderHostCall(const rls::ast::CallExpr& node) const override;
 	std::optional<std::string> renderBinarySpecialCase(const rls::ast::BinaryExpr& node) const override;
-	std::string renderSharedBlock(const rls::ast::SharedBlock& node) const override;
 	bool isHostProvidedDefine(const std::string& name) const override;
 
 	std::string regionsPreamble() const override;
