@@ -80,7 +80,22 @@ static bool runTranspiler(const TranspilerConfig& config, const rls::ast::Projec
     if (config.name == "soh") {
         rls::transpilers::soh::SohTranspiler(project).Transpile(writer);
     } else if (config.name == "soh_ap") {
-        rls::transpilers::soh_ap::SohApTranspiler(project).Transpile(writer);
+        rls::transpilers::soh_ap::SohApTranspiler transpiler(project);
+        transpiler.Transpile(writer);
+
+        // Surface constructs the RuleBuilder target cannot represent (negating a rule,
+        // a rule-conditioned ternary with no known complement, a runtime value combined
+        // with a rule). Abort rather than ship Python that raises at world-load.
+        bool hasErrors = false;
+        for (const auto& d : transpiler.Diagnostics()) {
+            printDiagnostic(d);
+            if (d.level == rls::ast::DiagnosticLevel::Error)
+                hasErrors = true;
+        }
+        if (hasErrors) {
+            std::cerr << "aborting: '" << config.name << "' could not represent some rules\n";
+            return false;
+        }
     } else {
         std::cerr << "error: unknown transpiler '" << config.name << "'\n";
         return false;

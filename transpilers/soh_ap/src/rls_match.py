@@ -1,43 +1,47 @@
+"""Runtime support for RLS `match` expressions in the Archipelago (RuleBuilder) target.
+
+A `match` lowers to one of two helpers, chosen at transpile time by the value class of its
+arm bodies (see docs/AP-Function-Generation.md):
+
+  * `rls_match_value` -- arms produce build-time Python values (e.g. distance_to_int's
+    integers). Returns the first matching arm's value, or `default` if none match.
+
+  * `rls_match_rule` -- arms produce RuleBuilder rules. A rule is not a Python bool
+    (`bool(rule)` raises), so rule arms cannot be combined with Python `or`; matched arms
+    are `|`-combined instead. `or`-fallthrough in the source means a matched arm also pulls
+    in the arms it falls through into, so the combined rule accumulates down the chain.
+
+Each arm is passed as a flat (condition, body, fallthrough) triple: `condition()` is a
+zero-arg predicate over the (build-time) discriminant, `body()` yields the arm's value or
+rule, and `fallthrough` is True when the source arm ended with a trailing `or`.
+"""
 from typing import Any
-# from enum import IntEnum, auto
 
-# class EnemyDistances(IntEnum):
-#     ED_CLOSE = auto()
-#     ED_SHORT_JUMPSLASH = auto()
-#     ED_MASTER_SWORD_JUMPSLASH = auto()
-#     ED_LONG_JUMPSLASH = auto()
-#     ED_BOMB_THROW = auto()
-#     ED_BOOMERANG = auto()
-#     ED_HOOKSHOT = auto()
-#     ED_LONGSHOT = auto()
-#     ED_FAR = auto()
+from rule_builder.rules import False_
 
-# class RandomizerGet(IntEnum):
-#     RG_BOOMERANG = auto()
-#     RG_HOOKSHOT = auto()
-#     RG_LONGSHOT = auto()
 
-# # Unpack members into current namespace
-# RG_BOOMERANG, RG_HOOKSHOT, RG_LONGSHOT = RandomizerGet
-# ED_CLOSE, ED_SHORT_JUMPSLASH, ED_MASTER_SWORD_JUMPSLASH, ED_LONG_JUMPSLASH, ED_BOMB_THROW, ED_BOOMERANG, ED_HOOKSHOT, ED_LONGSHOT, ED_FAR = EnemyDistances
+def rls_match_value(default: Any, *arms: Any) -> Any:
+	"""Return the first matching arm's value, or `default` if no arm matches."""
+	for i in range(0, len(arms), 3):
+		condition, body = arms[i], arms[i + 1]
+		if condition():
+			return body()
+	return default
 
-def rls_match(compare, condition, body, fallthrough: bool, *args, active: bool = False) -> Any:
-    if len(args) == 0:
-        if active or condition(compare): return body()
-        # Choose default for type to return
-        if type(body()) == bool: return False
-        if type(body()) == int: return 0
-    else:
-        if active or condition(compare):
-            if fallthrough:
-                if bool(body()): return body()
-                return rls_match(compare, *args, active=True)
-            return body()
-        return rls_match(compare, *args)
 
-# distance = EnemyDistances.ED_FAR
+def rls_match_rule(*arms: Any) -> Any:
+	"""`|`-combine the matched arm with the arms it falls through into.
 
-# def can_use(x):
-#     return True
-
-# print(rls_match(distance, (lambda distance: distance == ED_CLOSE or distance == ED_SHORT_JUMPSLASH or distance == ED_MASTER_SWORD_JUMPSLASH or distance == ED_LONG_JUMPSLASH or distance == ED_BOMB_THROW or distance == ED_BOOMERANG), (lambda: can_use(RG_BOOMERANG)), True, (lambda distance: distance == ED_HOOKSHOT), (lambda: can_use(RG_HOOKSHOT)), True, (lambda distance: distance == ED_LONGSHOT), (lambda: can_use(RG_LONGSHOT)), False))
+	Returns `False_()` (an always-closed rule) when no arm matches.
+	"""
+	result = None
+	matched = False
+	for i in range(0, len(arms), 3):
+		condition, body, fallthrough = arms[i], arms[i + 1], arms[i + 2]
+		if not matched and condition():
+			matched = True
+		if matched:
+			result = body() if result is None else result | body()
+			if not fallthrough:
+				break
+	return result if result is not None else False_()

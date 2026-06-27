@@ -13,6 +13,14 @@ void ApTranspiler::SetCurrentLocation(std::optional<std::string> location) const
 	currentLocationName = std::move(location);
 }
 
+const std::vector<rls::ast::Diagnostic>& ApTranspiler::Diagnostics() const {
+	return diagnostics;
+}
+
+void ApTranspiler::Diagnose(const rls::ast::Span& span, std::string message) const {
+	diagnostics.push_back({rls::ast::DiagnosticLevel::Error, std::move(message), span});
+}
+
 // == Default hook implementations =============================================
 // Generic AP behavior; SoH (and other games) override as needed.
 
@@ -34,6 +42,10 @@ std::optional<std::string> ApTranspiler::renderBinarySpecialCase(const rls::ast:
 
 std::string ApTranspiler::renderSharedBlock(const rls::ast::SharedBlock&) const {
 	return "";
+}
+
+bool ApTranspiler::isHostProvidedDefine(const std::string&) const {
+	return false;
 }
 
 } // namespace rls::transpilers::ap

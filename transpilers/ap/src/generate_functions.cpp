@@ -19,6 +19,11 @@ void ApTranspiler::GenerateFunctionDefinitionsSource(rls::OutputWriter& out) con
 	};
 
 	for (const auto& [name, decl] : project.DefineDecls) {
+		// Defines the host world supplies natively (e.g. has_bottle) or folds away at the
+		// call site (wallet_capacity) are not emitted -- see isHostProvidedDefine.
+		if (isHostProvidedDefine(name)) {
+			continue;
+		}
 		source << "\n";
 
 		std::ostringstream sig;
@@ -37,7 +42,10 @@ void ApTranspiler::GenerateFunctionDefinitionsSource(rls::OutputWriter& out) con
 			needComma = true;
 			sig << param.name << ": " << typeName(&param);
 			if (param.defaultValue != nullptr) {
-				sig << " = " + GenerateExpression(param.defaultValue);
+				// A default binds to the parameter exactly like a call argument: a Condition
+				// default is thunked, a value default uses Python True/False, not True_()/
+				// False_(). Reuse the call-argument path so the two stay consistent.
+				sig << " = " + GenerateCallArgument(param.defaultValue.get(), project.getType(&param));
 			}
 		}
 		sig << ") -> " << typeName(decl->body.get());

@@ -1,6 +1,7 @@
-// Tests for SoH host-call rewrites and binary special-cases: how `trick`, `check_price`,
-// wallet-capacity and triforce-hunt comparisons are lowered to the oot_soh runtime helpers.
-// OptionFilter / setting rendering is covered by option_filter_tests.cpp.
+// Tests for SoH host-call rewrites and special-cases: how `trick`, `check_price`,
+// wallet-capacity and triforce-hunt comparisons, and age-conditional ternaries are lowered
+// to the oot_soh runtime helpers. OptionFilter / setting rendering is covered by
+// option_filter_tests.cpp.
 #include "helpers.h"
 
 using namespace rls::transpilers::soh_ap_tests;
@@ -72,6 +73,49 @@ TEST(SohApHostRewrites, CollapsedSpecialCaseNeedsNoParensUnderAnd) {
 		"    has(RG_HOOKSHOT) and check_price(RC_FOO) <= wallet_capacity()\n",
 		"test")),
 		"has_item(bundle, Items.RG_HOOKSHOT) & can_afford_slot(Locations.RC_FOO)");
+}
+
+// A rule-conditioned ternary `is_child() ? a : b` cannot be a Python `if`, so it lowers to
+// the rule idiom `(is_child() & a) | b` -- the then-branch gated by the age rule, the
+// else-branch unconditional. No complement (is_adult) is synthesized: the source never wrote
+// one, and the else-branch items stay age-independent. This verifies the generic lowering
+// (ternary_tests.cpp) threads the bundle receiver and enum prefixes through the SoH hooks.
+TEST(SohApHostRewrites, AgeConditionalTernaryLowersToRuleIdiom) {
+	EXPECT_EQ(GenerateExpression(sourceToExpression(
+		"extern define is_child() -> Bool\n"
+		"define test():\n"
+		"    is_child() ? has(RG_HOOKSHOT) : has(RG_BOOMERANG)\n",
+		"test")),
+		"(is_child(bundle) & has_item(bundle, Items.RG_HOOKSHOT)) | "
+		"has_item(bundle, Items.RG_BOOMERANG)");
+}
+
+// A loose else branch (an or-rule) is parenthesized as the right operand of `|`, and is left
+// ungated -- those items are reachable regardless of the condition.
+TEST(SohApHostRewrites, AgeConditionalLeavesElseOrBranchUngated) {
+	EXPECT_EQ(GenerateExpression(sourceToExpression(
+		"extern define is_child() -> Bool\n"
+		"define test():\n"
+		"    is_child() ? has(RG_HOOKSHOT) : (has(RG_BOOMERANG) or has(RG_FAIRY_BOW))\n",
+		"test")),
+		"(is_child(bundle) & has_item(bundle, Items.RG_HOOKSHOT)) | "
+		"(has_item(bundle, Items.RG_BOOMERANG) | has_item(bundle, Items.RG_FAIRY_BOW))");
+}
+
+// A fallthrough rule match renders the SoH host-call rewrites and enum prefixes inside the
+// arm lambdas, and threads the bundle receiver -- the helper |-combines matched arms.
+TEST(SohApHostRewrites, RuleMatchThreadsBundleAndEnumPrefixes) {
+	EXPECT_EQ(GenerateExpression(sourceToExpression(
+		"define test(d: Distance):\n"
+		"    match d {\n"
+		"        ED_CLOSE: can_use(RG_MEGATON_HAMMER) or\n"
+		"        ED_HOOKSHOT: can_use(RG_HOOKSHOT)\n"
+		"    }\n",
+		"test")),
+		"rls_match_rule((lambda d=d: d == EnemyDistance.ED_CLOSE), "
+		"(lambda: can_use(bundle, Items.RG_MEGATON_HAMMER)), True, "
+		"(lambda d=d: d == EnemyDistance.ED_HOOKSHOT), "
+		"(lambda: can_use(bundle, Items.RG_HOOKSHOT)), False)");
 }
 
 // check_price(RC_UNKNOWN_CHECK) uses the location set on the transpiler during region

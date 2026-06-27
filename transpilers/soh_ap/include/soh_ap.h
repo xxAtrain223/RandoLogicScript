@@ -28,6 +28,7 @@ protected:
 	std::optional<std::string> renderHostCall(const rls::ast::CallExpr& node) const override;
 	std::optional<std::string> renderBinarySpecialCase(const rls::ast::BinaryExpr& node) const override;
 	std::string renderSharedBlock(const rls::ast::SharedBlock& node) const override;
+	bool isHostProvidedDefine(const std::string& name) const override;
 
 	std::string regionsPreamble() const override;
 	std::string regionCreationArgs(const std::string& regionKey) const override;
@@ -41,6 +42,15 @@ protected:
 	void writeEnums(rls::OutputWriter& out) const override;
 	std::string functionsPreamble() const override;
 	std::string pythonTypeName(rls::ast::Type type) const override;
+
+private:
+	// The Python enum class that values of an enum-valued RLS type belong to (e.g.
+	// Item -> "Items", Check -> "Locations"). std::nullopt for non-enum types (Bool,
+	// Int, Condition) and for enum types with no dedicated class in the reference world
+	// (Scene/Dungeon/Area, which render bare). This is the single source of truth shared
+	// by renderEnumValue (the value prefix) and pythonTypeName (the parameter annotation),
+	// so the two cannot drift: a value `Items.RG_HOOKSHOT` always annotates as `Items`.
+	std::optional<std::string> enumClassName(rls::ast::Type type) const;
 };
 
 void Transpile(const rls::ast::Project& project, rls::OutputWriter& out);

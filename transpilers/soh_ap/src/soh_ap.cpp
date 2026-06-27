@@ -8,6 +8,7 @@ SohApTranspiler::SohApTranspiler(const rls::ast::Project& project)
 void SohApTranspiler::Transpile(rls::OutputWriter& out) const {
 	GenerateRegionsSource(out);
 	GenerateEnumsSource(out);
+	GenerateFunctionDefinitionsSource(out);
 }
 
 std::string SohApTranspiler::ruleContextParam() const {
