@@ -148,23 +148,21 @@ match distance {
 
 ---
 
-## Shared Blocks (Replacing SpiritShared)
+## `spirit_shared()` — Multi-Region Checks
 
-`shared` blocks replace the `SpiritShared()` callback soup with explicit multi-region access paths:
+`spirit_shared()` replaces the `SpiritShared()` callback soup. Named arguments make the intent clear; `here` resolves to the current region at compile time:
 
 ```RLS
-RC_SPIRIT_TEMPLE_GS_LOBBY: shared {
-    from here:
-        can_get_drop(RE_GOLD_SKULLTULA, ED_LONGSHOT)
-    from RR_SPIRIT_TEMPLE_INNER_WEST_HAND:
-        can_get_drop(RE_GOLD_SKULLTULA,
-            trick(RT_SPIRIT_WEST_LEDGE) ? ED_BOOMERANG : ED_HOOKSHOT)
-    from RR_SPIRIT_TEMPLE_GS_LEDGE:
-        can_kill(RE_GOLD_SKULLTULA)
-}
+RC_SPIRIT_TEMPLE_GS_LOBBY: spirit_shared(
+    first_region: here,
+    first_condition: can_get_drop(RE_GOLD_SKULLTULA, ED_LONGSHOT),
+    second_region: RR_SPIRIT_TEMPLE_INNER_WEST_HAND,
+    second_condition: can_get_drop(RE_GOLD_SKULLTULA,
+        trick(RT_SPIRIT_WEST_LEDGE) ? ED_BOOMERANG : ED_HOOKSHOT),
+    third_region: RR_SPIRIT_TEMPLE_GS_LEDGE,
+    third_condition: can_kill(RE_GOLD_SKULLTULA)
+)
 ```
-
-`shared any_age { ... }` sets the `anyAge` flag for evaluating with all ages that have CertainAccess.
 
 ---
 
@@ -202,7 +200,6 @@ logic/
 | -------------------- | ------------------------------------ | ------------------------------------------ |
 | Boilerplate          | Lambdas, macros, `logic->` prefixes  | Bare `Name: condition` entries             |
 | Boolean operators    | `&&` / `\|\|` / `!`                  | `and` / `or` / `not`                       |
-| SpiritShared         | 3-region callback soup               | `shared { from ...: ... }`                 |
 | Distance fallthrough | C++ `switch` fallthrough (implicit)  | `match` with trailing `or` (explicit)      |
 | Logic tracker        | Runtime parsing of stringified C++   | Transpiler-generated expression trees      |
 | Archipelago sync     | Manual Python port, frequent drift   | Auto-generated from same source            |

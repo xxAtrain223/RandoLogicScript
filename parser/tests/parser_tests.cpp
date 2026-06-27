@@ -443,46 +443,6 @@ TEST(ParseExpr, NestedCalls) {
 	EXPECT_EQ(inner.callee.text, "setting");
 }
 
-// == Shared block =============================================================
-
-TEST(ParseExpr, SharedSimple) {
-	const auto& e = parseExpr(
-		"shared {\n"
-		"  from RR_ROOM_A: has(RG_HOOKSHOT)\n"
-		"  from here: true\n"
-		"}"
-	);
-	ASSERT_TRUE(std::holds_alternative<SharedBlock>(e.node));
-	const auto& sb = std::get<SharedBlock>(e.node);
-	EXPECT_FALSE(sb.anyAge);
-	ASSERT_EQ(sb.branches.size(), 2u);
-	ASSERT_TRUE(sb.branches[0].region.has_value());
-	EXPECT_EQ(*sb.branches[0].region, "RR_ROOM_A");
-	EXPECT_FALSE(sb.branches[1].region.has_value()); // "here"
-}
-
-TEST(ParseExpr, SharedAnyAge) {
-	const auto& e = parseExpr(
-		"shared any_age {\n"
-		"  from RR_A: true\n"
-		"}"
-	);
-	ASSERT_TRUE(std::holds_alternative<SharedBlock>(e.node));
-	EXPECT_TRUE(std::get<SharedBlock>(e.node).anyAge);
-}
-
-TEST(ParseExpr, SharedMultipleBranches) {
-	const auto& e = parseExpr(
-		"shared {\n"
-		"  from RR_A: true\n"
-		"  from RR_B: false\n"
-		"  from RR_C: is_adult()\n"
-		"}"
-	);
-	ASSERT_TRUE(std::holds_alternative<SharedBlock>(e.node));
-	EXPECT_EQ(std::get<SharedBlock>(e.node).branches.size(), 3u);
-}
-
 // == Any-age host function ====================================================
 
 TEST(ParseExpr, AnyAgeCall) {
@@ -492,6 +452,15 @@ TEST(ParseExpr, AnyAgeCall) {
 	EXPECT_EQ(call.callee, "any_age");
 	ASSERT_EQ(call.args.size(), 1u);
 	EXPECT_TRUE(std::holds_alternative<CallExpr>(call.args[0].value->node));
+}
+
+// == here keyword =============================================================
+
+TEST(ParseExpr, HereKeyword) {
+	const auto& e = parseExpr("here");
+	ASSERT_TRUE(std::holds_alternative<HereRef>(e.node));
+	// resolvedRegion is empty at parse time — sema fills it in.
+	EXPECT_EQ(std::get<HereRef>(e.node).resolvedRegion.text, "");
 }
 
 // == Match expression =========================================================
@@ -1044,28 +1013,36 @@ TEST(ParseRealistic, DefineWithMatch) {
 	EXPECT_FALSE(m.arms[2].fallthrough);
 }
 
-TEST(ParseRealistic, SharedInRegionExit) {
+TEST(ParseRealistic, SpiritSharedCallInRegionExit) {
 	const auto file = parse(
 		"region RR_TEST {\n"
 		"  name: \"Test\"\n"
 		"  scene: SCENE_TEST\n"
 		"  exits {\n"
-		"    RR_TARGET: shared {\n"
-		"      from RR_ROOM_A: has(RG_HOOKSHOT)\n"
-		"      from here: can_use(RG_BOOMERANG)\n"
-		"    }\n"
+		"    RR_TARGET: spirit_shared(\n"
+		"      first_region: RR_ROOM_A,\n"
+		"      first_condition: has(RG_HOOKSHOT),\n"
+		"      second_region: here,\n"
+		"      second_condition: can_use(RG_BOOMERANG)\n"
+		"    )\n"
 		"  }\n"
 		"}\n"
 	);
 	const auto& region = std::get<RegionDecl>(file.declarations[0]);
 	const auto& exits = region.body.sections[0];
 	ASSERT_EQ(exits.entries.size(), 1u);
-	ASSERT_TRUE(std::holds_alternative<SharedBlock>(exits.entries[0].condition->node));
-	const auto& sb = std::get<SharedBlock>(exits.entries[0].condition->node);
-	EXPECT_FALSE(sb.anyAge);
-	ASSERT_EQ(sb.branches.size(), 2u);
-	EXPECT_EQ(*sb.branches[0].region, "RR_ROOM_A");
-	EXPECT_FALSE(sb.branches[1].region.has_value());
+	ASSERT_TRUE(std::holds_alternative<CallExpr>(exits.entries[0].condition->node));
+	const auto& call = std::get<CallExpr>(exits.entries[0].condition->node);
+	EXPECT_EQ(call.callee, "spirit_shared");
+	ASSERT_EQ(call.args.size(), 4u);
+	ASSERT_TRUE(call.args[0].name.has_value());
+	EXPECT_EQ(*call.args[0].name, "first_region");
+	ASSERT_TRUE(call.args[1].name.has_value());
+	EXPECT_EQ(*call.args[1].name, "first_condition");
+	ASSERT_TRUE(call.args[2].name.has_value());
+	EXPECT_EQ(*call.args[2].name, "second_region");
+	ASSERT_TRUE(call.args[3].name.has_value());
+	EXPECT_EQ(*call.args[3].name, "second_condition");
 }
 
 TEST(ParseRealistic, AnyAgeCallInRegionExit) {

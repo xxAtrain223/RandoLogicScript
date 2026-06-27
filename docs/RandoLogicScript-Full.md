@@ -266,81 +266,7 @@ region RR_GERUDO_FORTRESS_FIGHT_2 {
 
 The transpiler treats this as a union - the location is reachable if *any* region containing it satisfies its condition. A duplicate location within the *same* region remains an error (see §8).
 
-### 4.3 Shared / Multi-Region Checks (Replacing SpiritShared)
-
-The `SpiritShared` pattern is one of the most complex constructs. RLS replaces it with a `shared` block that makes the multi-region logic visually clear:
-
-```rls
-region RR_SPIRIT_TEMPLE_STATUE_ROOM_CHILD {
-    name: "Spirit Temple Statue Room (Child)"
-    scene: SCENE_SPIRIT_TEMPLE
-
-    locations {
-        RC_SPIRIT_TEMPLE_MAP_CHEST: has(RG_OPEN_CHEST) and shared {
-            from here:
-                has_fire_source_with_torch()
-                or (trick(RT_SPIRIT_MAP_CHEST) and can_use(RG_FAIRY_BOW))
-            from RR_SPIRIT_TEMPLE_STATUE_ROOM:
-                has_fire_source()
-        }
-
-        RC_SPIRIT_TEMPLE_GS_LOBBY: shared {
-            from here:
-                can_get_drop(RE_GOLD_SKULLTULA, ED_LONGSHOT)
-            from RR_SPIRIT_TEMPLE_INNER_WEST_HAND:
-                can_get_drop(RE_GOLD_SKULLTULA,
-                    trick(RT_SPIRIT_WEST_LEDGE) ? ED_BOOMERANG : ED_HOOKSHOT)
-            from RR_SPIRIT_TEMPLE_GS_LEDGE:
-                can_kill(RE_GOLD_SKULLTULA)
-        }
-    }
-}
-```
-
-#### `shared any_age` - AnyAge Evaluation within SpiritShared
-
-The C++ `SpiritShared()` function has a boolean `anyAge` parameter (default `false`). When `true`, it evaluates the condition with both Child and Adult access flags set based on which ages have CertainAccess to the region. This is used for events and checks where the result should reflect what *any* reachable age can accomplish.
-
-In RLS, this is expressed by adding the `any_age` modifier after `shared`:
-
-```rls
-region RR_SPIRIT_TEMPLE_SUN_BLOCK_CHEST_LEDGE {
-    name: "Spirit Temple Sun Block Chest Ledge"
-    scene: SCENE_SPIRIT_TEMPLE
-
-    events {
-        # anyAge=true: evaluates with all ages that have CertainAccess
-        LOGIC_SPIRIT_SUN_BLOCK_TORCH: shared any_age {
-            from here: always
-        }
-    }
-
-    locations {
-        # anyAge=false (default): normal per-age evaluation
-        RC_SPIRIT_TEMPLE_SUN_BLOCK_ROOM_CHEST:
-            has(RG_OPEN_CHEST) and shared {
-                from here:
-                    has_fire_source()
-                    or (flag(LOGIC_SPIRIT_SUN_BLOCK_TORCH)
-                        and (can_use(RG_STICKS)
-                             or (trick(RT_SPIRIT_SUN_CHEST) and can_use(RG_FAIRY_BOW))))
-            }
-    }
-}
-```
-
-The C++ transpiler generates:
-- `shared { ... }` → `SpiritShared(region, condition, false, ...)`
-- `shared any_age { ... }` → `SpiritShared(region, condition, true, ...)`
-
-The `shared` block:
-1. Lists each region that could contribute access (`from <region>` or `from here`).
-2. Each branch has its own condition.
-3. The optional `any_age` modifier sets the `anyAge` parameter - when present, the generated code evaluates with both ages' CertainAccess flags.
-4. The C++ transpiler generates the appropriate `SpiritShared()` call with lambdas.
-5. The expression tree generated for the logic tracker treats each `from` branch as a named child node, so the tracker can show which region's path is satisfied.
-
-### 4.4 Dungeon Variant Selection
+### 4.3 Dungeon Variant Selection
 
 ```rls
 region RR_SPIRIT_TEMPLE_ENTRYWAY {
@@ -357,7 +283,7 @@ region RR_SPIRIT_TEMPLE_ENTRYWAY {
 
 `is_vanilla()` / `is_mq()` transpiles to host functions of the same name. The dungeon is inferred from the region's scene.
 
-### 4.5 Functions
+### 4.4 Functions
 
 Reusable logic can be defined at file scope:
 
@@ -373,7 +299,7 @@ define spirit_east_to_switch():
 
 These are **pure** - no side effects, no mutation. The transpiler always generates them as callable functions (never inlined). For the C++ target, each `define` generates both a function (for the solver) and a named expression tree node (for the logic tracker, so users can see `spirit_explosive_key_logic()` as a collapsible node and drill into its children). For Python/Archipelago, they become Python functions.
 
-### 4.6 Ternary / Conditional Expressions
+### 4.5 Ternary / Conditional Expressions
 
 ```rls
 can_hit_switch(is_adult() and trick(RT_SPIRIT_LOWER_ADULT_SWITCH) ? ED_BOMB_THROW : ED_BOOMERANG)
@@ -385,7 +311,7 @@ logic->CanHitSwitch(logic->IsAdult && ctx->GetTrickOption(RT_SPIRIT_LOWER_ADULT_
     ? ED_BOMB_THROW : ED_BOOMERANG)
 ```
 
-### 4.7 Match Expressions
+### 4.6 Match Expressions
 
 Many combat and environment functions dispatch on a distance or enemy enum and need **fallthrough accumulation** - anything that works at close range also works at longer range. C++ uses `switch` with explicit fallthrough for this, but that pattern is error-prone and hard to read.
 
@@ -721,8 +647,6 @@ The logic tracker walks this tree, calls `Eval()` on each node for each age/time
 
 For `define` functions, the tree contains a node whose `DisplayText` is the function name (e.g. `"spirit_explosive_key_logic()"`) and whose `Children` contain the expanded body. The tracker shows the function call at the top level and lets the user expand it to see internals.
 
-For `shared` blocks, each `from` branch becomes a named child node (e.g. `"from RR_SPIRIT_TEMPLE_GS_LEDGE"`), making it clear which region's path is contributing access.
-
 ### 6.2 Python / Archipelago Target
 
 The Python target generates code for the [Archipelago-SoH](https://github.com/HarbourMasters/Archipelago-SoH) project under `worlds/oot_soh/`. This is the primary reason for the Python target - so that SoH and Archipelago share the same logic source of truth, eliminating the manual porting that currently causes logic drift.
@@ -833,7 +757,7 @@ def set_region_rules(world: "SohWorld") -> None:
 The transpiler also generates:
 - `Regions`, `Locations`, `Items`, `Tricks`, `Events`, `Enemies` enum entries for any new values introduced by RLS files.
 - `item_name_to_id` and `location_name_to_id` mappings.
-- Flattened logic where needed - `shared` blocks are expanded into the appropriate per-path conditions, including `shared any_age` cases translated to the Archipelago model (which handles age/time differently than the C++ solver).
+- Flattened logic where needed - `spirit_shared()` calls are expanded into the appropriate per-path conditions, including `any_age: true` cases translated to the Archipelago model (which handles age/time differently than the C++ solver).
 
 #### Handling C++ ↔ Python Model Differences
 
@@ -848,8 +772,6 @@ The C++ and Archipelago models differ in important ways:
 | Event propagation   | Fixed-point iteration over region graph             | Archipelago's own reachability analysis                  |
 
 The transpiler bridges these differences:
-- **`shared` blocks** → expanded into the union of per-path conditions in Python.
-- **`shared any_age { ... }`** → transpiled to conditions that check both ages where the Archipelago model requires it.
 - **Region mapping** → RLS regions map 1:1 to C++ regions. The Python transpiler can optionally merge regions that don't need to be separate in the Archipelago model (e.g. regions connected by `always`).
 - **`define` functions** → become Python helper functions at the top of the generated file.
 
@@ -890,7 +812,7 @@ comp_op       = "==" | "is" | "!=" | "is" "not" | ">=" | "<=" | ">" | "<" ;
 add_sub       = mul_div (("+" | "-") mul_div)* ;
 mul_div       = unary (("*" | "/") unary)* ;
 unary         = "not" unary | primary ;
-primary       = call | shared_block | match_expr | atom | "(" expr ")" ;
+primary       = call | match_expr | atom | "(" expr ")" ;
 
 match_expr    = "match" IDENT "{" match_arm+ "}" ;
 match_arm     = match_pattern ":" expr trailing_or? ;
@@ -899,9 +821,6 @@ trailing_or   = "or" ;  /* fallthrough: OR-accumulate with next arm */
 
 call          = IDENT "(" (arg ("," arg)*)? ")" ;
 arg           = (IDENT ":" expr) | expr ;  /* named or positional */
-
-shared_block  = "shared" "any_age"? "{" shared_branch+ "}" ;
-shared_branch = "from" (IDENT | "here") ":" expr ;
 
 atom          = "always" | "never"
               | "true" | "false"
@@ -916,7 +835,6 @@ type          = IDENT ;
 Key differences from the existing `LogicExpression` parser:
 - `and`/`or`/`not` keywords instead of `&&`/`||`/`!`. `is`/`is not` as aliases for `==`/`!=`.
 - `always`/`never` as keywords.
-- `shared { from ... }` as a first-class expression block.
 - `match <value> { ... }` expressions with trailing `or` for fallthrough accumulation.
 - File-level structure (`region`, `extend`, `define`, `extern define`).
 
@@ -1093,23 +1011,24 @@ region RR_SPIRIT_TEMPLE_STATUE_ROOM_CHILD {
     scene: SCENE_SPIRIT_TEMPLE
 
     locations {
-        RC_SPIRIT_TEMPLE_MAP_CHEST: has(RG_OPEN_CHEST) and shared {
-            from here:
+        RC_SPIRIT_TEMPLE_MAP_CHEST: has(RG_OPEN_CHEST) and spirit_shared(
+            first_region: here,
+            first_condition:
                 has_fire_source_with_torch()
-                or (trick(RT_SPIRIT_MAP_CHEST) and can_use(RG_FAIRY_BOW))
-            from RR_SPIRIT_TEMPLE_STATUE_ROOM:
-                has_fire_source()
-        }
+                or (trick(RT_SPIRIT_MAP_CHEST) and can_use(RG_FAIRY_BOW)),
+            second_region: RR_SPIRIT_TEMPLE_STATUE_ROOM,
+            second_condition: has_fire_source()
+        )
 
-        RC_SPIRIT_TEMPLE_GS_LOBBY: shared {
-            from here:
-                can_get_drop(RE_GOLD_SKULLTULA, ED_LONGSHOT)
-            from RR_SPIRIT_TEMPLE_INNER_WEST_HAND:
-                can_get_drop(RE_GOLD_SKULLTULA,
-                    trick(RT_SPIRIT_WEST_LEDGE) ? ED_BOOMERANG : ED_HOOKSHOT)
-            from RR_SPIRIT_TEMPLE_GS_LEDGE:
-                can_kill(RE_GOLD_SKULLTULA)
-        }
+        RC_SPIRIT_TEMPLE_GS_LOBBY: spirit_shared(
+            first_region: here,
+            first_condition: can_get_drop(RE_GOLD_SKULLTULA, ED_LONGSHOT),
+            second_region: RR_SPIRIT_TEMPLE_INNER_WEST_HAND,
+            second_condition: can_get_drop(RE_GOLD_SKULLTULA,
+                trick(RT_SPIRIT_WEST_LEDGE) ? ED_BOOMERANG : ED_HOOKSHOT),
+            third_region: RR_SPIRIT_TEMPLE_GS_LEDGE,
+            third_condition: can_kill(RE_GOLD_SKULLTULA)
+        )
     }
 
     exits {
@@ -1146,7 +1065,6 @@ region RR_SPIRIT_TEMPLE_STATUE_ROOM_CHILD {
 | Macro wrappers                   | `ENTRANCE()`, `LOCATION()`, `EVENT_ACCESS()`                                               | Uniform `Name: condition` in typed sections                                             |
 | Boolean operators                | `&&` / `||` / `!`                                                                          | `and` / `or` / `not`                                                                    |
 | Setting comparisons              | `.Is(RO_*)` / `.IsNot(RO_*)` / `(bool)` cast                                               | `setting() is RO_*` / `is not RO_*` / bare truthiness                                   |
-| SpiritShared calls               | 3-region callback soup                                                                     | `shared { from ...: ... }` blocks                                                       |
 | Variant selection                | `ctx->GetDungeon(...)->IsVanilla()`                                                        | `is_vanilla()` / `is_mq()` functions                                                    |
 | Logic tracker data               | Runtime parsing of stringified C++                                                         | Transpiler-generated `ExpressionNode` trees                                             |
 | Logic tracker display text       | `CleanConditionString(#condition)`                                                         | RLS source text embedded in generated structs                                           |

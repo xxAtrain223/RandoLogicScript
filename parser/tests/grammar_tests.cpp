@@ -239,10 +239,6 @@ TEST(LexKeyword, NeverExact) {
 	EXPECT_TRUE(matches<kw<kw_never>>("never"));
 }
 
-TEST(LexKeyword, SharedExact) {
-	EXPECT_TRUE(matches<kw<kw_shared>>("shared"));
-}
-
 TEST(LexKeyword, MatchExact) {
 	EXPECT_TRUE(matches<kw<kw_match>>("match"));
 }
@@ -339,7 +335,7 @@ TEST(LexKeywordList, AllKeywordsRecognized) {
 		"true", "false", "always", "never",
 		"and", "or", "not",
 		"is",
-		"shared", "from", "here",
+		"here",
 		"match",
 	};
 

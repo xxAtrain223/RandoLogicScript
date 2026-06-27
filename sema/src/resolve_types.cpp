@@ -58,6 +58,7 @@ struct ExprResolver {
 	ast::Project& project;
 	Scope& scope;
 	std::vector<ast::Diagnostic>& diags;
+	std::optional<ast::Name> currentRegion; // Set when resolving region/extend-region entries.
 
 	using T = ast::Type;
 
@@ -756,20 +757,17 @@ struct ExprResolver {
 		return T::Bool;
 	}
 
-	ast::Type resolve(const ast::SharedBlock& node, const ast::Expr&) {
-		for (auto& branch : node.branches) {
-			inferUntypedParamIdentifier(*branch.condition, ast::Type::Bool);
-			auto branchType = resolveExpr(*branch.condition);
-			if (branchType != ast::Type::Error && !isBoolCompatible(branchType)) {
-				diags.push_back({
-					ast::DiagnosticLevel::Error,
-					std::format("shared branch condition must be Bool, got {}",
-						typeName(branchType)),
-					branch.condition->span
-				});
-			}
+	ast::Type resolve(ast::HereRef& node, ast::Expr& expr) {
+		if (!currentRegion.has_value()) {
+			diags.push_back({
+				ast::DiagnosticLevel::Error,
+				"'here' can only be used inside a region entry condition",
+				expr.span
+			});
+			return T::Error;
 		}
-		return ast::Type::Bool;
+		node.resolvedRegion = *currentRegion;
+		return T::Region;
 	}
 
 	ast::Type resolve(const ast::MatchExpr& node, const ast::Expr& expr) {
@@ -925,10 +923,6 @@ static void collectDefineCalls(
 			}
 		} else if constexpr (std::is_same_v<N, ast::InvokeExpr>) {
 			collectDefineCalls(*node.callee, defines, out);
-		} else if constexpr (std::is_same_v<N, ast::SharedBlock>) {
-			for (const auto& branch : node.branches) {
-				collectDefineCalls(*branch.condition, defines, out);
-			}
 		} else if constexpr (std::is_same_v<N, ast::MatchExpr>) {
 			collectDefineCalls(*node.discriminant, defines, out);
 			for (const auto& arm : node.arms) {
@@ -1134,9 +1128,10 @@ std::vector<ast::Diagnostic> resolveTypes(ast::Project& project) {
 
 	// Resolve region entry conditions.
 	{
-		Scope regionScope;
-		ExprResolver resolver{project, regionScope, diags};
 		for (auto& [name, decl] : project.RegionDecls) {
+			Scope regionScope;
+			ExprResolver resolver{project, regionScope, diags};
+			resolver.currentRegion = decl->key;
 			for (const auto& section : decl->body.sections) {
 				for (const auto& entry : section.entries) {
 					resolver.resolveExpr(*entry.condition);
@@ -1147,70 +1142,14 @@ std::vector<ast::Diagnostic> resolveTypes(ast::Project& project) {
 
 	// Resolve extend-region entry conditions.
 	{
-		Scope extendScope;
-		ExprResolver resolver{project, extendScope, diags};
 		for (const auto& [name, decls] : project.ExtendRegionDecls) {
 			for (const auto* decl : decls) {
+				Scope extendScope;
+				ExprResolver resolver{project, extendScope, diags};
+				resolver.currentRegion = ast::Name(name);
 				for (const auto& section : decl->sections) {
 					for (const auto& entry : section.entries) {
 						resolver.resolveExpr(*entry.condition);
-					}
-				}
-			}
-		}
-	}
-
-	// Resolve shared from here
-	{
-		std::function<void(const ast::Name&, const rls::ast::ExprPtr&)> populateHere = [&](const ast::Name& region, const rls::ast::ExprPtr& expr) {
-			std::visit([&](auto& node) -> void {
-				using T = std::decay_t<decltype(node)>;
-				if constexpr (std::is_same_v<T, ast::UnaryExpr>) {
-					populateHere(region, node.operand);
-				}
-				else if constexpr (std::is_same_v<T, ast::BinaryExpr>) {
-					populateHere(region, node.left);
-					populateHere(region, node.right);
-				}
-				else if constexpr (std::is_same_v<T, ast::TernaryExpr>) {
-					populateHere(region, node.condition);
-					populateHere(region, node.thenBranch);
-					populateHere(region, node.elseBranch);
-				}
-				else if constexpr (std::is_same_v<T, ast::CallExpr>) {
-					for (auto& arg : node.args) {
-						populateHere(region, arg.value);
-					}
-				}
-				else if constexpr (std::is_same_v<T, ast::SharedBlock>) {
-					for (auto& branch : node.branches) {
-						if (branch.region == std::nullopt) {
-							branch.region = region;
-						}
-						populateHere(region, branch.condition);
-					}
-				}
-				else if constexpr (std::is_same_v<T, ast::MatchExpr>) {
-					for (auto& arm : node.arms) {
-						populateHere(region, arm.body);
-					}
-				}
-			}, expr->node);
-		};
-
-		for (auto& [name, region] : project.RegionDecls) {
-			for (auto& section : region->body.sections) {
-				for (auto& entry : section.entries) {
-					populateHere(region->key, entry.condition);
-				}
-			}
-		}
-
-		for (const auto& [name, decls] : project.ExtendRegionDecls) {
-			for (const auto* decl : decls) {
-				for (const auto& section : decl->sections) {
-					for (const auto& entry : section.entries) {
-						populateHere(ast::Name(name), entry.condition);
 					}
 				}
 			}

@@ -58,6 +58,8 @@ inline std::string withHostExterns(const std::string& source) {
 		"extern define can_plant_bean(reg: Region, bean: Item) -> Bool\n"
 		"extern define triforce_pieces() -> Int\n"
 		"extern define big_poes() -> Int\n"
+		"extern define any_age(condition: Condition) -> Bool\n"
+		"extern define spirit_shared(first_region: Region, first_condition: Condition, any_age: Bool = false, second_region: Region = RR_NONE, second_condition: Condition = false, third_region: Region = RR_NONE, third_condition: Condition = false) -> Bool\n"
 		+ source;
 }
 

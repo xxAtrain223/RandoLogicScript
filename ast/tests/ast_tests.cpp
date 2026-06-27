@@ -128,30 +128,6 @@ TEST(ExprTests, CallWithNoArgs) {
 	EXPECT_TRUE(call.args.empty());
 }
 
-TEST(ExprTests, SharedBlock) {
-	// shared { from here: always, from RR_OTHER: condition }
-	std::vector<SharedBranch> branches;
-	branches.emplace_back(std::nullopt, makeExpr(BoolLiteral{true}));
-	branches.emplace_back(std::make_optional<Name>("RR_OTHER"), makeExpr(Identifier{Name("some_cond")}));
-
-	auto expr = makeExpr(SharedBlock(false, std::move(branches)));
-	ASSERT_TRUE(std::holds_alternative<SharedBlock>(expr->node));
-	const auto& shared = std::get<SharedBlock>(expr->node);
-	EXPECT_FALSE(shared.anyAge);
-	ASSERT_EQ(shared.branches.size(), 2u);
-	EXPECT_FALSE(shared.branches[0].region.has_value());
-	ASSERT_TRUE(shared.branches[1].region.has_value());
-	EXPECT_EQ(shared.branches[1].region.value(), "RR_OTHER");
-}
-
-TEST(ExprTests, SharedBlockAnyAge) {
-	std::vector<SharedBranch> branches;
-	branches.emplace_back(std::nullopt, makeExpr(BoolLiteral{true}));
-
-	auto expr = makeExpr(SharedBlock(true, std::move(branches)));
-	EXPECT_TRUE(std::get<SharedBlock>(expr->node).anyAge);
-}
-
 TEST(ExprTests, AnyAgeHostCall) {
 	// any_age(can_kill(RE_ARMOS))
 	std::vector<Arg> args;
@@ -162,6 +138,13 @@ TEST(ExprTests, AnyAgeHostCall) {
 	EXPECT_EQ(call.callee, "any_age");
 	ASSERT_EQ(call.args.size(), 1u);
 	EXPECT_TRUE(std::holds_alternative<CallExpr>(call.args[0].value->node));
+}
+
+TEST(ExprTests, HereRef) {
+	auto expr = makeExpr(HereRef{});
+	ASSERT_TRUE(std::holds_alternative<HereRef>(expr->node));
+	// resolvedRegion is empty at construction — sema fills it in.
+	EXPECT_EQ(std::get<HereRef>(expr->node).resolvedRegion.text, "");
 }
 
 TEST(ExprTests, MatchExpr) {

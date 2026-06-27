@@ -120,12 +120,6 @@ struct kw_not : TAO_PEGTL_STRING("not") {};
 // Comparison operator alias
 struct kw_is : TAO_PEGTL_STRING("is") {};
 
-// Age and time
-struct kw_any_age : TAO_PEGTL_STRING("any_age") {};
-
-// Shared / multi-region blocks
-struct kw_shared : TAO_PEGTL_STRING("shared") {};
-struct kw_from : TAO_PEGTL_STRING("from") {};
 struct kw_here : TAO_PEGTL_STRING("here") {};
 
 // Match expressions
@@ -193,9 +187,6 @@ struct reserved : sor<
 	kw<kw_not>,
 	// Comparison alias
 	kw<kw_is>,
-	// Shared blocks
-	kw<kw_shared>,
-	kw<kw_from>,
 	kw<kw_here>,
 	// Match
 	kw<kw_match>
@@ -258,11 +249,12 @@ struct expr;
 /// Keyword atoms that evaluate to a value by themselves.
 struct atom_keyword : sor<
 	kw<kw_always>, kw<kw_never>,
-	kw<kw_true>, kw<kw_false>
+	kw<kw_true>, kw<kw_false>,
+	kw<kw_here>          // resolves to the current region's name
 > {};
 
 /// atom = atom_keyword | IDENT | NUMBER
-/// (IDENT and NUMBER are tried last; call / shared / any_age / match are
+/// (IDENT and NUMBER are tried last; call / match are
 /// handled separately by `primary` so they take priority.)
 struct atom : sor<atom_keyword, ident, integer> {};
 
@@ -298,18 +290,6 @@ struct invoke_call : seq<call, plus<seq<_, invoke_suffix>>> {};
 // Consider: (1) first-class function values with explicit types, (2) partial application,
 // (3) combinator syntax for composing multiple conditions.
 
-/// shared_branch = "from" (IDENT | "here") ":" expr
-struct shared_branch : seq<kw<kw_from>, must<_, sor<kw<kw_here>, ident>, _, colon, _, expr>> {};
-
-/// shared_block = "shared" "any_age"? "{" shared_branch+ "}"
-struct shared_block : seq<
-	kw<kw_shared>, _,
-	opt<seq<kw<kw_any_age>, _>>,
-	must<open_brace, _,
-	plus<seq<shared_branch, _>>,
-	close_brace>
-> {};
-
 // Forward declaration — match_expr is defined after ternary because its arms
 // need the match-aware or_expr variant (which depends on and_expr).
 struct match_expr;
@@ -317,13 +297,13 @@ struct match_expr;
 /// Parenthesised expression: "(" expr ")"
 struct paren_expr : seq<open_paren, must<_, expr, _, close_paren>> {};
 
-/// primary = invoke_call | call | shared_block | match_expr | atom | "(" expr ")"
+/// primary = invoke_call | call | match_expr | atom | "(" expr ")"
 ///
 /// Ordering matters:
 ///   - `invoke_call` before `call` (both start with a call prefix)
 ///   - `call` before `atom` (both start with `ident`, but call continues with "(")
 ///   - `match_expr` before `atom` (match starts with `kw_match` keyword)
-struct primary : sor<invoke_call, call, shared_block, match_expr, paren_expr, atom> {};
+struct primary : sor<invoke_call, call, match_expr, paren_expr, atom> {};
 
 // -- Unary / binary / ternary -------------------------------------------------
 

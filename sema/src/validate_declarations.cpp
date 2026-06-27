@@ -280,7 +280,17 @@ static void checkFunctionSignatures(
 			if (*paramType == ast::Type::Error || *defaultType == ast::Type::Error) {
 				continue;
 			}
-			if (*paramType != *defaultType) {
+			auto isDefaultCompatible = [&](ast::Type expected, ast::Type actual) {
+				if (expected == ast::Type::Condition) {
+					return actual == ast::Type::Condition || isBoolCompatible(actual);
+				}
+				if (expected == ast::Type::Callable) {
+					return actual == ast::Type::Callable || actual == ast::Type::Condition || isBoolCompatible(actual);
+				}
+				return actual == expected;
+			};
+
+			if (!isDefaultCompatible(*paramType, *defaultType)) {
 				diags.push_back({
 					ast::DiagnosticLevel::Error,
 					std::format(

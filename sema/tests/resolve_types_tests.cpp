@@ -53,6 +53,7 @@ static std::string withHostExterns(const std::string& source) {
 		"extern define setting(opt: Setting) -> Setting\n"
 		"extern define trick(rule: Trick) -> Bool\n"
 		"extern define any_age(condition: Condition) -> Bool\n"
+		"extern define spirit_shared(first_region: Region, first_condition: Condition, any_age: Bool = false, second_region: Region = RR_NONE, second_condition: Condition = false, third_region: Region = RR_NONE, third_condition: Condition = false) -> Bool\n"
 		"extern define hearts() -> Int\n"
 		"extern define check_price(chk: Check = RC_UNKNOWN_CHECK) -> Int\n"
 		+ source;
@@ -980,162 +981,6 @@ TEST(ResolveTypes, DefineOrderingDefaultValueDep) {
 	EXPECT_EQ(project.getType(foo->body.get()), Type::Item);
 }
 
-// -- Shared block -------------------------------------------------------------
-
-TEST(ResolveTypes, SharedBlockBool) {
-	auto [project, diags] = resolveFromSource(
-		"region RR_TEST {\n"
-		"    name: \"Test\"\n"
-		"    scene: SCENE_TEST\n"
-		"    locations {\n"
-		"        TEST_LOC: shared {\n"
-		"            from here: true\n"
-		"            from RR_OTHER: false\n"
-		"        }\n"
-		"    }\n"
-		"}\n");
-	EXPECT_TRUE(diags.empty());
-	EXPECT_EQ(project.getType(findRegionEntry(project)), Type::Bool);
-}
-
-TEST(ResolveTypes, SharedBlockFromHereResolvesRegionName) {
-	auto [project, diags] = resolveFromSource(
-		"region RR_SPIRIT_TEMPLE_STATUE_ROOM {\n"
-		"    name: \"Spirit Temple Statue Room\"\n"
-		"    scene: SCENE_SPIRIT_TEMPLE\n"
-		"    locations {\n"
-		"        RC_TEST_LOC: shared {\n"
-		"            from here: true\n"
-		"            from RR_OTHER: false\n"
-		"        }\n"
-		"    }\n"
-		"}\n");
-	EXPECT_TRUE(diags.empty());
-
-	const auto* expr = findRegionEntry(project, "RR_SPIRIT_TEMPLE_STATUE_ROOM");
-	ASSERT_NE(expr, nullptr);
-	ASSERT_TRUE(std::holds_alternative<SharedBlock>(expr->node));
-	const auto& shared = std::get<SharedBlock>(expr->node);
-	ASSERT_EQ(shared.branches.size(), 2u);
-
-	// "from here:" should be resolved to the enclosing region name
-	ASSERT_TRUE(shared.branches[0].region.has_value());
-	EXPECT_EQ(shared.branches[0].region.value(), "RR_SPIRIT_TEMPLE_STATUE_ROOM");
-
-	// "from RR_OTHER:" should remain unchanged
-	ASSERT_TRUE(shared.branches[1].region.has_value());
-	EXPECT_EQ(shared.branches[1].region.value(), "RR_OTHER");
-}
-
-TEST(ResolveTypes, SharedBlockFromHereMultipleBranches) {
-	auto [project, diags] = resolveFromSource(
-		"region RR_MY_REGION {\n"
-		"    name: \"My Region\"\n"
-		"    scene: SCENE_TEST\n"
-		"    locations {\n"
-		"        RC_LOC: shared {\n"
-		"            from here: true\n"
-		"            from RR_ROOM_A: false\n"
-		"            from RR_ROOM_B: true\n"
-		"        }\n"
-		"    }\n"
-		"}\n");
-	EXPECT_TRUE(diags.empty());
-
-	const auto* expr = findRegionEntry(project, "RR_MY_REGION");
-	ASSERT_NE(expr, nullptr);
-	ASSERT_TRUE(std::holds_alternative<SharedBlock>(expr->node));
-	const auto& shared = std::get<SharedBlock>(expr->node);
-	ASSERT_EQ(shared.branches.size(), 3u);
-
-	// Only the "from here:" branch should be resolved
-	ASSERT_TRUE(shared.branches[0].region.has_value());
-	EXPECT_EQ(shared.branches[0].region.value(), "RR_MY_REGION");
-	EXPECT_EQ(shared.branches[1].region.value(), "RR_ROOM_A");
-	EXPECT_EQ(shared.branches[2].region.value(), "RR_ROOM_B");
-}
-
-TEST(ResolveTypes, SharedBlockFromHereInExtendRegion) {
-	auto [project, diags] = resolveFromSource(
-		"region RR_BASE {\n"
-		"    name: \"Base\"\n"
-		"    scene: SCENE_TEST\n"
-		"}\n"
-		"extend region RR_BASE {\n"
-		"    locations {\n"
-		"        RC_LOC: shared {\n"
-		"            from here: true\n"
-		"        }\n"
-		"    }\n"
-		"}\n");
-	EXPECT_TRUE(diags.empty());
-
-	// Find the entry in the extend region's sections
-	auto it = project.ExtendRegionDecls.find("RR_BASE");
-	ASSERT_NE(it, project.ExtendRegionDecls.end());
-	ASSERT_EQ(it->second.size(), 1u);
-	const auto& sections = it->second[0]->sections;
-	ASSERT_FALSE(sections.empty());
-	ASSERT_FALSE(sections[0].entries.empty());
-	const auto* expr = sections[0].entries[0].condition.get();
-	ASSERT_NE(expr, nullptr);
-	ASSERT_TRUE(std::holds_alternative<SharedBlock>(expr->node));
-	const auto& shared = std::get<SharedBlock>(expr->node);
-	ASSERT_EQ(shared.branches.size(), 1u);
-
-	// "from here:" in an extend region should resolve to that region's name
-	ASSERT_TRUE(shared.branches[0].region.has_value());
-	EXPECT_EQ(shared.branches[0].region.value(), "RR_BASE");
-}
-
-TEST(ResolveTypes, SharedBlockFromHereAnyAge) {
-	auto [project, diags] = resolveFromSource(
-		"region RR_SUN_BLOCK {\n"
-		"    name: \"Sun Block\"\n"
-		"    scene: SCENE_SPIRIT_TEMPLE\n"
-		"    events {\n"
-		"        LOGIC_SUN_TORCH: shared any_age {\n"
-		"            from here: true\n"
-		"        }\n"
-		"    }\n"
-		"}\n");
-	EXPECT_TRUE(diags.empty());
-
-	const auto* expr = findRegionEntry(project, "RR_SUN_BLOCK");
-	ASSERT_NE(expr, nullptr);
-	ASSERT_TRUE(std::holds_alternative<SharedBlock>(expr->node));
-	const auto& shared = std::get<SharedBlock>(expr->node);
-	EXPECT_TRUE(shared.anyAge);
-	ASSERT_EQ(shared.branches.size(), 1u);
-	ASSERT_TRUE(shared.branches[0].region.has_value());
-	EXPECT_EQ(shared.branches[0].region.value(), "RR_SUN_BLOCK");
-}
-
-TEST(ResolveTypes, SharedBlockFromHereInExit) {
-	auto [project, diags] = resolveFromSource(
-		"region RR_SPIRIT_TEMPLE_CHILD {\n"
-		"    name: \"Spirit Temple Child\"\n"
-		"    scene: SCENE_SPIRIT_TEMPLE\n"
-		"    exits {\n"
-		"        RR_DESERT_COLOSSUS: shared {\n"
-		"            from here: can_use(RG_HOOKSHOT)\n"
-		"            from RR_SPIRIT_TEMPLE_ADULT: true\n"
-		"        }\n"
-		"    }\n"
-		"}\n");
-	EXPECT_TRUE(diags.empty());
-
-	const auto* expr = findRegionEntry(project, "RR_SPIRIT_TEMPLE_CHILD");
-	ASSERT_NE(expr, nullptr);
-	ASSERT_TRUE(std::holds_alternative<SharedBlock>(expr->node));
-	const auto& shared = std::get<SharedBlock>(expr->node);
-	ASSERT_EQ(shared.branches.size(), 2u);
-
-	ASSERT_TRUE(shared.branches[0].region.has_value());
-	EXPECT_EQ(shared.branches[0].region.value(), "RR_SPIRIT_TEMPLE_CHILD");
-	EXPECT_EQ(shared.branches[1].region.value(), "RR_SPIRIT_TEMPLE_ADULT");
-}
-
 // -- Any-age host function ----------------------------------------------------
 
 TEST(ResolveTypes, AnyAgeCallBool) {
@@ -1159,6 +1004,57 @@ TEST(ResolveTypes, AnyAgeCallNonBoolArg) {
 		"}\n");
 	EXPECT_EQ(countErrors(diags), 1u);
 	EXPECT_NE(diags[0].message.find("argument 1 expected Condition, got Item"), std::string::npos);
+}
+
+// -- here keyword -------------------------------------------------------------
+
+TEST(ResolveTypes, HereResolvesToCurrentRegion) {
+	auto [project, diags] = resolveFromSource(
+		"extern define uses_region(r: Region) -> Bool\n"
+		"region RR_TEST {\n"
+		"    name: \"Test\"\n"
+		"    scene: SCENE_TEST\n"
+		"    exits { RR_OTHER: uses_region(here) }\n"
+		"}\n");
+	EXPECT_TRUE(diags.empty());
+	EXPECT_EQ(project.getType(findRegionEntry(project)), Type::Bool);
+
+	const auto* expr = findRegionEntry(project);
+	ASSERT_NE(expr, nullptr);
+	ASSERT_TRUE(std::holds_alternative<CallExpr>(expr->node));
+	const auto* resolved = project.getResolvedCallArgs(&std::get<CallExpr>(expr->node));
+	ASSERT_NE(resolved, nullptr);
+	ASSERT_EQ(resolved->size(), 1u);
+	ASSERT_TRUE(std::holds_alternative<HereRef>((*resolved)[0]->node));
+	EXPECT_EQ(std::get<HereRef>((*resolved)[0]->node).resolvedRegion, "RR_TEST");
+}
+
+TEST(ResolveTypes, HereInExtendRegionResolvesToTargetName) {
+	auto [project, diags] = resolveFromSource(
+		"extern define uses_region(r: Region) -> Bool\n"
+		"region RR_BASE {\n"
+		"    name: \"Base\"\n"
+		"    scene: SCENE_TEST\n"
+		"}\n"
+		"extend region RR_BASE {\n"
+		"    exits { RR_OTHER: uses_region(here) }\n"
+		"}\n");
+	EXPECT_TRUE(diags.empty());
+	auto it = project.ExtendRegionDecls.find("RR_BASE");
+	ASSERT_NE(it, project.ExtendRegionDecls.end());
+	const auto* expr = it->second[0]->sections[0].entries[0].condition.get();
+	const auto* resolved = project.getResolvedCallArgs(&std::get<CallExpr>(expr->node));
+	ASSERT_NE(resolved, nullptr);
+	ASSERT_TRUE(std::holds_alternative<HereRef>((*resolved)[0]->node));
+	EXPECT_EQ(std::get<HereRef>((*resolved)[0]->node).resolvedRegion, "RR_BASE");
+}
+
+TEST(ResolveTypes, HereOutsideRegionIsError) {
+	auto [project, diags] = resolveFromSource(
+		"extern define uses_region(r: Region) -> Bool\n"
+		"define test(): uses_region(here)\n");
+	EXPECT_EQ(countErrors(diags), 1u);
+	EXPECT_NE(diags[0].message.find("'here' can only be used"), std::string::npos);
 }
 
 // -- Match expression ---------------------------------------------------------

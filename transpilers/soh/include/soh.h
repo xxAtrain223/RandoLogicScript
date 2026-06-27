@@ -31,7 +31,7 @@ private:
 	std::string GenerateExpression(const rls::ast::InvokeExpr& node) const;
 	std::optional<rls::ast::Type> ResolveCallParamType(const rls::ast::CallExpr& node, size_t index) const;
 	std::string GenerateCallArgument(const rls::ast::Expr* argExpr, std::optional<rls::ast::Type> paramType) const;
-	std::string GenerateExpression(const rls::ast::SharedBlock& node) const;
+	std::string GenerateExpression(const rls::ast::HereRef& node) const;
 	std::string GenerateExpression(const rls::ast::MatchExpr& node) const;
 	std::string GenerateExpression(const rls::ast::Expr::Variant& node) const;
 

@@ -46,8 +46,7 @@ using selector = tao::pegtl::parse_tree::selector<
 		grammar::section_kind,
 		grammar::time_prop,
 		grammar::kw_not,       // marker: unary "not"
-		grammar::kw_any_age,   // marker: any_age in shared blocks
-		grammar::kw_here,      // marker: "from here" in shared branches
+		grammar::kw_here,      // `here` keyword atom (resolves to current region)
 		grammar::trailing_or   // marker: fallthrough in match arms
 	>,
 
@@ -73,8 +72,6 @@ using selector = tao::pegtl::parse_tree::selector<
 		grammar::invoke_call,
 		grammar::call,
 		grammar::named_arg,
-		grammar::shared_block,
-		grammar::shared_branch,
 		grammar::match_expr,
 		grammar::match_arm,
 		grammar::match_pattern

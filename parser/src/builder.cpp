@@ -125,6 +125,8 @@ ast::ExprPtr buildExpr(const Node& n, Diags& diags) {
 			return ast::makeExpr(ast::BoolLiteral{true}, makeSpan(n));
 		if (s == "false" || s == "never")
 			return ast::makeExpr(ast::BoolLiteral{false}, makeSpan(n));
+		if (s == "here")
+			return ast::makeExpr(ast::HereRef{}, makeSpan(n));
 		emitError(diags, "unknown atom keyword: " + std::string(s), n);
 		return ast::makeExpr(ast::BoolLiteral{false}, makeSpan(n));
 	}
@@ -230,29 +232,6 @@ ast::ExprPtr buildExpr(const Node& n, Diags& diags) {
 		}
 		return ast::makeExpr(
 			ast::CallExpr(std::move(funcName), std::move(args)), makeSpan(n));
-	}
-
-	// -- Shared block ---------------------------------------------------------
-
-	if (n.is_type<grammar::shared_block>()) {
-		// children: [optional kw_any_age, shared_branch, shared_branch, ...]
-		bool anyAge = false;
-		std::vector<ast::SharedBranch> branches;
-		for (const auto& child : n.children) {
-			if (child->is_type<grammar::kw_any_age>()) {
-				anyAge = true;
-			} else if (child->is_type<grammar::shared_branch>()) {
-				// shared_branch children: [kw_here|ident, expr]
-				std::optional<ast::Name> region;
-				if (!child->children[0]->is_type<grammar::kw_here>()) {
-					region = makeName(*child->children[0]);
-				}
-				branches.emplace_back(std::move(region),
-					buildExpr(*child->children[1], diags));
-			}
-		}
-		return ast::makeExpr(
-			ast::SharedBlock(anyAge, std::move(branches)), makeSpan(n));
 	}
 
 	// -- Match expression -----------------------------------------------------
