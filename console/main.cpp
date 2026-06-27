@@ -9,7 +9,7 @@
 #include "output.h"
 #include "parser.h"
 #include "sema.h"
-#include "ap.h"
+#include "soh_ap.h"
 #include "soh.h"
 
 namespace fs = std::filesystem;
@@ -24,7 +24,7 @@ static void printUsage(const char* program) {
         << "Options:\n"
         << "  -t, --transpiler <name> -o, --output <dir>\n"
         << "                            Transpiler and output directory pair (may be repeated).\n"
-        << "                            Available transpilers: soh, ap\n"
+        << "                            Available transpilers: soh, soh_ap\n"
         << "  -h, --help                Show this help message.\n";
 }
 
@@ -79,8 +79,23 @@ static bool runTranspiler(const TranspilerConfig& config, const rls::ast::Projec
 
     if (config.name == "soh") {
         rls::transpilers::soh::SohTranspiler(project).Transpile(writer);
-    } else if (config.name == "ap") {
-        rls::transpilers::ap::Transpile(project, writer);
+    } else if (config.name == "soh_ap") {
+        rls::transpilers::soh_ap::SohApTranspiler transpiler(project);
+        transpiler.Transpile(writer);
+
+        // Surface constructs the RuleBuilder target cannot represent (negating a rule,
+        // a rule-conditioned ternary with no known complement, a runtime value combined
+        // with a rule). Abort rather than ship Python that raises at world-load.
+        bool hasErrors = false;
+        for (const auto& d : transpiler.Diagnostics()) {
+            printDiagnostic(d);
+            if (d.level == rls::ast::DiagnosticLevel::Error)
+                hasErrors = true;
+        }
+        if (hasErrors) {
+            std::cerr << "aborting: '" << config.name << "' could not represent some rules\n";
+            return false;
+        }
     } else {
         std::cerr << "error: unknown transpiler '" << config.name << "'\n";
         return false;
