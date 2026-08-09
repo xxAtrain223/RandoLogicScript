@@ -12,7 +12,8 @@
     "parameterNames": ["item", "distance", "value"],
     "typeNames": ["Item", "bool", "int"],
     "qualifiedNames": ["Scene.OVERWORLD"],
-    "operators": ["=", "->", ">="],
+    "operators": ["=", "->", ">=", "?"],
+    "ternaryOperators": ["?", ":"],
     "punctuation": ["{", "}", "(", ")", "[", "]", ":", ","]
   },
   "incompleteConstructs": [

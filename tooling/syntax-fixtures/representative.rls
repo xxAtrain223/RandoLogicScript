@@ -13,6 +13,7 @@ region RR_SAMPLE {
     name: "Sample \"Region\""
     scene: Scene.OVERWORLD
     areas: [RA_SAMPLE, RA_OTHER]
+    fallback: has(RG_HOOKSHOT) ? always : never
 
     events {
         LOGIC_READY: can_enter(item: RG_HOOKSHOT)

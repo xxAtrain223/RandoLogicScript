@@ -1050,6 +1050,131 @@
   },
   {
     "line": 16,
+    "text": "    fallback: has(RG_HOOKSHOT) ? always : never",
+    "tokens": [
+      {
+        "start": 0,
+        "end": 4,
+        "scopes": [
+          "source.rls"
+        ]
+      },
+      {
+        "start": 4,
+        "end": 12,
+        "scopes": [
+          "source.rls",
+          "variable.parameter.rls"
+        ]
+      },
+      {
+        "start": 12,
+        "end": 13,
+        "scopes": [
+          "source.rls",
+          "punctuation.separator.rls"
+        ]
+      },
+      {
+        "start": 13,
+        "end": 17,
+        "scopes": [
+          "source.rls"
+        ]
+      },
+      {
+        "start": 17,
+        "end": 18,
+        "scopes": [
+          "source.rls",
+          "punctuation.section.group.begin.rls"
+        ]
+      },
+      {
+        "start": 18,
+        "end": 29,
+        "scopes": [
+          "source.rls",
+          "variable.parameter.rls"
+        ]
+      },
+      {
+        "start": 29,
+        "end": 30,
+        "scopes": [
+          "source.rls",
+          "punctuation.section.group.end.rls"
+        ]
+      },
+      {
+        "start": 30,
+        "end": 31,
+        "scopes": [
+          "source.rls"
+        ]
+      },
+      {
+        "start": 31,
+        "end": 32,
+        "scopes": [
+          "source.rls",
+          "meta.expression.ternary.rls",
+          "keyword.operator.ternary.rls"
+        ]
+      },
+      {
+        "start": 32,
+        "end": 33,
+        "scopes": [
+          "source.rls",
+          "meta.expression.ternary.rls"
+        ]
+      },
+      {
+        "start": 33,
+        "end": 39,
+        "scopes": [
+          "source.rls",
+          "meta.expression.ternary.rls",
+          "constant.language.boolean.rls"
+        ]
+      },
+      {
+        "start": 39,
+        "end": 40,
+        "scopes": [
+          "source.rls",
+          "meta.expression.ternary.rls"
+        ]
+      },
+      {
+        "start": 40,
+        "end": 41,
+        "scopes": [
+          "source.rls",
+          "meta.expression.ternary.rls",
+          "keyword.operator.ternary.rls"
+        ]
+      },
+      {
+        "start": 41,
+        "end": 42,
+        "scopes": [
+          "source.rls"
+        ]
+      },
+      {
+        "start": 42,
+        "end": 47,
+        "scopes": [
+          "source.rls",
+          "constant.language.boolean.rls"
+        ]
+      }
+    ]
+  },
+  {
+    "line": 17,
     "text": "",
     "tokens": [
       {
@@ -1062,7 +1187,7 @@
     ]
   },
   {
-    "line": 17,
+    "line": 18,
     "text": "    events {",
     "tokens": [
       {
@@ -1098,7 +1223,7 @@
     ]
   },
   {
-    "line": 18,
+    "line": 19,
     "text": "        LOGIC_READY: can_enter(item: RG_HOOKSHOT)",
     "tokens": [
       {
@@ -1173,7 +1298,7 @@
     ]
   },
   {
-    "line": 19,
+    "line": 20,
     "text": "    }",
     "tokens": [
       {
@@ -1194,7 +1319,7 @@
     ]
   },
   {
-    "line": 20,
+    "line": 21,
     "text": "",
     "tokens": [
       {
@@ -1207,7 +1332,7 @@
     ]
   },
   {
-    "line": 21,
+    "line": 22,
     "text": "    exits {",
     "tokens": [
       {
@@ -1243,7 +1368,7 @@
     ]
   },
   {
-    "line": 22,
+    "line": 23,
     "text": "        RR_NEXT: always",
     "tokens": [
       {
@@ -1287,7 +1412,7 @@
     ]
   },
   {
-    "line": 23,
+    "line": 24,
     "text": "    }",
     "tokens": [
       {
@@ -1308,7 +1433,7 @@
     ]
   },
   {
-    "line": 24,
+    "line": 25,
     "text": "}",
     "tokens": [
       {
@@ -1322,7 +1447,7 @@
     ]
   },
   {
-    "line": 25,
+    "line": 26,
     "text": "",
     "tokens": [
       {
@@ -1335,7 +1460,7 @@
     ]
   },
   {
-    "line": 26,
+    "line": 27,
     "text": "extend region RR_SAMPLE {",
     "tokens": [
       {
@@ -1394,7 +1519,7 @@
     ]
   },
   {
-    "line": 27,
+    "line": 28,
     "text": "    locations {",
     "tokens": [
       {
@@ -1430,7 +1555,7 @@
     ]
   },
   {
-    "line": 28,
+    "line": 29,
     "text": "        RC_SAMPLE: can_enter(RG_HOOKSHOT)",
     "tokens": [
       {
@@ -1490,7 +1615,7 @@
     ]
   },
   {
-    "line": 29,
+    "line": 30,
     "text": "    }",
     "tokens": [
       {
@@ -1511,7 +1636,7 @@
     ]
   },
   {
-    "line": 30,
+    "line": 31,
     "text": "}",
     "tokens": [
       {
@@ -1525,7 +1650,7 @@
     ]
   },
   {
-    "line": 31,
+    "line": 32,
     "text": "",
     "tokens": [
       {
@@ -1538,7 +1663,7 @@
     ]
   },
   {
-    "line": 32,
+    "line": 33,
     "text": "# Keep this incomplete source editable while typing.",
     "tokens": [
       {
@@ -1552,7 +1677,7 @@
     ]
   },
   {
-    "line": 33,
+    "line": 34,
     "text": "define unfinished(value: int): match value {",
     "tokens": [
       {
