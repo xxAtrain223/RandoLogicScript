@@ -3,7 +3,17 @@
   "displayName": "Rando Logic Script",
   "description": "Syntax highlighting and basic editing support for Rando Logic Script.",
   "version": "0.1.0",
-  "publisher": "rando-logic-script",
+  "publisher": "xxAtrain223",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/xxAtrain223/RandoLogicScript"
+  },
+  "keywords": [
+    "rando logic script",
+    "rls",
+    "randomizer"
+  ],
   "engines": {
     "vscode": "^1.85.0"
   },
