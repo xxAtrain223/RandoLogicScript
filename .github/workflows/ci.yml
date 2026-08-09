@@ -28,3 +28,24 @@ jobs:
 
       - name: Test
         run: ctest --test-dir build --build-config Release --output-on-failure
+
+  editor-grammar-tests:
+    name: Editor grammar tests
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+
+      - name: Set up Node
+        uses: actions/setup-node@v5
+        with:
+          node-version: 20
+
+      - name: Test TextMate grammar
+        working-directory: tooling/textmate
+        run: npm ci && npm test
+
+      - name: Generate and test Tree-sitter grammar
+        working-directory: tooling/tree-sitter-rls
+        run: npm ci && npm run generate && npm test

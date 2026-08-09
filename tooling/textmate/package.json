@@ -1,0 +1,17 @@
+{
+  "name": "rls-textmate-tests",
+  "private": true,
+  "version": "0.1.0",
+  "description": "TextMate scope snapshot tests for Rando Logic Script.",
+  "engines": {
+    "node": ">=10"
+  },
+  "scripts": {
+    "test": "node test-scopes.js",
+    "update-snapshots": "node test-scopes.js --update"
+  },
+  "devDependencies": {
+    "vscode-oniguruma": "1.7.0",
+    "vscode-textmate": "5.4.0"
+  }
+}

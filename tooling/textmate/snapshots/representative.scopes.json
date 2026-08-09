@@ -1,0 +1,1660 @@
+[
+  {
+    "line": 1,
+    "text": "# A comment with delimiters: { [ (",
+    "tokens": [
+      {
+        "start": 0,
+        "end": 34,
+        "scopes": [
+          "source.rls",
+          "comment.line.number-sign.rls"
+        ]
+      }
+    ]
+  },
+  {
+    "line": 2,
+    "text": "enum Color { RED, GREEN = 3 }",
+    "tokens": [
+      {
+        "start": 0,
+        "end": 4,
+        "scopes": [
+          "source.rls",
+          "meta.declaration.enum.rls",
+          "storage.type.rls"
+        ]
+      },
+      {
+        "start": 4,
+        "end": 5,
+        "scopes": [
+          "source.rls",
+          "meta.declaration.enum.rls"
+        ]
+      },
+      {
+        "start": 5,
+        "end": 10,
+        "scopes": [
+          "source.rls",
+          "meta.declaration.enum.rls",
+          "entity.name.type.rls"
+        ]
+      },
+      {
+        "start": 10,
+        "end": 11,
+        "scopes": [
+          "source.rls",
+          "meta.declaration.enum.rls"
+        ]
+      },
+      {
+        "start": 11,
+        "end": 12,
+        "scopes": [
+          "source.rls",
+          "meta.declaration.enum.rls",
+          "punctuation.section.group.begin.rls"
+        ]
+      },
+      {
+        "start": 12,
+        "end": 13,
+        "scopes": [
+          "source.rls",
+          "meta.declaration.enum.rls"
+        ]
+      },
+      {
+        "start": 13,
+        "end": 16,
+        "scopes": [
+          "source.rls",
+          "meta.declaration.enum.rls",
+          "constant.other.enum.rls"
+        ]
+      },
+      {
+        "start": 16,
+        "end": 17,
+        "scopes": [
+          "source.rls",
+          "meta.declaration.enum.rls",
+          "punctuation.separator.rls"
+        ]
+      },
+      {
+        "start": 17,
+        "end": 18,
+        "scopes": [
+          "source.rls",
+          "meta.declaration.enum.rls"
+        ]
+      },
+      {
+        "start": 18,
+        "end": 23,
+        "scopes": [
+          "source.rls",
+          "meta.declaration.enum.rls",
+          "constant.other.enum.rls"
+        ]
+      },
+      {
+        "start": 23,
+        "end": 24,
+        "scopes": [
+          "source.rls",
+          "meta.declaration.enum.rls"
+        ]
+      },
+      {
+        "start": 24,
+        "end": 25,
+        "scopes": [
+          "source.rls",
+          "meta.declaration.enum.rls",
+          "keyword.operator.rls"
+        ]
+      },
+      {
+        "start": 25,
+        "end": 26,
+        "scopes": [
+          "source.rls",
+          "meta.declaration.enum.rls"
+        ]
+      },
+      {
+        "start": 26,
+        "end": 27,
+        "scopes": [
+          "source.rls",
+          "meta.declaration.enum.rls",
+          "constant.numeric.integer.rls"
+        ]
+      },
+      {
+        "start": 27,
+        "end": 28,
+        "scopes": [
+          "source.rls",
+          "meta.declaration.enum.rls"
+        ]
+      },
+      {
+        "start": 28,
+        "end": 29,
+        "scopes": [
+          "source.rls",
+          "meta.declaration.enum.rls",
+          "punctuation.section.group.end.rls"
+        ]
+      }
+    ]
+  },
+  {
+    "line": 3,
+    "text": "extern enum Item { RG_HOOKSHOT, RG_*, *_KEY }",
+    "tokens": [
+      {
+        "start": 0,
+        "end": 6,
+        "scopes": [
+          "source.rls",
+          "meta.declaration.enum.rls",
+          "storage.modifier.rls"
+        ]
+      },
+      {
+        "start": 6,
+        "end": 7,
+        "scopes": [
+          "source.rls",
+          "meta.declaration.enum.rls"
+        ]
+      },
+      {
+        "start": 7,
+        "end": 11,
+        "scopes": [
+          "source.rls",
+          "meta.declaration.enum.rls",
+          "storage.type.rls"
+        ]
+      },
+      {
+        "start": 11,
+        "end": 12,
+        "scopes": [
+          "source.rls",
+          "meta.declaration.enum.rls"
+        ]
+      },
+      {
+        "start": 12,
+        "end": 16,
+        "scopes": [
+          "source.rls",
+          "meta.declaration.enum.rls",
+          "entity.name.type.rls"
+        ]
+      },
+      {
+        "start": 16,
+        "end": 17,
+        "scopes": [
+          "source.rls",
+          "meta.declaration.enum.rls"
+        ]
+      },
+      {
+        "start": 17,
+        "end": 18,
+        "scopes": [
+          "source.rls",
+          "meta.declaration.enum.rls",
+          "punctuation.section.group.begin.rls"
+        ]
+      },
+      {
+        "start": 18,
+        "end": 19,
+        "scopes": [
+          "source.rls",
+          "meta.declaration.enum.rls"
+        ]
+      },
+      {
+        "start": 19,
+        "end": 30,
+        "scopes": [
+          "source.rls",
+          "meta.declaration.enum.rls",
+          "constant.other.enum.rls"
+        ]
+      },
+      {
+        "start": 30,
+        "end": 31,
+        "scopes": [
+          "source.rls",
+          "meta.declaration.enum.rls",
+          "punctuation.separator.rls"
+        ]
+      },
+      {
+        "start": 31,
+        "end": 32,
+        "scopes": [
+          "source.rls",
+          "meta.declaration.enum.rls"
+        ]
+      },
+      {
+        "start": 32,
+        "end": 35,
+        "scopes": [
+          "source.rls",
+          "meta.declaration.enum.rls",
+          "constant.other.enum.rls"
+        ]
+      },
+      {
+        "start": 35,
+        "end": 36,
+        "scopes": [
+          "source.rls",
+          "meta.declaration.enum.rls",
+          "keyword.operator.rls"
+        ]
+      },
+      {
+        "start": 36,
+        "end": 37,
+        "scopes": [
+          "source.rls",
+          "meta.declaration.enum.rls",
+          "punctuation.separator.rls"
+        ]
+      },
+      {
+        "start": 37,
+        "end": 38,
+        "scopes": [
+          "source.rls",
+          "meta.declaration.enum.rls"
+        ]
+      },
+      {
+        "start": 38,
+        "end": 39,
+        "scopes": [
+          "source.rls",
+          "meta.declaration.enum.rls",
+          "keyword.operator.rls"
+        ]
+      },
+      {
+        "start": 39,
+        "end": 43,
+        "scopes": [
+          "source.rls",
+          "meta.declaration.enum.rls",
+          "constant.other.enum.rls"
+        ]
+      },
+      {
+        "start": 43,
+        "end": 44,
+        "scopes": [
+          "source.rls",
+          "meta.declaration.enum.rls"
+        ]
+      },
+      {
+        "start": 44,
+        "end": 45,
+        "scopes": [
+          "source.rls",
+          "meta.declaration.enum.rls",
+          "punctuation.section.group.end.rls"
+        ]
+      }
+    ]
+  },
+  {
+    "line": 4,
+    "text": "",
+    "tokens": [
+      {
+        "start": 0,
+        "end": 1,
+        "scopes": [
+          "source.rls"
+        ]
+      }
+    ]
+  },
+  {
+    "line": 5,
+    "text": "extern define has(item: Item) -> bool",
+    "tokens": [
+      {
+        "start": 0,
+        "end": 6,
+        "scopes": [
+          "source.rls",
+          "keyword.control.rls"
+        ]
+      },
+      {
+        "start": 6,
+        "end": 7,
+        "scopes": [
+          "source.rls"
+        ]
+      },
+      {
+        "start": 7,
+        "end": 13,
+        "scopes": [
+          "source.rls",
+          "storage.type.function.rls"
+        ]
+      },
+      {
+        "start": 13,
+        "end": 14,
+        "scopes": [
+          "source.rls"
+        ]
+      },
+      {
+        "start": 14,
+        "end": 17,
+        "scopes": [
+          "source.rls",
+          "entity.name.function.rls"
+        ]
+      },
+      {
+        "start": 17,
+        "end": 18,
+        "scopes": [
+          "source.rls",
+          "punctuation.section.group.begin.rls"
+        ]
+      },
+      {
+        "start": 18,
+        "end": 22,
+        "scopes": [
+          "source.rls",
+          "variable.parameter.rls"
+        ]
+      },
+      {
+        "start": 22,
+        "end": 24,
+        "scopes": [
+          "source.rls"
+        ]
+      },
+      {
+        "start": 24,
+        "end": 28,
+        "scopes": [
+          "source.rls",
+          "entity.name.type.rls"
+        ]
+      },
+      {
+        "start": 28,
+        "end": 29,
+        "scopes": [
+          "source.rls",
+          "punctuation.section.group.end.rls"
+        ]
+      },
+      {
+        "start": 29,
+        "end": 30,
+        "scopes": [
+          "source.rls"
+        ]
+      },
+      {
+        "start": 30,
+        "end": 32,
+        "scopes": [
+          "source.rls",
+          "keyword.operator.rls"
+        ]
+      },
+      {
+        "start": 32,
+        "end": 38,
+        "scopes": [
+          "source.rls"
+        ]
+      }
+    ]
+  },
+  {
+    "line": 6,
+    "text": "define can_enter(item: Item, distance = ED_CLOSE):",
+    "tokens": [
+      {
+        "start": 0,
+        "end": 6,
+        "scopes": [
+          "source.rls",
+          "storage.type.function.rls"
+        ]
+      },
+      {
+        "start": 6,
+        "end": 7,
+        "scopes": [
+          "source.rls"
+        ]
+      },
+      {
+        "start": 7,
+        "end": 16,
+        "scopes": [
+          "source.rls",
+          "entity.name.function.rls"
+        ]
+      },
+      {
+        "start": 16,
+        "end": 17,
+        "scopes": [
+          "source.rls",
+          "punctuation.section.group.begin.rls"
+        ]
+      },
+      {
+        "start": 17,
+        "end": 21,
+        "scopes": [
+          "source.rls",
+          "variable.parameter.rls"
+        ]
+      },
+      {
+        "start": 21,
+        "end": 23,
+        "scopes": [
+          "source.rls"
+        ]
+      },
+      {
+        "start": 23,
+        "end": 27,
+        "scopes": [
+          "source.rls",
+          "entity.name.type.rls"
+        ]
+      },
+      {
+        "start": 27,
+        "end": 28,
+        "scopes": [
+          "source.rls",
+          "punctuation.separator.rls"
+        ]
+      },
+      {
+        "start": 28,
+        "end": 29,
+        "scopes": [
+          "source.rls"
+        ]
+      },
+      {
+        "start": 29,
+        "end": 37,
+        "scopes": [
+          "source.rls",
+          "variable.parameter.rls"
+        ]
+      },
+      {
+        "start": 37,
+        "end": 38,
+        "scopes": [
+          "source.rls"
+        ]
+      },
+      {
+        "start": 38,
+        "end": 39,
+        "scopes": [
+          "source.rls",
+          "keyword.operator.rls"
+        ]
+      },
+      {
+        "start": 39,
+        "end": 48,
+        "scopes": [
+          "source.rls"
+        ]
+      },
+      {
+        "start": 48,
+        "end": 49,
+        "scopes": [
+          "source.rls",
+          "punctuation.section.group.end.rls"
+        ]
+      },
+      {
+        "start": 49,
+        "end": 50,
+        "scopes": [
+          "source.rls",
+          "punctuation.separator.rls"
+        ]
+      }
+    ]
+  },
+  {
+    "line": 7,
+    "text": "    match item {",
+    "tokens": [
+      {
+        "start": 0,
+        "end": 4,
+        "scopes": [
+          "source.rls"
+        ]
+      },
+      {
+        "start": 4,
+        "end": 9,
+        "scopes": [
+          "source.rls",
+          "keyword.control.rls"
+        ]
+      },
+      {
+        "start": 9,
+        "end": 15,
+        "scopes": [
+          "source.rls"
+        ]
+      },
+      {
+        "start": 15,
+        "end": 16,
+        "scopes": [
+          "source.rls",
+          "punctuation.section.group.begin.rls"
+        ]
+      }
+    ]
+  },
+  {
+    "line": 8,
+    "text": "        RG_HOOKSHOT: has(item) and distance >= 2",
+    "tokens": [
+      {
+        "start": 0,
+        "end": 8,
+        "scopes": [
+          "source.rls"
+        ]
+      },
+      {
+        "start": 8,
+        "end": 19,
+        "scopes": [
+          "source.rls",
+          "variable.parameter.rls"
+        ]
+      },
+      {
+        "start": 19,
+        "end": 20,
+        "scopes": [
+          "source.rls",
+          "punctuation.separator.rls"
+        ]
+      },
+      {
+        "start": 20,
+        "end": 24,
+        "scopes": [
+          "source.rls"
+        ]
+      },
+      {
+        "start": 24,
+        "end": 25,
+        "scopes": [
+          "source.rls",
+          "punctuation.section.group.begin.rls"
+        ]
+      },
+      {
+        "start": 25,
+        "end": 29,
+        "scopes": [
+          "source.rls",
+          "variable.parameter.rls"
+        ]
+      },
+      {
+        "start": 29,
+        "end": 30,
+        "scopes": [
+          "source.rls",
+          "punctuation.section.group.end.rls"
+        ]
+      },
+      {
+        "start": 30,
+        "end": 31,
+        "scopes": [
+          "source.rls"
+        ]
+      },
+      {
+        "start": 31,
+        "end": 34,
+        "scopes": [
+          "source.rls",
+          "keyword.operator.word.rls"
+        ]
+      },
+      {
+        "start": 34,
+        "end": 44,
+        "scopes": [
+          "source.rls"
+        ]
+      },
+      {
+        "start": 44,
+        "end": 46,
+        "scopes": [
+          "source.rls",
+          "keyword.operator.rls"
+        ]
+      },
+      {
+        "start": 46,
+        "end": 47,
+        "scopes": [
+          "source.rls"
+        ]
+      },
+      {
+        "start": 47,
+        "end": 48,
+        "scopes": [
+          "source.rls",
+          "constant.numeric.integer.rls"
+        ]
+      }
+    ]
+  },
+  {
+    "line": 9,
+    "text": "        _: never",
+    "tokens": [
+      {
+        "start": 0,
+        "end": 8,
+        "scopes": [
+          "source.rls"
+        ]
+      },
+      {
+        "start": 8,
+        "end": 9,
+        "scopes": [
+          "source.rls",
+          "variable.parameter.rls"
+        ]
+      },
+      {
+        "start": 9,
+        "end": 10,
+        "scopes": [
+          "source.rls",
+          "punctuation.separator.rls"
+        ]
+      },
+      {
+        "start": 10,
+        "end": 11,
+        "scopes": [
+          "source.rls"
+        ]
+      },
+      {
+        "start": 11,
+        "end": 16,
+        "scopes": [
+          "source.rls",
+          "constant.language.boolean.rls"
+        ]
+      }
+    ]
+  },
+  {
+    "line": 10,
+    "text": "    }",
+    "tokens": [
+      {
+        "start": 0,
+        "end": 4,
+        "scopes": [
+          "source.rls"
+        ]
+      },
+      {
+        "start": 4,
+        "end": 5,
+        "scopes": [
+          "source.rls",
+          "punctuation.section.group.end.rls"
+        ]
+      }
+    ]
+  },
+  {
+    "line": 11,
+    "text": "",
+    "tokens": [
+      {
+        "start": 0,
+        "end": 1,
+        "scopes": [
+          "source.rls"
+        ]
+      }
+    ]
+  },
+  {
+    "line": 12,
+    "text": "region RR_SAMPLE {",
+    "tokens": [
+      {
+        "start": 0,
+        "end": 6,
+        "scopes": [
+          "source.rls",
+          "storage.type.rls"
+        ]
+      },
+      {
+        "start": 6,
+        "end": 7,
+        "scopes": [
+          "source.rls"
+        ]
+      },
+      {
+        "start": 7,
+        "end": 16,
+        "scopes": [
+          "source.rls",
+          "entity.name.type.rls"
+        ]
+      },
+      {
+        "start": 16,
+        "end": 17,
+        "scopes": [
+          "source.rls"
+        ]
+      },
+      {
+        "start": 17,
+        "end": 18,
+        "scopes": [
+          "source.rls",
+          "punctuation.section.group.begin.rls"
+        ]
+      }
+    ]
+  },
+  {
+    "line": 13,
+    "text": "    name: \"Sample \\\"Region\\\"\"",
+    "tokens": [
+      {
+        "start": 0,
+        "end": 4,
+        "scopes": [
+          "source.rls"
+        ]
+      },
+      {
+        "start": 4,
+        "end": 8,
+        "scopes": [
+          "source.rls",
+          "variable.parameter.rls"
+        ]
+      },
+      {
+        "start": 8,
+        "end": 9,
+        "scopes": [
+          "source.rls",
+          "punctuation.separator.rls"
+        ]
+      },
+      {
+        "start": 9,
+        "end": 10,
+        "scopes": [
+          "source.rls"
+        ]
+      },
+      {
+        "start": 10,
+        "end": 11,
+        "scopes": [
+          "source.rls",
+          "string.quoted.double.rls"
+        ]
+      },
+      {
+        "start": 11,
+        "end": 18,
+        "scopes": [
+          "source.rls",
+          "string.quoted.double.rls"
+        ]
+      },
+      {
+        "start": 18,
+        "end": 20,
+        "scopes": [
+          "source.rls",
+          "string.quoted.double.rls",
+          "constant.character.escape.rls"
+        ]
+      },
+      {
+        "start": 20,
+        "end": 26,
+        "scopes": [
+          "source.rls",
+          "string.quoted.double.rls"
+        ]
+      },
+      {
+        "start": 26,
+        "end": 28,
+        "scopes": [
+          "source.rls",
+          "string.quoted.double.rls",
+          "constant.character.escape.rls"
+        ]
+      },
+      {
+        "start": 28,
+        "end": 29,
+        "scopes": [
+          "source.rls",
+          "string.quoted.double.rls"
+        ]
+      }
+    ]
+  },
+  {
+    "line": 14,
+    "text": "    scene: Scene.OVERWORLD",
+    "tokens": [
+      {
+        "start": 0,
+        "end": 4,
+        "scopes": [
+          "source.rls"
+        ]
+      },
+      {
+        "start": 4,
+        "end": 9,
+        "scopes": [
+          "source.rls",
+          "variable.parameter.rls"
+        ]
+      },
+      {
+        "start": 9,
+        "end": 10,
+        "scopes": [
+          "source.rls",
+          "punctuation.separator.rls"
+        ]
+      },
+      {
+        "start": 10,
+        "end": 11,
+        "scopes": [
+          "source.rls"
+        ]
+      },
+      {
+        "start": 11,
+        "end": 16,
+        "scopes": [
+          "source.rls",
+          "entity.name.type.rls"
+        ]
+      },
+      {
+        "start": 16,
+        "end": 17,
+        "scopes": [
+          "source.rls",
+          "punctuation.accessor.rls"
+        ]
+      },
+      {
+        "start": 17,
+        "end": 26,
+        "scopes": [
+          "source.rls",
+          "variable.other.member.rls"
+        ]
+      }
+    ]
+  },
+  {
+    "line": 15,
+    "text": "    areas: [RA_SAMPLE, RA_OTHER]",
+    "tokens": [
+      {
+        "start": 0,
+        "end": 4,
+        "scopes": [
+          "source.rls"
+        ]
+      },
+      {
+        "start": 4,
+        "end": 9,
+        "scopes": [
+          "source.rls",
+          "variable.parameter.rls"
+        ]
+      },
+      {
+        "start": 9,
+        "end": 10,
+        "scopes": [
+          "source.rls",
+          "punctuation.separator.rls"
+        ]
+      },
+      {
+        "start": 10,
+        "end": 11,
+        "scopes": [
+          "source.rls"
+        ]
+      },
+      {
+        "start": 11,
+        "end": 12,
+        "scopes": [
+          "source.rls",
+          "punctuation.section.group.begin.rls"
+        ]
+      },
+      {
+        "start": 12,
+        "end": 21,
+        "scopes": [
+          "source.rls"
+        ]
+      },
+      {
+        "start": 21,
+        "end": 22,
+        "scopes": [
+          "source.rls",
+          "punctuation.separator.rls"
+        ]
+      },
+      {
+        "start": 22,
+        "end": 31,
+        "scopes": [
+          "source.rls"
+        ]
+      },
+      {
+        "start": 31,
+        "end": 32,
+        "scopes": [
+          "source.rls",
+          "punctuation.section.group.end.rls"
+        ]
+      }
+    ]
+  },
+  {
+    "line": 16,
+    "text": "",
+    "tokens": [
+      {
+        "start": 0,
+        "end": 1,
+        "scopes": [
+          "source.rls"
+        ]
+      }
+    ]
+  },
+  {
+    "line": 17,
+    "text": "    events {",
+    "tokens": [
+      {
+        "start": 0,
+        "end": 4,
+        "scopes": [
+          "source.rls"
+        ]
+      },
+      {
+        "start": 4,
+        "end": 10,
+        "scopes": [
+          "source.rls",
+          "keyword.control.rls"
+        ]
+      },
+      {
+        "start": 10,
+        "end": 11,
+        "scopes": [
+          "source.rls"
+        ]
+      },
+      {
+        "start": 11,
+        "end": 12,
+        "scopes": [
+          "source.rls",
+          "punctuation.section.group.begin.rls"
+        ]
+      }
+    ]
+  },
+  {
+    "line": 18,
+    "text": "        LOGIC_READY: can_enter(item: RG_HOOKSHOT)",
+    "tokens": [
+      {
+        "start": 0,
+        "end": 8,
+        "scopes": [
+          "source.rls"
+        ]
+      },
+      {
+        "start": 8,
+        "end": 19,
+        "scopes": [
+          "source.rls",
+          "variable.parameter.rls"
+        ]
+      },
+      {
+        "start": 19,
+        "end": 20,
+        "scopes": [
+          "source.rls",
+          "punctuation.separator.rls"
+        ]
+      },
+      {
+        "start": 20,
+        "end": 30,
+        "scopes": [
+          "source.rls"
+        ]
+      },
+      {
+        "start": 30,
+        "end": 31,
+        "scopes": [
+          "source.rls",
+          "punctuation.section.group.begin.rls"
+        ]
+      },
+      {
+        "start": 31,
+        "end": 35,
+        "scopes": [
+          "source.rls",
+          "variable.parameter.rls"
+        ]
+      },
+      {
+        "start": 35,
+        "end": 37,
+        "scopes": [
+          "source.rls"
+        ]
+      },
+      {
+        "start": 37,
+        "end": 48,
+        "scopes": [
+          "source.rls",
+          "entity.name.type.rls"
+        ]
+      },
+      {
+        "start": 48,
+        "end": 49,
+        "scopes": [
+          "source.rls",
+          "punctuation.section.group.end.rls"
+        ]
+      }
+    ]
+  },
+  {
+    "line": 19,
+    "text": "    }",
+    "tokens": [
+      {
+        "start": 0,
+        "end": 4,
+        "scopes": [
+          "source.rls"
+        ]
+      },
+      {
+        "start": 4,
+        "end": 5,
+        "scopes": [
+          "source.rls",
+          "punctuation.section.group.end.rls"
+        ]
+      }
+    ]
+  },
+  {
+    "line": 20,
+    "text": "",
+    "tokens": [
+      {
+        "start": 0,
+        "end": 1,
+        "scopes": [
+          "source.rls"
+        ]
+      }
+    ]
+  },
+  {
+    "line": 21,
+    "text": "    exits {",
+    "tokens": [
+      {
+        "start": 0,
+        "end": 4,
+        "scopes": [
+          "source.rls"
+        ]
+      },
+      {
+        "start": 4,
+        "end": 9,
+        "scopes": [
+          "source.rls",
+          "keyword.control.rls"
+        ]
+      },
+      {
+        "start": 9,
+        "end": 10,
+        "scopes": [
+          "source.rls"
+        ]
+      },
+      {
+        "start": 10,
+        "end": 11,
+        "scopes": [
+          "source.rls",
+          "punctuation.section.group.begin.rls"
+        ]
+      }
+    ]
+  },
+  {
+    "line": 22,
+    "text": "        RR_NEXT: always",
+    "tokens": [
+      {
+        "start": 0,
+        "end": 8,
+        "scopes": [
+          "source.rls"
+        ]
+      },
+      {
+        "start": 8,
+        "end": 15,
+        "scopes": [
+          "source.rls",
+          "variable.parameter.rls"
+        ]
+      },
+      {
+        "start": 15,
+        "end": 16,
+        "scopes": [
+          "source.rls",
+          "punctuation.separator.rls"
+        ]
+      },
+      {
+        "start": 16,
+        "end": 17,
+        "scopes": [
+          "source.rls"
+        ]
+      },
+      {
+        "start": 17,
+        "end": 23,
+        "scopes": [
+          "source.rls",
+          "constant.language.boolean.rls"
+        ]
+      }
+    ]
+  },
+  {
+    "line": 23,
+    "text": "    }",
+    "tokens": [
+      {
+        "start": 0,
+        "end": 4,
+        "scopes": [
+          "source.rls"
+        ]
+      },
+      {
+        "start": 4,
+        "end": 5,
+        "scopes": [
+          "source.rls",
+          "punctuation.section.group.end.rls"
+        ]
+      }
+    ]
+  },
+  {
+    "line": 24,
+    "text": "}",
+    "tokens": [
+      {
+        "start": 0,
+        "end": 1,
+        "scopes": [
+          "source.rls",
+          "punctuation.section.group.end.rls"
+        ]
+      }
+    ]
+  },
+  {
+    "line": 25,
+    "text": "",
+    "tokens": [
+      {
+        "start": 0,
+        "end": 1,
+        "scopes": [
+          "source.rls"
+        ]
+      }
+    ]
+  },
+  {
+    "line": 26,
+    "text": "extend region RR_SAMPLE {",
+    "tokens": [
+      {
+        "start": 0,
+        "end": 6,
+        "scopes": [
+          "source.rls",
+          "keyword.control.rls"
+        ]
+      },
+      {
+        "start": 6,
+        "end": 7,
+        "scopes": [
+          "source.rls"
+        ]
+      },
+      {
+        "start": 7,
+        "end": 13,
+        "scopes": [
+          "source.rls",
+          "storage.type.rls"
+        ]
+      },
+      {
+        "start": 13,
+        "end": 14,
+        "scopes": [
+          "source.rls"
+        ]
+      },
+      {
+        "start": 14,
+        "end": 23,
+        "scopes": [
+          "source.rls",
+          "entity.name.type.rls"
+        ]
+      },
+      {
+        "start": 23,
+        "end": 24,
+        "scopes": [
+          "source.rls"
+        ]
+      },
+      {
+        "start": 24,
+        "end": 25,
+        "scopes": [
+          "source.rls",
+          "punctuation.section.group.begin.rls"
+        ]
+      }
+    ]
+  },
+  {
+    "line": 27,
+    "text": "    locations {",
+    "tokens": [
+      {
+        "start": 0,
+        "end": 4,
+        "scopes": [
+          "source.rls"
+        ]
+      },
+      {
+        "start": 4,
+        "end": 13,
+        "scopes": [
+          "source.rls",
+          "keyword.control.rls"
+        ]
+      },
+      {
+        "start": 13,
+        "end": 14,
+        "scopes": [
+          "source.rls"
+        ]
+      },
+      {
+        "start": 14,
+        "end": 15,
+        "scopes": [
+          "source.rls",
+          "punctuation.section.group.begin.rls"
+        ]
+      }
+    ]
+  },
+  {
+    "line": 28,
+    "text": "        RC_SAMPLE: can_enter(RG_HOOKSHOT)",
+    "tokens": [
+      {
+        "start": 0,
+        "end": 8,
+        "scopes": [
+          "source.rls"
+        ]
+      },
+      {
+        "start": 8,
+        "end": 17,
+        "scopes": [
+          "source.rls",
+          "variable.parameter.rls"
+        ]
+      },
+      {
+        "start": 17,
+        "end": 18,
+        "scopes": [
+          "source.rls",
+          "punctuation.separator.rls"
+        ]
+      },
+      {
+        "start": 18,
+        "end": 28,
+        "scopes": [
+          "source.rls"
+        ]
+      },
+      {
+        "start": 28,
+        "end": 29,
+        "scopes": [
+          "source.rls",
+          "punctuation.section.group.begin.rls"
+        ]
+      },
+      {
+        "start": 29,
+        "end": 40,
+        "scopes": [
+          "source.rls",
+          "variable.parameter.rls"
+        ]
+      },
+      {
+        "start": 40,
+        "end": 41,
+        "scopes": [
+          "source.rls",
+          "punctuation.section.group.end.rls"
+        ]
+      }
+    ]
+  },
+  {
+    "line": 29,
+    "text": "    }",
+    "tokens": [
+      {
+        "start": 0,
+        "end": 4,
+        "scopes": [
+          "source.rls"
+        ]
+      },
+      {
+        "start": 4,
+        "end": 5,
+        "scopes": [
+          "source.rls",
+          "punctuation.section.group.end.rls"
+        ]
+      }
+    ]
+  },
+  {
+    "line": 30,
+    "text": "}",
+    "tokens": [
+      {
+        "start": 0,
+        "end": 1,
+        "scopes": [
+          "source.rls",
+          "punctuation.section.group.end.rls"
+        ]
+      }
+    ]
+  },
+  {
+    "line": 31,
+    "text": "",
+    "tokens": [
+      {
+        "start": 0,
+        "end": 1,
+        "scopes": [
+          "source.rls"
+        ]
+      }
+    ]
+  },
+  {
+    "line": 32,
+    "text": "# Keep this incomplete source editable while typing.",
+    "tokens": [
+      {
+        "start": 0,
+        "end": 52,
+        "scopes": [
+          "source.rls",
+          "comment.line.number-sign.rls"
+        ]
+      }
+    ]
+  },
+  {
+    "line": 33,
+    "text": "define unfinished(value: int): match value {",
+    "tokens": [
+      {
+        "start": 0,
+        "end": 6,
+        "scopes": [
+          "source.rls",
+          "storage.type.function.rls"
+        ]
+      },
+      {
+        "start": 6,
+        "end": 7,
+        "scopes": [
+          "source.rls"
+        ]
+      },
+      {
+        "start": 7,
+        "end": 17,
+        "scopes": [
+          "source.rls",
+          "entity.name.function.rls"
+        ]
+      },
+      {
+        "start": 17,
+        "end": 18,
+        "scopes": [
+          "source.rls",
+          "punctuation.section.group.begin.rls"
+        ]
+      },
+      {
+        "start": 18,
+        "end": 23,
+        "scopes": [
+          "source.rls",
+          "variable.parameter.rls"
+        ]
+      },
+      {
+        "start": 23,
+        "end": 25,
+        "scopes": [
+          "source.rls"
+        ]
+      },
+      {
+        "start": 25,
+        "end": 28,
+        "scopes": [
+          "source.rls",
+          "entity.name.type.rls"
+        ]
+      },
+      {
+        "start": 28,
+        "end": 29,
+        "scopes": [
+          "source.rls",
+          "punctuation.section.group.end.rls"
+        ]
+      },
+      {
+        "start": 29,
+        "end": 30,
+        "scopes": [
+          "source.rls",
+          "punctuation.separator.rls"
+        ]
+      },
+      {
+        "start": 30,
+        "end": 31,
+        "scopes": [
+          "source.rls"
+        ]
+      },
+      {
+        "start": 31,
+        "end": 36,
+        "scopes": [
+          "source.rls",
+          "keyword.control.rls"
+        ]
+      },
+      {
+        "start": 36,
+        "end": 43,
+        "scopes": [
+          "source.rls"
+        ]
+      },
+      {
+        "start": 43,
+        "end": 44,
+        "scopes": [
+          "source.rls",
+          "punctuation.section.group.begin.rls"
+        ]
+      }
+    ]
+  }
+]

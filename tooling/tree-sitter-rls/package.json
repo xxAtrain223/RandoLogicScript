@@ -1,0 +1,19 @@
+{
+  "name": "tree-sitter-rls",
+  "version": "0.1.0",
+  "description": "Tree-sitter grammar for Rando Logic Script.",
+  "license": "MIT",
+  "private": true,
+  "engines": {
+    "node": ">=10"
+  },
+  "scripts": {
+    "install": "node -e \"console.log('Skipping optional native binding build for grammar tests.')\"",
+    "generate": "tree-sitter generate",
+    "test": "node test-shared-corpus.js"
+  },
+  "devDependencies": {
+    "tree-sitter-cli": "0.20.8"
+  },
+  "main": "bindings/node"
+}
