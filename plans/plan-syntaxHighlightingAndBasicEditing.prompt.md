@@ -13,19 +13,19 @@ This plan owns lexical syntax classification, editor language registration, brac
 1. **Canonical syntax corpus**
    - Extract representative valid examples from `examples/rls` and focused syntax cases from parser tests.
    - Cover declarations, regions/extensions, section/data keys, defines/extern defines, enums/extern enums, expressions, calls/named arguments, lists, match/member expressions, comments, strings, and malformed/incomplete input.
-   - Maintain expected lexical categories independently of parser implementation details.
+   - [x] Maintain expected lexical categories independently of parser implementation details.
 
 2. **TextMate grammar**
-   - Add a JSON grammar with standard scopes for comments, strings, numeric/boolean literals, declaration keywords, control/operator keywords, type names, declaration names, parameter names, punctuation, and operators.
-   - Use `source.rls` as the root scope and standard scopes targeted by existing themes.
-   - Highlight names based on syntax context only. An identifier is not an enum value, parameter, or function reference merely because its spelling has a prefix.
-   - Cover `#` comments, string escapes, braces/parens/brackets, qualified names, and error-tolerant open constructs.
+   - [x] Add a JSON grammar with standard scopes for comments, strings, numeric/boolean literals, declaration keywords, control/operator keywords, type names, declaration names, parameter names, punctuation, and operators.
+   - [x] Use `source.rls` as the root scope and standard scopes targeted by existing themes.
+   - [x] Highlight names based on syntax context only. An identifier is not an enum value, parameter, or function reference merely because its spelling has a prefix.
+   - [x] Cover `#` comments, string escapes, braces/parens/brackets, qualified names, and error-tolerant open constructs.
    - Add scope snapshots for the shared corpus.
 
 3. **Language metadata and VS Code adapter**
-   - Register `.rls`, line comments, bracket pairs, auto-closing pairs, surrounding pairs, and word pattern in a minimal VS Code language extension.
-   - Keep the extension declarative at this stage: it contains the grammar and language configuration, not compiler behavior.
-   - Audit the historical extension before reuse because current grammar includes newer enum/member/callable syntax.
+   - [x] Register `.rls`, line comments, bracket pairs, auto-closing pairs, surrounding pairs, and word pattern in a minimal VS Code language extension.
+   - [x] Keep the extension declarative at this stage: it contains the grammar and language configuration, not compiler behavior.
+   - [x] Audit the historical extension before reuse because current grammar includes newer enum/member/callable syntax. No historical extension was present in this repository.
    - Test scope inspection and bracket/comment behavior in VS Code.
 
 4. **Tree-sitter grammar**
@@ -35,9 +35,9 @@ This plan owns lexical syntax classification, editor language registration, brac
    - Document Tree-sitter as an editor artifact. PEGTL remains compiler-authoritative and is not replaced.
 
 5. **Drift prevention**
-   - Add a grammar-change checklist: a PEGTL keyword, declaration, expression, comment, or delimiter change requires corpus and grammar updates.
+   - [x] Add a grammar-change checklist: a PEGTL keyword, declaration, expression, comment, or delimiter change requires corpus and grammar updates.
    - Add CI jobs for TextMate scope tests and Tree-sitter tests.
-   - Add examples for malformed source so grammar regressions do not make editing unusable during incomplete changes.
+   - [x] Add examples for malformed source so grammar regressions do not make editing unusable during incomplete changes.
 
 ### File Boundaries
 

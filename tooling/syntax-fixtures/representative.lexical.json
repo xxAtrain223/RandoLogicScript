@@ -1,0 +1,21 @@
+{
+  "fixture": "representative.rls",
+  "categories": {
+    "comments": ["# A comment with delimiters: { [ (", "# Keep this incomplete source editable while typing."],
+    "strings": ["\"Sample \\\"Region\\\"\""],
+    "declarationKeywords": ["enum", "extern", "define", "region", "extend"],
+    "controlKeywords": ["match", "and", "never", "always"],
+    "sectionKeywords": ["events", "exits", "locations"],
+    "booleanLiterals": ["never", "always"],
+    "numericLiterals": ["3", "2"],
+    "declarationNames": ["Color", "Item", "has", "can_enter", "RR_SAMPLE", "unfinished"],
+    "parameterNames": ["item", "distance", "value"],
+    "typeNames": ["Item", "bool", "int"],
+    "qualifiedNames": ["Scene.OVERWORLD"],
+    "operators": ["=", "->", ">="],
+    "punctuation": ["{", "}", "(", ")", "[", "]", ":", ","]
+  },
+  "incompleteConstructs": [
+    "An unterminated match expression must retain the scopes parsed before the missing closing brace."
+  ]
+}

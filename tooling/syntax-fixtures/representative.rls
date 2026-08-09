@@ -1,0 +1,33 @@
+# A comment with delimiters: { [ (
+enum Color { RED, GREEN = 3 }
+extern enum Item { RG_HOOKSHOT, RG_*, *_KEY }
+
+extern define has(item: Item) -> bool
+define can_enter(item: Item, distance = ED_CLOSE):
+    match item {
+        RG_HOOKSHOT: has(item) and distance >= 2
+        _: never
+    }
+
+region RR_SAMPLE {
+    name: "Sample \"Region\""
+    scene: Scene.OVERWORLD
+    areas: [RA_SAMPLE, RA_OTHER]
+
+    events {
+        LOGIC_READY: can_enter(item: RG_HOOKSHOT)
+    }
+
+    exits {
+        RR_NEXT: always
+    }
+}
+
+extend region RR_SAMPLE {
+    locations {
+        RC_SAMPLE: can_enter(RG_HOOKSHOT)
+    }
+}
+
+# Keep this incomplete source editable while typing.
+define unfinished(value: int): match value {

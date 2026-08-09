@@ -1,0 +1,35 @@
+{
+  "name": "rando-logic-script",
+  "displayName": "Rando Logic Script",
+  "description": "Syntax highlighting and basic editing support for Rando Logic Script.",
+  "version": "0.1.0",
+  "publisher": "rando-logic-script",
+  "engines": {
+    "vscode": "^1.85.0"
+  },
+  "categories": [
+    "Programming Languages"
+  ],
+  "contributes": {
+    "languages": [
+      {
+        "id": "rls",
+        "aliases": [
+          "Rando Logic Script",
+          "RLS"
+        ],
+        "extensions": [
+          ".rls"
+        ],
+        "configuration": "./language-configuration.json"
+      }
+    ],
+    "grammars": [
+      {
+        "language": "rls",
+        "scopeName": "source.rls",
+        "path": "./syntaxes/rls.tmLanguage.json"
+      }
+    ]
+  }
+}
