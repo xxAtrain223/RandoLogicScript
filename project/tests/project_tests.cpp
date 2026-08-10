@@ -82,6 +82,21 @@ TEST(ProjectManifest, LoadsAndResolvesPathsFromManifestDirectory) {
         fs::weakly_canonical(directory.path() / "generated" / "soh"));
 }
 
+TEST(ProjectManifest, ResolvesRelativeManifestPathsIndependentlyOfCurrentDirectory) {
+    TemporaryDirectory directory;
+    writeFile(directory.path() / "nested" / "rls.json", R"({ "version": 1, "sources": ["src"] })");
+    writeFile(directory.path() / "nested" / "src" / "logic.rls");
+
+    const auto result = rls::project::LoadManifest(directory.path() / "nested" / "." / "rls.json");
+
+    ASSERT_TRUE(result.config.has_value()) << result.error;
+    const auto sources = rls::project::CollectManifestSources(*result.config);
+    ASSERT_TRUE(sources.error.empty());
+    ASSERT_EQ(sources.sourceFiles.size(), 1);
+    EXPECT_EQ(sources.sourceFiles[0],
+        fs::weakly_canonical(directory.path() / "nested" / "src" / "logic.rls"));
+}
+
 TEST(ProjectManifest, RejectsUnknownFieldsAndEscapingOutputPaths) {
     TemporaryDirectory directory;
     writeFile(directory.path() / "rls.json", R"({ "version": 1, "sources": ["src"], "extra": true })");
@@ -172,6 +187,31 @@ TEST(ProjectManifest, IncludesOutputOnlyWhenExplicitlyListedAsASource) {
     ASSERT_EQ(result.sourceFiles.size(), 1);
     EXPECT_EQ(result.sourceFiles[0],
         fs::weakly_canonical(directory.path() / "generated" / "soh" / "included.rls"));
+}
+
+TEST(ProjectResolution, UsesNearestManifestOrStandaloneFile) {
+    TemporaryDirectory directory;
+    TemporaryDirectory standaloneDirectory;
+    writeFile(directory.path() / "rls.json", R"({ "version": 1, "sources": ["src"] })");
+    writeFile(directory.path() / "src" / "outer.rls");
+    writeFile(directory.path() / "nested" / "rls.json", R"({ "version": 1, "sources": ["logic.rls"] })");
+    writeFile(directory.path() / "nested" / "logic.rls");
+    writeFile(standaloneDirectory.path() / "standalone.rls");
+
+    const auto nested = rls::project::ResolveFileProject(directory.path() / "nested" / "logic.rls");
+    ASSERT_TRUE(nested.error.empty());
+    ASSERT_TRUE(nested.manifest.has_value());
+    EXPECT_FALSE(nested.isStandalone);
+    EXPECT_EQ(nested.manifest->manifestPath,
+        fs::weakly_canonical(directory.path() / "nested" / "rls.json"));
+
+    const auto standalone = rls::project::ResolveFileProject(standaloneDirectory.path() / "standalone.rls");
+    ASSERT_TRUE(standalone.error.empty());
+    EXPECT_FALSE(standalone.manifest.has_value());
+    ASSERT_TRUE(standalone.isStandalone);
+    ASSERT_EQ(standalone.sourceFiles.size(), 1);
+    EXPECT_EQ(standalone.sourceFiles[0],
+        fs::weakly_canonical(standaloneDirectory.path() / "standalone.rls"));
 }
 
 } // namespace

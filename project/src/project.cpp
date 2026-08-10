@@ -272,4 +272,36 @@ SourceCollection CollectManifestSources(const ManifestConfig& config) {
     return result;
 }
 
+FileProject ResolveFileProject(const fs::path& file) {
+    FileProject result;
+    if (!fs::exists(file)) {
+        result.error = "path does not exist: " + file.string();
+        return result;
+    }
+
+    const auto canonicalFile = canonicalPath(file);
+    const auto manifestPath = FindManifest(canonicalFile);
+    if (!manifestPath) {
+        result.sourceFiles.push_back(canonicalFile);
+        result.isStandalone = true;
+        return result;
+    }
+
+    auto manifest = LoadManifest(*manifestPath);
+    if (!manifest.config) {
+        result.error = std::move(manifest.error);
+        return result;
+    }
+
+    auto sources = CollectManifestSources(*manifest.config);
+    if (!sources.error.empty()) {
+        result.error = std::move(sources.error);
+        return result;
+    }
+
+    result.manifest = std::move(manifest.config);
+    result.sourceFiles = std::move(sources.sourceFiles);
+    return result;
+}
+
 } // namespace rls::project

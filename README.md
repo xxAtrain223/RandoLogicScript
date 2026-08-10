@@ -47,6 +47,8 @@ An `rls.json` file describes a project rooted at the directory containing the ma
 }
 ```
 
+The published JSON Schema is [project/rls.schema.json](project/rls.schema.json). It validates the structural version-1 contract and relative paths; installed console builds validate available transpiler implementations separately.
+
 All manifest paths are relative to the manifest and must stay within the project root. Source directories are scanned recursively in deterministic order. Project scans exclude `build`, VCS directories, caches, configured exclusions, and transpiler output directories. An output directory is included only when it is explicitly named in `sources`.
 
 Run a project explicitly with:

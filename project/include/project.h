@@ -26,6 +26,13 @@ struct ManifestLoadResult {
     std::string error;
 };
 
+struct FileProject {
+    std::optional<ManifestConfig> manifest;
+    std::vector<std::filesystem::path> sourceFiles;
+    bool isStandalone = false;
+    std::string error;
+};
+
 /// Collect explicit file and directory inputs using canonical, stable paths.
 SourceCollection CollectExplicitSources(const std::vector<std::filesystem::path>& inputs);
 
@@ -37,5 +44,8 @@ ManifestLoadResult LoadManifest(const std::filesystem::path& manifestPath);
 
 /// Expand manifest source entries into canonical RLS source paths without parsing contents.
 SourceCollection CollectManifestSources(const ManifestConfig& config);
+
+/// Resolve a file to nearest-manifest membership or a standalone one-file configuration.
+FileProject ResolveFileProject(const std::filesystem::path& file);
 
 } // namespace rls::project
