@@ -23,6 +23,7 @@ static void printUsage(const char* program) {
         << " [options] <files/folders...>\n"
         << "\n"
         << "Options:\n"
+        << "  -p, --project <path>   Load an rls.json manifest.\n"
         << "  -t, --transpiler <name> -o, --output <dir>\n"
         << "                            Transpiler and output directory pair (may be repeated).\n"
         << "                            Available transpilers: soh, ap\n"
@@ -96,6 +97,7 @@ static bool runTranspiler(const TranspilerConfig& config, const rls::ast::Projec
 int main(int argc, char* argv[]) {
     std::vector<TranspilerConfig> transpilers;
     std::vector<fs::path> inputs;
+    std::optional<fs::path> manifestPath;
 
     // == parse arguments =================================================
     for (int i = 1; i < argc; ++i) {
@@ -104,6 +106,18 @@ int main(int argc, char* argv[]) {
         if (arg == "-h" || arg == "--help") {
             printUsage(argv[0]);
             return 0;
+        }
+        if (arg == "-p" || arg == "--project") {
+            if (++i >= argc) {
+                std::cerr << "error: " << arg << " requires a value\n";
+                return 1;
+            }
+            if (manifestPath) {
+                std::cerr << "error: " << arg << " may only be specified once\n";
+                return 1;
+            }
+            manifestPath.emplace(argv[i]);
+            continue;
         }
         if (arg == "-t" || arg == "--transpiler") {
             if (++i >= argc) {
@@ -140,19 +154,43 @@ int main(int argc, char* argv[]) {
     }
 
     // == validate arguments ==============================================
-    if (inputs.empty()) {
-        std::cerr << "error: no input files or folders specified\n";
-        printUsage(argv[0]);
+    if (manifestPath && !inputs.empty()) {
+        std::cerr << "error: --project cannot be combined with explicit input paths\n";
         return 1;
     }
 
-    if (transpilers.empty()) {
-        std::cerr << "error: at least one -t <name> -o <dir> pair must be specified\n";
-        return 1;
+    if (!manifestPath && inputs.empty()) {
+        manifestPath = rls::project::FindManifest(fs::current_path());
+        if (!manifestPath) {
+            std::cerr << "error: no input files or folders specified, and no rls.json was found\n";
+            printUsage(argv[0]);
+            return 1;
+        }
     }
 
     // == collect source files ============================================
-    auto collection = rls::project::CollectExplicitSources(inputs);
+    rls::project::SourceCollection collection;
+    std::optional<rls::project::ManifestConfig> manifest;
+    if (manifestPath) {
+        const auto path = fs::is_directory(*manifestPath) ? *manifestPath / "rls.json" : *manifestPath;
+        auto loadResult = rls::project::LoadManifest(path);
+        if (!loadResult.error.empty()) {
+            std::cerr << "error: " << loadResult.error << "\n";
+            return 1;
+        }
+        manifest = std::move(loadResult.config);
+        collection = rls::project::CollectManifestSources(*manifest);
+
+        for (const auto& [name, outputDir] : manifest->transpilerOutputs) {
+            const bool overridden = std::ranges::any_of(transpilers, [&name](const TranspilerConfig& config) {
+                return config.name == name;
+            });
+            if (!overridden)
+                transpilers.push_back({name, outputDir});
+        }
+    } else {
+        collection = rls::project::CollectExplicitSources(inputs);
+    }
     if (!collection.error.empty()) {
         std::cerr << "error: " << collection.error << "\n";
         return 1;
@@ -165,6 +203,11 @@ int main(int argc, char* argv[]) {
 
     if (sourceFiles.empty()) {
         std::cerr << "error: no source files to process\n";
+        return 1;
+    }
+
+    if (transpilers.empty()) {
+        std::cerr << "error: at least one -t <name> -o <dir> pair or manifest transpiler is required\n";
         return 1;
     }
 

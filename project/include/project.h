@@ -35,4 +35,7 @@ std::optional<std::filesystem::path> FindManifest(const std::filesystem::path& s
 /// Read and validate a version-1 rls.json without loading source contents.
 ManifestLoadResult LoadManifest(const std::filesystem::path& manifestPath);
 
+/// Expand manifest source entries into canonical RLS source paths without parsing contents.
+SourceCollection CollectManifestSources(const ManifestConfig& config);
+
 } // namespace rls::project

@@ -5,13 +5,14 @@ The goal for RLS is to be a **declarative, domain-specific language** for defini
 ## Usage
 
 ```
-RandoLogicScript [options] <files/folders...>
+RandoLogicScript [options] [files/folders...]
 ```
 
 ### Options
 
 | Option                    | Description                                                   |
 | ------------------------- | ------------------------------------------------------------- |
+| `-p, --project <path>`    | Load an `rls.json` manifest or a directory containing one.   |
 | `-t, --transpiler <name>` | Transpiler to use, must be followed by `-o`. May be repeated. |
 | `-o, --output <dir>`      | Output directory for the preceding transpiler.                |
 | `-h, --help`              | Show help message.                                            |
@@ -29,6 +30,34 @@ RandoLogicScript -t soh -o out/soh/ -t ap -o out/ap/ src/ extra.rls
 ```
 
 Input paths can be individual `.rls` files or directories (which are recursively scanned for `.rls` files).
+
+### Project Files
+
+An `rls.json` file describes a project rooted at the directory containing the manifest:
+
+```json
+{
+	"version": 1,
+	"sources": ["src", "stdlib/host.rls"],
+	"exclude": ["generated/**"],
+	"transpilers": {
+		"soh": { "output": "generated/soh" },
+		"ap": { "output": "generated/ap" }
+	}
+}
+```
+
+All manifest paths are relative to the manifest and must stay within the project root. Source directories are scanned recursively in deterministic order. Project scans exclude `build`, VCS directories, caches, configured exclusions, and transpiler output directories. An output directory is included only when it is explicitly named in `sources`.
+
+Run a project explicitly with:
+
+```
+RandoLogicScript --project path/to/rls.json
+```
+
+`--project` also accepts a directory containing `rls.json`. When no input files or folders are given, the CLI searches from the current directory upward for the nearest manifest. Explicit input paths remain supported, but cannot be combined with `--project`.
+
+Manifest transpiler outputs are used by default. Each command-line `-t <name> -o <dir>` pair replaces the manifest output for the same transpiler name and leaves other manifest transpilers enabled. Transpiler names are validated by the CLI's registered implementations.
 
 ### Available Transpilers
 

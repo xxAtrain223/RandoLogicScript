@@ -45,6 +45,52 @@ std::optional<fs::path> resolveManifestPath(
     return resolved;
 }
 
+bool isWithin(const fs::path& parent, const fs::path& path) {
+    const auto relative = path.lexically_relative(parent);
+    return !relative.empty() && std::ranges::none_of(relative, [](const fs::path& component) {
+        return component == "..";
+    });
+}
+
+bool isDefaultExcluded(const fs::path& relativePath) {
+    static const std::set<fs::path> excludedNames = {
+        ".git", ".hg", ".svn", ".cache", "build", "node_modules",
+    };
+    return std::ranges::any_of(relativePath, [](const fs::path& component) {
+        return excludedNames.contains(component);
+    });
+}
+
+bool isManifestExcluded(const ManifestConfig& config, const fs::path& path) {
+    return std::ranges::any_of(config.excludes, [&path](const fs::path& exclude) {
+        const auto pattern = exclude.generic_string();
+        const auto suffix = std::string("/**");
+        const auto prefix = pattern.ends_with(suffix)
+            ? fs::path(pattern.substr(0, pattern.size() - suffix.size()))
+            : exclude;
+        return isWithin(prefix, path) || prefix == path;
+    });
+}
+
+bool isOutputExcluded(const ManifestConfig& config, const fs::path& path) {
+    return std::ranges::any_of(config.transpilerOutputs, [&path](const auto& output) {
+        return isWithin(output.second, path) || output.second == path;
+    });
+}
+
+bool isExcluded(
+    const ManifestConfig& config,
+    const fs::path& path,
+    bool overridesDefaultExclusions,
+    bool includesOutput)
+{
+    if (isManifestExcluded(config, path))
+        return true;
+    if (!includesOutput && isOutputExcluded(config, path))
+        return true;
+    return !overridesDefaultExclusions && isDefaultExcluded(path.lexically_relative(config.root));
+}
+
 } // namespace
 
 SourceCollection CollectExplicitSources(const std::vector<fs::path>& inputs) {
@@ -176,6 +222,53 @@ ManifestLoadResult LoadManifest(const fs::path& manifestPath) {
     }
 
     result.config = std::move(config);
+    return result;
+}
+
+SourceCollection CollectManifestSources(const ManifestConfig& config) {
+    SourceCollection result;
+    std::set<fs::path> paths;
+
+    for (const auto& source : config.sources) {
+        if (!fs::exists(source)) {
+            result.error = "manifest source does not exist: " + source.string();
+            return result;
+        }
+
+        if (fs::is_regular_file(source)) {
+            if (source.extension() == ".rls" && !isExcluded(config, source, true, true))
+                paths.insert(source);
+            continue;
+        }
+
+        const auto before = paths.size();
+        const bool overridesDefaultExclusions = source != config.root &&
+            isDefaultExcluded(source.lexically_relative(config.root));
+        const bool includesOutput = std::ranges::any_of(
+            config.transpilerOutputs,
+            [&source](const auto& output) {
+                return source == output.second || isWithin(output.second, source);
+            });
+        for (auto entry = fs::recursive_directory_iterator(source);
+             entry != fs::recursive_directory_iterator(); ++entry) {
+            const auto path = canonicalPath(entry->path());
+            if (entry->is_directory() && isExcluded(
+                config, path, overridesDefaultExclusions, includesOutput)) {
+                entry.disable_recursion_pending();
+                continue;
+            }
+            if (entry->is_regular_file() && path.extension() == ".rls" &&
+                !isExcluded(config, path, overridesDefaultExclusions, includesOutput)) {
+                paths.insert(path);
+            }
+        }
+        if (paths.size() == before)
+            result.warnings.push_back("no .rls files found in manifest source: " + source.string());
+    }
+
+    result.sourceFiles.assign(paths.begin(), paths.end());
+    if (result.sourceFiles.empty())
+        result.error = "manifest does not resolve to any .rls source files";
     return result;
 }
 

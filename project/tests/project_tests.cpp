@@ -113,4 +113,65 @@ TEST(ProjectManifest, AcceptsTranspilerNamesWithoutKnowingImplementations) {
     EXPECT_EQ(result.config->transpilerOutputs[0].first, "custom-target");
 }
 
+TEST(ProjectManifest, CollectsDeterministicSourcesWithConfiguredAndDefaultExclusions) {
+    TemporaryDirectory directory;
+    writeFile(directory.path() / "rls.json", R"({
+        "version": 1,
+        "sources": ["."],
+        "exclude": ["ignored/**"],
+        "transpilers": { "soh": { "output": "generated/soh" } }
+    })");
+    writeFile(directory.path() / "src" / "z.rls");
+    writeFile(directory.path() / "src" / "a.rls");
+    writeFile(directory.path() / "ignored" / "skip.rls");
+    writeFile(directory.path() / "generated" / "soh" / "skip.rls");
+    writeFile(directory.path() / "build" / "skip.rls");
+    writeFile(directory.path() / ".git" / "skip.rls");
+
+    const auto manifest = rls::project::LoadManifest(directory.path() / "rls.json");
+    ASSERT_TRUE(manifest.config.has_value()) << manifest.error;
+    const auto result = rls::project::CollectManifestSources(*manifest.config);
+
+    ASSERT_TRUE(result.error.empty());
+    ASSERT_EQ(result.sourceFiles.size(), 2);
+    EXPECT_EQ(result.sourceFiles[0], fs::weakly_canonical(directory.path() / "src" / "a.rls"));
+    EXPECT_EQ(result.sourceFiles[1], fs::weakly_canonical(directory.path() / "src" / "z.rls"));
+}
+
+TEST(ProjectManifest, ReportsMissingAndEmptySourceSets) {
+    TemporaryDirectory directory;
+    writeFile(directory.path() / "rls.json", R"({ "version": 1, "sources": ["missing"] })");
+
+    auto manifest = rls::project::LoadManifest(directory.path() / "rls.json");
+    ASSERT_TRUE(manifest.config.has_value()) << manifest.error;
+    EXPECT_EQ(rls::project::CollectManifestSources(*manifest.config).error,
+        "manifest source does not exist: " + (directory.path() / "missing").string());
+
+    writeFile(directory.path() / "rls.json", R"({ "version": 1, "sources": ["empty"] })");
+    fs::create_directories(directory.path() / "empty");
+    manifest = rls::project::LoadManifest(directory.path() / "rls.json");
+    ASSERT_TRUE(manifest.config.has_value()) << manifest.error;
+    EXPECT_EQ(rls::project::CollectManifestSources(*manifest.config).error,
+        "manifest does not resolve to any .rls source files");
+}
+
+TEST(ProjectManifest, IncludesOutputOnlyWhenExplicitlyListedAsASource) {
+    TemporaryDirectory directory;
+    writeFile(directory.path() / "rls.json", R"({
+        "version": 1,
+        "sources": ["generated/soh"],
+        "transpilers": { "soh": { "output": "generated/soh" } }
+    })");
+    writeFile(directory.path() / "generated" / "soh" / "included.rls");
+
+    const auto manifest = rls::project::LoadManifest(directory.path() / "rls.json");
+    ASSERT_TRUE(manifest.config.has_value()) << manifest.error;
+    const auto result = rls::project::CollectManifestSources(*manifest.config);
+
+    ASSERT_TRUE(result.error.empty());
+    ASSERT_EQ(result.sourceFiles.size(), 1);
+    EXPECT_EQ(result.sourceFiles[0],
+        fs::weakly_canonical(directory.path() / "generated" / "soh" / "included.rls"));
+}
+
 } // namespace

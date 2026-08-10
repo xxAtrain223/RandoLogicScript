@@ -29,7 +29,7 @@ This plan owns manifest format, discovery, validation, source membership, and sh
 4. Define duplicate and overlap rules:
    - [x] Canonicalize explicit input paths before de-duplication.
    - [ ] Explicit sources can override default exclusion rules only when intentional and documented.
-   - [ ] Outputs must not be treated as sources unless explicitly included.
+   - [x] Outputs must not be treated as sources unless explicitly included.
    - [x] Reject outputs that escape the project root unless an explicit future escape-hatch is designed.
 
 ### Discovery and Membership
@@ -38,20 +38,20 @@ This plan owns manifest format, discovery, validation, source membership, and sh
 2. [x] Treat nested manifests as separate projects. A file belongs to the nearest parent manifest, not every ancestor.
 3. [ ] Support multiple manifests in an editor workspace without mixing their source sets or diagnostics.
 4. [ ] For files with no discovered manifest, return a standalone configuration that analyzes only that file and does not promise cross-file resolution.
-5. [ ] Define default discovery exclusions for build/VCS/cache directories and apply manifest exclusions before file watchers and source loading.
+5. [x] Define default discovery exclusions for build/VCS/cache directories and apply manifest exclusions before source loading.
 6. [x] Produce deterministic source ordering for explicit CLI inputs so diagnostics, tests, and generated output are stable.
 
 ### Shared Compiler/CLI Integration
 
 1. [x] Introduce a project-loading library used by the console and later by the LSP project manager.
 2. [x] Move explicit CLI source collection from `console/main.cpp` into the library.
-3. [ ] Represent a loaded project as configuration plus canonical source paths; do not read or parse source contents in the configuration layer.
+3. [x] Represent a loaded project as configuration plus canonical source paths; do not read or parse source contents in the configuration layer.
 4. Add CLI behavior:
-   - [ ] `--project <path>` loads a specified manifest.
-   - [ ] Invocation from a project directory discovers the nearest manifest by default.
+   - [x] `--project <path>` loads a specified manifest.
+   - [x] Invocation from a project directory discovers the nearest manifest by default.
    - [x] Existing explicit files/folders remain supported for compatibility.
-   - [ ] Explicit files/folders form an ephemeral project configuration.
-   - [ ] Command-line transpiler/output arguments override or complement manifest rules according to explicit documented precedence.
+   - [x] Explicit files/folders form an ephemeral project configuration.
+   - [x] Command-line transpiler/output arguments override or complement manifest rules according to explicit documented precedence.
 5. [x] Keep transpiler execution outside manifest parsing. The manifest describes intent; the console uses registered transpiler implementations to execute it.
 
 ### Diagnostics and Tests
@@ -60,10 +60,10 @@ This plan owns manifest format, discovery, validation, source membership, and sh
 2. Test:
    - [x] Manifest version/unknown-field errors.
    - [ ] Relative paths from nested working directories.
-   - [ ] Missing sources and empty source sets.
+   - [x] Missing sources and empty source sets.
    - [x] Duplicate paths via relative aliases.
    - [x] Nested project discovery.
-   - [ ] Exclude patterns and output-directory exclusion.
+   - [x] Exclude patterns and output-directory exclusion.
    - [x] Invalid output paths.
    - [ ] Unknown transpiler validation in the console.
    - [ ] CLI manifest discovery and explicit-input compatibility.
