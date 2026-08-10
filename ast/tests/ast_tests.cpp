@@ -218,6 +218,57 @@ TEST(ExprTests, DefaultSpanIsZero) {
 	EXPECT_EQ(expr->span.end.column, 0u);
 }
 
+// == Source text =============================================================
+
+TEST(SourceTextTests, PreservesCrlfAndConvertsUtf8Offsets) {
+	const auto source = SourceText::FromUtf8("one\r\ntwo");
+	ASSERT_TRUE(source);
+	ASSERT_EQ(source->lineStarts().size(), 2u);
+	EXPECT_EQ(source->lineStarts()[0], 0u);
+	EXPECT_EQ(source->lineStarts()[1], 5u);
+	EXPECT_EQ(source->byteOffsetFromUtf8Position({1, 4}), 3u);
+	EXPECT_EQ(source->byteOffsetFromUtf8Position({2, 1}), 5u);
+
+	const auto position = source->utf8PositionAtByteOffset(7);
+	ASSERT_TRUE(position);
+	EXPECT_EQ(position->line, 2u);
+	EXPECT_EQ(position->column, 3u);
+}
+
+TEST(SourceTextTests, ConvertsUtf16PositionsForMultibyteCharacters) {
+	const auto source = SourceText::FromUtf8("a\xF0\x9F\x98\x80" "b");
+	ASSERT_TRUE(source);
+	const auto afterEmoji = source->utf16PositionAtByteOffset(5);
+	ASSERT_TRUE(afterEmoji);
+	EXPECT_EQ(afterEmoji->line, 1u);
+	EXPECT_EQ(afterEmoji->column, 4u);
+	EXPECT_EQ(source->byteOffsetFromUtf16Position({1, 4}), 5u);
+	EXPECT_FALSE(source->byteOffsetFromUtf16Position({1, 3}));
+}
+
+TEST(SourceTextTests, AppliesImmutableRangedAndFullDocumentEdits) {
+	const auto source = SourceText::FromUtf8("hello world");
+	ASSERT_TRUE(source);
+	const auto edited = source->replace({{1, 7}, {1, 12}}, "RLS");
+	ASSERT_TRUE(edited);
+	EXPECT_EQ(source->content(), "hello world");
+	EXPECT_EQ(edited->content(), "hello RLS");
+
+	const auto replaced = edited->replaceAll("new document");
+	ASSERT_TRUE(replaced);
+	EXPECT_EQ(replaced->content(), "new document");
+}
+
+TEST(SourceTextTests, RejectsInvalidUtf8AndFindsLexicalTokenRange) {
+	EXPECT_FALSE(SourceText::FromUtf8("\xC3\x28"));
+	const auto source = SourceText::FromUtf8("call unfinished_name");
+	ASSERT_TRUE(source);
+	const auto range = source->incompleteTokenRangeAt({1, 14});
+	ASSERT_TRUE(range);
+	EXPECT_EQ(range->start.column, 6u);
+	EXPECT_EQ(range->end.column, 21u);
+}
+
 // == Nested expressions =======================================================
 
 TEST(ExprTests, NestedBinaryExpressions) {
