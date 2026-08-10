@@ -46,6 +46,24 @@ using selector = tao::pegtl::parse_tree::selector<
 		grammar::add_sub_op,
 		grammar::section_kind,
 		grammar::section,
+		grammar::region_decl,
+		grammar::extend_decl,
+		grammar::define_decl,
+		grammar::extern_define_decl,
+		grammar::enum_decl,
+		grammar::extern_enum_decl,
+		grammar::enum_member,
+		grammar::extern_enum_entry,
+		grammar::region_data_entry,
+		grammar::entry,
+		grammar::invoke_call,
+		grammar::call,
+		grammar::member_access,
+		grammar::named_arg,
+		grammar::match_expr,
+		grammar::match_arm,
+		grammar::match_pattern,
+		grammar::list_expr,
 		grammar::kw_not,       // marker: unary "not"
 		grammar::kw_here,      // `here` keyword atom (resolves to current region)
 		grammar::trailing_or   // marker: fallthrough in match arms
@@ -55,30 +73,8 @@ using selector = tao::pegtl::parse_tree::selector<
 	tao::pegtl::parse_tree::remove_content::on<
 		// File root
 		grammar::rls_file,
-		// Top-level declarations
-		grammar::region_decl,
-		grammar::extend_decl,
-		grammar::define_decl,
-		grammar::extern_define_decl,
-		grammar::enum_decl,
-		grammar::extern_enum_decl,
-		grammar::enum_member,
-		grammar::extern_enum_entry,
-		// Region data
-		grammar::region_data_entry,
-		// Sections & entries
-		grammar::entry,
 		// Parameters
-		grammar::param,
-		// Expressions
-		grammar::invoke_call,
-		grammar::call,
-		grammar::member_access,
-		grammar::named_arg,
-		grammar::match_expr,
-		grammar::match_arm,
-		grammar::match_pattern,
-		grammar::list_expr
+		grammar::param
 	>,
 
 	// -- Transparent wrappers (fold when single child) ------------------------

@@ -35,6 +35,10 @@ ast::Name makeName(const Node& n) {
 	return ast::Name(std::string(n.string_view()), makeSpan(n));
 }
 
+ast::Span spanFrom(const ast::Span& start, const ast::Span& end) {
+	return {start.file, start.start, end.end};
+}
+
 std::string unescapeStringLiteral(std::string_view raw) {
 	if (raw.size() >= 2) {
 		raw.remove_prefix(1);
@@ -112,8 +116,9 @@ ast::ExprPtr buildBinaryChain(const Node& n, OpMapper mapOp, Diags& diags) {
 	for (size_t i = 1; i + 1 < n.children.size(); i += 2) {
 		auto op = mapOp(n.children[i]->string_view());
 		auto right = buildExpr(*n.children[i + 1], diags);
+		const auto span = spanFrom(result->span, right->span);
 		result = ast::makeExpr(ast::BinaryExpr(
-			op, std::move(result), std::move(right)));
+			op, std::move(result), std::move(right)), span);
 	}
 	return result;
 }
@@ -124,8 +129,9 @@ ast::ExprPtr buildLogicalChain(const Node& n, ast::BinaryOp op, Diags& diags) {
 	auto result = buildExpr(*n.children[0], diags);
 	for (size_t i = 1; i < n.children.size(); ++i) {
 		auto right = buildExpr(*n.children[i], diags);
+		const auto span = spanFrom(result->span, right->span);
 		result = ast::makeExpr(ast::BinaryExpr(
-			op, std::move(result), std::move(right)));
+			op, std::move(result), std::move(right)), span);
 	}
 	return result;
 }
@@ -188,9 +194,11 @@ ast::ExprPtr buildExpr(const Node& n, Diags& diags) {
 
 	if (n.is_type<grammar::unary>()) {
 		// children: [kw_not, operand]
+		auto operand = buildExpr(*n.children[1], diags);
+		const auto span = spanFrom(makeSpan(*n.children[0]), operand->span);
 		return ast::makeExpr(
-			ast::UnaryExpr(ast::UnaryOp::Not, buildExpr(*n.children[1], diags)),
-			makeSpan(n));
+			ast::UnaryExpr(ast::UnaryOp::Not, std::move(operand)),
+			span);
 	}
 
 	// -- Binary chains with explicit operator tokens --------------------------
@@ -208,11 +216,13 @@ ast::ExprPtr buildExpr(const Node& n, Diags& diags) {
 	if (n.is_type<grammar::comparison>()) {
 		// children: [left, comp_op, right]
 		auto op = mapCompOp(n.children[1]->string_view());
+		auto left = buildExpr(*n.children[0], diags);
+		auto right = buildExpr(*n.children[2], diags);
+		const auto span = spanFrom(left->span, right->span);
 		return ast::makeExpr(
 			ast::BinaryExpr(op,
-				buildExpr(*n.children[0], diags),
-				buildExpr(*n.children[2], diags)),
-			makeSpan(n));
+				std::move(left), std::move(right)),
+			span);
 	}
 
 	// -- Logical chains (no explicit operator nodes) --------------------------
@@ -232,12 +242,14 @@ ast::ExprPtr buildExpr(const Node& n, Diags& diags) {
 	    n.is_type<grammar::match_ternary>() ||
 	    n.is_type<grammar::expr>()) {
 		// children: [condition, thenBranch, elseBranch]
+		auto condition = buildExpr(*n.children[0], diags);
+		auto thenBranch = buildExpr(*n.children[1], diags);
+		auto elseBranch = buildExpr(*n.children[2], diags);
+		const auto span = spanFrom(condition->span, elseBranch->span);
 		return ast::makeExpr(
 			ast::TernaryExpr(
-				buildExpr(*n.children[0], diags),
-				buildExpr(*n.children[1], diags),
-				buildExpr(*n.children[2], diags)),
-			makeSpan(n));
+				std::move(condition), std::move(thenBranch), std::move(elseBranch)),
+			span);
 	}
 
 	// -- Call -----------------------------------------------------------------
@@ -246,7 +258,8 @@ ast::ExprPtr buildExpr(const Node& n, Diags& diags) {
 		// children: [call, invoke_suffix, invoke_suffix, ...]
 		auto result = buildExpr(*n.children[0], diags);
 		for (size_t i = 1; i < n.children.size(); ++i) {
-			result = ast::makeExpr(ast::InvokeExpr(std::move(result)), makeSpan(*n.children[i]));
+			const auto span = spanFrom(result->span, makeSpan(*n.children[i]));
+			result = ast::makeExpr(ast::InvokeExpr(std::move(result)), span);
 		}
 		return result;
 	}

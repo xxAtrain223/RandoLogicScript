@@ -621,6 +621,89 @@ TEST(ParseExpr, SpanIsNonZero) {
 	EXPECT_GT(def.span.start.column, 0u);
 }
 
+TEST(ParseSpans, PreservesCompleteRangesForAstNodes) {
+	const auto file = parse(
+		"region RR_TEST {\n"
+		"  name: \"Test\"\n"
+		"  events {\n"
+		"    EVENT_TEST: has(ITEM) and true\n"
+		"  }\n"
+		"}\n"
+		"define check(value: Item): not Item.VALUE and make_cond([1, 2])() ? true : false\n"
+		"enum Color { RED, GREEN = 2 }\n"
+		"extern enum External { VALUE, EXT_* }\n");
+
+	auto expectCompleteSpan = [](const Span& span) {
+		EXPECT_EQ(span.file, "in_memory");
+		EXPECT_GT(span.start.line, 0u);
+		EXPECT_GT(span.start.column, 0u);
+		EXPECT_TRUE(span.end.line > span.start.line ||
+			(span.end.line == span.start.line && span.end.column > span.start.column));
+	};
+	auto expectPosition = [](Position actual, uint32_t line, uint32_t column) {
+		EXPECT_EQ(actual.line, line);
+		EXPECT_EQ(actual.column, column);
+	};
+
+	ASSERT_EQ(file.declarations.size(), 4u);
+	const auto& region = std::get<RegionDecl>(file.declarations[0]);
+	expectCompleteSpan(region.span);
+	expectPosition(region.span.start, 1, 1);
+	expectPosition(region.span.end, 6, 2);
+	ASSERT_EQ(region.body.data.size(), 1u);
+	expectCompleteSpan(region.body.data[0].span);
+	expectPosition(region.body.data[0].span.start, 2, 3);
+	expectPosition(region.body.data[0].span.end, 2, 15);
+	expectCompleteSpan(region.body.data[0].key.span);
+	expectCompleteSpan(region.body.data[0].value->span);
+	ASSERT_EQ(region.body.sections.size(), 1u);
+	const auto& section = region.body.sections[0];
+	expectCompleteSpan(section.span);
+	expectPosition(section.span.start, 3, 3);
+	expectPosition(section.span.end, 5, 4);
+	ASSERT_EQ(section.entries.size(), 1u);
+	expectCompleteSpan(section.entries[0].span);
+	expectPosition(section.entries[0].span.start, 4, 5);
+	expectPosition(section.entries[0].span.end, 4, 35);
+	expectCompleteSpan(section.entries[0].name.span);
+	expectCompleteSpan(section.entries[0].condition->span);
+
+	const auto& define = std::get<DefineDecl>(file.declarations[1]);
+	expectCompleteSpan(define.span);
+	expectCompleteSpan(define.name.span);
+	expectCompleteSpan(define.params[0].name.span);
+	expectCompleteSpan(define.params[0].type->name.span);
+	expectCompleteSpan(define.body->span);
+	const auto& ternary = std::get<TernaryExpr>(define.body->node);
+	expectCompleteSpan(ternary.condition->span);
+	const auto& logical = std::get<BinaryExpr>(ternary.condition->node);
+	expectCompleteSpan(logical.left->span);
+	const auto& member = std::get<MemberExpr>(std::get<UnaryExpr>(logical.left->node).operand->node);
+	expectCompleteSpan(member.object.span);
+	expectCompleteSpan(member.member.span);
+	const auto& invoke = std::get<InvokeExpr>(logical.right->node);
+	expectCompleteSpan(invoke.callee->span);
+	const auto& call = std::get<CallExpr>(invoke.callee->node);
+	expectCompleteSpan(call.callee.span);
+	expectCompleteSpan(call.args[0].value->span);
+
+	const auto& enumDecl = std::get<EnumDecl>(file.declarations[2]);
+	expectCompleteSpan(enumDecl.span);
+	expectCompleteSpan(enumDecl.name.span);
+	for (const auto& member : enumDecl.members) {
+		expectCompleteSpan(member.span);
+		expectCompleteSpan(member.name.span);
+	}
+
+	const auto& externEnum = std::get<ExternEnumDecl>(file.declarations[3]);
+	expectCompleteSpan(externEnum.span);
+	expectCompleteSpan(externEnum.name.span);
+	const auto& externalMember = std::get<EnumMemberDecl>(externEnum.entries[0]);
+	expectCompleteSpan(externalMember.span);
+	expectCompleteSpan(externalMember.name.span);
+	expectCompleteSpan(std::get<EnumPatternDecl>(externEnum.entries[1]).span);
+}
+
 // == Define declaration =======================================================
 
 TEST(ParseDefine, NoParams) {
@@ -808,8 +891,10 @@ TEST(ParseMemberAccess, BasicDottedAccess) {
 
 TEST(ParseMemberAccess, SpanIsNonZero) {
 	const auto& expr = parseExpr("Item.RG_HOOKSHOT");
-	// Structural (remove_content) nodes have a valid start position but no end.
-	EXPECT_GT(expr.span.start.column, 0u);
+	EXPECT_EQ(expr.span.start.line, 1u);
+	EXPECT_EQ(expr.span.start.column, 13u);
+	EXPECT_EQ(expr.span.end.line, 1u);
+	EXPECT_EQ(expr.span.end.column, 29u);
 }
 
 TEST(ParseMemberAccess, UsedAsCallArg) {
