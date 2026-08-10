@@ -435,6 +435,73 @@ TEST(ParseExpr, CallMixedArgs) {
 	EXPECT_EQ(*call.args[1].name, "distance");
 }
 
+// == Source index ============================================================
+
+TEST(SourceIndexTests, IndexesDeclarationsNamesExpressionsAndCalls) {
+	const auto parsed = rls::parser::ParseStringWithIndex(
+		"define check(target: Item): can_kill(quantity: target, 2)\n"
+		"region RR_TEST { events { EVENT_TEST: true } }");
+	const auto& index = parsed.sourceIndex;
+
+	ASSERT_EQ(index.declarations().size(), 2u);
+	EXPECT_EQ(index.declarationsIn("in_memory").size(), 2u);
+	EXPECT_TRUE(index.declarationsIn("other.rls").empty());
+	const auto declaration = index.nameAt({1, 9});
+	ASSERT_TRUE(declaration);
+	EXPECT_EQ(declaration->kind, rls::parser::SourceNameKind::Declaration);
+	EXPECT_EQ(declaration->text, "check");
+
+	const auto parameter = index.nameAt({1, 15});
+	ASSERT_TRUE(parameter);
+	EXPECT_EQ(parameter->kind, rls::parser::SourceNameKind::Parameter);
+	EXPECT_EQ(parameter->text, "target");
+
+	const auto type = index.nameAt({1, 23});
+	ASSERT_TRUE(type);
+	EXPECT_EQ(type->kind, rls::parser::SourceNameKind::Type);
+	EXPECT_EQ(type->text, "Item");
+
+	const auto callee = index.nameAt({1, 30});
+	ASSERT_TRUE(callee);
+	EXPECT_EQ(callee->kind, rls::parser::SourceNameKind::CallCallee);
+	EXPECT_EQ(callee->text, "can_kill");
+
+	const auto syntax = index.syntaxAt({1, 30});
+	ASSERT_TRUE(syntax);
+	EXPECT_EQ(syntax->kind, rls::parser::SyntaxKind::Name);
+
+	const auto label = index.nameAt({1, 39});
+	ASSERT_TRUE(label);
+	EXPECT_EQ(label->kind, rls::parser::SourceNameKind::ArgumentLabel);
+	EXPECT_EQ(label->text, "quantity");
+
+	const auto expression = index.enclosingExpression({1, 49});
+	ASSERT_TRUE(expression);
+	EXPECT_EQ(expression->kind, rls::parser::SyntaxKind::Expression);
+
+	const auto call = index.enclosingCall({1, 49});
+	ASSERT_TRUE(call);
+	ASSERT_TRUE(call->activeArgument);
+	EXPECT_EQ(*call->activeArgument, 0u);
+	EXPECT_EQ(call->argumentRanges.size(), 2u);
+
+	const auto secondArgument = index.enclosingCall({1, 56});
+	ASSERT_TRUE(secondArgument);
+	ASSERT_TRUE(secondArgument->activeArgument);
+	EXPECT_EQ(*secondArgument->activeArgument, 1u);
+
+	const auto& region = std::get<RegionDecl>(parsed.file.declarations[1]);
+	ASSERT_EQ(region.body.sections.size(), 1u);
+	EXPECT_EQ(region.body.sections[0].span.start.line, 2u);
+	EXPECT_EQ(region.body.sections[0].span.start.column, 18u);
+	EXPECT_EQ(region.body.sections[0].span.end.line, 2u);
+	EXPECT_GT(region.body.sections[0].span.end.column, 18u);
+
+	const auto section = index.syntaxAt({2, 18});
+	ASSERT_TRUE(section);
+	EXPECT_EQ(section->kind, rls::parser::SyntaxKind::Section);
+}
+
 TEST(ParseExpr, NestedCalls) {
 	const auto& e = parseExpr("can_use(setting(RSK_FOO))");
 	ASSERT_TRUE(std::holds_alternative<CallExpr>(e.node));

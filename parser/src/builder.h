@@ -45,6 +45,7 @@ using selector = tao::pegtl::parse_tree::selector<
 		grammar::mul_div_op,
 		grammar::add_sub_op,
 		grammar::section_kind,
+		grammar::section,
 		grammar::kw_not,       // marker: unary "not"
 		grammar::kw_here,      // `here` keyword atom (resolves to current region)
 		grammar::trailing_or   // marker: fallthrough in match arms
@@ -66,7 +67,6 @@ using selector = tao::pegtl::parse_tree::selector<
 		// Region data
 		grammar::region_data_entry,
 		// Sections & entries
-		grammar::section,
 		grammar::entry,
 		// Parameters
 		grammar::param,

@@ -24,12 +24,10 @@ ast::Span makeSpan(const Node& n) {
 		static_cast<uint32_t>(n.m_begin.line),
 		static_cast<uint32_t>(n.m_begin.column)
 	};
-	if (n.has_content()) {
-		span.end = {
-			static_cast<uint32_t>(n.m_end.line),
-			static_cast<uint32_t>(n.m_end.column)
-		};
-	}
+	span.end = {
+		static_cast<uint32_t>(n.m_end.line),
+		static_cast<uint32_t>(n.m_end.column)
+	};
 	return span;
 }
 
@@ -369,7 +367,7 @@ ast::Section buildSection(const Node& n, Diags& diags) {
 		entries.push_back(buildEntry(*n.children[i], diags));
 	}
 
-	return ast::Section(kind, std::move(entries));
+	return ast::Section(kind, std::move(entries), makeSpan(n));
 }
 
 // =============================================================================

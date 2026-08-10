@@ -26,19 +26,19 @@ Despite the historical main-plan label, this document deliberately does **not** 
 
 ### 2. Parser Source Index
 
-- [ ] Audit `ast::Name`, expression spans, declaration spans, `CallExpr`, `MemberExpr`, parameters, entries, sections, and enum nodes in [ast/include/ast.h](../ast/include/ast.h).
-- [ ] Extend builder output in [parser/src/builder.cpp](../parser/src/builder.cpp) or a post-parse pass to construct a per-file `SourceIndex`.
-- [ ] Index name tokens and source-level categories.
-- [ ] Index expressions and enclosing declaration/section context.
-- [ ] Index calls, arguments, and argument labels.
-- [ ] Index declarations and selection ranges.
-- [ ] Index region data, sections, and entries.
-- [ ] Expose parser-only `syntaxAt(position)`.
-- [ ] Expose parser-only `nameAt(position)`.
-- [ ] Expose parser-only `enclosingExpression(position)`.
-- [ ] Expose parser-only `enclosingCall(position)` with structural argument index/ranges.
-- [ ] Expose parser-only `declarationsIn(file)`.
-- [ ] Preserve partial indexes only for trustworthy recovery nodes; return empty/unknown context rather than fabricated syntax meaning.
+- [x] Audit `ast::Name`, expression spans, declaration spans, `CallExpr`, `MemberExpr`, parameters, entries, sections, and enum nodes in [ast/include/ast.h](../ast/include/ast.h).
+- [x] Extend builder output in [parser/src/builder.cpp](../parser/src/builder.cpp) or a post-parse pass to construct a per-file `SourceIndex`.
+- [x] Index name tokens and source-level categories.
+- [x] Index expressions and enclosing declaration/section context.
+- [x] Index calls, arguments, and argument labels.
+- [x] Index declarations and selection ranges.
+- [x] Index region data, sections, and entries.
+- [x] Expose parser-only `syntaxAt(position)`.
+- [x] Expose parser-only `nameAt(position)`.
+- [x] Expose parser-only `enclosingExpression(position)`.
+- [x] Expose parser-only `enclosingCall(position)` with structural argument index/ranges.
+- [x] Expose parser-only `declarationsIn(file)`.
+- [x] Preserve partial indexes only for trustworthy recovery nodes; return empty/unknown context rather than fabricated syntax meaning.
 
 ### 3. Stable Semantic Identity
 

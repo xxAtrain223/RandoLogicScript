@@ -125,4 +125,16 @@ rls::ast::Project ParseProject(const std::filesystem::path& directory) {
 	return project;
 }
 
+IndexedFile ParseStringWithIndex(const std::string& source, const std::string& filename) {
+	auto file = ParseString(source, filename);
+	auto sourceIndex = BuildSourceIndex(file);
+	return {std::move(file), std::move(sourceIndex)};
+}
+
+IndexedFile ParseFileWithIndex(const std::filesystem::path& filepath) {
+	auto file = ParseFile(filepath);
+	auto sourceIndex = BuildSourceIndex(file);
+	return {std::move(file), std::move(sourceIndex)};
+}
+
 } // namespace rls::parser

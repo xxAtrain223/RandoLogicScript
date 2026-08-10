@@ -480,9 +480,10 @@ struct Entry {
 struct Section {
 	SectionKind kind;
 	std::vector<Entry> entries;
+	Span span;
 
-	Section(SectionKind kind, std::vector<Entry> entries)
-		: kind(kind), entries(std::move(entries)) {}
+	Section(SectionKind kind, std::vector<Entry> entries, Span span = {})
+		: kind(kind), entries(std::move(entries)), span(std::move(span)) {}
 };
 
 /// One arbitrary data entry in a region body: `key: value`.
