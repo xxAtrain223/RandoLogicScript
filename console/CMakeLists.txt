@@ -2,7 +2,7 @@ add_executable(RandoLogicScript
     main.cpp
 )
 
-target_link_libraries(RandoLogicScript PRIVATE ast parser sema soh ap)
+target_link_libraries(RandoLogicScript PRIVATE ast parser sema soh ap project)
 
 if(BUILD_TESTING)
     rls_add_gtest(console_acceptance_tests

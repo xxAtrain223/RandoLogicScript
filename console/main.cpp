@@ -8,6 +8,7 @@
 
 #include "output.h"
 #include "parser.h"
+#include "project.h"
 #include "sema.h"
 #include "ap.h"
 #include "soh.h"
@@ -36,16 +37,6 @@ static void printDiagnostic(const rls::ast::Diagnostic& d) {
         std::cerr << ": ";
     }
     std::cerr << levelToString(d.level) << ": " << d.message << "\n";
-}
-
-/// Recursively collect all `.rls` files under `dir`.
-static std::vector<fs::path> collectFiles(const fs::path& dir) {
-    std::vector<fs::path> result;
-    for (const auto& entry : fs::recursive_directory_iterator(dir)) {
-        if (entry.is_regular_file() && entry.path().extension() == ".rls")
-            result.push_back(entry.path());
-    }
-    return result;
 }
 
 // == transpiler dispatch =====================================================
@@ -161,21 +152,16 @@ int main(int argc, char* argv[]) {
     }
 
     // == collect source files ============================================
-    std::vector<fs::path> sourceFiles;
-    for (const auto& input : inputs) {
-        if (!fs::exists(input)) {
-            std::cerr << "error: path does not exist: " << input << "\n";
-            return 1;
-        }
-        if (fs::is_directory(input)) {
-            auto files = collectFiles(input);
-            if (files.empty())
-                std::cerr << "warning: no .rls files found in " << input << "\n";
-            sourceFiles.insert(sourceFiles.end(), files.begin(), files.end());
-        } else {
-            sourceFiles.push_back(input);
-        }
+    auto collection = rls::project::CollectExplicitSources(inputs);
+    if (!collection.error.empty()) {
+        std::cerr << "error: " << collection.error << "\n";
+        return 1;
     }
+    for (const auto& warning : collection.warnings) {
+        std::cerr << "warning: " << warning << "\n";
+    }
+
+    const auto& sourceFiles = collection.sourceFiles;
 
     if (sourceFiles.empty()) {
         std::cerr << "error: no source files to process\n";
