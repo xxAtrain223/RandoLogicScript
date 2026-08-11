@@ -69,17 +69,38 @@ struct OccurrenceRecord {
 	OccurrenceKind kind;
 };
 
+struct TypeRecord {
+	ast::Span span;
+	ast::Type type;
+	std::optional<std::string> enumName;
+};
+
+struct CallRecord {
+	ast::Span span;
+	std::optional<SymbolId> target;
+	std::vector<ast::Span> argumentRanges;
+	std::vector<std::optional<size_t>> normalizedBindings;
+};
+
 /// Snapshot-local semantic records that retain no AST pointers.
 class SemanticIndex {
 public:
 	const std::vector<SymbolRecord>& symbols() const { return symbols_; }
 	const std::vector<OccurrenceRecord>& occurrences() const { return occurrences_; }
+	const std::vector<TypeRecord>& types() const { return types_; }
+	const std::vector<CallRecord>& calls() const { return calls_; }
 	std::optional<SymbolRecord> declaration(SymbolId id) const;
 	std::vector<OccurrenceRecord> occurrencesFor(SymbolId id) const;
+	std::optional<OccurrenceRecord> occurrenceAt(std::string_view file, ast::Position position) const;
+	std::optional<TypeRecord> typeAt(std::string_view file, ast::Position position) const;
+	std::optional<CallRecord> callAt(std::string_view file, ast::Position position) const;
+	std::vector<SymbolId> visibleSymbolsAt(std::string_view file, ast::Position position) const;
 
 private:
 	std::vector<SymbolRecord> symbols_;
 	std::vector<OccurrenceRecord> occurrences_;
+	std::vector<TypeRecord> types_;
+	std::vector<CallRecord> calls_;
 
 	SymbolId addSymbol(SymbolCategory category, SymbolProvenance provenance,
 		std::string displayName, ast::Span declaration, ast::Span selection,

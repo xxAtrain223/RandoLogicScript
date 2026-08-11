@@ -1,5 +1,7 @@
 #include "semantic_index.h"
 
+#include <algorithm>
+#include <functional>
 #include <type_traits>
 
 namespace rls::sema {
@@ -27,6 +29,73 @@ std::vector<OccurrenceRecord> SemanticIndex::occurrencesFor(SymbolId id) const {
 	std::vector<OccurrenceRecord> result;
 	for (const auto& occurrence : occurrences_) {
 		if (occurrence.symbol == id) result.push_back(occurrence);
+	}
+	std::sort(result.begin(), result.end(), [](const OccurrenceRecord& left, const OccurrenceRecord& right) {
+		return std::tie(left.span.file, left.span.start.line, left.span.start.column,
+			left.span.end.line, left.span.end.column) <
+			std::tie(right.span.file, right.span.start.line, right.span.start.column,
+				right.span.end.line, right.span.end.column);
+	});
+	return result;
+}
+
+namespace {
+
+bool isBeforeOrEqual(ast::Position left, ast::Position right) {
+	return left.line < right.line || (left.line == right.line && left.column <= right.column);
+}
+
+bool contains(const ast::Span& span, std::string_view file, ast::Position position) {
+	return span.file == file && span.start.line != 0 && isBeforeOrEqual(span.start, position) &&
+		isBeforeOrEqual(position, span.end) &&
+		!(position.line == span.end.line && position.column == span.end.column);
+}
+
+size_t spanSize(const ast::Span& span) {
+	return (static_cast<size_t>(span.end.line - span.start.line) << 32) +
+		span.end.column - span.start.column;
+}
+
+template<typename Record>
+std::optional<Record> narrowestAt(const std::vector<Record>& records, std::string_view file,
+	ast::Position position) {
+	const Record* result = nullptr;
+	for (const auto& record : records) {
+		if (contains(record.span, file, position) && (!result || spanSize(record.span) < spanSize(result->span))) {
+			result = &record;
+		}
+	}
+	return result ? std::optional<Record>(*result) : std::nullopt;
+}
+
+} // namespace
+
+std::optional<OccurrenceRecord> SemanticIndex::occurrenceAt(std::string_view file,
+	ast::Position position) const {
+	return narrowestAt(occurrences_, file, position);
+}
+
+std::optional<TypeRecord> SemanticIndex::typeAt(std::string_view file, ast::Position position) const {
+	return narrowestAt(types_, file, position);
+}
+
+std::optional<CallRecord> SemanticIndex::callAt(std::string_view file, ast::Position position) const {
+	return narrowestAt(calls_, file, position);
+}
+
+std::vector<SymbolId> SemanticIndex::visibleSymbolsAt(std::string_view file,
+	ast::Position position) const {
+	std::vector<SymbolId> result;
+	for (const auto& symbol : symbols_) {
+		if (!symbol.container) {
+			result.push_back(symbol.id);
+			continue;
+		}
+		const auto container = declaration(*symbol.container);
+		if (symbol.category == SymbolCategory::Parameter && container &&
+			container->category == SymbolCategory::Define && contains(container->declaration, file, position)) {
+			result.push_back(symbol.id);
+		}
 	}
 	return result;
 }
@@ -100,6 +169,127 @@ SemanticIndex buildSemanticIndex(const ast::Project& project) {
 								pattern.pattern, pattern.span, pattern.span, id, std::nullopt,
 								ast::Type::Enum, node.name.text);
 						}
+					}
+				}
+			}, declaration);
+		}
+	}
+
+	auto findSymbol = [&](SymbolCategory category, std::string_view name) -> std::optional<SymbolId> {
+		for (const auto& symbol : index.symbols_) {
+			if (symbol.category == category && symbol.displayName == name) return symbol.id;
+		}
+		return std::nullopt;
+	};
+	auto addType = [&](const ast::Expr& expression) {
+		if (const auto type = project.getType(&expression)) {
+			const auto enumName = project.getEnumType(&expression);
+			index.types_.push_back({expression.span, *type,
+				enumName ? std::optional<std::string>(*enumName) : std::nullopt});
+		}
+	};
+	std::function<void(const ast::Expr&)> indexExpression;
+	indexExpression = [&](const ast::Expr& expression) {
+		addType(expression);
+		std::visit([&](const auto& node) {
+			using T = std::decay_t<decltype(node)>;
+			if constexpr (std::is_same_v<T, ast::Identifier>) {
+				std::optional<SymbolId> target;
+				OccurrenceKind kind = OccurrenceKind::Unresolved;
+				if (node.kind == ast::IdentifierKind::FunctionRef) {
+					target = findSymbol(SymbolCategory::Define, node.name.text);
+					if (!target) target = findSymbol(SymbolCategory::ExternDefine, node.name.text);
+					kind = target ? OccurrenceKind::Reference : OccurrenceKind::Unresolved;
+				} else if (node.kind == ast::IdentifierKind::EnumValue) {
+					const auto enumName = project.getEnumType(&expression);
+					if (enumName) {
+						const auto enumId = findSymbol(SymbolCategory::Enum, *enumName);
+						if (enumId) {
+							for (const auto& symbol : index.symbols_) {
+								if (symbol.container == enumId && symbol.displayName == node.name.text) {
+									target = symbol.id;
+									break;
+								}
+							}
+						}
+					}
+					kind = target ? OccurrenceKind::Reference : OccurrenceKind::Unresolved;
+				}
+				index.occurrences_.push_back({target, node.name.span, kind});
+			} else if constexpr (std::is_same_v<T, ast::MemberExpr>) {
+				const auto enumId = findSymbol(SymbolCategory::Enum, node.object.text);
+				index.occurrences_.push_back({enumId, node.object.span,
+					enumId ? OccurrenceKind::Reference : OccurrenceKind::Unresolved});
+				std::optional<SymbolId> memberId;
+				if (enumId) {
+					for (const auto& symbol : index.symbols_) {
+						if (symbol.container == enumId && symbol.displayName == node.member.text) {
+							memberId = symbol.id;
+							break;
+						}
+					}
+				}
+				index.occurrences_.push_back({memberId, node.member.span,
+					memberId ? OccurrenceKind::MemberAccess : OccurrenceKind::Unresolved});
+			} else if constexpr (std::is_same_v<T, ast::UnaryExpr>) {
+				indexExpression(*node.operand);
+			} else if constexpr (std::is_same_v<T, ast::BinaryExpr>) {
+				indexExpression(*node.left);
+				indexExpression(*node.right);
+			} else if constexpr (std::is_same_v<T, ast::TernaryExpr>) {
+				indexExpression(*node.condition);
+				indexExpression(*node.thenBranch);
+				indexExpression(*node.elseBranch);
+			} else if constexpr (std::is_same_v<T, ast::CallExpr>) {
+				auto target = findSymbol(SymbolCategory::Define, node.callee.text);
+				if (!target) target = findSymbol(SymbolCategory::ExternDefine, node.callee.text);
+				index.occurrences_.push_back({target, node.callee.span,
+					target ? OccurrenceKind::Call : OccurrenceKind::Unresolved});
+				CallRecord call{expression.span, target, {}, {}};
+				const auto* normalized = project.getResolvedCallArgs(&node);
+				for (const auto& argument : node.args) {
+					call.argumentRanges.push_back(argument.value->span);
+					std::optional<size_t> binding;
+					if (normalized) {
+						for (size_t indexValue = 0; indexValue < normalized->size(); ++indexValue) {
+							if ((*normalized)[indexValue] == argument.value.get()) binding = indexValue;
+						}
+					}
+					call.normalizedBindings.push_back(binding);
+					indexExpression(*argument.value);
+				}
+				index.calls_.push_back(std::move(call));
+			} else if constexpr (std::is_same_v<T, ast::InvokeExpr>) {
+				indexExpression(*node.callee);
+			} else if constexpr (std::is_same_v<T, ast::MatchExpr>) {
+				indexExpression(*node.discriminant);
+				for (const auto& arm : node.arms) {
+					for (const auto& pattern : arm.patterns) indexExpression(*pattern);
+					indexExpression(*arm.body);
+				}
+			} else if constexpr (std::is_same_v<T, ast::ListExpr>) {
+				for (const auto& element : node.elements) indexExpression(*element);
+			}
+		}, expression.node);
+	};
+
+	for (const auto& file : project.files) {
+		for (const auto& declaration : file.declarations) {
+			std::visit([&](const auto& node) {
+				using T = std::decay_t<decltype(node)>;
+				if constexpr (std::is_same_v<T, ast::DefineDecl>) {
+					if (node.body) indexExpression(*node.body);
+					for (const auto& parameter : node.params) {
+						if (parameter.defaultValue) indexExpression(*parameter.defaultValue);
+					}
+				} else if constexpr (std::is_same_v<T, ast::RegionDecl>) {
+					for (const auto& data : node.body.data) indexExpression(*data.value);
+					for (const auto& section : node.body.sections) {
+						for (const auto& entry : section.entries) indexExpression(*entry.condition);
+					}
+				} else if constexpr (std::is_same_v<T, ast::ExtendRegionDecl>) {
+					for (const auto& section : node.sections) {
+						for (const auto& entry : section.entries) indexExpression(*entry.condition);
 					}
 				}
 			}, declaration);

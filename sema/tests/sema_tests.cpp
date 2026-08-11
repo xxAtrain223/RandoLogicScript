@@ -1,3 +1,5 @@
+#include <algorithm>
+
 #include <gtest/gtest.h>
 
 #include "ast.h"
@@ -161,6 +163,67 @@ TEST(SemanticIndexTests, RecordsStableValueOnlyDeclarationIdentity) {
 	EXPECT_EQ(occurrences[0].span.start.column, declaration->selection.start.column);
 	EXPECT_EQ(occurrences[0].span.end.line, declaration->selection.end.line);
 	EXPECT_EQ(occurrences[0].span.end.column, declaration->selection.end.column);
+}
+
+TEST(SemanticIndexTests, CopiesResolvedTypesCallsAndMemberOccurrences) {
+	Project project;
+	project.files.push_back(rls::parser::ParseString(
+		"enum Color { RED }\n"
+		"define identity(value: Color): value\n"
+		"define check(): identity(RED)\n",
+		"calls.rls"));
+	analyze(project);
+	const auto index = buildSemanticIndex(project);
+
+	auto findSymbol = [&](SymbolCategory category, std::string_view displayName) {
+		for (const auto& symbol : index.symbols()) {
+			if (symbol.category == category && symbol.displayName == displayName) {
+				return std::optional<SymbolRecord>(symbol);
+			}
+		}
+		return std::optional<SymbolRecord>{};
+	};
+
+	const auto identity = findSymbol(SymbolCategory::Define, "identity");
+	const auto value = findSymbol(SymbolCategory::Parameter, "value");
+	const auto red = findSymbol(SymbolCategory::EnumMember, "RED");
+	ASSERT_TRUE(identity);
+	ASSERT_TRUE(value);
+	ASSERT_TRUE(red);
+	ASSERT_EQ(index.calls().size(), 1u);
+	const auto& call = index.calls()[0];
+	EXPECT_EQ(call.target, identity->id);
+	ASSERT_EQ(call.argumentRanges.size(), 1u);
+	ASSERT_EQ(call.normalizedBindings.size(), 1u);
+	EXPECT_EQ(call.normalizedBindings[0], 0u);
+	const auto callAt = index.callAt("calls.rls", {3, 17});
+	ASSERT_TRUE(callAt);
+	EXPECT_EQ(callAt->target, identity->id);
+	const auto occurrenceAt = index.occurrenceAt("calls.rls", {3, 17});
+	ASSERT_TRUE(occurrenceAt);
+	EXPECT_EQ(occurrenceAt->symbol, identity->id);
+	EXPECT_EQ(occurrenceAt->kind, OccurrenceKind::Call);
+	const auto typeAt = index.typeAt("calls.rls", {3, 26});
+	ASSERT_TRUE(typeAt);
+	EXPECT_EQ(typeAt->type, Type::Enum);
+	EXPECT_EQ(typeAt->enumName, "Color");
+
+	ASSERT_FALSE(index.types().empty());
+	EXPECT_TRUE(std::any_of(index.types().begin(), index.types().end(), [](const TypeRecord& record) {
+		return record.type == Type::Enum && record.enumName == "Color";
+	}));
+	const auto memberOccurrences = index.occurrencesFor(red->id);
+	ASSERT_EQ(memberOccurrences.size(), 2u);
+	EXPECT_EQ(memberOccurrences[0].kind, OccurrenceKind::Declaration);
+	EXPECT_EQ(memberOccurrences[1].kind, OccurrenceKind::Reference);
+	EXPECT_LT(memberOccurrences[0].span.start.line, memberOccurrences[1].span.start.line);
+
+	const auto visibleInIdentity = index.visibleSymbolsAt("calls.rls", {2, 17});
+	EXPECT_TRUE(std::find(visibleInIdentity.begin(), visibleInIdentity.end(), identity->id) != visibleInIdentity.end());
+	EXPECT_TRUE(std::find(visibleInIdentity.begin(), visibleInIdentity.end(), value->id) != visibleInIdentity.end());
+	const auto visibleInCheck = index.visibleSymbolsAt("calls.rls", {3, 17});
+	EXPECT_TRUE(std::find(visibleInCheck.begin(), visibleInCheck.end(), identity->id) != visibleInCheck.end());
+	EXPECT_TRUE(std::find(visibleInCheck.begin(), visibleInCheck.end(), value->id) == visibleInCheck.end());
 }
 
 // == Empty project ============================================================

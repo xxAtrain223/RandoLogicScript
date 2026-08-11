@@ -53,13 +53,13 @@ Despite the historical main-plan label, this document deliberately does **not** 
 - [ ] In [sema/src/collect_declarations.cpp](../sema/src/collect_declarations.cpp), assign top-level declaration identities, record canonical region/extension relations, and attach duplicate-related locations.
 - [ ] In [sema/src/resolve_types.cpp](../sema/src/resolve_types.cpp), record parameter scopes, identifier uses, enum/member resolutions, callable targets, argument bindings, inferred types, enum identities, and expected types.
 - [ ] In [sema/src/validate_declarations.cpp](../sema/src/validate_declarations.cpp), produce stable diagnostic codes and structured related data for later consumers.
-- [ ] Build `SymbolId -> SymbolRecord` indexes.
-- [ ] Build `SymbolId -> sorted occurrences` indexes.
-- [ ] Build file/range -> occurrence indexes.
-- [ ] Build syntax node/range -> inferred and expected type indexes.
-- [ ] Build call node/range -> resolved target and normalized binding indexes.
-- [ ] Build scope context -> visible symbols, or retain sufficient parent data to derive them.
-- [ ] Keep pointer-keyed `TypeTable`, `EnumTypeTable`, and `ResolvedCallArgs` internal; copy required values into stable snapshot records before exposing queries.
+- [x] Build `SymbolId -> SymbolRecord` indexes.
+- [x] Build `SymbolId -> sorted occurrences` indexes.
+- [x] Build file/range -> occurrence indexes.
+- [x] Build syntax node/range -> inferred and expected type indexes.
+- [x] Build call node/range -> resolved target and normalized binding indexes.
+- [x] Build scope context -> visible symbols, or retain sufficient parent data to derive them.
+- [x] Keep pointer-keyed `TypeTable`, `EnumTypeTable`, and `ResolvedCallArgs` internal; copy required values into stable snapshot records before exposing queries.
 
 ### 5. AnalysisSnapshot
 
