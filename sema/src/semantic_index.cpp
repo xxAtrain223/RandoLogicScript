@@ -1,8 +1,10 @@
 #include "semantic_index.h"
 
 #include <algorithm>
+#include <format>
 #include <functional>
 #include <type_traits>
+#include <unordered_map>
 
 namespace rls::sema {
 
@@ -72,7 +74,16 @@ std::optional<Record> narrowestAt(const std::vector<Record>& records, std::strin
 
 std::optional<OccurrenceRecord> SemanticIndex::occurrenceAt(std::string_view file,
 	ast::Position position) const {
-	return narrowestAt(occurrences_, file, position);
+	const OccurrenceRecord* result = nullptr;
+	for (const auto& occurrence : occurrences_) {
+		if (!contains(occurrence.span, file, position)) continue;
+		if (!result || spanSize(occurrence.span) < spanSize(result->span) ||
+			(spanSize(occurrence.span) == spanSize(result->span) &&
+				result->kind == OccurrenceKind::Declaration && occurrence.kind != OccurrenceKind::Declaration)) {
+			result = &occurrence;
+		}
+	}
+	return result ? std::optional<OccurrenceRecord>(*result) : std::nullopt;
 }
 
 std::optional<TypeRecord> SemanticIndex::typeAt(std::string_view file, ast::Position position) const {
@@ -181,6 +192,61 @@ SemanticIndex buildSemanticIndex(const ast::Project& project) {
 		}
 		return std::nullopt;
 	};
+	auto addDuplicateDiagnostic = [&](std::string_view code, std::string_view kind,
+		std::string_view name, const ast::Span& first, const ast::Span& duplicate) {
+		index.diagnostics_.push_back({
+			std::string(code),
+			ast::DiagnosticLevel::Error,
+			std::format("duplicate {} '{}'", kind, name),
+			duplicate,
+			{{"first declaration", first}},
+		});
+	};
+	std::unordered_map<std::string, ast::Span> regions;
+	std::unordered_map<std::string, ast::Span> functions;
+	std::unordered_map<std::string, ast::Span> enums;
+	for (const auto& file : project.files) {
+		for (const auto& declaration : file.declarations) {
+			std::visit([&](const auto& node) {
+				using T = std::decay_t<decltype(node)>;
+				if constexpr (std::is_same_v<T, ast::RegionDecl>) {
+					if (const auto [it, inserted] = regions.try_emplace(node.key.text, node.span); !inserted) {
+						addDuplicateDiagnostic("RLS-S001", "region", node.key.text, it->second, node.span);
+					}
+				} else if constexpr (std::is_same_v<T, ast::DefineDecl>) {
+					if (const auto [it, inserted] = functions.try_emplace(node.name.text, node.span); !inserted) {
+						addDuplicateDiagnostic("RLS-S002", "function", node.name.text, it->second, node.span);
+					}
+				} else if constexpr (std::is_same_v<T, ast::ExternDefineDecl>) {
+					if (const auto [it, inserted] = functions.try_emplace(node.name.text, node.span); !inserted) {
+						addDuplicateDiagnostic("RLS-S002", "function", node.name.text, it->second, node.span);
+					}
+				} else if constexpr (std::is_same_v<T, ast::EnumDecl> || std::is_same_v<T, ast::ExternEnumDecl>) {
+					if (const auto [it, inserted] = enums.try_emplace(node.name.text, node.span); !inserted) {
+						addDuplicateDiagnostic("RLS-S003", "enum", node.name.text, it->second, node.span);
+					}
+				}
+			}, declaration);
+		}
+	}
+	for (const auto& file : project.files) {
+		for (const auto& declaration : file.declarations) {
+			if (const auto* extension = std::get_if<ast::ExtendRegionDecl>(&declaration)) {
+				const auto extensionId = findSymbol(SymbolCategory::RegionExtension, extension->name.text);
+				const auto targetId = findSymbol(SymbolCategory::Region, extension->name.text);
+				if (extensionId) {
+					for (auto& symbol : index.symbols_) {
+						if (symbol.id == *extensionId) {
+							symbol.container = targetId;
+							break;
+						}
+					}
+				}
+				index.occurrences_.push_back({targetId, extension->name.span,
+					targetId ? OccurrenceKind::ExtensionTarget : OccurrenceKind::Unresolved});
+			}
+		}
+	}
 	auto addType = [&](const ast::Expr& expression) {
 		if (const auto type = project.getType(&expression)) {
 			const auto enumName = project.getEnumType(&expression);

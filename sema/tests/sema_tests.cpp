@@ -109,6 +109,53 @@ static size_t countWarnings(const std::vector<Diagnostic>& diags) {
 
 // == Semantic index ===========================================================
 
+TEST(AnalysisSnapshotTests, OwnsExplicitSourcesAndDerivedIndexes) {
+	const auto snapshot = AnalysisSnapshot::Create({
+		{"overlay.rls", "define check(): true\n"},
+	}, 42);
+	ASSERT_TRUE(snapshot);
+	EXPECT_EQ((*snapshot)->generation(), 42u);
+	ASSERT_EQ((*snapshot)->project().files.size(), 1u);
+	const auto* sourceText = (*snapshot)->sourceText("overlay.rls");
+	ASSERT_NE(sourceText, nullptr);
+	EXPECT_EQ(sourceText->content(), "define check(): true\n");
+	const auto* sourceIndex = (*snapshot)->sourceIndex("overlay.rls");
+	ASSERT_NE(sourceIndex, nullptr);
+	EXPECT_TRUE(sourceIndex->nameAt({1, 8}));
+	EXPECT_FALSE((*snapshot)->semanticIndex().symbols().empty());
+	EXPECT_FALSE((*snapshot)->semanticIndex().types().empty());
+
+	EXPECT_FALSE(AnalysisSnapshot::Create(
+		std::vector<SourceInput>{{"bad.rls", std::string("\xC3\x28", 2)}}, 43));
+}
+
+TEST(AnalysisSnapshotTests, IsolatesParseFailuresAcrossExplicitSources) {
+	const auto first = AnalysisSnapshot::Create({
+		{"broken.rls", "define broken(\n"},
+		{"valid.rls", "define valid(): true\n"},
+	}, 100);
+	ASSERT_TRUE(first);
+	ASSERT_EQ((*first)->project().files.size(), 2u);
+	EXPECT_TRUE(std::any_of((*first)->diagnostics().begin(), (*first)->diagnostics().end(),
+		[](const Diagnostic& diagnostic) { return diagnostic.span.file == "broken.rls"; }));
+	const auto* validIndex = (*first)->sourceIndex("valid.rls");
+	ASSERT_NE(validIndex, nullptr);
+	EXPECT_TRUE(validIndex->nameAt({1, 8}));
+	EXPECT_TRUE(std::any_of((*first)->semanticIndex().symbols().begin(),
+		(*first)->semanticIndex().symbols().end(), [](const SymbolRecord& symbol) {
+			return symbol.category == SymbolCategory::Define && symbol.displayName == "valid";
+		}));
+
+	const auto second = AnalysisSnapshot::Create({
+		{"valid.rls", "define valid(): false\n"},
+	}, 101);
+	ASSERT_TRUE(second);
+	EXPECT_EQ((*first)->generation(), 100u);
+	EXPECT_EQ((*second)->generation(), 101u);
+	EXPECT_EQ((*first)->sourceText("valid.rls")->content(), "define valid(): true\n");
+	EXPECT_EQ((*second)->sourceText("valid.rls")->content(), "define valid(): false\n");
+}
+
 TEST(SemanticIndexTests, RecordsStableValueOnlyDeclarationIdentity) {
 	SemanticIndex index;
 	{
@@ -163,6 +210,60 @@ TEST(SemanticIndexTests, RecordsStableValueOnlyDeclarationIdentity) {
 	EXPECT_EQ(occurrences[0].span.start.column, declaration->selection.start.column);
 	EXPECT_EQ(occurrences[0].span.end.line, declaration->selection.end.line);
 	EXPECT_EQ(occurrences[0].span.end.column, declaration->selection.end.column);
+}
+
+TEST(SemanticIndexTests, RecordsRegionExtensionTargetRelations) {
+	Project project;
+	project.files.push_back(rls::parser::ParseString(
+		"region RR_BASE { name: \"Base\" }\n"
+		"extend region RR_BASE { events { EVENT_BASE: true } }\n"
+		"extend region RR_UNKNOWN { events { EVENT_UNKNOWN: true } }\n",
+		"extensions.rls"));
+	analyze(project);
+	const auto index = buildSemanticIndex(project);
+
+	std::optional<SymbolRecord> base;
+	std::vector<SymbolRecord> extensions;
+	for (const auto& symbol : index.symbols()) {
+		if (symbol.category == SymbolCategory::Region && symbol.displayName == "RR_BASE") base = symbol;
+		if (symbol.category == SymbolCategory::RegionExtension) extensions.push_back(symbol);
+	}
+	ASSERT_TRUE(base);
+	ASSERT_EQ(extensions.size(), 2u);
+	EXPECT_EQ(extensions[0].container, base->id);
+	EXPECT_FALSE(extensions[1].container);
+
+	const auto validTarget = index.occurrenceAt("extensions.rls", {2, 15});
+	ASSERT_TRUE(validTarget);
+	EXPECT_EQ(validTarget->kind, OccurrenceKind::ExtensionTarget);
+	EXPECT_EQ(validTarget->symbol, base->id);
+	const auto unknownTarget = index.occurrenceAt("extensions.rls", {3, 15});
+	ASSERT_TRUE(unknownTarget);
+	EXPECT_EQ(unknownTarget->kind, OccurrenceKind::Unresolved);
+	EXPECT_FALSE(unknownTarget->symbol);
+}
+
+TEST(SemanticIndexTests, RecordsDuplicateDeclarationDiagnostics) {
+	SemanticIndex index;
+	{
+		Project project;
+		project.files.push_back(rls::parser::ParseString(
+			"region RR_DUP { name: \"First\" }\n", "first.rls"));
+		project.files.push_back(rls::parser::ParseString(
+			"region RR_DUP { name: \"Second\" }\n", "second.rls"));
+		analyze(project);
+		index = buildSemanticIndex(project);
+	}
+
+	ASSERT_EQ(index.diagnostics().size(), 1u);
+	const auto& diagnostic = index.diagnostics()[0];
+	EXPECT_EQ(diagnostic.code, "RLS-S001");
+	EXPECT_EQ(diagnostic.level, DiagnosticLevel::Error);
+	EXPECT_EQ(diagnostic.message, "duplicate region 'RR_DUP'");
+	EXPECT_EQ(diagnostic.span.file, "second.rls");
+	ASSERT_EQ(diagnostic.related.size(), 1u);
+	EXPECT_EQ(diagnostic.related[0].message, "first declaration");
+	EXPECT_EQ(diagnostic.related[0].span.file, "first.rls");
 }
 
 TEST(SemanticIndexTests, CopiesResolvedTypesCallsAndMemberOccurrences) {

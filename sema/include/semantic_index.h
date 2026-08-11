@@ -82,6 +82,19 @@ struct CallRecord {
 	std::vector<std::optional<size_t>> normalizedBindings;
 };
 
+struct DiagnosticRelatedLocation {
+	std::string message;
+	ast::Span span;
+};
+
+struct CompilerDiagnostic {
+	std::string code;
+	ast::DiagnosticLevel level;
+	std::string message;
+	ast::Span span;
+	std::vector<DiagnosticRelatedLocation> related;
+};
+
 /// Snapshot-local semantic records that retain no AST pointers.
 class SemanticIndex {
 public:
@@ -89,6 +102,7 @@ public:
 	const std::vector<OccurrenceRecord>& occurrences() const { return occurrences_; }
 	const std::vector<TypeRecord>& types() const { return types_; }
 	const std::vector<CallRecord>& calls() const { return calls_; }
+	const std::vector<CompilerDiagnostic>& diagnostics() const { return diagnostics_; }
 	std::optional<SymbolRecord> declaration(SymbolId id) const;
 	std::vector<OccurrenceRecord> occurrencesFor(SymbolId id) const;
 	std::optional<OccurrenceRecord> occurrenceAt(std::string_view file, ast::Position position) const;
@@ -101,6 +115,7 @@ private:
 	std::vector<OccurrenceRecord> occurrences_;
 	std::vector<TypeRecord> types_;
 	std::vector<CallRecord> calls_;
+	std::vector<CompilerDiagnostic> diagnostics_;
 
 	SymbolId addSymbol(SymbolCategory category, SymbolProvenance provenance,
 		std::string displayName, ast::Span declaration, ast::Span selection,

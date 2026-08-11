@@ -50,7 +50,7 @@ Despite the historical main-plan label, this document deliberately does **not** 
 
 ### 4. Semantic Index Construction
 
-- [ ] In [sema/src/collect_declarations.cpp](../sema/src/collect_declarations.cpp), assign top-level declaration identities, record canonical region/extension relations, and attach duplicate-related locations.
+- [x] In [sema/src/collect_declarations.cpp](../sema/src/collect_declarations.cpp), assign top-level declaration identities, record canonical region/extension relations, and attach duplicate-related locations.
 - [ ] In [sema/src/resolve_types.cpp](../sema/src/resolve_types.cpp), record parameter scopes, identifier uses, enum/member resolutions, callable targets, argument bindings, inferred types, enum identities, and expected types.
 - [ ] In [sema/src/validate_declarations.cpp](../sema/src/validate_declarations.cpp), produce stable diagnostic codes and structured related data for later consumers.
 - [x] Build `SymbolId -> SymbolRecord` indexes.
@@ -63,11 +63,11 @@ Despite the historical main-plan label, this document deliberately does **not** 
 
 ### 5. AnalysisSnapshot
 
-- [ ] Define an immutable snapshot that owns source text, parsed files, parser diagnostics/indexes, analyzed `ast::Project`, semantic diagnostics/indexes, project identity, and a monotonic generation number.
-- [ ] Construct it from an explicit source set supplied by the project-loading/LSP layers; it must not perform parent-directory discovery.
-- [ ] Support disk content and caller-supplied in-memory overlays through the same source-set API.
-- [ ] Define degraded parse-failure behavior: retain parser diagnostics, exclude unreliable declarations from sema, and keep indexes for unaffected/recoverable source only.
-- [ ] Use shared ownership so readers see one consistent snapshot while a later snapshot is built.
+- [x] Define an immutable snapshot that owns source text, parsed files, parser diagnostics/indexes, analyzed `ast::Project`, semantic diagnostics/indexes, project identity, and a monotonic generation number.
+- [x] Construct it from an explicit source set supplied by the project-loading/LSP layers; it must not perform parent-directory discovery.
+- [x] Support disk content and caller-supplied in-memory overlays through the same source-set API.
+- [x] Define degraded parse-failure behavior: retain parser diagnostics, exclude unreliable declarations from sema, and keep indexes for unaffected/recoverable source only.
+- [x] Use shared ownership so readers see one consistent snapshot while a later snapshot is built.
 
 ### Required Query API
 

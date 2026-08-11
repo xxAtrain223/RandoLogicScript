@@ -5,7 +5,7 @@ file(GLOB sema_sources CONFIGURE_DEPENDS
 add_library(sema STATIC ${sema_sources})
 
 target_include_directories(sema PUBLIC include)
-target_link_libraries(sema PUBLIC ast)
+target_link_libraries(sema PUBLIC ast parser)
 
 if(BUILD_TESTING)
     file(GLOB sema_test_sources CONFIGURE_DEPENDS
