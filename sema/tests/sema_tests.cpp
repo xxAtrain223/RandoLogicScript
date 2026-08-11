@@ -111,22 +111,44 @@ static size_t countWarnings(const std::vector<Diagnostic>& diags) {
 
 TEST(AnalysisSnapshotTests, OwnsExplicitSourcesAndDerivedIndexes) {
 	const auto snapshot = AnalysisSnapshot::Create({
-		{"overlay.rls", "define check(): true\n"},
+		{"overlay.rls", "define check(): true\ndefine run(): check()\n"},
 	}, 42);
 	ASSERT_TRUE(snapshot);
 	EXPECT_EQ((*snapshot)->generation(), 42u);
-	ASSERT_EQ((*snapshot)->project().files.size(), 1u);
+	ASSERT_EQ((*snapshot)->documentCount(), 1u);
 	const auto* sourceText = (*snapshot)->sourceText("overlay.rls");
 	ASSERT_NE(sourceText, nullptr);
-	EXPECT_EQ(sourceText->content(), "define check(): true\n");
+	EXPECT_EQ(sourceText->content(), "define check(): true\ndefine run(): check()\n");
 	const auto* sourceIndex = (*snapshot)->sourceIndex("overlay.rls");
 	ASSERT_NE(sourceIndex, nullptr);
 	EXPECT_TRUE(sourceIndex->nameAt({1, 8}));
-	EXPECT_FALSE((*snapshot)->semanticIndex().symbols().empty());
-	EXPECT_FALSE((*snapshot)->semanticIndex().types().empty());
+	EXPECT_TRUE((*snapshot)->syntaxAt("overlay.rls", {1, 8}));
+	EXPECT_TRUE((*snapshot)->nameAt("overlay.rls", {1, 8}));
+	const auto symbol = (*snapshot)->symbolAt("overlay.rls", {1, 8});
+	ASSERT_TRUE(symbol);
+	EXPECT_TRUE((*snapshot)->declaration(*symbol));
+	EXPECT_FALSE((*snapshot)->references(*symbol).empty());
+	EXPECT_FALSE((*snapshot)->visibleSymbolsAt("overlay.rls", {2, 15}).empty());
+	const auto type = (*snapshot)->typeAt("overlay.rls", {1, 17});
+	ASSERT_TRUE(type);
+	EXPECT_EQ(type->type, Type::Bool);
+	EXPECT_FALSE((*snapshot)->expectedTypeAt("overlay.rls", {1, 17}));
+	const auto call = (*snapshot)->callAt("overlay.rls", {2, 15});
+	ASSERT_TRUE(call);
+	EXPECT_TRUE(call->target);
+	EXPECT_FALSE((*snapshot)->diagnosticsFor("overlay.rls").empty());
+	EXPECT_TRUE((*snapshot)->diagnosticsFor("other.rls").empty());
 
 	EXPECT_FALSE(AnalysisSnapshot::Create(
 		std::vector<SourceInput>{{"bad.rls", std::string("\xC3\x28", 2)}}, 43));
+
+	const auto overlay = AnalysisSnapshot::Create({
+		{"overlay.rls", "define check(): true\n"},
+		{"overlay.rls", "define check(): false\n"},
+	}, 44);
+	ASSERT_TRUE(overlay);
+	EXPECT_EQ((*overlay)->documentCount(), 1u);
+	EXPECT_EQ((*overlay)->sourceText("overlay.rls")->content(), "define check(): false\n");
 }
 
 TEST(AnalysisSnapshotTests, IsolatesParseFailuresAcrossExplicitSources) {
@@ -135,9 +157,8 @@ TEST(AnalysisSnapshotTests, IsolatesParseFailuresAcrossExplicitSources) {
 		{"valid.rls", "define valid(): true\n"},
 	}, 100);
 	ASSERT_TRUE(first);
-	ASSERT_EQ((*first)->project().files.size(), 2u);
-	EXPECT_TRUE(std::any_of((*first)->diagnostics().begin(), (*first)->diagnostics().end(),
-		[](const Diagnostic& diagnostic) { return diagnostic.span.file == "broken.rls"; }));
+	ASSERT_EQ((*first)->documentCount(), 2u);
+	EXPECT_FALSE((*first)->diagnosticsFor("broken.rls").empty());
 	const auto* validIndex = (*first)->sourceIndex("valid.rls");
 	ASSERT_NE(validIndex, nullptr);
 	EXPECT_TRUE(validIndex->nameAt({1, 8}));
@@ -161,9 +182,7 @@ TEST(AnalysisSnapshotTests, ExposesStructuredValidationDiagnostics) {
 		{"validation.rls", "region RR_TEST { events { EVENT_TEST: \"invalid\" } }\n"},
 	}, 102);
 	ASSERT_TRUE(snapshot);
-	EXPECT_TRUE(std::any_of((*snapshot)->diagnostics().begin(), (*snapshot)->diagnostics().end(),
-		[](const Diagnostic& candidate) { return candidate.code == "RLS-V004"; }));
-	const auto& diagnostics = (*snapshot)->compilerDiagnostics();
+	const auto diagnostics = (*snapshot)->diagnosticsFor("validation.rls");
 	const auto diagnostic = std::find_if(diagnostics.begin(), diagnostics.end(), [](const CompilerDiagnostic& candidate) {
 			return candidate.code == "RLS-V004";
 		});
@@ -178,7 +197,7 @@ TEST(AnalysisSnapshotTests, RelatesDuplicateRegionDataToFirstDefinition) {
 		{"duplicate-data.rls", "region RR_TEST { name: \"First\" name: \"Second\" }\n"},
 	}, 103);
 	ASSERT_TRUE(snapshot);
-	const auto& diagnostics = (*snapshot)->compilerDiagnostics();
+	const auto diagnostics = (*snapshot)->diagnosticsFor("duplicate-data.rls");
 	const auto diagnostic = std::find_if(diagnostics.begin(), diagnostics.end(),
 		[](const CompilerDiagnostic& candidate) { return candidate.code == "RLS-V002"; });
 	ASSERT_NE(diagnostic, diagnostics.end());
@@ -341,6 +360,33 @@ TEST(SemanticIndexTests, SeparatesParameterScopesAndKeepsUnknownOccurrences) {
 	ASSERT_TRUE(unknown);
 	EXPECT_EQ(unknown->kind, OccurrenceKind::Unresolved);
 	EXPECT_FALSE(unknown->symbol);
+}
+
+TEST(SemanticIndexTests, CapturesCrossFileExternsAndAmbiguousEnumValues) {
+	Project project;
+	project.files.push_back(rls::parser::ParseString("extern define host() -> Bool\n", "host.rls"));
+	project.files.push_back(rls::parser::ParseString("enum Alpha { SHARED }\n", "alpha.rls"));
+	project.files.push_back(rls::parser::ParseString("enum Beta { SHARED }\n", "beta.rls"));
+	project.files.push_back(rls::parser::ParseString(
+		"define call(): host()\n"
+		"define ambiguous(): SHARED\n", "use.rls"));
+	analyze(project);
+	const auto index = buildSemanticIndex(project);
+
+	std::optional<SymbolRecord> host;
+	for (const auto& symbol : index.symbols()) {
+		if (symbol.category == SymbolCategory::ExternDefine && symbol.displayName == "host") host = symbol;
+	}
+	ASSERT_TRUE(host);
+	EXPECT_EQ(host->provenance, SymbolProvenance::Extern);
+	const auto hostCall = index.occurrenceAt("use.rls", {1, 16});
+	ASSERT_TRUE(hostCall);
+	EXPECT_EQ(hostCall->kind, OccurrenceKind::Call);
+	EXPECT_EQ(hostCall->symbol, host->id);
+	const auto ambiguous = index.occurrenceAt("use.rls", {2, 21});
+	ASSERT_TRUE(ambiguous);
+	EXPECT_EQ(ambiguous->kind, OccurrenceKind::Unresolved);
+	EXPECT_FALSE(ambiguous->symbol);
 }
 
 TEST(SemanticIndexTests, RecordsOperatorAndTernaryExpectedTypes) {

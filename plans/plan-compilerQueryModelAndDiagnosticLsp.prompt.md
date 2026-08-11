@@ -90,15 +90,15 @@ diagnosticsFor(document) -> vector<CompilerDiagnostic>
 ### Tests
 
 - [x] Add SourceText round trips for ASCII, UTF-8, UTF-16, CRLF, ranged edits, and the invalid-input policy.
-- [ ] Add source-index tests for declarations, calls, arguments, members, comments, strings, whitespace, malformed syntax, and recovery.
-- [ ] Add symbol tests for same-spelled parameters in separate scopes, cross-file declarations, externs, enums, member resolution, ambiguous enum values, and unknown identifiers.
-- [ ] Add region tests for base/extension relations and references.
-- [ ] Add snapshot tests proving open overlays override disk input and public query results contain no AST pointers.
-- [ ] Add regression tests confirming a parse error in one file does not corrupt queries for unaffected files.
+- [x] Add source-index tests for declarations, calls, arguments, members, comments, strings, whitespace, malformed syntax, and recovery.
+- [x] Add symbol tests for same-spelled parameters in separate scopes, cross-file declarations, externs, enums, member resolution, ambiguous enum values, and unknown identifiers.
+- [x] Add region tests for base/extension relations and references.
+- [x] Add snapshot tests proving open overlays override disk input and public query results contain no AST pointers.
+- [x] Add regression tests confirming a parse error in one file does not corrupt queries for unaffected files.
 
 ### Definition of Done
 
-- [ ] Compiler services answer tested syntax, symbol, type, scope, call, declaration, reference, and diagnostic queries from one immutable snapshot.
-- [ ] No public query result depends on AST pointer lifetime.
-- [ ] No consumer needs raw word-boundary scanning to determine source or semantic meaning.
-- [ ] Project/LSP layers can supply a complete source set and consume query results without depending on parser/sema internals.
+- [x] Compiler services answer tested syntax, symbol, type, scope, call, declaration, reference, and diagnostic queries from one immutable snapshot.
+- [x] No public query result depends on AST pointer lifetime.
+- [x] No consumer needs raw word-boundary scanning to determine source or semantic meaning.
+- [x] Project/LSP layers can supply a complete source set and consume query results without depending on parser/sema internals.

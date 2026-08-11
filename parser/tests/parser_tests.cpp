@@ -502,6 +502,26 @@ TEST(SourceIndexTests, IndexesDeclarationsNamesExpressionsAndCalls) {
 	EXPECT_EQ(section->kind, rls::parser::SyntaxKind::Section);
 }
 
+TEST(SourceIndexTests, IgnoresCommentsAndWhitespaceButIndexesStringsAndRecoverySafely) {
+	const auto parsed = rls::parser::ParseStringWithIndex(
+		"# a source comment\n"
+		"define label(): \"value\"\n"
+		"\n");
+	const auto& index = parsed.sourceIndex;
+	EXPECT_FALSE(index.syntaxAt({1, 4}));
+	EXPECT_FALSE(index.nameAt({1, 4}));
+	EXPECT_FALSE(index.syntaxAt({3, 1}));
+	const auto stringExpression = index.enclosingExpression({2, 18});
+	ASSERT_TRUE(stringExpression);
+	EXPECT_EQ(stringExpression->kind, rls::parser::SyntaxKind::Expression);
+
+	const auto malformed = rls::parser::ParseStringWithIndex("define broken(");
+	EXPECT_FALSE(malformed.file.diagnostics.empty());
+	EXPECT_TRUE(malformed.sourceIndex.declarations().empty());
+	EXPECT_FALSE(malformed.sourceIndex.syntaxAt({1, 8}));
+	EXPECT_FALSE(malformed.sourceIndex.nameAt({1, 8}));
+}
+
 TEST(ParseExpr, NestedCalls) {
 	const auto& e = parseExpr("can_use(setting(RSK_FOO))");
 	ASSERT_TRUE(std::holds_alternative<CallExpr>(e.node));

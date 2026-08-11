@@ -4,6 +4,7 @@
 #include "sema.h"
 
 #include <algorithm>
+#include <map>
 
 namespace rls::sema {
 
@@ -11,15 +12,14 @@ std::optional<std::shared_ptr<const AnalysisSnapshot>> AnalysisSnapshot::Create(
 	std::vector<SourceInput> sources, uint64_t generation) {
 	auto snapshot = std::make_shared<AnalysisSnapshot>();
 	snapshot->generation_ = generation;
-	std::sort(sources.begin(), sources.end(), [](const SourceInput& left, const SourceInput& right) {
-		return left.path < right.path;
-	});
+	std::map<std::string, std::string> effectiveSources;
+	for (auto& source : sources) effectiveSources[std::move(source.path)] = std::move(source.content);
 
-	for (auto& source : sources) {
-		const auto sourceText = ast::SourceText::FromUtf8(source.content);
+	for (auto& [path, content] : effectiveSources) {
+		const auto sourceText = ast::SourceText::FromUtf8(content);
 		if (!sourceText) return std::nullopt;
-		auto parsed = rls::parser::ParseStringWithIndex(source.content, source.path);
-		snapshot->documents_.push_back({source.path, *sourceText, std::move(parsed.sourceIndex)});
+		auto parsed = rls::parser::ParseStringWithIndex(content, path);
+		snapshot->documents_.push_back({path, *sourceText, std::move(parsed.sourceIndex)});
 		snapshot->project_.files.push_back(std::move(parsed.file));
 	}
 
@@ -30,6 +30,14 @@ std::optional<std::shared_ptr<const AnalysisSnapshot>> AnalysisSnapshot::Create(
 		}
 	}
 	snapshot->semanticIndex_ = buildSemanticIndex(snapshot->project_, snapshot->diagnostics_);
+	for (const auto& diagnostic : snapshot->diagnostics_) {
+		if (diagnostic.code.starts_with("RLS-V")) continue;
+		snapshot->compilerDiagnostics_.push_back({diagnostic.code, diagnostic.level,
+			diagnostic.message, diagnostic.span, {}});
+	}
+	for (const auto& diagnostic : snapshot->semanticIndex_.diagnostics()) {
+		snapshot->compilerDiagnostics_.push_back(diagnostic);
+	}
 	return std::shared_ptr<const AnalysisSnapshot>(std::move(snapshot));
 }
 
@@ -45,6 +53,57 @@ const rls::parser::SourceIndex* AnalysisSnapshot::sourceIndex(std::string_view p
 		return document.path == path;
 	});
 	return it == documents_.end() ? nullptr : &it->sourceIndex;
+}
+
+std::optional<rls::parser::SyntaxContext> AnalysisSnapshot::syntaxAt(std::string_view path, ast::Position position) const {
+	const auto* index = sourceIndex(path);
+	return index ? index->syntaxAt(position) : std::nullopt;
+}
+
+std::optional<rls::parser::SourceNameContext> AnalysisSnapshot::nameAt(std::string_view path, ast::Position position) const {
+	const auto* index = sourceIndex(path);
+	return index ? index->nameAt(position) : std::nullopt;
+}
+
+std::optional<OccurrenceRecord> AnalysisSnapshot::occurrenceAt(std::string_view path, ast::Position position) const {
+	return semanticIndex_.occurrenceAt(path, position);
+}
+
+std::optional<SymbolId> AnalysisSnapshot::symbolAt(std::string_view path, ast::Position position) const {
+	const auto occurrence = occurrenceAt(path, position);
+	return occurrence ? occurrence->symbol : std::nullopt;
+}
+
+std::optional<TypeRecord> AnalysisSnapshot::typeAt(std::string_view path, ast::Position position) const {
+	return semanticIndex_.typeAt(path, position);
+}
+
+std::optional<ExpectedTypeRecord> AnalysisSnapshot::expectedTypeAt(std::string_view path, ast::Position position) const {
+	return semanticIndex_.expectedTypeAt(path, position);
+}
+
+std::optional<CallRecord> AnalysisSnapshot::callAt(std::string_view path, ast::Position position) const {
+	return semanticIndex_.callAt(path, position);
+}
+
+std::optional<SymbolRecord> AnalysisSnapshot::declaration(SymbolId symbol) const {
+	return semanticIndex_.declaration(symbol);
+}
+
+std::vector<OccurrenceRecord> AnalysisSnapshot::references(SymbolId symbol) const {
+	return semanticIndex_.occurrencesFor(symbol);
+}
+
+std::vector<SymbolId> AnalysisSnapshot::visibleSymbolsAt(std::string_view path, ast::Position position) const {
+	return semanticIndex_.visibleSymbolsAt(path, position);
+}
+
+std::vector<CompilerDiagnostic> AnalysisSnapshot::diagnosticsFor(std::string_view path) const {
+	std::vector<CompilerDiagnostic> result;
+	for (const auto& diagnostic : compilerDiagnostics_) {
+		if (diagnostic.span.file == path) result.push_back(diagnostic);
+	}
+	return result;
 }
 
 } // namespace rls::sema

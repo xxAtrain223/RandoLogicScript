@@ -24,14 +24,21 @@ public:
 		std::vector<SourceInput> sources, uint64_t generation = 0);
 
 	uint64_t generation() const { return generation_; }
-	const ast::Project& project() const { return project_; }
+	size_t documentCount() const { return documents_.size(); }
 	const SemanticIndex& semanticIndex() const { return semanticIndex_; }
-	const std::vector<ast::Diagnostic>& diagnostics() const { return diagnostics_; }
-	const std::vector<CompilerDiagnostic>& compilerDiagnostics() const {
-		return semanticIndex_.diagnostics();
-	}
 	const ast::SourceText* sourceText(std::string_view path) const;
 	const rls::parser::SourceIndex* sourceIndex(std::string_view path) const;
+	std::optional<rls::parser::SyntaxContext> syntaxAt(std::string_view path, ast::Position position) const;
+	std::optional<rls::parser::SourceNameContext> nameAt(std::string_view path, ast::Position position) const;
+	std::optional<SymbolId> symbolAt(std::string_view path, ast::Position position) const;
+	std::optional<OccurrenceRecord> occurrenceAt(std::string_view path, ast::Position position) const;
+	std::optional<TypeRecord> typeAt(std::string_view path, ast::Position position) const;
+	std::optional<ExpectedTypeRecord> expectedTypeAt(std::string_view path, ast::Position position) const;
+	std::optional<CallRecord> callAt(std::string_view path, ast::Position position) const;
+	std::optional<SymbolRecord> declaration(SymbolId symbol) const;
+	std::vector<OccurrenceRecord> references(SymbolId symbol) const;
+	std::vector<SymbolId> visibleSymbolsAt(std::string_view path, ast::Position position) const;
+	std::vector<CompilerDiagnostic> diagnosticsFor(std::string_view path) const;
 
 private:
 	struct Document {
@@ -45,6 +52,7 @@ private:
 	ast::Project project_;
 	std::vector<ast::Diagnostic> diagnostics_;
 	SemanticIndex semanticIndex_;
+	std::vector<CompilerDiagnostic> compilerDiagnostics_;
 };
 
 } // namespace rls::sema
