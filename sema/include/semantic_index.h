@@ -75,6 +75,12 @@ struct TypeRecord {
 	std::optional<std::string> enumName;
 };
 
+struct ExpectedTypeRecord {
+	ast::Span span;
+	ast::Type type;
+	std::optional<std::string> enumName;
+};
+
 struct CallRecord {
 	ast::Span span;
 	std::optional<SymbolId> target;
@@ -101,12 +107,14 @@ public:
 	const std::vector<SymbolRecord>& symbols() const { return symbols_; }
 	const std::vector<OccurrenceRecord>& occurrences() const { return occurrences_; }
 	const std::vector<TypeRecord>& types() const { return types_; }
+	const std::vector<ExpectedTypeRecord>& expectedTypes() const { return expectedTypes_; }
 	const std::vector<CallRecord>& calls() const { return calls_; }
 	const std::vector<CompilerDiagnostic>& diagnostics() const { return diagnostics_; }
 	std::optional<SymbolRecord> declaration(SymbolId id) const;
 	std::vector<OccurrenceRecord> occurrencesFor(SymbolId id) const;
 	std::optional<OccurrenceRecord> occurrenceAt(std::string_view file, ast::Position position) const;
 	std::optional<TypeRecord> typeAt(std::string_view file, ast::Position position) const;
+	std::optional<ExpectedTypeRecord> expectedTypeAt(std::string_view file, ast::Position position) const;
 	std::optional<CallRecord> callAt(std::string_view file, ast::Position position) const;
 	std::vector<SymbolId> visibleSymbolsAt(std::string_view file, ast::Position position) const;
 
@@ -114,6 +122,7 @@ private:
 	std::vector<SymbolRecord> symbols_;
 	std::vector<OccurrenceRecord> occurrences_;
 	std::vector<TypeRecord> types_;
+	std::vector<ExpectedTypeRecord> expectedTypes_;
 	std::vector<CallRecord> calls_;
 	std::vector<CompilerDiagnostic> diagnostics_;
 

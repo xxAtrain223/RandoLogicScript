@@ -203,13 +203,15 @@ TEST(SemanticIndexTests, RecordsStableValueOnlyDeclarationIdentity) {
 	ASSERT_TRUE(declaration);
 	EXPECT_EQ(declaration->displayName, "Color");
 	const auto occurrences = index.occurrencesFor(enumType->id);
-	ASSERT_EQ(occurrences.size(), 1u);
-	EXPECT_EQ(occurrences[0].kind, OccurrenceKind::Declaration);
-	EXPECT_EQ(occurrences[0].span.file, declaration->selection.file);
-	EXPECT_EQ(occurrences[0].span.start.line, declaration->selection.start.line);
-	EXPECT_EQ(occurrences[0].span.start.column, declaration->selection.start.column);
-	EXPECT_EQ(occurrences[0].span.end.line, declaration->selection.end.line);
-	EXPECT_EQ(occurrences[0].span.end.column, declaration->selection.end.column);
+	ASSERT_EQ(occurrences.size(), 3u);
+	EXPECT_EQ(occurrences[0].kind, OccurrenceKind::TypeReference);
+	EXPECT_EQ(occurrences[1].kind, OccurrenceKind::TypeReference);
+	EXPECT_EQ(occurrences[2].kind, OccurrenceKind::Declaration);
+	EXPECT_EQ(occurrences[2].span.file, declaration->selection.file);
+	EXPECT_EQ(occurrences[2].span.start.line, declaration->selection.start.line);
+	EXPECT_EQ(occurrences[2].span.start.column, declaration->selection.start.column);
+	EXPECT_EQ(occurrences[2].span.end.line, declaration->selection.end.line);
+	EXPECT_EQ(occurrences[2].span.end.column, declaration->selection.end.column);
 }
 
 TEST(SemanticIndexTests, RecordsRegionExtensionTargetRelations) {
@@ -266,6 +268,68 @@ TEST(SemanticIndexTests, RecordsDuplicateDeclarationDiagnostics) {
 	EXPECT_EQ(diagnostic.related[0].span.file, "first.rls");
 }
 
+TEST(SemanticIndexTests, SeparatesParameterScopesAndKeepsUnknownOccurrences) {
+	Project project;
+	project.files.push_back(rls::parser::ParseString(
+		"define first(value: Bool): value\n"
+		"define second(value: Bool): value and unknown\n",
+		"scopes.rls"));
+	analyze(project);
+	const auto index = buildSemanticIndex(project);
+
+	std::optional<SymbolId> first;
+	std::optional<SymbolId> second;
+	std::vector<SymbolRecord> parameters;
+	for (const auto& symbol : index.symbols()) {
+		if (symbol.category == SymbolCategory::Define && symbol.displayName == "first") first = symbol.id;
+		if (symbol.category == SymbolCategory::Define && symbol.displayName == "second") second = symbol.id;
+		if (symbol.category == SymbolCategory::Parameter && symbol.displayName == "value") parameters.push_back(symbol);
+	}
+	ASSERT_TRUE(first);
+	ASSERT_TRUE(second);
+	ASSERT_EQ(parameters.size(), 2u);
+	const auto firstParameter = parameters[0].container == first ? parameters[0] : parameters[1];
+	const auto secondParameter = parameters[0].container == second ? parameters[0] : parameters[1];
+	EXPECT_EQ(firstParameter.container, first);
+	EXPECT_EQ(secondParameter.container, second);
+
+	const auto firstOccurrences = index.occurrencesFor(firstParameter.id);
+	const auto secondOccurrences = index.occurrencesFor(secondParameter.id);
+	ASSERT_EQ(firstOccurrences.size(), 2u);
+	ASSERT_EQ(secondOccurrences.size(), 2u);
+	EXPECT_EQ(firstOccurrences[1].kind, OccurrenceKind::Reference);
+	EXPECT_EQ(secondOccurrences[1].kind, OccurrenceKind::Reference);
+	const auto firstUse = index.occurrenceAt("scopes.rls", {1, 28});
+	ASSERT_TRUE(firstUse);
+	EXPECT_EQ(firstUse->symbol, firstParameter.id);
+	const auto secondUse = index.occurrenceAt("scopes.rls", {2, 29});
+	ASSERT_TRUE(secondUse);
+	EXPECT_EQ(secondUse->symbol, secondParameter.id);
+	const auto unknown = index.occurrenceAt("scopes.rls", {2, 39});
+	ASSERT_TRUE(unknown);
+	EXPECT_EQ(unknown->kind, OccurrenceKind::Unresolved);
+	EXPECT_FALSE(unknown->symbol);
+}
+
+TEST(SemanticIndexTests, RecordsOperatorAndTernaryExpectedTypes) {
+	Project project;
+	project.files.push_back(rls::parser::ParseString(
+		"define check(flag: Bool, count: Int): flag ? count + 1 : count\n",
+		"expected.rls"));
+	analyze(project);
+	const auto index = buildSemanticIndex(project);
+
+	const auto condition = index.expectedTypeAt("expected.rls", {1, 39});
+	ASSERT_TRUE(condition);
+	EXPECT_EQ(condition->type, Type::Bool);
+	const auto arithmeticParameter = index.expectedTypeAt("expected.rls", {1, 46});
+	ASSERT_TRUE(arithmeticParameter);
+	EXPECT_EQ(arithmeticParameter->type, Type::Int);
+	const auto arithmeticLiteral = index.expectedTypeAt("expected.rls", {1, 54});
+	ASSERT_TRUE(arithmeticLiteral);
+	EXPECT_EQ(arithmeticLiteral->type, Type::Int);
+}
+
 TEST(SemanticIndexTests, CopiesResolvedTypesCallsAndMemberOccurrences) {
 	Project project;
 	project.files.push_back(rls::parser::ParseString(
@@ -287,9 +351,11 @@ TEST(SemanticIndexTests, CopiesResolvedTypesCallsAndMemberOccurrences) {
 
 	const auto identity = findSymbol(SymbolCategory::Define, "identity");
 	const auto value = findSymbol(SymbolCategory::Parameter, "value");
+	const auto color = findSymbol(SymbolCategory::Enum, "Color");
 	const auto red = findSymbol(SymbolCategory::EnumMember, "RED");
 	ASSERT_TRUE(identity);
 	ASSERT_TRUE(value);
+	ASSERT_TRUE(color);
 	ASSERT_TRUE(red);
 	ASSERT_EQ(index.calls().size(), 1u);
 	const auto& call = index.calls()[0];
@@ -308,6 +374,14 @@ TEST(SemanticIndexTests, CopiesResolvedTypesCallsAndMemberOccurrences) {
 	ASSERT_TRUE(typeAt);
 	EXPECT_EQ(typeAt->type, Type::Enum);
 	EXPECT_EQ(typeAt->enumName, "Color");
+	const auto expectedTypeAt = index.expectedTypeAt("calls.rls", {3, 26});
+	ASSERT_TRUE(expectedTypeAt);
+	EXPECT_EQ(expectedTypeAt->type, Type::Enum);
+	EXPECT_EQ(expectedTypeAt->enumName, "Color");
+	const auto typeReference = index.occurrenceAt("calls.rls", {2, 24});
+	ASSERT_TRUE(typeReference);
+	EXPECT_EQ(typeReference->kind, OccurrenceKind::TypeReference);
+	EXPECT_EQ(typeReference->symbol, color->id);
 
 	ASSERT_FALSE(index.types().empty());
 	EXPECT_TRUE(std::any_of(index.types().begin(), index.types().end(), [](const TypeRecord& record) {

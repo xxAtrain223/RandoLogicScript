@@ -90,6 +90,11 @@ std::optional<TypeRecord> SemanticIndex::typeAt(std::string_view file, ast::Posi
 	return narrowestAt(types_, file, position);
 }
 
+std::optional<ExpectedTypeRecord> SemanticIndex::expectedTypeAt(std::string_view file,
+	ast::Position position) const {
+	return narrowestAt(expectedTypes_, file, position);
+}
+
 std::optional<CallRecord> SemanticIndex::callAt(std::string_view file, ast::Position position) const {
 	return narrowestAt(calls_, file, position);
 }
@@ -115,10 +120,13 @@ SemanticIndex buildSemanticIndex(const ast::Project& project) {
 	SemanticIndex index;
 	auto addParameters = [&](const std::vector<ast::Param>& parameters, SymbolId container) {
 		for (const auto& parameter : parameters) {
+			const auto type = project.getType(&parameter);
+			const auto enumName = project.getEnumType(&parameter);
 			index.addSymbol(SymbolCategory::Parameter, SymbolProvenance::Source,
 				parameter.name.text, parameter.name.span, parameter.name.span,
-				container, std::nullopt, std::nullopt,
-				parameter.type ? std::optional<std::string>(parameter.type->name.text) : std::nullopt);
+				container, std::nullopt, type,
+				enumName ? std::optional<std::string>(*enumName) :
+					(parameter.type ? std::optional<std::string>(parameter.type->name.text) : std::nullopt));
 		}
 	};
 	auto addSections = [&](const std::vector<ast::Section>& sections, SymbolId container) {
@@ -192,6 +200,25 @@ SemanticIndex buildSemanticIndex(const ast::Project& project) {
 		}
 		return std::nullopt;
 	};
+	auto addTypeReference = [&](const ast::TypeRef& typeReference) {
+		const auto target = findSymbol(SymbolCategory::Enum, typeReference.name.text);
+		index.occurrences_.push_back({target, typeReference.name.span, OccurrenceKind::TypeReference});
+	};
+	for (const auto& file : project.files) {
+		for (const auto& declaration : file.declarations) {
+			std::visit([&](const auto& node) {
+				using T = std::decay_t<decltype(node)>;
+				if constexpr (std::is_same_v<T, ast::DefineDecl> || std::is_same_v<T, ast::ExternDefineDecl>) {
+					for (const auto& parameter : node.params) {
+						if (parameter.type) addTypeReference(*parameter.type);
+					}
+					if constexpr (std::is_same_v<T, ast::ExternDefineDecl>) {
+						if (node.returnType) addTypeReference(*node.returnType);
+					}
+				}
+			}, declaration);
+		}
+	}
 	auto addDuplicateDiagnostic = [&](std::string_view code, std::string_view kind,
 		std::string_view name, const ast::Span& first, const ast::Span& duplicate) {
 		index.diagnostics_.push_back({
@@ -254,15 +281,28 @@ SemanticIndex buildSemanticIndex(const ast::Project& project) {
 				enumName ? std::optional<std::string>(*enumName) : std::nullopt});
 		}
 	};
-	std::function<void(const ast::Expr&)> indexExpression;
-	indexExpression = [&](const ast::Expr& expression) {
+	auto addExpectedType = [&](const ast::Expr& expression, ast::Type type,
+		std::optional<std::string> enumName = std::nullopt) {
+		index.expectedTypes_.push_back({expression.span, type, std::move(enumName)});
+	};
+	std::function<void(const ast::Expr&, std::optional<SymbolId>)> indexExpression;
+	indexExpression = [&](const ast::Expr& expression, std::optional<SymbolId> defineScope) {
 		addType(expression);
 		std::visit([&](const auto& node) {
 			using T = std::decay_t<decltype(node)>;
 			if constexpr (std::is_same_v<T, ast::Identifier>) {
 				std::optional<SymbolId> target;
 				OccurrenceKind kind = OccurrenceKind::Unresolved;
-				if (node.kind == ast::IdentifierKind::FunctionRef) {
+				if (node.kind == ast::IdentifierKind::Parameter && defineScope) {
+					for (const auto& symbol : index.symbols_) {
+						if (symbol.category == SymbolCategory::Parameter &&
+							symbol.container == defineScope && symbol.displayName == node.name.text) {
+							target = symbol.id;
+							break;
+						}
+					}
+					kind = target ? OccurrenceKind::Reference : OccurrenceKind::Unresolved;
+				} else if (node.kind == ast::IdentifierKind::FunctionRef) {
 					target = findSymbol(SymbolCategory::Define, node.name.text);
 					if (!target) target = findSymbol(SymbolCategory::ExternDefine, node.name.text);
 					kind = target ? OccurrenceKind::Reference : OccurrenceKind::Unresolved;
@@ -298,14 +338,52 @@ SemanticIndex buildSemanticIndex(const ast::Project& project) {
 				index.occurrences_.push_back({memberId, node.member.span,
 					memberId ? OccurrenceKind::MemberAccess : OccurrenceKind::Unresolved});
 			} else if constexpr (std::is_same_v<T, ast::UnaryExpr>) {
-				indexExpression(*node.operand);
+				addExpectedType(*node.operand, ast::Type::Bool);
+				indexExpression(*node.operand, defineScope);
 			} else if constexpr (std::is_same_v<T, ast::BinaryExpr>) {
-				indexExpression(*node.left);
-				indexExpression(*node.right);
+				switch (node.op) {
+				case ast::BinaryOp::And:
+				case ast::BinaryOp::Or:
+					addExpectedType(*node.left, ast::Type::Bool);
+					addExpectedType(*node.right, ast::Type::Bool);
+					break;
+				case ast::BinaryOp::Lt:
+				case ast::BinaryOp::LtEq:
+				case ast::BinaryOp::Gt:
+				case ast::BinaryOp::GtEq:
+				case ast::BinaryOp::Add:
+				case ast::BinaryOp::Sub:
+				case ast::BinaryOp::Mul:
+				case ast::BinaryOp::Div:
+					addExpectedType(*node.left, ast::Type::Int);
+					addExpectedType(*node.right, ast::Type::Int);
+					break;
+				case ast::BinaryOp::Eq:
+				case ast::BinaryOp::NotEq: {
+					const auto leftType = project.getType(node.left.get());
+					const auto rightType = project.getType(node.right.get());
+					if (leftType && *leftType != ast::Type::Error) {
+						const auto enumName = *leftType == ast::Type::Enum
+							? project.getEnumType(node.left.get()) : std::optional<std::string_view>{};
+						addExpectedType(*node.right, *leftType,
+							enumName ? std::optional<std::string>(*enumName) : std::nullopt);
+					}
+					if (rightType && *rightType != ast::Type::Error) {
+						const auto enumName = *rightType == ast::Type::Enum
+							? project.getEnumType(node.right.get()) : std::optional<std::string_view>{};
+						addExpectedType(*node.left, *rightType,
+							enumName ? std::optional<std::string>(*enumName) : std::nullopt);
+					}
+					break;
+				}
+				}
+				indexExpression(*node.left, defineScope);
+				indexExpression(*node.right, defineScope);
 			} else if constexpr (std::is_same_v<T, ast::TernaryExpr>) {
-				indexExpression(*node.condition);
-				indexExpression(*node.thenBranch);
-				indexExpression(*node.elseBranch);
+				addExpectedType(*node.condition, ast::Type::Bool);
+				indexExpression(*node.condition, defineScope);
+				indexExpression(*node.thenBranch, defineScope);
+				indexExpression(*node.elseBranch, defineScope);
 			} else if constexpr (std::is_same_v<T, ast::CallExpr>) {
 				auto target = findSymbol(SymbolCategory::Define, node.callee.text);
 				if (!target) target = findSymbol(SymbolCategory::ExternDefine, node.callee.text);
@@ -322,19 +400,37 @@ SemanticIndex buildSemanticIndex(const ast::Project& project) {
 						}
 					}
 					call.normalizedBindings.push_back(binding);
-					indexExpression(*argument.value);
+					if (binding && target) {
+						size_t parameterIndex = 0;
+						for (const auto& symbol : index.symbols_) {
+							if (symbol.category != SymbolCategory::Parameter || symbol.container != target) continue;
+							if (parameterIndex++ != *binding || !symbol.type) continue;
+							index.expectedTypes_.push_back({argument.value->span, *symbol.type, symbol.enumName});
+							break;
+						}
+					}
+					indexExpression(*argument.value, defineScope);
 				}
 				index.calls_.push_back(std::move(call));
 			} else if constexpr (std::is_same_v<T, ast::InvokeExpr>) {
-				indexExpression(*node.callee);
+				indexExpression(*node.callee, defineScope);
 			} else if constexpr (std::is_same_v<T, ast::MatchExpr>) {
-				indexExpression(*node.discriminant);
+				const auto discriminatorType = project.getType(node.discriminant.get());
+				const auto discriminatorEnum = discriminatorType && *discriminatorType == ast::Type::Enum
+					? project.getEnumType(node.discriminant.get()) : std::optional<std::string_view>{};
+				indexExpression(*node.discriminant, defineScope);
 				for (const auto& arm : node.arms) {
-					for (const auto& pattern : arm.patterns) indexExpression(*pattern);
-					indexExpression(*arm.body);
+					for (const auto& pattern : arm.patterns) {
+						if (discriminatorType && *discriminatorType != ast::Type::Error) {
+							addExpectedType(*pattern, *discriminatorType,
+								discriminatorEnum ? std::optional<std::string>(*discriminatorEnum) : std::nullopt);
+						}
+						indexExpression(*pattern, defineScope);
+					}
+					indexExpression(*arm.body, defineScope);
 				}
 			} else if constexpr (std::is_same_v<T, ast::ListExpr>) {
-				for (const auto& element : node.elements) indexExpression(*element);
+				for (const auto& element : node.elements) indexExpression(*element, defineScope);
 			}
 		}, expression.node);
 	};
@@ -344,18 +440,32 @@ SemanticIndex buildSemanticIndex(const ast::Project& project) {
 			std::visit([&](const auto& node) {
 				using T = std::decay_t<decltype(node)>;
 				if constexpr (std::is_same_v<T, ast::DefineDecl>) {
-					if (node.body) indexExpression(*node.body);
+					const auto defineId = findSymbol(SymbolCategory::Define, node.name.text);
+					if (node.body) indexExpression(*node.body, defineId);
 					for (const auto& parameter : node.params) {
-						if (parameter.defaultValue) indexExpression(*parameter.defaultValue);
+						if (parameter.defaultValue) {
+							if (const auto type = project.getType(&parameter)) {
+								const auto enumName = *type == ast::Type::Enum ? project.getEnumType(&parameter) : std::optional<std::string_view>{};
+								addExpectedType(*parameter.defaultValue, *type,
+									enumName ? std::optional<std::string>(*enumName) : std::nullopt);
+							}
+							indexExpression(*parameter.defaultValue, defineId);
+						}
 					}
 				} else if constexpr (std::is_same_v<T, ast::RegionDecl>) {
-					for (const auto& data : node.body.data) indexExpression(*data.value);
+					for (const auto& data : node.body.data) indexExpression(*data.value, std::nullopt);
 					for (const auto& section : node.body.sections) {
-						for (const auto& entry : section.entries) indexExpression(*entry.condition);
+						for (const auto& entry : section.entries) {
+							addExpectedType(*entry.condition, ast::Type::Bool);
+							indexExpression(*entry.condition, std::nullopt);
+						}
 					}
 				} else if constexpr (std::is_same_v<T, ast::ExtendRegionDecl>) {
 					for (const auto& section : node.sections) {
-						for (const auto& entry : section.entries) indexExpression(*entry.condition);
+						for (const auto& entry : section.entries) {
+							addExpectedType(*entry.condition, ast::Type::Bool);
+							indexExpression(*entry.condition, std::nullopt);
+						}
 					}
 				}
 			}, declaration);

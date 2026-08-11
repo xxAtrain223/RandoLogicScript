@@ -51,7 +51,7 @@ Despite the historical main-plan label, this document deliberately does **not** 
 ### 4. Semantic Index Construction
 
 - [x] In [sema/src/collect_declarations.cpp](../sema/src/collect_declarations.cpp), assign top-level declaration identities, record canonical region/extension relations, and attach duplicate-related locations.
-- [ ] In [sema/src/resolve_types.cpp](../sema/src/resolve_types.cpp), record parameter scopes, identifier uses, enum/member resolutions, callable targets, argument bindings, inferred types, enum identities, and expected types.
+- [x] In [sema/src/resolve_types.cpp](../sema/src/resolve_types.cpp), record parameter scopes, identifier uses, enum/member resolutions, callable targets, argument bindings, inferred types, enum identities, and expected types.
 - [ ] In [sema/src/validate_declarations.cpp](../sema/src/validate_declarations.cpp), produce stable diagnostic codes and structured related data for later consumers.
 - [x] Build `SymbolId -> SymbolRecord` indexes.
 - [x] Build `SymbolId -> sorted occurrences` indexes.
