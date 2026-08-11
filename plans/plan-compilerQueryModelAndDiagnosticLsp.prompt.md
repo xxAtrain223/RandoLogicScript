@@ -42,11 +42,11 @@ Despite the historical main-plan label, this document deliberately does **not** 
 
 ### 3. Stable Semantic Identity
 
-- [ ] Define opaque `SymbolId`, stable for the lifetime of an `AnalysisSnapshot`, never derived from an AST pointer.
-- [ ] Define `SymbolRecord` with identity, category, display name, declaration URI/path and ranges, container, signature/type/enum metadata, and provenance.
-- [ ] Define `OccurrenceRecord` with referenced `SymbolId` when resolved, source range, and occurrence kind: declaration, reference, call, type reference, member access, extension target, or unresolved.
-- [ ] Model regions, extension contributions/targets, defines, extern defines, enum types/members, parameters, and navigable region/section entries.
-- [ ] Preserve extern/pattern provenance; a pattern-matched external enum value can be typed/referenced without pretending it has a source declaration.
+- [x] Define opaque `SymbolId`, stable for the lifetime of an `AnalysisSnapshot`, never derived from an AST pointer.
+- [x] Define `SymbolRecord` with identity, category, display name, declaration URI/path and ranges, container, signature/type/enum metadata, and provenance.
+- [x] Define `OccurrenceRecord` with referenced `SymbolId` when resolved, source range, and occurrence kind: declaration, reference, call, type reference, member access, extension target, or unresolved.
+- [x] Model regions, extension contributions/targets, defines, extern defines, enum types/members, parameters, and navigable region/section entries.
+- [x] Preserve extern/pattern provenance; a pattern-matched external enum value can be typed/referenced without pretending it has a source declaration.
 
 ### 4. Semantic Index Construction
 

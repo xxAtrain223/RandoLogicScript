@@ -3,6 +3,7 @@
 #include <vector>
 
 #include "ast.h"
+#include "semantic_index.h"
 
 namespace rls::sema {
 

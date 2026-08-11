@@ -105,6 +105,64 @@ static size_t countWarnings(const std::vector<Diagnostic>& diags) {
 	return n;
 }
 
+// == Semantic index ===========================================================
+
+TEST(SemanticIndexTests, RecordsStableValueOnlyDeclarationIdentity) {
+	SemanticIndex index;
+	{
+		Project project;
+		project.files.push_back(rls::parser::ParseString(
+			"region RR_TEST { name: \"Test\" events { EVENT_TEST: true } }\n"
+			"define check(value: Color): true\n"
+			"extern define external(value: Color) -> Bool\n"
+			"enum Color { RED }\n"
+			"extern enum External { VALUE, EXT_* }\n",
+			"semantic.rls"));
+		analyze(project);
+		index = buildSemanticIndex(project);
+	}
+
+	auto findSymbol = [&](SymbolCategory category, std::string_view displayName) {
+		for (const auto& symbol : index.symbols()) {
+			if (symbol.category == category && symbol.displayName == displayName) {
+				return std::optional<SymbolRecord>(symbol);
+			}
+		}
+		return std::optional<SymbolRecord>{};
+	};
+
+	ASSERT_EQ(index.symbols().size(), 12u);
+	const auto region = findSymbol(SymbolCategory::Region, "RR_TEST");
+	const auto define = findSymbol(SymbolCategory::Define, "check");
+	const auto parameter = findSymbol(SymbolCategory::Parameter, "value");
+	const auto enumType = findSymbol(SymbolCategory::Enum, "Color");
+	const auto pattern = findSymbol(SymbolCategory::ExternEnumPattern, "EXT_*");
+	ASSERT_TRUE(region);
+	ASSERT_TRUE(define);
+	ASSERT_TRUE(parameter);
+	ASSERT_TRUE(enumType);
+	ASSERT_TRUE(pattern);
+	EXPECT_NE(region->id, define->id);
+	EXPECT_EQ(parameter->container, define->id);
+	EXPECT_EQ(define->signature, "define check");
+	EXPECT_EQ(enumType->type, Type::Enum);
+	EXPECT_EQ(enumType->enumName, "Color");
+	EXPECT_EQ(pattern->provenance, SymbolProvenance::Pattern);
+	EXPECT_EQ(pattern->declaration.file, "semantic.rls");
+
+	const auto declaration = index.declaration(enumType->id);
+	ASSERT_TRUE(declaration);
+	EXPECT_EQ(declaration->displayName, "Color");
+	const auto occurrences = index.occurrencesFor(enumType->id);
+	ASSERT_EQ(occurrences.size(), 1u);
+	EXPECT_EQ(occurrences[0].kind, OccurrenceKind::Declaration);
+	EXPECT_EQ(occurrences[0].span.file, declaration->selection.file);
+	EXPECT_EQ(occurrences[0].span.start.line, declaration->selection.start.line);
+	EXPECT_EQ(occurrences[0].span.start.column, declaration->selection.start.column);
+	EXPECT_EQ(occurrences[0].span.end.line, declaration->selection.end.line);
+	EXPECT_EQ(occurrences[0].span.end.column, declaration->selection.end.column);
+}
+
 // == Empty project ============================================================
 
 TEST(CollectDeclarations, EmptyProject) {
