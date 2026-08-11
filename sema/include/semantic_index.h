@@ -133,9 +133,11 @@ private:
 		std::optional<ast::Type> type = std::nullopt,
 		std::optional<std::string> enumName = std::nullopt);
 
-	friend SemanticIndex buildSemanticIndex(const ast::Project& project);
+	friend SemanticIndex buildSemanticIndex(const ast::Project& project,
+		const std::vector<ast::Diagnostic>& diagnostics);
 };
 
-SemanticIndex buildSemanticIndex(const ast::Project& project);
+SemanticIndex buildSemanticIndex(const ast::Project& project,
+	const std::vector<ast::Diagnostic>& diagnostics = {});
 
 } // namespace rls::sema

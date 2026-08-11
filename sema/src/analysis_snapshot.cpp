@@ -29,7 +29,7 @@ std::optional<std::shared_ptr<const AnalysisSnapshot>> AnalysisSnapshot::Create(
 			snapshot->diagnostics_.push_back(diagnostic);
 		}
 	}
-	snapshot->semanticIndex_ = buildSemanticIndex(snapshot->project_);
+	snapshot->semanticIndex_ = buildSemanticIndex(snapshot->project_, snapshot->diagnostics_);
 	return std::shared_ptr<const AnalysisSnapshot>(std::move(snapshot));
 }
 

@@ -661,9 +661,18 @@ inline std::string levelToString(rls::ast::DiagnosticLevel level) {
 
 /// A diagnostic message produced during parsing or semantic analysis.
 struct Diagnostic {
-	DiagnosticLevel level;
-	std::string message;
+	std::string code;
 	Span span; // location of the offending construct
+	DiagnosticLevel level = DiagnosticLevel::Error;
+	std::string message;
+
+	Diagnostic() = default;
+
+	Diagnostic(std::string code, Span span, DiagnosticLevel level, std::string message)
+		: code(std::move(code)),
+		  span(std::move(span)),
+		  level(level),
+		  message(std::move(message)) {}
 };
 
 // == File =====================================================================

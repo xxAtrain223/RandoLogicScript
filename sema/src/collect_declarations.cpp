@@ -10,12 +10,10 @@ std::vector<ast::Diagnostic> collectDeclarations(ast::Project& project) {
 
 	auto emitDuplicate = [&](std::string_view kind, std::string_view name,
 	                        const ast::Span& first, const ast::Span& duplicate) {
-		diagnostics.push_back({
-			ast::DiagnosticLevel::Error,
+		diagnostics.push_back(ast::Diagnostic{
+			"", duplicate, ast::DiagnosticLevel::Error,
 			std::format("duplicate {} '{}' (first declared at {}:{})",
-				kind, name, first.file, first.start.line),
-			duplicate
-		});
+				kind, name, first.file, first.start.line)});
 	};
 
 	// Clear any previous state so the function is idempotent.

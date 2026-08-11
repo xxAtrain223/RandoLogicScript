@@ -3,6 +3,7 @@
 #include <vector>
 
 #include "ast.h"
+#include "semantic_index.h"
 
 namespace rls::sema {
 
@@ -22,5 +23,10 @@ namespace rls::sema {
 ///   - extern enum declarations must contain entries and report wildcard/member
 ///     overlap and cross-enum value-name ambiguity warnings
 std::vector<ast::Diagnostic> validateDeclarations(ast::Project& project);
+
+/// Convert declaration-validation diagnostics to stable value diagnostics.
+std::vector<CompilerDiagnostic> structureValidationDiagnostics(
+	const ast::Project& project,
+	const std::vector<ast::Diagnostic>& diagnostics);
 
 } // namespace rls::sema

@@ -156,6 +156,38 @@ TEST(AnalysisSnapshotTests, IsolatesParseFailuresAcrossExplicitSources) {
 	EXPECT_EQ((*second)->sourceText("valid.rls")->content(), "define valid(): false\n");
 }
 
+TEST(AnalysisSnapshotTests, ExposesStructuredValidationDiagnostics) {
+	const auto snapshot = AnalysisSnapshot::Create({
+		{"validation.rls", "region RR_TEST { events { EVENT_TEST: \"invalid\" } }\n"},
+	}, 102);
+	ASSERT_TRUE(snapshot);
+	EXPECT_TRUE(std::any_of((*snapshot)->diagnostics().begin(), (*snapshot)->diagnostics().end(),
+		[](const Diagnostic& candidate) { return candidate.code == "RLS-V004"; }));
+	const auto& diagnostics = (*snapshot)->compilerDiagnostics();
+	const auto diagnostic = std::find_if(diagnostics.begin(), diagnostics.end(), [](const CompilerDiagnostic& candidate) {
+			return candidate.code == "RLS-V004";
+		});
+	ASSERT_NE(diagnostic, diagnostics.end());
+	EXPECT_EQ(diagnostic->level, DiagnosticLevel::Error);
+	EXPECT_EQ(diagnostic->span.file, "validation.rls");
+	EXPECT_NE(diagnostic->message.find("must be Bool"), std::string::npos);
+}
+
+TEST(AnalysisSnapshotTests, RelatesDuplicateRegionDataToFirstDefinition) {
+	const auto snapshot = AnalysisSnapshot::Create({
+		{"duplicate-data.rls", "region RR_TEST { name: \"First\" name: \"Second\" }\n"},
+	}, 103);
+	ASSERT_TRUE(snapshot);
+	const auto& diagnostics = (*snapshot)->compilerDiagnostics();
+	const auto diagnostic = std::find_if(diagnostics.begin(), diagnostics.end(),
+		[](const CompilerDiagnostic& candidate) { return candidate.code == "RLS-V002"; });
+	ASSERT_NE(diagnostic, diagnostics.end());
+	ASSERT_EQ(diagnostic->related.size(), 1u);
+	EXPECT_EQ(diagnostic->related[0].message, "first definition");
+	EXPECT_EQ(diagnostic->related[0].span.file, "duplicate-data.rls");
+	EXPECT_LT(diagnostic->related[0].span.start.column, diagnostic->span.start.column);
+}
+
 TEST(SemanticIndexTests, RecordsStableValueOnlyDeclarationIdentity) {
 	SemanticIndex index;
 	{

@@ -64,11 +64,7 @@ std::string unescapeStringLiteral(std::string_view raw) {
 using Diags = std::vector<ast::Diagnostic>;
 
 void emitError(Diags& diags, const std::string& msg, const Node& n) {
-	diags.push_back({
-		ast::DiagnosticLevel::Error,
-		msg,
-		makeSpan(n)
-	});
+	diags.push_back(ast::Diagnostic{"", makeSpan(n), ast::DiagnosticLevel::Error, msg});
 }
 
 // =============================================================================

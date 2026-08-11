@@ -63,11 +63,8 @@ rls::ast::File Parse(T&& in) {
 		>(in);
 
 		if (!root) {
-			file.diagnostics.push_back({
-				ast::DiagnosticLevel::Error,
-				"parse failed",
-				ast::Span{file.path, {}, {}}
-			});
+			file.diagnostics.push_back(ast::Diagnostic{
+				"", ast::Span{file.path, {}, {}}, ast::DiagnosticLevel::Error, "parse failed"});
 			return file;
 		}
 
@@ -87,11 +84,8 @@ rls::ast::File Parse(T&& in) {
 			};
 			span.end = span.start;
 		}
-		file.diagnostics.push_back({
-			ast::DiagnosticLevel::Error,
-			std::string(e.message()),
-			span
-		});
+		file.diagnostics.push_back(ast::Diagnostic{
+			"", span, ast::DiagnosticLevel::Error, std::string(e.message())});
 	}
 
 	return file;

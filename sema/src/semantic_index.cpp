@@ -1,5 +1,7 @@
 #include "semantic_index.h"
 
+#include "validate_declarations.h"
+
 #include <algorithm>
 #include <format>
 #include <functional>
@@ -116,7 +118,8 @@ std::vector<SymbolId> SemanticIndex::visibleSymbolsAt(std::string_view file,
 	return result;
 }
 
-SemanticIndex buildSemanticIndex(const ast::Project& project) {
+SemanticIndex buildSemanticIndex(const ast::Project& project,
+	const std::vector<ast::Diagnostic>& diagnostics) {
 	SemanticIndex index;
 	auto addParameters = [&](const std::vector<ast::Param>& parameters, SymbolId container) {
 		for (const auto& parameter : parameters) {
@@ -471,6 +474,8 @@ SemanticIndex buildSemanticIndex(const ast::Project& project) {
 			}, declaration);
 		}
 	}
+	const auto validationDiagnostics = structureValidationDiagnostics(project, diagnostics);
+	index.diagnostics_.insert(index.diagnostics_.end(), validationDiagnostics.begin(), validationDiagnostics.end());
 	return index;
 }
 

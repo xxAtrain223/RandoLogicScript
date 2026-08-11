@@ -15,11 +15,7 @@ void addDataError(
     std::string message,
     const rls::ast::Span& span)
 {
-	diagnostics.push_back({
-		rls::ast::DiagnosticLevel::Error,
-		std::move(message),
-		span
-	});
+	diagnostics.push_back(ast::Diagnostic{"", span, rls::ast::DiagnosticLevel::Error, std::move(message)});
 }
 
 bool hasEnumType(
