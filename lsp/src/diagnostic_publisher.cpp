@@ -131,6 +131,26 @@ void DiagnosticPublisher::documentClosed(std::string_view uri, bool standalone) 
     outbound_.push(notification(*normalized, Json::array()));
 }
 
+void DiagnosticPublisher::clearProject(std::string_view projectId) {
+    std::vector<std::string> messages;
+    {
+        std::lock_guard lock(mutex_);
+        const auto project = published_.find(std::string(projectId));
+        if (project == published_.end()) {
+            return;
+        }
+        for (const auto& [key, document] : project->second) {
+            if (!suppressed_.contains(key)) {
+                messages.push_back(notification(document.uri, Json::array()));
+            }
+        }
+        published_.erase(project);
+    }
+    for (auto& message : messages) {
+        outbound_.push(std::move(message));
+    }
+}
+
 void DiagnosticPublisher::acceptedSnapshot(
     std::string projectId, std::shared_ptr<const sema::AnalysisSnapshot> snapshot) {
     if (!snapshot) {

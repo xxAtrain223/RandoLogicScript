@@ -58,6 +58,7 @@ bool AnalysisScheduler::schedule(AnalysisRequest request) {
     }
 
     state.latestGeneration = request.generation;
+    state.removed = false;
     if (state.activeCancellation) {
         state.activeCancellation->request_stop();
     }
@@ -67,6 +68,25 @@ bool AnalysisScheduler::schedule(AnalysisRequest request) {
     };
     wake_.notify_all();
     return true;
+}
+
+void AnalysisScheduler::removeProject(std::string_view projectId) {
+    std::lock_guard lock(mutex_);
+    const auto project = projects_.find(std::string(projectId));
+    if (project == projects_.end()) {
+        return;
+    }
+    ProjectState& state = project->second;
+    state.removed = true;
+    state.pending.reset();
+    state.accepted.reset();
+    if (state.activeCancellation) {
+        state.activeCancellation->request_stop();
+    }
+    if (isIdle()) {
+        idle_.notify_all();
+    }
+    wake_.notify_all();
 }
 
 void AnalysisScheduler::setAcceptedHandler(AcceptedHandler handler) {
@@ -108,7 +128,7 @@ void AnalysisScheduler::worker(std::stop_token shutdown) {
 
                 for (auto project = projects_.begin(); project != projects_.end(); ++project) {
                     ProjectState& state = project->second;
-                    if (!state.pending || state.activeCancellation) {
+                    if (state.removed || !state.pending || state.activeCancellation) {
                         continue;
                     }
                     if (state.pending->readyAt <= now) {
@@ -156,7 +176,7 @@ void AnalysisScheduler::worker(std::stop_token shutdown) {
             if (state.activeCancellation == cancellation) {
                 state.activeCancellation.reset();
                 if (snapshot && !cancellation->stop_requested()
-                    && state.latestGeneration == request.generation) {
+                    && !state.removed && state.latestGeneration == request.generation) {
                     state.accepted = std::move(*snapshot);
                     acceptedSnapshot = state.accepted;
                     acceptedHandler = acceptedHandler_;

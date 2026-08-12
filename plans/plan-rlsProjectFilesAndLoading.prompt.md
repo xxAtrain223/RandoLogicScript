@@ -36,7 +36,7 @@ This plan owns manifest format, discovery, validation, source membership, and sh
 
 1. [x] Given an edited `.rls` file, walk parent directories to the nearest `rls.json`.
 2. [x] Treat nested manifests as separate projects. A file belongs to the nearest parent manifest, not every ancestor.
-3. [ ] Support multiple manifests in an editor workspace without mixing their source sets or diagnostics. This requires an LSP project manager, which is not present in this checkout.
+3. [x] Support multiple manifests in an editor workspace without mixing their source sets or diagnostics.
 4. [x] For files with no discovered manifest, return a standalone configuration that analyzes only that file and does not promise cross-file resolution.
 5. [x] Define default discovery exclusions for build/VCS/cache directories and apply manifest exclusions before source loading.
 6. [x] Produce deterministic source ordering for explicit CLI inputs so diagnostics, tests, and generated output are stable.
@@ -71,7 +71,7 @@ This plan owns manifest format, discovery, validation, source membership, and sh
 
 ### Definition of Done
 
-- [ ] CLI and editor tooling receive identical project membership for the same `rls.json`. The shared resolver is ready for editor integration, but no editor project manager exists in this checkout.
+- [x] CLI and editor tooling receive identical project membership for the same `rls.json`.
 - [x] A file can be mapped deterministically to its nearest project or standalone state.
 - [ ] Manifest mistakes produce actionable diagnostics instead of silently analyzing an unintended file set.
 - [x] No project loader accidentally parses build or generated output as RLS source.

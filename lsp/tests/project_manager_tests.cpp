@@ -138,4 +138,44 @@ TEST(ProjectManagerTests, RequiresAnOpenDocumentBeforeAssignment) {
     EXPECT_EQ(projects.projectForDocument(uri), nullptr);
 }
 
+TEST(ProjectManagerTests, RefreshReassignsOpenDocumentAcrossNestedManifestChanges) {
+    TemporaryDirectory directory;
+    writeFile(directory.path() / "rls.json", R"({"version":1,"sources":["nested"]})");
+    const fs::path sourcePath = directory.path() / "nested" / "logic.rls";
+    writeFile(sourcePath, "define disk(): true\n");
+    const std::string uri = fileUri(sourcePath);
+
+    DocumentStore documents;
+    ProjectManager projects(documents);
+    ASSERT_EQ(documents.open(uri, "rls", 1, "define overlay(): true\n"),
+        DocumentUpdateResult::Applied);
+    ASSERT_EQ(projects.documentOpened(uri), ProjectAssignmentResult::Assigned);
+    const std::string outerProjectId = projects.projectForDocument(uri)->id;
+    const uint64_t outerGeneration = projects.projectForDocument(uri)->generation;
+
+    writeFile(directory.path() / "nested" / "rls.json",
+        R"({"version":1,"sources":["logic.rls"]})");
+    auto refresh = projects.refreshOpenDocuments();
+    ASSERT_TRUE(refresh.errors.empty());
+    ASSERT_EQ(refresh.changedProjectIds.size(), 1);
+    ASSERT_EQ(refresh.removedProjectIds.size(), 1);
+    EXPECT_EQ(refresh.removedProjectIds.front(), outerProjectId);
+    const auto* nestedProject = projects.projectForDocument(uri);
+    ASSERT_NE(nestedProject, nullptr);
+    EXPECT_NE(nestedProject->id, outerProjectId);
+    EXPECT_GT(nestedProject->generation, outerGeneration);
+    auto sourceSet = projects.sourceSetForProject(nestedProject->id);
+    ASSERT_EQ(sourceSet.sources.size(), 1);
+    EXPECT_EQ(sourceSet.sources.front().content, "define overlay(): true\n");
+    const std::string nestedProjectId = nestedProject->id;
+
+    fs::remove(directory.path() / "nested" / "rls.json");
+    refresh = projects.refreshOpenDocuments();
+    ASSERT_TRUE(refresh.errors.empty());
+    ASSERT_EQ(refresh.removedProjectIds.size(), 1);
+    EXPECT_EQ(refresh.removedProjectIds.front(), nestedProjectId);
+    ASSERT_NE(projects.projectForDocument(uri), nullptr);
+    EXPECT_EQ(projects.projectForDocument(uri)->id, outerProjectId);
+}
+
 } // namespace

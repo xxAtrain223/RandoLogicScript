@@ -11,6 +11,7 @@
 #include "rls/lsp/lifecycle_service.h"
 #include "rls/lsp/outbound_message_queue.h"
 #include "rls/lsp/project_manager.h"
+#include "rls/lsp/workspace_service.h"
 
 namespace rls::lsp {
 
@@ -26,6 +27,7 @@ public:
     const DocumentStore& documents() const;
     const ProjectManager& projects() const;
     AnalysisScheduler& scheduler();
+    const WorkspaceService& workspace() const;
     OutboundMessageQueue& outbound();
     const JsonRpcRouter& router() const;
 
@@ -37,6 +39,7 @@ private:
     LifecycleService lifecycle_;
     DiagnosticPublisher diagnostics_;
     AnalysisScheduler scheduler_;
+    WorkspaceService workspace_;
     DocumentSynchronizationService synchronization_;
 };
 

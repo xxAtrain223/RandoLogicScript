@@ -52,8 +52,8 @@ Expose the compiler query model through a robust, portable LSP server. This plan
 - [x] Advertise only capabilities implemented by registered modules. Initial scope is text synchronization and diagnostics, not future navigation/authoring capabilities.
 - [x] Implement `didOpen`, `didChange`, and `didClose` with full-document synchronization first.
 - [x] Reject stale document versions. Closing an overlay returns the project to disk content on the next snapshot.
-- [ ] Handle workspace-folder and watched-file notifications needed to reload manifests, adjust project membership, and react to disk changes.
-- [ ] Reassign/clear state when a document moves between project roots or becomes standalone.
+- [x] Handle workspace-folder and watched-file notifications needed to reload manifests, adjust project membership, and react to disk changes.
+- [x] Reassign/clear state when a document moves between project roots or becomes standalone.
 
 ### 5. Scheduling and Stale Results
 
@@ -80,7 +80,7 @@ Expose the compiler query model through a robust, portable LSP server. This plan
 - [x] Initialize capability negotiation and shutdown behavior.
 - [x] Open/change/close version behavior and overlay-versus-disk behavior.
 - [x] Per-project debounce, cancellation, and stale-result suppression.
-- [ ] Nested/multiple project assignment and manifest reload behavior.
+- [x] Nested/multiple project assignment and manifest reload behavior.
 - [ ] Parser, sema, configuration, cross-file, and diagnostic-clearing flows.
 - [ ] Windows, Linux, and macOS process/URI smoke tests.
 

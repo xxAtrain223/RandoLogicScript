@@ -45,6 +45,7 @@ public:
     AnalysisScheduler& operator=(const AnalysisScheduler&) = delete;
 
     bool schedule(AnalysisRequest request);
+    void removeProject(std::string_view projectId);
     void setAcceptedHandler(AcceptedHandler handler);
     Snapshot acceptedSnapshot(std::string_view projectId) const;
     void waitForIdle();
@@ -60,6 +61,7 @@ private:
         std::optional<PendingRequest> pending;
         std::shared_ptr<std::stop_source> activeCancellation;
         Snapshot accepted;
+        bool removed = false;
     };
 
     void worker(std::stop_token shutdown);

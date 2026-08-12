@@ -1,7 +1,13 @@
+#include <chrono>
+#include <filesystem>
+
 #include <gtest/gtest.h>
 #include <nlohmann/json.hpp>
 
 #include "rls/lsp/server_composition_root.h"
+#include "rls/lsp/document_uri.h"
+
+namespace fs = std::filesystem;
 
 namespace {
 
@@ -20,6 +26,8 @@ TEST(ServerCompositionRootTests, RegistersOnlyImplementedRoutes) {
 
     EXPECT_TRUE(server.router().contains("initialize"));
     EXPECT_TRUE(server.router().contains("textDocument/didOpen"));
+    EXPECT_TRUE(server.router().contains("workspace/didChangeWorkspaceFolders"));
+    EXPECT_TRUE(server.router().contains("workspace/didChangeWatchedFiles"));
     EXPECT_FALSE(server.router().contains("textDocument/definition"));
     EXPECT_FALSE(server.router().contains("textDocument/publishDiagnostics"));
 }
@@ -32,6 +40,7 @@ TEST(ServerCompositionRootTests, AdvertisesFullSynchronizationOnly) {
     ASSERT_EQ(responses.size(), 1);
     const auto result = Json::parse(responses.front())["result"];
     EXPECT_EQ(result["capabilities"]["textDocumentSync"]["change"], 1);
+    EXPECT_TRUE(result["capabilities"]["workspace"]["workspaceFolders"]["supported"]);
     EXPECT_FALSE(result["capabilities"].contains("definitionProvider"));
 }
 
@@ -104,6 +113,42 @@ TEST(ServerCompositionRootTests, IgnoresDocumentNotificationsBeforeInitialize) {
     })");
 
     EXPECT_EQ(server.documents().find("file:///early.rls"), nullptr);
+}
+
+TEST(ServerCompositionRootTests, RoutesWorkspaceFolderChanges) {
+    const fs::path first = fs::temp_directory_path() /
+        ("rls-lsp-workspace-route-first-" + std::to_string(
+            std::chrono::steady_clock::now().time_since_epoch().count()));
+    const fs::path second = fs::temp_directory_path() /
+        ("rls-lsp-workspace-route-second-" + std::to_string(
+            std::chrono::steady_clock::now().time_since_epoch().count()));
+    fs::create_directories(first);
+    fs::create_directories(second);
+    const std::string firstUri = *rls::lsp::PathToFileUri(first);
+    const std::string secondUri = *rls::lsp::PathToFileUri(second);
+    ServerCompositionRoot server;
+
+    server.handlePayload(Json{
+        {"jsonrpc", "2.0"}, {"id", 1}, {"method", "initialize"},
+        {"params", {{"workspaceFolders", Json::array({
+            {{"uri", firstUri}, {"name", "first"}},
+        })}}},
+    }.dump());
+    server.handlePayload(R"({"jsonrpc":"2.0","method":"initialized","params":{}})");
+    ASSERT_EQ(server.workspace().folderCount(), 1);
+
+    server.handlePayload(Json{
+        {"jsonrpc", "2.0"}, {"method", "workspace/didChangeWorkspaceFolders"},
+        {"params", {{"event", {
+            {"added", Json::array({{{"uri", secondUri}, {"name", "second"}}})},
+            {"removed", Json::array({{{"uri", firstUri}, {"name", "first"}}})},
+        }}}},
+    }.dump());
+    EXPECT_EQ(server.workspace().folderCount(), 1);
+
+    std::error_code error;
+    fs::remove_all(first, error);
+    fs::remove_all(second, error);
 }
 
 } // namespace

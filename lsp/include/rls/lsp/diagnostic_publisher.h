@@ -18,6 +18,7 @@ public:
 
     void documentOpened(std::string_view uri);
     void documentClosed(std::string_view uri, bool standalone);
+    void clearProject(std::string_view projectId);
     void acceptedSnapshot(
         std::string projectId, std::shared_ptr<const sema::AnalysisSnapshot> snapshot);
 

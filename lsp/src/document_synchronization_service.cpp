@@ -2,6 +2,8 @@
 
 #include <utility>
 
+#include "rls/lsp/project_analysis.h"
+
 namespace rls::lsp {
 namespace {
 
@@ -92,29 +94,7 @@ bool DocumentSynchronizationService::schedule(std::string_view uri) {
     if (!project) {
         return false;
     }
-    const std::string projectId = project->id;
-    ProjectSourceSet sourceSet = projects_.sourceSetForDocument(uri);
-    if (!sourceSet.error.empty()) {
-        return false;
-    }
-
-    std::vector<sema::SourceInput> sources;
-    sources.reserve(sourceSet.sources.size());
-    for (auto& source : sourceSet.sources) {
-        const auto genericPath = source.path.generic_u8string();
-        std::string path;
-        path.reserve(genericPath.size());
-        for (const char8_t byte : genericPath) {
-            path.push_back(static_cast<char>(byte));
-        }
-        sources.push_back({std::move(path), std::move(source.content)});
-    }
-
-    return scheduler_.schedule({
-        projectId,
-        sourceSet.generation,
-        std::move(sources),
-    });
+    return ScheduleProjectAnalysis(projects_, scheduler_, project->id);
 }
 
 } // namespace rls::lsp

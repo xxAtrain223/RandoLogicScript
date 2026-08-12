@@ -33,6 +33,12 @@ struct ProjectSourceSet {
     std::string error;
 };
 
+struct ProjectRefreshResult {
+    std::vector<std::string> changedProjectIds;
+    std::vector<std::string> removedProjectIds;
+    std::vector<std::string> errors;
+};
+
 enum class ProjectAssignmentResult {
     Assigned,
     InvalidUri,
@@ -49,9 +55,13 @@ public:
     ProjectAssignmentResult documentOpened(std::string_view uri);
     ProjectAssignmentResult documentChanged(std::string_view uri);
     ProjectAssignmentResult documentClosed(std::string_view uri);
+    ProjectRefreshResult refreshOpenDocuments(
+        const std::vector<std::filesystem::path>& workspaceRoots = {},
+        bool restrictToWorkspaceRoots = false);
 
     const ManagedProject* projectForDocument(std::string_view uri) const;
     ProjectSourceSet sourceSetForDocument(std::string_view uri) const;
+    ProjectSourceSet sourceSetForProject(std::string_view projectId) const;
 
 private:
     struct Assignment {
@@ -67,6 +77,7 @@ private:
     Resolver resolver_;
     std::unordered_map<std::string, Assignment> assignments_;
     std::unordered_map<std::string, ManagedProject> projects_;
+    uint64_t generation_ = 0;
 };
 
 } // namespace rls::lsp

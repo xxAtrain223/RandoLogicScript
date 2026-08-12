@@ -8,14 +8,16 @@ namespace rls::lsp {
 
 ServerCompositionRoot::ServerCompositionRoot(ProjectManager::Resolver resolver)
     : projects_(documents_, std::move(resolver)),
-            diagnostics_(outbound_),
-            synchronization_(lifecycle_, documents_, projects_, scheduler_, diagnostics_) {
-        scheduler_.setAcceptedHandler(
-                [this](std::string projectId, AnalysisScheduler::Snapshot snapshot) {
-                        diagnostics_.acceptedSnapshot(std::move(projectId), std::move(snapshot));
-                });
-    RegisterLifecycleRoutes(router_, lifecycle_);
+      diagnostics_(outbound_),
+      workspace_(projects_, scheduler_, diagnostics_),
+      synchronization_(lifecycle_, documents_, projects_, scheduler_, diagnostics_) {
+    scheduler_.setAcceptedHandler(
+        [this](std::string projectId, AnalysisScheduler::Snapshot snapshot) {
+            diagnostics_.acceptedSnapshot(std::move(projectId), std::move(snapshot));
+        });
+    RegisterLifecycleRoutes(router_, lifecycle_, workspace_);
     RegisterDocumentSynchronizationRoutes(router_, synchronization_);
+    RegisterWorkspaceRoutes(router_, lifecycle_, workspace_);
     router_.requireRoutes({
         "initialize",
         "initialized",
@@ -24,6 +26,8 @@ ServerCompositionRoot::ServerCompositionRoot(ProjectManager::Resolver resolver)
         "textDocument/didOpen",
         "textDocument/didChange",
         "textDocument/didClose",
+        "workspace/didChangeWorkspaceFolders",
+        "workspace/didChangeWatchedFiles",
     });
 }
 
@@ -49,6 +53,10 @@ const ProjectManager& ServerCompositionRoot::projects() const {
 
 AnalysisScheduler& ServerCompositionRoot::scheduler() {
     return scheduler_;
+}
+
+const WorkspaceService& ServerCompositionRoot::workspace() const {
+    return workspace_;
 }
 
 OutboundMessageQueue& ServerCompositionRoot::outbound() {
