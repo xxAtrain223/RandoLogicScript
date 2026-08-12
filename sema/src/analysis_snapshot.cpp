@@ -9,27 +9,34 @@
 namespace rls::sema {
 
 std::optional<std::shared_ptr<const AnalysisSnapshot>> AnalysisSnapshot::Create(
-	std::vector<SourceInput> sources, uint64_t generation) {
+	std::vector<SourceInput> sources, uint64_t generation, std::stop_token cancellation) {
+	if (cancellation.stop_requested()) return std::nullopt;
 	auto snapshot = std::make_shared<AnalysisSnapshot>();
 	snapshot->generation_ = generation;
 	std::map<std::string, std::string> effectiveSources;
 	for (auto& source : sources) effectiveSources[std::move(source.path)] = std::move(source.content);
 
 	for (auto& [path, content] : effectiveSources) {
+		if (cancellation.stop_requested()) return std::nullopt;
 		const auto sourceText = ast::SourceText::FromUtf8(content);
 		if (!sourceText) return std::nullopt;
 		auto parsed = rls::parser::ParseStringWithIndex(content, path);
+		if (cancellation.stop_requested()) return std::nullopt;
 		snapshot->documents_.push_back({path, *sourceText, std::move(parsed.sourceIndex)});
 		snapshot->project_.files.push_back(std::move(parsed.file));
 	}
 
+	if (cancellation.stop_requested()) return std::nullopt;
 	snapshot->diagnostics_ = analyze(snapshot->project_);
+	if (cancellation.stop_requested()) return std::nullopt;
 	for (const auto& file : snapshot->project_.files) {
 		for (const auto& diagnostic : file.diagnostics) {
 			snapshot->diagnostics_.push_back(diagnostic);
 		}
 	}
+	if (cancellation.stop_requested()) return std::nullopt;
 	snapshot->semanticIndex_ = buildSemanticIndex(snapshot->project_, snapshot->diagnostics_);
+	if (cancellation.stop_requested()) return std::nullopt;
 	for (const auto& diagnostic : snapshot->diagnostics_) {
 		if (diagnostic.code.starts_with("RLS-V")) continue;
 		snapshot->compilerDiagnostics_.push_back({diagnostic.code, diagnostic.level,

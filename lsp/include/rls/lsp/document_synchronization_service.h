@@ -4,6 +4,7 @@
 #include <string>
 #include <string_view>
 
+#include "rls/lsp/analysis_scheduler.h"
 #include "rls/lsp/document_store.h"
 #include "rls/lsp/lifecycle_service.h"
 #include "rls/lsp/project_manager.h"
@@ -22,7 +23,8 @@ enum class DocumentSynchronizationResult {
 class DocumentSynchronizationService {
 public:
     DocumentSynchronizationService(
-        LifecycleService& lifecycle, DocumentStore& documents, ProjectManager& projects);
+        LifecycleService& lifecycle, DocumentStore& documents, ProjectManager& projects,
+        AnalysisScheduler& scheduler);
 
     DocumentSynchronizationResult open(
         std::string uri, std::string languageId, int64_t version, std::string text);
@@ -31,9 +33,12 @@ public:
     DocumentSynchronizationResult close(std::string_view uri);
 
 private:
+    bool schedule(std::string_view uri);
+
     LifecycleService& lifecycle_;
     DocumentStore& documents_;
     ProjectManager& projects_;
+    AnalysisScheduler& scheduler_;
 };
 
 } // namespace rls::lsp

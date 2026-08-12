@@ -3,6 +3,7 @@
 #include <string_view>
 #include <vector>
 
+#include "rls/lsp/analysis_scheduler.h"
 #include "rls/lsp/document_synchronization_service.h"
 #include "rls/lsp/document_store.h"
 #include "rls/lsp/json_rpc_router.h"
@@ -22,6 +23,7 @@ public:
 
     const DocumentStore& documents() const;
     const ProjectManager& projects() const;
+    AnalysisScheduler& scheduler();
     const JsonRpcRouter& router() const;
 
 private:
@@ -29,6 +31,7 @@ private:
     DocumentStore documents_;
     ProjectManager projects_;
     LifecycleService lifecycle_;
+    AnalysisScheduler scheduler_;
     DocumentSynchronizationService synchronization_;
 };
 

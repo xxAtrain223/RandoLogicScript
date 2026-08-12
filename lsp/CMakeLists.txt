@@ -4,6 +4,7 @@ FetchContent_Declare(
     GIT_TAG v3.11.3
 )
 FetchContent_MakeAvailable(nlohmann_json)
+find_package(Threads REQUIRED)
 
 file(GLOB lsp_sources CONFIGURE_DEPENDS
     "${CMAKE_CURRENT_SOURCE_DIR}/src/*.cpp"
@@ -12,7 +13,12 @@ file(GLOB lsp_sources CONFIGURE_DEPENDS
 add_library(rls_lsp STATIC ${lsp_sources})
 
 target_include_directories(rls_lsp PUBLIC include)
-target_link_libraries(rls_lsp PUBLIC nlohmann_json::nlohmann_json project)
+target_link_libraries(rls_lsp PUBLIC
+    nlohmann_json::nlohmann_json
+    project
+    sema
+    Threads::Threads
+)
 
 add_executable(rls_language_server
     main.cpp

@@ -3,6 +3,7 @@
 #include <cstdint>
 #include <memory>
 #include <optional>
+#include <stop_token>
 #include <string>
 #include <vector>
 
@@ -21,7 +22,8 @@ struct SourceInput {
 class AnalysisSnapshot {
 public:
 	static std::optional<std::shared_ptr<const AnalysisSnapshot>> Create(
-		std::vector<SourceInput> sources, uint64_t generation = 0);
+		std::vector<SourceInput> sources, uint64_t generation = 0,
+		std::stop_token cancellation = {});
 
 	uint64_t generation() const { return generation_; }
 	size_t documentCount() const { return documents_.size(); }

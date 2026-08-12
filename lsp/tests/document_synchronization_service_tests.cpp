@@ -14,6 +14,7 @@ namespace fs = std::filesystem;
 
 namespace {
 
+using rls::lsp::AnalysisScheduler;
 using rls::lsp::DocumentStore;
 using rls::lsp::DocumentSynchronizationResult;
 using rls::lsp::DocumentSynchronizationService;
@@ -56,7 +57,12 @@ struct Services {
     DocumentStore documents;
     ProjectManager projects{documents};
     LifecycleService lifecycle;
-    DocumentSynchronizationService synchronization{lifecycle, documents, projects};
+    AnalysisScheduler scheduler{{
+        .debounce = std::chrono::milliseconds(0),
+        .maximumConcurrency = 1,
+    }};
+    DocumentSynchronizationService synchronization{
+        lifecycle, documents, projects, scheduler};
 
     void start() {
         lifecycle.initialize();
@@ -117,6 +123,34 @@ TEST(DocumentSynchronizationServiceTests, ClosingOverlayRestoresDiskSource) {
     ASSERT_TRUE(sourceSet.error.empty()) << sourceSet.error;
     ASSERT_EQ(sourceSet.sources.size(), 1);
     EXPECT_EQ(sourceSet.sources.front().content, "disk\n");
+}
+
+TEST(DocumentSynchronizationServiceTests, AcceptedChangesScheduleLatestGeneration) {
+    TemporaryDirectory directory;
+    const fs::path sourcePath = directory.path() / "main.rls";
+    writeFile(sourcePath, "define disk(): true\n");
+    const std::string uri = fileUri(sourcePath);
+    Services services;
+    services.start();
+    ASSERT_EQ(services.synchronization.open(
+        uri, "rls", 1, "define open(): true\n"),
+        DocumentSynchronizationResult::Applied);
+    ASSERT_EQ(services.synchronization.change(
+        uri, 2, "define changed(): true\n"),
+        DocumentSynchronizationResult::Applied);
+
+    const auto* project = services.projects.projectForDocument(uri);
+    ASSERT_NE(project, nullptr);
+    const uint64_t expectedGeneration = project->generation;
+    const std::string projectId = project->id;
+    services.scheduler.waitForIdle();
+
+    const auto snapshot = services.scheduler.acceptedSnapshot(projectId);
+    ASSERT_NE(snapshot, nullptr);
+    EXPECT_EQ(snapshot->generation(), expectedGeneration);
+    ASSERT_EQ(snapshot->documentCount(), 1);
+    EXPECT_EQ(snapshot->sourceText(fs::weakly_canonical(sourcePath).generic_string())->content(),
+        "define changed(): true\n");
 }
 
 } // namespace

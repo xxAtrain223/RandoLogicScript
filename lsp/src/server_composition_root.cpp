@@ -8,7 +8,7 @@ namespace rls::lsp {
 
 ServerCompositionRoot::ServerCompositionRoot(ProjectManager::Resolver resolver)
     : projects_(documents_, std::move(resolver)),
-      synchronization_(lifecycle_, documents_, projects_) {
+    synchronization_(lifecycle_, documents_, projects_, scheduler_) {
     RegisterLifecycleRoutes(router_, lifecycle_);
     RegisterDocumentSynchronizationRoutes(router_, synchronization_);
     router_.requireRoutes({
@@ -40,6 +40,10 @@ const DocumentStore& ServerCompositionRoot::documents() const {
 
 const ProjectManager& ServerCompositionRoot::projects() const {
     return projects_;
+}
+
+AnalysisScheduler& ServerCompositionRoot::scheduler() {
+    return scheduler_;
 }
 
 const JsonRpcRouter& ServerCompositionRoot::router() const {

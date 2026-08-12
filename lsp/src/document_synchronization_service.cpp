@@ -22,8 +22,9 @@ DocumentSynchronizationResult translate(DocumentUpdateResult result) {
 } // namespace
 
 DocumentSynchronizationService::DocumentSynchronizationService(
-    LifecycleService& lifecycle, DocumentStore& documents, ProjectManager& projects)
-    : lifecycle_(lifecycle), documents_(documents), projects_(projects) {}
+    LifecycleService& lifecycle, DocumentStore& documents, ProjectManager& projects,
+    AnalysisScheduler& scheduler)
+    : lifecycle_(lifecycle), documents_(documents), projects_(projects), scheduler_(scheduler) {}
 
 DocumentSynchronizationResult DocumentSynchronizationService::open(
     std::string uri, std::string languageId, int64_t version, std::string text) {
@@ -43,7 +44,8 @@ DocumentSynchronizationResult DocumentSynchronizationService::open(
             ? DocumentSynchronizationResult::InvalidUri
             : DocumentSynchronizationResult::ProjectResolutionFailed;
     }
-    return DocumentSynchronizationResult::Applied;
+    return schedule(uri) ? DocumentSynchronizationResult::Applied
+        : DocumentSynchronizationResult::ProjectResolutionFailed;
 }
 
 DocumentSynchronizationResult DocumentSynchronizationService::change(
@@ -59,8 +61,10 @@ DocumentSynchronizationResult DocumentSynchronizationService::change(
     if (update != DocumentUpdateResult::Applied) {
         return translate(update);
     }
-    return projects_.documentChanged(uri) == ProjectAssignmentResult::Assigned
-        ? DocumentSynchronizationResult::Applied
+    if (projects_.documentChanged(uri) != ProjectAssignmentResult::Assigned) {
+        return DocumentSynchronizationResult::ProjectResolutionFailed;
+    }
+    return schedule(uri) ? DocumentSynchronizationResult::Applied
         : DocumentSynchronizationResult::ProjectResolutionFailed;
 }
 
@@ -71,9 +75,41 @@ DocumentSynchronizationResult DocumentSynchronizationService::close(std::string_
     if (!projects_.projectForDocument(uri) || !documents_.close(uri)) {
         return DocumentSynchronizationResult::NotOpen;
     }
-    return projects_.documentClosed(uri) == ProjectAssignmentResult::Assigned
-        ? DocumentSynchronizationResult::Applied
+    if (projects_.documentClosed(uri) != ProjectAssignmentResult::Assigned) {
+        return DocumentSynchronizationResult::ProjectResolutionFailed;
+    }
+    return schedule(uri) ? DocumentSynchronizationResult::Applied
         : DocumentSynchronizationResult::ProjectResolutionFailed;
+}
+
+bool DocumentSynchronizationService::schedule(std::string_view uri) {
+    const ManagedProject* project = projects_.projectForDocument(uri);
+    if (!project) {
+        return false;
+    }
+    const std::string projectId = project->id;
+    ProjectSourceSet sourceSet = projects_.sourceSetForDocument(uri);
+    if (!sourceSet.error.empty()) {
+        return false;
+    }
+
+    std::vector<sema::SourceInput> sources;
+    sources.reserve(sourceSet.sources.size());
+    for (auto& source : sourceSet.sources) {
+        const auto genericPath = source.path.generic_u8string();
+        std::string path;
+        path.reserve(genericPath.size());
+        for (const char8_t byte : genericPath) {
+            path.push_back(static_cast<char>(byte));
+        }
+        sources.push_back({std::move(path), std::move(source.content)});
+    }
+
+    return scheduler_.schedule({
+        projectId,
+        sourceSet.generation,
+        std::move(sources),
+    });
 }
 
 } // namespace rls::lsp

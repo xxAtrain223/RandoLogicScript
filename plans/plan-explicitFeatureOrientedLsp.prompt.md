@@ -25,7 +25,7 @@ Expose the compiler query model through a robust, portable LSP server. This plan
 
 - [x] `DocumentStore` owns client text buffers and client versions.
 - [x] `ProjectManager` maps documents to project or standalone states using the project-loading service.
-- [ ] `AnalysisScheduler` receives source-set changes, debounces them, builds snapshots off the protocol loop, and discards stale work.
+- [x] `AnalysisScheduler` receives source-set changes, debounces them, builds snapshots off the protocol loop, and discards stale work.
 - [ ] `DiagnosticPublisher` compares accepted snapshots and publishes changed/cleared diagnostics.
 - [x] `ClientConnection` owns protocol notifications/responses.
 - [x] Handler modules depend on these interfaces, not globals or `ast::Project`.
@@ -57,12 +57,12 @@ Expose the compiler query model through a robust, portable LSP server. This plan
 
 ### 5. Scheduling and Stale Results
 
-- [ ] Schedule one debounced analysis stream per project.
+- [x] Schedule one debounced analysis stream per project.
 - [ ] Capture document and manifest generations before work starts.
 - [ ] Support cancellation tokens and cancellation at read, parse, sema, and indexing boundaries.
-- [ ] Publish a snapshot only when every triggering generation remains current. Discard older results without client notifications.
-- [ ] Begin with whole-project analysis. Hide this policy behind scheduler interfaces so later incremental work does not affect handlers.
-- [ ] Bound concurrent analyses across projects.
+- [x] Publish a snapshot only when every triggering generation remains current. Discard older results without client notifications.
+- [x] Begin with whole-project analysis. Hide this policy behind scheduler interfaces so later incremental work does not affect handlers.
+- [x] Bound concurrent analyses across projects.
 
 ### 6. Diagnostics
 
@@ -79,7 +79,7 @@ Expose the compiler query model through a robust, portable LSP server. This plan
 - [x] Explicit router registration without static initialization/linker flags.
 - [x] Initialize capability negotiation and shutdown behavior.
 - [x] Open/change/close version behavior and overlay-versus-disk behavior.
-- [ ] Per-project debounce, cancellation, and stale-result suppression.
+- [x] Per-project debounce, cancellation, and stale-result suppression.
 - [ ] Nested/multiple project assignment and manifest reload behavior.
 - [ ] Parser, sema, configuration, cross-file, and diagnostic-clearing flows.
 - [ ] Windows, Linux, and macOS process/URI smoke tests.

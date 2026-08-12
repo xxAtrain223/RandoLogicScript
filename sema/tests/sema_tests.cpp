@@ -1,4 +1,5 @@
 #include <algorithm>
+#include <stop_token>
 
 #include <gtest/gtest.h>
 
@@ -149,6 +150,15 @@ TEST(AnalysisSnapshotTests, OwnsExplicitSourcesAndDerivedIndexes) {
 	ASSERT_TRUE(overlay);
 	EXPECT_EQ((*overlay)->documentCount(), 1u);
 	EXPECT_EQ((*overlay)->sourceText("overlay.rls")->content(), "define check(): false\n");
+}
+
+TEST(AnalysisSnapshotTests, HonorsCancellationBeforeWorkStarts) {
+	std::stop_source cancellation;
+	cancellation.request_stop();
+
+	EXPECT_FALSE(AnalysisSnapshot::Create({
+		{"cancelled.rls", "define cancelled(): true\n"},
+	}, 45, cancellation.get_token()));
 }
 
 TEST(AnalysisSnapshotTests, IsolatesParseFailuresAcrossExplicitSources) {
