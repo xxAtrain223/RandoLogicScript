@@ -15,10 +15,12 @@ namespace fs = std::filesystem;
 namespace {
 
 using rls::lsp::AnalysisScheduler;
+using rls::lsp::DiagnosticPublisher;
 using rls::lsp::DocumentStore;
 using rls::lsp::DocumentSynchronizationResult;
 using rls::lsp::DocumentSynchronizationService;
 using rls::lsp::LifecycleService;
+using rls::lsp::OutboundMessageQueue;
 using rls::lsp::ProjectManager;
 
 class TemporaryDirectory {
@@ -54,15 +56,17 @@ std::string fileUri(const fs::path& path) {
 }
 
 struct Services {
+    OutboundMessageQueue outbound;
     DocumentStore documents;
     ProjectManager projects{documents};
     LifecycleService lifecycle;
+    DiagnosticPublisher diagnostics{outbound};
     AnalysisScheduler scheduler{{
         .debounce = std::chrono::milliseconds(0),
         .maximumConcurrency = 1,
     }};
     DocumentSynchronizationService synchronization{
-        lifecycle, documents, projects, scheduler};
+        lifecycle, documents, projects, scheduler, diagnostics};
 
     void start() {
         lifecycle.initialize();

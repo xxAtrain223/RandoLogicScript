@@ -3,6 +3,7 @@
 #include <exception>
 #include <istream>
 #include <ostream>
+#include <thread>
 
 #include "rls/lsp/message_framer.h"
 #include "rls/lsp/server_composition_root.h"
@@ -16,15 +17,20 @@ ClientConnection::ClientConnection(
 int ClientConnection::run(ServerCompositionRoot& server) {
     MessageFramer framer;
     char byte = 0;
+    std::jthread writer([&] {
+        while (const auto payload = server.outbound().waitPop()) {
+            const std::string frame = MessageFramer::frame(*payload);
+            output_.write(frame.data(), static_cast<std::streamsize>(frame.size()));
+            output_.flush();
+        }
+    });
 
     try {
         while (!server.shouldExit() && input_.get(byte)) {
             framer.append(std::string_view(&byte, 1));
             while (const auto payload = framer.popMessage()) {
                 for (const auto& response : server.handlePayload(*payload)) {
-                    const std::string frame = MessageFramer::frame(response);
-                    output_.write(frame.data(), static_cast<std::streamsize>(frame.size()));
-                    output_.flush();
+                    server.outbound().push(response);
                 }
                 if (server.shouldExit()) {
                     break;
@@ -32,10 +38,14 @@ int ClientConnection::run(ServerCompositionRoot& server) {
             }
         }
     } catch (const std::exception& error) {
+        server.outbound().close();
+        writer.join();
         log_ << "rls-language-server: " << error.what() << '\n';
         return 1;
     }
 
+    server.outbound().close();
+    writer.join();
     return server.shouldExit() ? server.exitCode() : 1;
 }
 

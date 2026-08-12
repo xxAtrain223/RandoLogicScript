@@ -4,10 +4,12 @@
 #include <vector>
 
 #include "rls/lsp/analysis_scheduler.h"
+#include "rls/lsp/diagnostic_publisher.h"
 #include "rls/lsp/document_synchronization_service.h"
 #include "rls/lsp/document_store.h"
 #include "rls/lsp/json_rpc_router.h"
 #include "rls/lsp/lifecycle_service.h"
+#include "rls/lsp/outbound_message_queue.h"
 #include "rls/lsp/project_manager.h"
 
 namespace rls::lsp {
@@ -24,13 +26,16 @@ public:
     const DocumentStore& documents() const;
     const ProjectManager& projects() const;
     AnalysisScheduler& scheduler();
+    OutboundMessageQueue& outbound();
     const JsonRpcRouter& router() const;
 
 private:
     JsonRpcRouter router_;
+    OutboundMessageQueue outbound_;
     DocumentStore documents_;
     ProjectManager projects_;
     LifecycleService lifecycle_;
+    DiagnosticPublisher diagnostics_;
     AnalysisScheduler scheduler_;
     DocumentSynchronizationService synchronization_;
 };

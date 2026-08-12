@@ -48,6 +48,13 @@ std::optional<std::shared_ptr<const AnalysisSnapshot>> AnalysisSnapshot::Create(
 	return std::shared_ptr<const AnalysisSnapshot>(std::move(snapshot));
 }
 
+std::vector<std::string> AnalysisSnapshot::documentPaths() const {
+	std::vector<std::string> paths;
+	paths.reserve(documents_.size());
+	for (const auto& document : documents_) paths.push_back(document.path);
+	return paths;
+}
+
 const ast::SourceText* AnalysisSnapshot::sourceText(std::string_view path) const {
 	const auto it = std::find_if(documents_.begin(), documents_.end(), [&](const Document& document) {
 		return document.path == path;

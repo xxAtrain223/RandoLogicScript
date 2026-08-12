@@ -3,12 +3,15 @@
 #include "rls/lsp/document_store.h"
 #include "rls/lsp/document_uri.h"
 
+namespace fs = std::filesystem;
+
 namespace {
 
 using rls::lsp::DocumentStore;
 using rls::lsp::DocumentUpdateResult;
 using rls::lsp::FileUriToPath;
 using rls::lsp::NormalizeDocumentUri;
+using rls::lsp::PathToFileUri;
 
 TEST(DocumentUriTests, NormalizesSchemeEscapesAndLocalhost) {
     EXPECT_EQ(NormalizeDocumentUri("FILE:///Logic%2fMain%2Erls"),
@@ -37,6 +40,15 @@ TEST(DocumentUriTests, ConvertsEscapedFileUrisToPaths) {
 #endif
     EXPECT_FALSE(FileUriToPath("https://example.com/main.rls").has_value());
     EXPECT_FALSE(FileUriToPath("file:///logic/bad%C3%28.rls").has_value());
+}
+
+TEST(DocumentUriTests, RoundTripsFilesystemPathsThroughFileUris) {
+    const fs::path path = fs::temp_directory_path() / "RLS URI" / "main.rls";
+    const auto uri = PathToFileUri(path);
+    ASSERT_TRUE(uri.has_value());
+    const auto roundTrip = FileUriToPath(*uri);
+    ASSERT_TRUE(roundTrip.has_value());
+    EXPECT_EQ(roundTrip->lexically_normal(), fs::absolute(path).lexically_normal());
 }
 
 TEST(DocumentStoreTests, StoresDocumentsUnderNormalizedUris) {

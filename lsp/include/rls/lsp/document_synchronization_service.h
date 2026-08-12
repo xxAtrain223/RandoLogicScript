@@ -5,6 +5,7 @@
 #include <string_view>
 
 #include "rls/lsp/analysis_scheduler.h"
+#include "rls/lsp/diagnostic_publisher.h"
 #include "rls/lsp/document_store.h"
 #include "rls/lsp/lifecycle_service.h"
 #include "rls/lsp/project_manager.h"
@@ -24,7 +25,7 @@ class DocumentSynchronizationService {
 public:
     DocumentSynchronizationService(
         LifecycleService& lifecycle, DocumentStore& documents, ProjectManager& projects,
-        AnalysisScheduler& scheduler);
+        AnalysisScheduler& scheduler, DiagnosticPublisher& diagnostics);
 
     DocumentSynchronizationResult open(
         std::string uri, std::string languageId, int64_t version, std::string text);
@@ -39,6 +40,7 @@ private:
     DocumentStore& documents_;
     ProjectManager& projects_;
     AnalysisScheduler& scheduler_;
+    DiagnosticPublisher& diagnostics_;
 };
 
 } // namespace rls::lsp

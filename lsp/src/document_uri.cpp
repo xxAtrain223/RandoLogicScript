@@ -227,4 +227,37 @@ std::optional<std::filesystem::path> FileUriToPath(std::string_view uri) {
     return std::filesystem::path(utf8Path);
 }
 
+std::optional<std::string> PathToFileUri(const std::filesystem::path& path) {
+    std::error_code error;
+    const auto absolute = std::filesystem::absolute(path, error);
+    if (error) {
+        return std::nullopt;
+    }
+
+    const auto generic = absolute.lexically_normal().generic_u8string();
+    const std::string_view genericBytes(
+        reinterpret_cast<const char*>(generic.data()), generic.size());
+    if (!isValidUtf8(genericBytes)) {
+        return std::nullopt;
+    }
+    std::string uri = "file://";
+#ifdef _WIN32
+    if (generic.size() >= 2 && generic[1] == u8':') {
+        uri.push_back('/');
+    }
+#endif
+    constexpr std::string_view Hex = "0123456789ABCDEF";
+    for (const char8_t byteValue : generic) {
+        const auto byte = static_cast<unsigned char>(byteValue);
+        if (isUnreserved(byte) || byte == '/' || byte == ':') {
+            uri.push_back(static_cast<char>(byte));
+        } else {
+            uri.push_back('%');
+            uri.push_back(Hex[byte >> 4]);
+            uri.push_back(Hex[byte & 0x0f]);
+        }
+    }
+    return NormalizeDocumentUri(uri);
+}
+
 } // namespace rls::lsp

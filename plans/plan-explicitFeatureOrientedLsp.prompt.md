@@ -26,7 +26,7 @@ Expose the compiler query model through a robust, portable LSP server. This plan
 - [x] `DocumentStore` owns client text buffers and client versions.
 - [x] `ProjectManager` maps documents to project or standalone states using the project-loading service.
 - [x] `AnalysisScheduler` receives source-set changes, debounces them, builds snapshots off the protocol loop, and discards stale work.
-- [ ] `DiagnosticPublisher` compares accepted snapshots and publishes changed/cleared diagnostics.
+- [x] `DiagnosticPublisher` compares accepted snapshots and publishes changed/cleared diagnostics.
 - [x] `ClientConnection` owns protocol notifications/responses.
 - [x] Handler modules depend on these interfaces, not globals or `ast::Project`.
 
@@ -36,7 +36,7 @@ Expose the compiler query model through a robust, portable LSP server. This plan
 - [ ] Group typed routes into modules:
    - [x] Lifecycle.
    - [x] Document synchronization.
-   - [ ] Diagnostics.
+   - [x] Diagnostics.
    - [ ] Future placeholders: navigation, authoring, highlighting, refactoring, formatting.
 - [x] Apply handler rules:
    - [x] Validate/decode protocol DTOs.
@@ -68,10 +68,10 @@ Expose the compiler query model through a robust, portable LSP server. This plan
 
 - [ ] Convert compiler/configuration diagnostics to LSP ranges through the shared SourceText conversion API.
 - [ ] Preserve severity, stable code, source, related information, and structured future-action data.
-- [ ] Publish diagnostics grouped by document for accepted snapshots.
-- [ ] Publish empty diagnostics to clear resolved diagnostics, removed files, and closed standalone documents.
+- [x] Publish diagnostics grouped by document for accepted snapshots.
+- [x] Publish empty diagnostics to clear resolved diagnostics, removed files, and closed standalone documents.
 - [ ] Publish manifest errors against `rls.json`; cross-file semantic errors use the primary span plus related declaration locations.
-- [ ] Use push diagnostics first for broad client support. Defer pull diagnostics until snapshot consistency is proven.
+- [x] Use push diagnostics first for broad client support. Defer pull diagnostics until snapshot consistency is proven.
 
 ### Tests
 
@@ -86,7 +86,7 @@ Expose the compiler query model through a robust, portable LSP server. This plan
 
 ### Definition of Done
 
-- [ ] A standard LSP client starts the server over stdio and receives accurate live diagnostics for a discovered RLS project.
-- [ ] Unsaved text supersedes disk text and stale analysis never republishes results.
+- [x] A standard LSP client starts the server over stdio and receives accurate live diagnostics for a discovered RLS project.
+- [x] Unsaved text supersedes disk text and stale analysis never republishes results.
 - [x] All handlers are explicitly registered and service-injected.
 - [x] No stdout logging, static registrar, linker force-load, endpoint-local AST traversal, or endpoint-local text lookup remains.

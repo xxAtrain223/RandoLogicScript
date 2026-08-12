@@ -23,8 +23,9 @@ DocumentSynchronizationResult translate(DocumentUpdateResult result) {
 
 DocumentSynchronizationService::DocumentSynchronizationService(
     LifecycleService& lifecycle, DocumentStore& documents, ProjectManager& projects,
-    AnalysisScheduler& scheduler)
-    : lifecycle_(lifecycle), documents_(documents), projects_(projects), scheduler_(scheduler) {}
+        AnalysisScheduler& scheduler, DiagnosticPublisher& diagnostics)
+        : lifecycle_(lifecycle), documents_(documents), projects_(projects), scheduler_(scheduler),
+            diagnostics_(diagnostics) {}
 
 DocumentSynchronizationResult DocumentSynchronizationService::open(
     std::string uri, std::string languageId, int64_t version, std::string text) {
@@ -44,6 +45,7 @@ DocumentSynchronizationResult DocumentSynchronizationService::open(
             ? DocumentSynchronizationResult::InvalidUri
             : DocumentSynchronizationResult::ProjectResolutionFailed;
     }
+    diagnostics_.documentOpened(uri);
     return schedule(uri) ? DocumentSynchronizationResult::Applied
         : DocumentSynchronizationResult::ProjectResolutionFailed;
 }
@@ -72,12 +74,15 @@ DocumentSynchronizationResult DocumentSynchronizationService::close(std::string_
     if (!lifecycle_.acceptsDocumentUpdates()) {
         return DocumentSynchronizationResult::NotReady;
     }
-    if (!projects_.projectForDocument(uri) || !documents_.close(uri)) {
+    const ManagedProject* project = projects_.projectForDocument(uri);
+    if (!project || !documents_.close(uri)) {
         return DocumentSynchronizationResult::NotOpen;
     }
+    const bool standalone = project->isStandalone;
     if (projects_.documentClosed(uri) != ProjectAssignmentResult::Assigned) {
         return DocumentSynchronizationResult::ProjectResolutionFailed;
     }
+    diagnostics_.documentClosed(uri, standalone);
     return schedule(uri) ? DocumentSynchronizationResult::Applied
         : DocumentSynchronizationResult::ProjectResolutionFailed;
 }

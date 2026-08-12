@@ -27,6 +27,7 @@ public:
 
 	uint64_t generation() const { return generation_; }
 	size_t documentCount() const { return documents_.size(); }
+	std::vector<std::string> documentPaths() const;
 	const SemanticIndex& semanticIndex() const { return semanticIndex_; }
 	const ast::SourceText* sourceText(std::string_view path) const;
 	const rls::parser::SourceIndex* sourceIndex(std::string_view path) const;

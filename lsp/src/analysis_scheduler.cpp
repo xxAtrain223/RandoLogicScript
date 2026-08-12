@@ -69,6 +69,11 @@ bool AnalysisScheduler::schedule(AnalysisRequest request) {
     return true;
 }
 
+void AnalysisScheduler::setAcceptedHandler(AcceptedHandler handler) {
+    std::lock_guard lock(mutex_);
+    acceptedHandler_ = std::move(handler);
+}
+
 AnalysisScheduler::Snapshot AnalysisScheduler::acceptedSnapshot(std::string_view projectId) const {
     std::lock_guard lock(mutex_);
     const auto project = projects_.find(std::string(projectId));
@@ -143,6 +148,8 @@ void AnalysisScheduler::worker(std::stop_token shutdown) {
             snapshot = std::nullopt;
         }
 
+        AcceptedHandler acceptedHandler;
+        Snapshot acceptedSnapshot;
         {
             std::lock_guard lock(mutex_);
             ProjectState& state = projects_.at(request.projectId);
@@ -151,11 +158,19 @@ void AnalysisScheduler::worker(std::stop_token shutdown) {
                 if (snapshot && !cancellation->stop_requested()
                     && state.latestGeneration == request.generation) {
                     state.accepted = std::move(*snapshot);
+                    acceptedSnapshot = state.accepted;
+                    acceptedHandler = acceptedHandler_;
                 }
             }
             --activeBuilds_;
             if (isIdle()) {
                 idle_.notify_all();
+            }
+        }
+        if (acceptedHandler && acceptedSnapshot) {
+            try {
+                acceptedHandler(request.projectId, std::move(acceptedSnapshot));
+            } catch (...) {
             }
         }
         wake_.notify_all();

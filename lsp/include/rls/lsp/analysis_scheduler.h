@@ -30,6 +30,7 @@ public:
     using Snapshot = std::shared_ptr<const sema::AnalysisSnapshot>;
     using Builder = std::function<std::optional<Snapshot>(
         std::vector<sema::SourceInput>, uint64_t, std::stop_token)>;
+    using AcceptedHandler = std::function<void(std::string, Snapshot)>;
 
     struct Options {
         std::chrono::milliseconds debounce{75};
@@ -44,6 +45,7 @@ public:
     AnalysisScheduler& operator=(const AnalysisScheduler&) = delete;
 
     bool schedule(AnalysisRequest request);
+    void setAcceptedHandler(AcceptedHandler handler);
     Snapshot acceptedSnapshot(std::string_view projectId) const;
     void waitForIdle();
 
@@ -69,6 +71,7 @@ private:
     std::condition_variable_any wake_;
     std::condition_variable idle_;
     std::unordered_map<std::string, ProjectState> projects_;
+    AcceptedHandler acceptedHandler_;
     std::vector<std::jthread> workers_;
     size_t activeBuilds_ = 0;
 };

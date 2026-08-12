@@ -8,7 +8,12 @@ namespace rls::lsp {
 
 ServerCompositionRoot::ServerCompositionRoot(ProjectManager::Resolver resolver)
     : projects_(documents_, std::move(resolver)),
-    synchronization_(lifecycle_, documents_, projects_, scheduler_) {
+            diagnostics_(outbound_),
+            synchronization_(lifecycle_, documents_, projects_, scheduler_, diagnostics_) {
+        scheduler_.setAcceptedHandler(
+                [this](std::string projectId, AnalysisScheduler::Snapshot snapshot) {
+                        diagnostics_.acceptedSnapshot(std::move(projectId), std::move(snapshot));
+                });
     RegisterLifecycleRoutes(router_, lifecycle_);
     RegisterDocumentSynchronizationRoutes(router_, synchronization_);
     router_.requireRoutes({
@@ -44,6 +49,10 @@ const ProjectManager& ServerCompositionRoot::projects() const {
 
 AnalysisScheduler& ServerCompositionRoot::scheduler() {
     return scheduler_;
+}
+
+OutboundMessageQueue& ServerCompositionRoot::outbound() {
+    return outbound_;
 }
 
 const JsonRpcRouter& ServerCompositionRoot::router() const {
