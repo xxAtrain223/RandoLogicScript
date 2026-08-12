@@ -12,7 +12,7 @@ file(GLOB lsp_sources CONFIGURE_DEPENDS
 add_library(rls_lsp STATIC ${lsp_sources})
 
 target_include_directories(rls_lsp PUBLIC include)
-target_link_libraries(rls_lsp PUBLIC nlohmann_json::nlohmann_json)
+target_link_libraries(rls_lsp PUBLIC nlohmann_json::nlohmann_json project)
 
 add_executable(rls_language_server
     main.cpp

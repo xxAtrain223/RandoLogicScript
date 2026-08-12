@@ -8,6 +8,13 @@ namespace {
 using Json = nlohmann::json;
 using rls::lsp::ServerCompositionRoot;
 
+rls::project::FileProject standaloneProject(const std::filesystem::path& path) {
+    rls::project::FileProject project;
+    project.sourceFiles.push_back(path.lexically_normal());
+    project.isStandalone = true;
+    return project;
+}
+
 TEST(ServerCompositionRootTests, RegistersOnlyImplementedRoutes) {
     ServerCompositionRoot server;
 
@@ -29,9 +36,11 @@ TEST(ServerCompositionRootTests, AdvertisesFullSynchronizationOnly) {
 }
 
 TEST(ServerCompositionRootTests, SynchronizesOpenChangeAndClose) {
-    ServerCompositionRoot server;
+    ServerCompositionRoot server(standaloneProject);
     server.handlePayload(
         R"({"jsonrpc":"2.0","id":1,"method":"initialize","params":{}})");
+    server.handlePayload(
+        R"({"jsonrpc":"2.0","method":"initialized","params":{}})");
     server.handlePayload(R"({
         "jsonrpc":"2.0",
         "method":"textDocument/didOpen",

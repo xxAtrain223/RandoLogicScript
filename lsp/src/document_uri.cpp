@@ -36,6 +36,49 @@ char upperHex(int value) {
     return static_cast<char>(value < 10 ? '0' + value : 'A' + value - 10);
 }
 
+bool isValidUtf8(std::string_view value) {
+    for (size_t index = 0; index < value.size();) {
+        const auto first = static_cast<unsigned char>(value[index]);
+        if (first <= 0x7f) {
+            ++index;
+            continue;
+        }
+
+        size_t continuationCount = 0;
+        unsigned char secondMinimum = 0x80;
+        unsigned char secondMaximum = 0xbf;
+        if (first >= 0xc2 && first <= 0xdf) {
+            continuationCount = 1;
+        } else if (first >= 0xe0 && first <= 0xef) {
+            continuationCount = 2;
+            if (first == 0xe0) secondMinimum = 0xa0;
+            if (first == 0xed) secondMaximum = 0x9f;
+        } else if (first >= 0xf0 && first <= 0xf4) {
+            continuationCount = 3;
+            if (first == 0xf0) secondMinimum = 0x90;
+            if (first == 0xf4) secondMaximum = 0x8f;
+        } else {
+            return false;
+        }
+
+        if (index + continuationCount >= value.size()) {
+            return false;
+        }
+        const auto second = static_cast<unsigned char>(value[index + 1]);
+        if (second < secondMinimum || second > secondMaximum) {
+            return false;
+        }
+        for (size_t offset = 2; offset <= continuationCount; ++offset) {
+            const auto continuation = static_cast<unsigned char>(value[index + offset]);
+            if (continuation < 0x80 || continuation > 0xbf) {
+                return false;
+            }
+        }
+        index += continuationCount + 1;
+    }
+    return true;
+}
+
 } // namespace
 
 std::optional<std::string> NormalizeDocumentUri(std::string_view uri) {
@@ -130,6 +173,58 @@ std::optional<std::string> DocumentUriKey(std::string_view uri) {
     }
 #endif
     return normalized;
+}
+
+std::optional<std::filesystem::path> FileUriToPath(std::string_view uri) {
+    const auto normalized = NormalizeDocumentUri(uri);
+    if (!normalized || !normalized->starts_with("file://")) {
+        return std::nullopt;
+    }
+
+    constexpr size_t AuthorityStart = 7;
+    const size_t pathStart = normalized->find('/', AuthorityStart);
+    if (pathStart == std::string::npos) {
+        return std::nullopt;
+    }
+
+    const std::string authority = normalized->substr(
+        AuthorityStart, pathStart - AuthorityStart);
+    std::string path;
+    path.reserve(normalized->size() - pathStart);
+    for (size_t index = pathStart; index < normalized->size(); ++index) {
+        if ((*normalized)[index] != '%') {
+            path.push_back((*normalized)[index]);
+            continue;
+        }
+
+        const int high = hexValue((*normalized)[index + 1]);
+        const int low = hexValue((*normalized)[index + 2]);
+        const char decoded = static_cast<char>((high << 4) | low);
+        if (decoded == '\0') {
+            return std::nullopt;
+        }
+        path.push_back(decoded);
+        index += 2;
+    }
+
+    if (!authority.empty()) {
+        path = "//" + authority + path;
+    }
+#ifdef _WIN32
+    if (authority.empty() && path.size() >= 3 && path[0] == '/'
+        && std::isalpha(static_cast<unsigned char>(path[1])) && path[2] == ':') {
+        path.erase(0, 1);
+    }
+#endif
+    if (!isValidUtf8(path)) {
+        return std::nullopt;
+    }
+    std::u8string utf8Path;
+    utf8Path.reserve(path.size());
+    for (const unsigned char byte : path) {
+        utf8Path.push_back(static_cast<char8_t>(byte));
+    }
+    return std::filesystem::path(utf8Path);
 }
 
 } // namespace rls::lsp

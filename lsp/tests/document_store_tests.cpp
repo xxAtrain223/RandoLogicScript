@@ -7,6 +7,7 @@ namespace {
 
 using rls::lsp::DocumentStore;
 using rls::lsp::DocumentUpdateResult;
+using rls::lsp::FileUriToPath;
 using rls::lsp::NormalizeDocumentUri;
 
 TEST(DocumentUriTests, NormalizesSchemeEscapesAndLocalhost) {
@@ -22,6 +23,20 @@ TEST(DocumentUriTests, RejectsMalformedUris) {
     EXPECT_FALSE(NormalizeDocumentUri("C:\\logic\\main.rls").has_value());
     EXPECT_FALSE(NormalizeDocumentUri("file:///bad%2").has_value());
     EXPECT_FALSE(NormalizeDocumentUri("file://relative").has_value());
+}
+
+TEST(DocumentUriTests, ConvertsEscapedFileUrisToPaths) {
+#ifdef _WIN32
+    EXPECT_EQ(FileUriToPath("file:///C:/logic/My%20File.rls"),
+        std::filesystem::path("C:/logic/My File.rls"));
+    EXPECT_EQ(FileUriToPath("file://server/share/main.rls"),
+        std::filesystem::path("//server/share/main.rls"));
+#else
+    EXPECT_EQ(FileUriToPath("file:///logic/My%20File.rls"),
+        std::filesystem::path("/logic/My File.rls"));
+#endif
+    EXPECT_FALSE(FileUriToPath("https://example.com/main.rls").has_value());
+    EXPECT_FALSE(FileUriToPath("file:///logic/bad%C3%28.rls").has_value());
 }
 
 TEST(DocumentStoreTests, StoresDocumentsUnderNormalizedUris) {

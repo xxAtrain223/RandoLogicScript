@@ -24,24 +24,24 @@ Expose the compiler query model through a robust, portable LSP server. This plan
 ### 2. Service Boundaries
 
 - [x] `DocumentStore` owns client text buffers and client versions.
-- [ ] `ProjectManager` maps documents to project or standalone states using the project-loading service.
+- [x] `ProjectManager` maps documents to project or standalone states using the project-loading service.
 - [ ] `AnalysisScheduler` receives source-set changes, debounces them, builds snapshots off the protocol loop, and discards stale work.
 - [ ] `DiagnosticPublisher` compares accepted snapshots and publishes changed/cleared diagnostics.
 - [x] `ClientConnection` owns protocol notifications/responses.
-- [ ] Handler modules depend on these interfaces, not globals or `ast::Project`.
+- [x] Handler modules depend on these interfaces, not globals or `ast::Project`.
 
 ### 3. Explicit Router and Composition Root
 
 - [x] Create one `ServerCompositionRoot` that constructs all services and registers every route explicitly.
 - [ ] Group typed routes into modules:
-   - [ ] Lifecycle.
-   - [ ] Document synchronization.
+   - [x] Lifecycle.
+   - [x] Document synchronization.
    - [ ] Diagnostics.
    - [ ] Future placeholders: navigation, authoring, highlighting, refactoring, formatting.
-- [ ] Apply handler rules:
-   - [ ] Validate/decode protocol DTOs.
-   - [ ] Invoke injected service APIs.
-   - [ ] Translate results to protocol DTOs.
+- [x] Apply handler rules:
+   - [x] Validate/decode protocol DTOs.
+   - [x] Invoke injected service APIs.
+   - [x] Translate results to protocol DTOs.
    - [x] Never scan source, navigate ASTs, or mutate analysis state directly.
 - [x] Validate duplicate/missing route registration at startup.
 - [x] Remove static endpoint auto-registration, linker force-load flags, global registries, and hidden singletons.
@@ -51,7 +51,7 @@ Expose the compiler query model through a robust, portable LSP server. This plan
 - [x] Implement `initialize`, `initialized`, `shutdown`, and `exit`.
 - [x] Advertise only capabilities implemented by registered modules. Initial scope is text synchronization and diagnostics, not future navigation/authoring capabilities.
 - [x] Implement `didOpen`, `didChange`, and `didClose` with full-document synchronization first.
-- [ ] Reject stale document versions. Closing an overlay returns the project to disk content on the next snapshot.
+- [x] Reject stale document versions. Closing an overlay returns the project to disk content on the next snapshot.
 - [ ] Handle workspace-folder and watched-file notifications needed to reload manifests, adjust project membership, and react to disk changes.
 - [ ] Reassign/clear state when a document moves between project roots or becomes standalone.
 
@@ -78,7 +78,7 @@ Expose the compiler query model through a robust, portable LSP server. This plan
 - [x] JSON-RPC framing, malformed messages, and clean stdout.
 - [x] Explicit router registration without static initialization/linker flags.
 - [x] Initialize capability negotiation and shutdown behavior.
-- [ ] Open/change/close version behavior and overlay-versus-disk behavior.
+- [x] Open/change/close version behavior and overlay-versus-disk behavior.
 - [ ] Per-project debounce, cancellation, and stale-result suppression.
 - [ ] Nested/multiple project assignment and manifest reload behavior.
 - [ ] Parser, sema, configuration, cross-file, and diagnostic-clearing flows.
@@ -88,5 +88,5 @@ Expose the compiler query model through a robust, portable LSP server. This plan
 
 - [ ] A standard LSP client starts the server over stdio and receives accurate live diagnostics for a discovered RLS project.
 - [ ] Unsaved text supersedes disk text and stale analysis never republishes results.
-- [ ] All handlers are explicitly registered and service-injected.
+- [x] All handlers are explicitly registered and service-injected.
 - [x] No stdout logging, static registrar, linker force-load, endpoint-local AST traversal, or endpoint-local text lookup remains.
