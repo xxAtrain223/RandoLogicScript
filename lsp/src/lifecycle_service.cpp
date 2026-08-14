@@ -4,11 +4,12 @@
 
 namespace rls::lsp {
 
-void LifecycleService::initialize() {
+void LifecycleService::initialize(bool definitionLinkSupport) {
     if (initializeRequested_) {
         throw std::logic_error("initialize was already requested");
     }
     initializeRequested_ = true;
+    definitionLinkSupport_ = definitionLinkSupport;
 }
 
 void LifecycleService::initialized() {
@@ -31,6 +32,10 @@ void LifecycleService::exit() {
 
 bool LifecycleService::acceptsDocumentUpdates() const {
     return initialized_ && !shutdownRequested_;
+}
+
+bool LifecycleService::supportsDefinitionLinks() const {
+    return definitionLinkSupport_;
 }
 
 bool LifecycleService::shouldExit() const {

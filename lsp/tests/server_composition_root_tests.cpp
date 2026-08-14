@@ -28,11 +28,11 @@ TEST(ServerCompositionRootTests, RegistersOnlyImplementedRoutes) {
     EXPECT_TRUE(server.router().contains("textDocument/didOpen"));
     EXPECT_TRUE(server.router().contains("workspace/didChangeWorkspaceFolders"));
     EXPECT_TRUE(server.router().contains("workspace/didChangeWatchedFiles"));
-    EXPECT_FALSE(server.router().contains("textDocument/definition"));
+    EXPECT_TRUE(server.router().contains("textDocument/definition"));
     EXPECT_FALSE(server.router().contains("textDocument/publishDiagnostics"));
 }
 
-TEST(ServerCompositionRootTests, AdvertisesFullSynchronizationOnly) {
+TEST(ServerCompositionRootTests, AdvertisesSynchronizationAndDefinition) {
     ServerCompositionRoot server;
     const auto responses = server.handlePayload(
         R"({"jsonrpc":"2.0","id":1,"method":"initialize","params":{}})");
@@ -41,7 +41,86 @@ TEST(ServerCompositionRootTests, AdvertisesFullSynchronizationOnly) {
     const auto result = Json::parse(responses.front())["result"];
     EXPECT_EQ(result["capabilities"]["textDocumentSync"]["change"], 1);
     EXPECT_TRUE(result["capabilities"]["workspace"]["workspaceFolders"]["supported"]);
-    EXPECT_FALSE(result["capabilities"].contains("definitionProvider"));
+    EXPECT_EQ(result["capabilities"]["definitionProvider"], true);
+}
+
+TEST(ServerCompositionRootTests, RoutesDefinitionFromAcceptedSnapshot) {
+    const fs::path sourcePath = fs::temp_directory_path() / "rls-definition-route.rls";
+    const std::string uri = *rls::lsp::PathToFileUri(sourcePath);
+    ServerCompositionRoot server(standaloneProject);
+    server.handlePayload(R"({
+        "jsonrpc":"2.0","id":1,"method":"initialize","params":{
+            "capabilities":{"textDocument":{"definition":{"linkSupport":true}}}
+        }
+    })");
+    server.handlePayload(
+        R"({"jsonrpc":"2.0","method":"initialized","params":{}})");
+    server.handlePayload(Json{
+        {"jsonrpc", "2.0"},
+        {"method", "textDocument/didOpen"},
+        {"params", {{"textDocument", {
+            {"uri", uri},
+            {"languageId", "rls"},
+            {"version", 1},
+            {"text", "define target(): true\ndefine caller(): target()\n"},
+        }}}},
+    }.dump());
+    server.scheduler().waitForIdle();
+
+    const auto responses = server.handlePayload(Json{
+        {"jsonrpc", "2.0"},
+        {"id", 2},
+        {"method", "textDocument/definition"},
+        {"params", {
+            {"textDocument", {{"uri", uri}}},
+            {"position", {{"line", 1}, {"character", 18}}},
+        }},
+    }.dump());
+
+    ASSERT_EQ(responses.size(), 1);
+    const auto result = Json::parse(responses.front())["result"];
+    ASSERT_EQ(result.size(), 1);
+    EXPECT_EQ(result[0]["targetUri"], uri);
+    EXPECT_EQ(result[0]["originSelectionRange"]["start"]["character"], 17);
+    EXPECT_EQ(result[0]["targetSelectionRange"]["start"]["character"], 7);
+}
+
+TEST(ServerCompositionRootTests, FallsBackToLocationWithoutDefinitionLinkSupport) {
+    const fs::path sourcePath = fs::temp_directory_path() / "rls-definition-location.rls";
+    const std::string uri = *rls::lsp::PathToFileUri(sourcePath);
+    ServerCompositionRoot server(standaloneProject);
+    server.handlePayload(
+        R"({"jsonrpc":"2.0","id":1,"method":"initialize","params":{}})");
+    server.handlePayload(
+        R"({"jsonrpc":"2.0","method":"initialized","params":{}})");
+    server.handlePayload(Json{
+        {"jsonrpc", "2.0"},
+        {"method", "textDocument/didOpen"},
+        {"params", {{"textDocument", {
+            {"uri", uri},
+            {"languageId", "rls"},
+            {"version", 1},
+            {"text", "define target(): true\ndefine caller(): target()\n"},
+        }}}},
+    }.dump());
+    server.scheduler().waitForIdle();
+
+    const auto responses = server.handlePayload(Json{
+        {"jsonrpc", "2.0"},
+        {"id", 2},
+        {"method", "textDocument/definition"},
+        {"params", {
+            {"textDocument", {{"uri", uri}}},
+            {"position", {{"line", 1}, {"character", 18}}},
+        }},
+    }.dump());
+
+    ASSERT_EQ(responses.size(), 1);
+    const auto result = Json::parse(responses.front())["result"];
+    ASSERT_EQ(result.size(), 1);
+    EXPECT_EQ(result[0]["uri"], uri);
+    EXPECT_EQ(result[0]["range"]["start"]["character"], 7);
+    EXPECT_FALSE(result[0].contains("targetUri"));
 }
 
 TEST(ServerCompositionRootTests, SynchronizesOpenChangeAndClose) {

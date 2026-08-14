@@ -9,6 +9,7 @@ namespace rls::lsp {
 ServerCompositionRoot::ServerCompositionRoot(ProjectManager::Resolver resolver)
     : projects_(documents_, std::move(resolver)),
       diagnostics_(outbound_),
+    navigation_(projects_, scheduler_),
       workspace_(projects_, scheduler_, diagnostics_),
       synchronization_(lifecycle_, documents_, projects_, scheduler_, diagnostics_) {
     scheduler_.setAcceptedHandler(
@@ -17,6 +18,7 @@ ServerCompositionRoot::ServerCompositionRoot(ProjectManager::Resolver resolver)
         });
     RegisterLifecycleRoutes(router_, lifecycle_, workspace_);
     RegisterDocumentSynchronizationRoutes(router_, synchronization_);
+    RegisterNavigationRoutes(router_, lifecycle_, navigation_);
     RegisterWorkspaceRoutes(router_, lifecycle_, workspace_);
     router_.requireRoutes({
         "initialize",
@@ -26,6 +28,7 @@ ServerCompositionRoot::ServerCompositionRoot(ProjectManager::Resolver resolver)
         "textDocument/didOpen",
         "textDocument/didChange",
         "textDocument/didClose",
+        "textDocument/definition",
         "workspace/didChangeWorkspaceFolders",
         "workspace/didChangeWatchedFiles",
     });

@@ -11,10 +11,11 @@ namespace {
 
 using Json = nlohmann::json;
 
-void requireObject(const Json& params) {
+const Json& requireObject(const Json& params) {
     if (!params.is_object()) {
         throw InvalidParams("expected object parameters");
     }
+    return params;
 }
 
 void requireNull(const Json& params) {
@@ -38,6 +39,22 @@ std::vector<std::string> workspaceFolders(const Json& params) {
     return uris;
 }
 
+bool definitionLinkSupport(const Json& params) {
+    if (!params.contains("capabilities")) {
+        return false;
+    }
+    const auto& capabilities = requireObject(params.at("capabilities"));
+    if (!capabilities.contains("textDocument")) {
+        return false;
+    }
+    const auto& textDocument = requireObject(capabilities.at("textDocument"));
+    if (!textDocument.contains("definition")) {
+        return false;
+    }
+    const auto& definition = requireObject(textDocument.at("definition"));
+    return definition.value("linkSupport", false);
+}
+
 } // namespace
 
 void RegisterLifecycleRoutes(
@@ -50,13 +67,14 @@ void RegisterLifecycleRoutes(
         if (!workspace.initialize(workspaceFolders(params), hasWorkspaceRoot)) {
             throw InvalidParams("invalid workspace folder URI");
         }
-        lifecycle.initialize();
+        lifecycle.initialize(definitionLinkSupport(params));
         return Json{
             {"capabilities", {
                 {"textDocumentSync", {
                     {"openClose", true},
                     {"change", 1},
                 }},
+                {"definitionProvider", true},
                 {"workspace", {
                     {"workspaceFolders", {
                         {"supported", true},
