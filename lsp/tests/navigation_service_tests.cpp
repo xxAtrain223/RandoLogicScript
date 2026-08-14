@@ -61,9 +61,69 @@ TEST(NavigationServiceTests, FindsCrossFileDefinitionInCurrentSnapshot) {
     EXPECT_EQ(definition->targetSelectionRange.start.character, 14u);
     EXPECT_EQ(definition->targetSelectionRange.end.character, 20u);
 
+    const auto references = navigation.references(usageUri, {0, 18}, true);
+    ASSERT_EQ(references.size(), 2u);
+    EXPECT_EQ(references[0].uri, *rls::lsp::PathToFileUri(declarationPath));
+    EXPECT_EQ(references[1].uri, usageUri);
+    const auto referencesWithoutDeclaration = navigation.references(
+        usageUri, {0, 18}, false);
+    ASSERT_EQ(referencesWithoutDeclaration.size(), 1u);
+    EXPECT_EQ(referencesWithoutDeclaration[0].uri, usageUri);
+    const auto highlights = navigation.documentHighlights(usageUri, {0, 18});
+    ASSERT_EQ(highlights.size(), 1u);
+    EXPECT_EQ(highlights[0].start.character, 17u);
+
     ASSERT_EQ(projects.documentChanged(usageUri),
         rls::lsp::ProjectAssignmentResult::Assigned);
     EXPECT_FALSE(navigation.definition(usageUri, {0, 18}));
+    EXPECT_TRUE(navigation.references(usageUri, {0, 18}, true).empty());
+    EXPECT_TRUE(navigation.documentHighlights(usageUri, {0, 18}).empty());
+}
+
+TEST(NavigationServiceTests, KeepsSameNameParametersInSeparateScopes) {
+    const fs::path sourcePath = fs::temp_directory_path() / "rls-navigation-parameters.rls";
+    const std::string uri = *rls::lsp::PathToFileUri(sourcePath);
+    const std::string content =
+        "define first(value: Bool): value\n"
+        "define second(value: Bool): value\n";
+    DocumentStore documents;
+    ASSERT_EQ(documents.open(uri, "rls", 1, content),
+        rls::lsp::DocumentUpdateResult::Applied);
+    ProjectManager projects(documents, [&](const fs::path&) {
+        rls::project::FileProject project;
+        project.sourceFiles = {sourcePath};
+        project.isStandalone = true;
+        return project;
+    });
+    ASSERT_EQ(projects.documentOpened(uri),
+        rls::lsp::ProjectAssignmentResult::Assigned);
+    const auto* project = projects.projectForDocument(uri);
+    ASSERT_NE(project, nullptr);
+
+    AnalysisScheduler scheduler({
+        .debounce = std::chrono::milliseconds(0),
+        .maximumConcurrency = 1,
+    });
+    ASSERT_TRUE(scheduler.schedule({
+        project->id,
+        project->generation,
+        {{sourcePath, content}},
+        project->documentGeneration,
+        project->manifestGeneration,
+    }));
+    scheduler.waitForIdle();
+
+    NavigationService navigation(projects, scheduler);
+    const auto firstReferences = navigation.references(uri, {0, 28}, true);
+    ASSERT_EQ(firstReferences.size(), 2u);
+    EXPECT_EQ(firstReferences[0].range.start.line, 0u);
+    EXPECT_EQ(firstReferences[0].range.start.character, 13u);
+    EXPECT_EQ(firstReferences[1].range.start.line, 0u);
+    EXPECT_EQ(firstReferences[1].range.start.character, 27u);
+    const auto firstHighlights = navigation.documentHighlights(uri, {0, 28});
+    ASSERT_EQ(firstHighlights.size(), 2u);
+    EXPECT_EQ(firstHighlights[0].start.line, 0u);
+    EXPECT_EQ(firstHighlights[1].start.line, 0u);
 }
 
 TEST(NavigationServiceTests, ResolvesCanonicalRegionAndRejectsNamesWithoutConcreteTargets) {
@@ -74,7 +134,10 @@ TEST(NavigationServiceTests, ResolvesCanonicalRegionAndRejectsNamesWithoutConcre
         "extend region RR_BASE { events { EVENT_BASE: true } }\n"
         "extend region RR_MISSING { events { EVENT_MISSING: true } }\n"
         "extern enum Item { RG_* }\n"
-        "define item(): RG_SWORD\n";
+        "define item(): RG_SWORD\n"
+        "enum Alpha { SHARED }\n"
+        "enum Beta { SHARED }\n"
+        "define ambiguous(): SHARED\n";
     DocumentStore documents;
     ASSERT_EQ(documents.open(uri, "rls", 1, content),
         rls::lsp::DocumentUpdateResult::Applied);
@@ -110,6 +173,13 @@ TEST(NavigationServiceTests, ResolvesCanonicalRegionAndRejectsNamesWithoutConcre
     EXPECT_EQ(region->targetSelectionRange.end.character, 14u);
     EXPECT_FALSE(navigation.definition(uri, {2, 15}));
     EXPECT_FALSE(navigation.definition(uri, {4, 16}));
+    EXPECT_TRUE(navigation.references(uri, {2, 15}, true).empty());
+    EXPECT_TRUE(navigation.documentHighlights(uri, {2, 15}).empty());
+    EXPECT_TRUE(navigation.references(uri, {4, 16}, true).empty());
+    EXPECT_TRUE(navigation.documentHighlights(uri, {4, 16}).empty());
+    EXPECT_FALSE(navigation.definition(uri, {7, 20}));
+    EXPECT_TRUE(navigation.references(uri, {7, 20}, true).empty());
+    EXPECT_TRUE(navigation.documentHighlights(uri, {7, 20}).empty());
 }
 
 } // namespace

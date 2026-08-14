@@ -4,6 +4,7 @@
 #include <optional>
 #include <string>
 #include <string_view>
+#include <vector>
 
 #include "rls/lsp/analysis_scheduler.h"
 #include "rls/lsp/project_manager.h"
@@ -27,11 +28,20 @@ struct DefinitionResult {
     NavigationRange targetSelectionRange;
 };
 
+struct NavigationLocation {
+    std::string uri;
+    NavigationRange range;
+};
+
 class NavigationService {
 public:
     NavigationService(const ProjectManager& projects, const AnalysisScheduler& scheduler);
 
     std::optional<DefinitionResult> definition(
+        std::string_view uri, NavigationPosition position) const;
+    std::vector<NavigationLocation> references(
+        std::string_view uri, NavigationPosition position, bool includeDeclaration) const;
+    std::vector<NavigationRange> documentHighlights(
         std::string_view uri, NavigationPosition position) const;
 
 private:

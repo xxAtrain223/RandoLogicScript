@@ -29,10 +29,12 @@ TEST(ServerCompositionRootTests, RegistersOnlyImplementedRoutes) {
     EXPECT_TRUE(server.router().contains("workspace/didChangeWorkspaceFolders"));
     EXPECT_TRUE(server.router().contains("workspace/didChangeWatchedFiles"));
     EXPECT_TRUE(server.router().contains("textDocument/definition"));
+    EXPECT_TRUE(server.router().contains("textDocument/references"));
+    EXPECT_TRUE(server.router().contains("textDocument/documentHighlight"));
     EXPECT_FALSE(server.router().contains("textDocument/publishDiagnostics"));
 }
 
-TEST(ServerCompositionRootTests, AdvertisesSynchronizationAndDefinition) {
+TEST(ServerCompositionRootTests, AdvertisesImplementedTextDocumentFeatures) {
     ServerCompositionRoot server;
     const auto responses = server.handlePayload(
         R"({"jsonrpc":"2.0","id":1,"method":"initialize","params":{}})");
@@ -42,6 +44,8 @@ TEST(ServerCompositionRootTests, AdvertisesSynchronizationAndDefinition) {
     EXPECT_EQ(result["capabilities"]["textDocumentSync"]["change"], 1);
     EXPECT_TRUE(result["capabilities"]["workspace"]["workspaceFolders"]["supported"]);
     EXPECT_EQ(result["capabilities"]["definitionProvider"], true);
+    EXPECT_EQ(result["capabilities"]["referencesProvider"], true);
+    EXPECT_EQ(result["capabilities"]["documentHighlightProvider"], true);
 }
 
 TEST(ServerCompositionRootTests, RoutesDefinitionFromAcceptedSnapshot) {
@@ -121,6 +125,58 @@ TEST(ServerCompositionRootTests, FallsBackToLocationWithoutDefinitionLinkSupport
     EXPECT_EQ(result[0]["uri"], uri);
     EXPECT_EQ(result[0]["range"]["start"]["character"], 7);
     EXPECT_FALSE(result[0].contains("targetUri"));
+}
+
+TEST(ServerCompositionRootTests, RoutesReferencesAndDocumentHighlights) {
+    const fs::path sourcePath = fs::temp_directory_path() / "rls-references-route.rls";
+    const std::string uri = *rls::lsp::PathToFileUri(sourcePath);
+    ServerCompositionRoot server(standaloneProject);
+    server.handlePayload(
+        R"({"jsonrpc":"2.0","id":1,"method":"initialize","params":{}})");
+    server.handlePayload(
+        R"({"jsonrpc":"2.0","method":"initialized","params":{}})");
+    server.handlePayload(Json{
+        {"jsonrpc", "2.0"},
+        {"method", "textDocument/didOpen"},
+        {"params", {{"textDocument", {
+            {"uri", uri},
+            {"languageId", "rls"},
+            {"version", 1},
+            {"text", "define target(): true\ndefine caller(): target() and target()\n"},
+        }}}},
+    }.dump());
+    server.scheduler().waitForIdle();
+
+    const auto request = [&](std::string method, Json extra) {
+        Json params = {
+            {"textDocument", {{"uri", uri}}},
+            {"position", {{"line", 1}, {"character", 18}}},
+        };
+        if (!extra.is_null()) {
+            params.update(std::move(extra));
+        }
+        return server.handlePayload(Json{
+            {"jsonrpc", "2.0"},
+            {"id", 2},
+            {"method", std::move(method)},
+            {"params", std::move(params)},
+        }.dump());
+    };
+
+    const auto referencesResponse = request(
+        "textDocument/references", {{"context", {{"includeDeclaration", false}}}});
+    ASSERT_EQ(referencesResponse.size(), 1u);
+    const auto references = Json::parse(referencesResponse.front())["result"];
+    ASSERT_EQ(references.size(), 2u);
+    EXPECT_EQ(references[0]["range"]["start"]["character"], 17);
+    EXPECT_EQ(references[1]["range"]["start"]["character"], 30);
+
+    const auto highlightsResponse = request("textDocument/documentHighlight", {});
+    ASSERT_EQ(highlightsResponse.size(), 1u);
+    const auto highlights = Json::parse(highlightsResponse.front())["result"];
+    ASSERT_EQ(highlights.size(), 3u);
+    EXPECT_EQ(highlights[0]["kind"], 1);
+    EXPECT_EQ(highlights[0]["range"]["start"]["line"], 0);
 }
 
 TEST(ServerCompositionRootTests, SynchronizesOpenChangeAndClose) {

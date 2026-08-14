@@ -23,10 +23,10 @@ Consume [plan-compilerQueryModelAndDiagnosticLsp.prompt.md](plan-compilerQueryMo
    - [x] Return no definition for unresolved names or pattern-derived external enum values without a concrete source declaration.
 
 2. **References and document highlights**
-   - [ ] Implement `textDocument/references` from stable `SymbolId -> occurrences` queries.
-   - [ ] Respect the client request to include declarations.
-   - [ ] Implement document highlights by filtering references to the active document.
-   - [ ] Preserve occurrence kind where the protocol supports read/write/text distinctions; do not invent write semantics for declarative RLS.
+   - [x] Implement `textDocument/references` from stable `SymbolId -> occurrences` queries.
+   - [x] Respect the client request to include declarations.
+   - [x] Implement document highlights by filtering references to the active document.
+   - [x] Preserve occurrence kind where the protocol supports read/write/text distinctions; do not invent write semantics for declarative RLS.
 
 3. **Document symbols**
    - [ ] Implement `textDocument/documentSymbol` from parser/source declaration records.
@@ -41,8 +41,8 @@ Consume [plan-compilerQueryModelAndDiagnosticLsp.prompt.md](plan-compilerQueryMo
 
 ### Edge Cases
 
-- [ ] Same-name parameters in distinct define scopes remain distinct symbols.
-- [ ] Ambiguous bare enum values return no arbitrary navigation target.
+- [x] Same-name parameters in distinct define scopes remain distinct symbols.
+- [x] Ambiguous bare enum values return no arbitrary navigation target.
 - [x] Unresolved symbols return empty responses, not textual best matches.
 - [ ] Invalid/incomplete active files can use the current snapshot only when the source index identifies the same current occurrence; otherwise return no result.
 - [x] Cross-file and unsaved-overlay locations use current snapshot paths/ranges.
@@ -52,7 +52,7 @@ Consume [plan-compilerQueryModelAndDiagnosticLsp.prompt.md](plan-compilerQueryMo
 
 - [ ] Definition/reference navigation across files for defines, regions, enums, members, parameters, and externs.
 - [x] Base-region versus extension behavior.
-- [ ] Include-declaration reference flag.
+- [x] Include-declaration reference flag.
 - [ ] Document-symbol structure and selection ranges.
 - [ ] Workspace-symbol filtering/category ordering/project isolation.
 - [ ] Ambiguous, unresolved, malformed, and stale-document cases.

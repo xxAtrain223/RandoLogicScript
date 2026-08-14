@@ -8,6 +8,13 @@
 namespace rls::lsp {
 namespace {
 
+struct NavigationQuery {
+    AnalysisScheduler::Snapshot snapshot;
+    std::string documentPath;
+    sema::SymbolId symbol;
+    sema::OccurrenceRecord occurrence;
+};
+
 std::string pathString(const std::filesystem::path& path) {
     std::error_code error;
     const auto canonical = std::filesystem::weakly_canonical(path, error);
@@ -42,24 +49,19 @@ std::optional<NavigationRange> rangeFor(
     };
 }
 
-} // namespace
-
-NavigationService::NavigationService(
-    const ProjectManager& projects, const AnalysisScheduler& scheduler)
-    : projects_(projects), scheduler_(scheduler) {}
-
-std::optional<DefinitionResult> NavigationService::definition(
-    std::string_view uri, NavigationPosition position) const {
+std::optional<NavigationQuery> queryAt(
+    const ProjectManager& projects, const AnalysisScheduler& scheduler,
+    std::string_view uri, NavigationPosition position) {
     if (position.line == std::numeric_limits<uint32_t>::max()
         || position.character == std::numeric_limits<uint32_t>::max()) {
         return std::nullopt;
     }
-    const auto* project = projects_.projectForDocument(uri);
+    const auto* project = projects.projectForDocument(uri);
     const auto path = FileUriToPath(uri);
     if (!project || !path) {
         return std::nullopt;
     }
-    const auto snapshot = scheduler_.acceptedSnapshot(project->id);
+    const auto snapshot = scheduler.acceptedSnapshot(project->id);
     if (!snapshot || snapshot->generation() != project->generation) {
         return std::nullopt;
     }
@@ -84,14 +86,29 @@ std::optional<DefinitionResult> NavigationService::definition(
     if (!symbol || !occurrence || occurrence->symbol != symbol) {
         return std::nullopt;
     }
-    const auto declaration = snapshot->declaration(*symbol);
+    return NavigationQuery{snapshot, documentPath, *symbol, *occurrence};
+}
+
+} // namespace
+
+NavigationService::NavigationService(
+    const ProjectManager& projects, const AnalysisScheduler& scheduler)
+    : projects_(projects), scheduler_(scheduler) {}
+
+std::optional<DefinitionResult> NavigationService::definition(
+    std::string_view uri, NavigationPosition position) const {
+    const auto query = queryAt(projects_, scheduler_, uri, position);
+    if (!query) {
+        return std::nullopt;
+    }
+    const auto declaration = query->snapshot->declaration(query->symbol);
     if (!declaration || declaration->provenance == sema::SymbolProvenance::Pattern) {
         return std::nullopt;
     }
 
-    const auto originRange = rangeFor(*snapshot, occurrence->span);
-    const auto targetRange = rangeFor(*snapshot, declaration->declaration);
-    const auto targetSelectionRange = rangeFor(*snapshot, declaration->selection);
+    const auto originRange = rangeFor(*query->snapshot, query->occurrence.span);
+    const auto targetRange = rangeFor(*query->snapshot, declaration->declaration);
+    const auto targetSelectionRange = rangeFor(*query->snapshot, declaration->selection);
     const auto targetUri = PathToFileUri(declaration->declaration.file);
     if (!originRange || !targetRange || !targetSelectionRange || !targetUri) {
         return std::nullopt;
@@ -102,6 +119,46 @@ std::optional<DefinitionResult> NavigationService::definition(
         *targetRange,
         *targetSelectionRange,
     };
+}
+
+std::vector<NavigationLocation> NavigationService::references(
+    std::string_view uri, NavigationPosition position, bool includeDeclaration) const {
+    const auto query = queryAt(projects_, scheduler_, uri, position);
+    if (!query) {
+        return {};
+    }
+
+    std::vector<NavigationLocation> result;
+    for (const auto& occurrence : query->snapshot->references(query->symbol)) {
+        if (!includeDeclaration && occurrence.kind == sema::OccurrenceKind::Declaration) {
+            continue;
+        }
+        const auto occurrenceUri = PathToFileUri(occurrence.span.file);
+        const auto occurrenceRange = rangeFor(*query->snapshot, occurrence.span);
+        if (occurrenceUri && occurrenceRange) {
+            result.push_back({*occurrenceUri, *occurrenceRange});
+        }
+    }
+    return result;
+}
+
+std::vector<NavigationRange> NavigationService::documentHighlights(
+    std::string_view uri, NavigationPosition position) const {
+    const auto query = queryAt(projects_, scheduler_, uri, position);
+    if (!query) {
+        return {};
+    }
+
+    std::vector<NavigationRange> result;
+    for (const auto& occurrence : query->snapshot->references(query->symbol)) {
+        if (occurrence.span.file != query->documentPath) {
+            continue;
+        }
+        if (const auto occurrenceRange = rangeFor(*query->snapshot, occurrence.span)) {
+            result.push_back(*occurrenceRange);
+        }
+    }
+    return result;
 }
 
 } // namespace rls::lsp

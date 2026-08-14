@@ -75,6 +75,8 @@ void RegisterLifecycleRoutes(
                     {"change", 1},
                 }},
                 {"definitionProvider", true},
+                {"referencesProvider", true},
+                {"documentHighlightProvider", true},
                 {"workspace", {
                     {"workspaceFolders", {
                         {"supported", true},

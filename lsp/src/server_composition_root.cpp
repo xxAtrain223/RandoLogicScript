@@ -29,6 +29,8 @@ ServerCompositionRoot::ServerCompositionRoot(ProjectManager::Resolver resolver)
         "textDocument/didChange",
         "textDocument/didClose",
         "textDocument/definition",
+        "textDocument/references",
+        "textDocument/documentHighlight",
         "workspace/didChangeWorkspaceFolders",
         "workspace/didChangeWatchedFiles",
     });
