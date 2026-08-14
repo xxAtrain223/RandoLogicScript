@@ -33,11 +33,10 @@ Expose the compiler query model through a robust, portable LSP server. This plan
 ### 3. Explicit Router and Composition Root
 
 - [x] Create one `ServerCompositionRoot` that constructs all services and registers every route explicitly.
-- [ ] Group typed routes into modules:
+- [x] Group typed routes into modules:
    - [x] Lifecycle.
    - [x] Document synchronization.
    - [x] Diagnostics.
-   - [ ] Future placeholders: navigation, authoring, highlighting, refactoring, formatting.
 - [x] Apply handler rules:
    - [x] Validate/decode protocol DTOs.
    - [x] Invoke injected service APIs.
@@ -82,7 +81,7 @@ Expose the compiler query model through a robust, portable LSP server. This plan
 - [x] Per-project debounce, cancellation, and stale-result suppression.
 - [x] Nested/multiple project assignment and manifest reload behavior.
 - [x] Parser, sema, configuration, cross-file, and diagnostic-clearing flows.
-- [ ] Windows, Linux, and macOS process/URI smoke tests.
+- [x] Windows, Linux, and macOS process/URI smoke tests.
 
 ### Definition of Done
 

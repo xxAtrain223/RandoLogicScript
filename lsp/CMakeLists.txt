@@ -26,10 +26,19 @@ add_executable(rls_language_server
 target_link_libraries(rls_language_server PRIVATE rls_lsp)
 
 if(BUILD_TESTING)
+    find_package(Python3 REQUIRED COMPONENTS Interpreter)
+
     file(GLOB lsp_test_sources CONFIGURE_DEPENDS
         "${CMAKE_CURRENT_SOURCE_DIR}/tests/*.cpp"
     )
 
     rls_add_gtest(lsp_tests ${lsp_test_sources})
     target_link_libraries(lsp_tests PRIVATE rls_lsp)
+
+    add_test(
+        NAME lsp_process_smoke
+        COMMAND ${Python3_EXECUTABLE}
+            "${CMAKE_CURRENT_SOURCE_DIR}/tests/process_smoke.py"
+            --server "$<TARGET_FILE:rls_language_server>"
+    )
 endif()
