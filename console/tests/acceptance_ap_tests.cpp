@@ -4,7 +4,7 @@ using namespace rls::acceptance_tests;
 
 TEST(AcceptanceAp, ExamplesRlsMatchesGolden) {
 	std::vector<std::string> errors;
-	const auto project = parseAndAnalyzeProject(repoPath("examples/rls"), errors);
+	const auto project = parseAndAnalyzeProject(repoPath("examples/soh/src"), errors);
 	ASSERT_TRUE(errors.empty()) << joinLines(errors);
 
 	TempDirectory outputDir("ap");
@@ -15,6 +15,6 @@ TEST(AcceptanceAp, ExamplesRlsMatchesGolden) {
 
 	expectDirectoryMatchesGolden(
 		outputDir.path(),
-		repoPath("examples/ap"),
-		R"(.\build\console\RandoLogicScript.exe -t ap -o .\examples\ap .\examples\rls)");
+		repoPath("examples/soh/out_ap"),
+		R"(.\build\console\RandoLogicScript.exe -p .\examples\soh\rls.json -t ap)");
 }

@@ -24,8 +24,8 @@ static void printUsage(const char* program) {
         << "\n"
         << "Options:\n"
         << "  -p, --project <path>   Load an rls.json manifest.\n"
-        << "  -t, --transpiler <name> -o, --output <dir>\n"
-        << "                            Transpiler and output directory pair (may be repeated).\n"
+        << "  -t, --transpiler <name> [-o, --output <dir>]\n"
+        << "                            Select a configured manifest transpiler, or override its output.\n"
         << "                            Available transpilers: soh, ap\n"
         << "  -h, --help                Show this help message.\n";
 }
@@ -96,6 +96,7 @@ static bool runTranspiler(const TranspilerConfig& config, const rls::ast::Projec
 
 int main(int argc, char* argv[]) {
     std::vector<TranspilerConfig> transpilers;
+    std::vector<std::string> selectedManifestTranspilers;
     std::vector<fs::path> inputs;
     std::optional<fs::path> manifestPath;
 
@@ -126,22 +127,20 @@ int main(int argc, char* argv[]) {
             }
             std::string name = argv[i];
 
-            // Expect -o/--output immediately after
-            if (i + 1 >= argc) {
-                std::cerr << "error: -t " << name << " must be followed by -o <dir>\n";
-                return 1;
-            }
-            std::string nextArg = argv[++i];
-            if (nextArg != "-o" && nextArg != "--output") {
-                std::cerr << "error: -t " << name << " must be followed by -o <dir>\n";
-                return 1;
-            }
-            if (++i >= argc) {
-                std::cerr << "error: " << nextArg << " requires a value\n";
-                return 1;
+            if (i + 1 < argc) {
+                const std::string nextArg = argv[i + 1];
+                if (nextArg == "-o" || nextArg == "--output") {
+                    i += 2;
+                    if (i >= argc) {
+                        std::cerr << "error: " << nextArg << " requires a value\n";
+                        return 1;
+                    }
+                    transpilers.push_back({std::move(name), argv[i]});
+                    continue;
+                }
             }
 
-            transpilers.push_back({std::move(name), argv[i]});
+            selectedManifestTranspilers.push_back(std::move(name));
             continue;
         }
         if (arg.starts_with("-")) {
@@ -156,6 +155,14 @@ int main(int argc, char* argv[]) {
     // == validate arguments ==============================================
     if (manifestPath && !inputs.empty()) {
         std::cerr << "error: --project cannot be combined with explicit input paths\n";
+        return 1;
+    }
+
+    if (!selectedManifestTranspilers.empty() && !manifestPath && inputs.empty()) {
+        manifestPath = rls::project::FindManifest(fs::current_path());
+    }
+    if (!selectedManifestTranspilers.empty() && !manifestPath) {
+        std::cerr << "error: -t <name> without -o requires an rls.json manifest\n";
         return 1;
     }
 
@@ -181,12 +188,37 @@ int main(int argc, char* argv[]) {
         manifest = std::move(loadResult.config);
         collection = rls::project::CollectManifestSources(*manifest);
 
-        for (const auto& [name, outputDir] : manifest->transpilerOutputs) {
-            const bool overridden = std::ranges::any_of(transpilers, [&name](const TranspilerConfig& config) {
-                return config.name == name;
-            });
-            if (!overridden)
-                transpilers.push_back({name, outputDir});
+        const auto addConfiguredTranspiler = [&](const std::string& name) -> bool {
+            const auto configured = std::ranges::find_if(
+                manifest->transpilerOutputs, [&name](const auto& output) {
+                    return output.first == name;
+                });
+            if (configured == manifest->transpilerOutputs.end()) {
+                std::cerr << "error: manifest does not configure transpiler '" << name << "'\n";
+                return false;
+            }
+            const bool overridden = std::ranges::any_of(
+                transpilers, [&name](const TranspilerConfig& config) {
+                    return config.name == name;
+                });
+            if (!overridden) {
+                transpilers.push_back({configured->first, configured->second});
+            }
+            return true;
+        };
+
+        if (selectedManifestTranspilers.empty()) {
+            for (const auto& [name, outputDir] : manifest->transpilerOutputs) {
+                if (!addConfiguredTranspiler(name)) {
+                    return 1;
+                }
+            }
+        } else {
+            for (const auto& name : selectedManifestTranspilers) {
+                if (!addConfiguredTranspiler(name)) {
+                    return 1;
+                }
+            }
         }
     } else {
         collection = rls::project::CollectExplicitSources(inputs);
@@ -207,7 +239,7 @@ int main(int argc, char* argv[]) {
     }
 
     if (transpilers.empty()) {
-        std::cerr << "error: at least one -t <name> -o <dir> pair or manifest transpiler is required\n";
+        std::cerr << "error: at least one configured or explicit transpiler is required\n";
         return 1;
     }
 

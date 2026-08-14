@@ -51,7 +51,7 @@ This plan owns manifest format, discovery, validation, source membership, and sh
    - [x] Invocation from a project directory discovers the nearest manifest by default.
    - [x] Existing explicit files/folders remain supported for compatibility.
    - [x] Explicit files/folders form an ephemeral project configuration.
-   - [x] Command-line transpiler/output arguments override or complement manifest rules according to explicit documented precedence.
+   - [x] Bare `-t <name>` selects that configured manifest transpiler; `-t <name> -o <dir>` overrides its output, and explicit pairs complement manifest targets.
 5. [x] Keep transpiler execution outside manifest parsing. The manifest describes intent; the console uses registered transpiler implementations to execute it.
 
 ### Diagnostics and Tests
