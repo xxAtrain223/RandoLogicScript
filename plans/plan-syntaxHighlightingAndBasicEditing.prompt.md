@@ -45,7 +45,7 @@ This plan owns lexical syntax classification, editor language registration, brac
 - New `tooling/syntax-fixtures/` owns shared examples and expected lexical annotations.
 - New `tooling/textmate/` owns the TextMate grammar and scope tests.
 - New `tooling/tree-sitter-rls/` owns the Tree-sitter grammar and query tests.
-- New `editors/vscode/` owns declarative VS Code packaging.
+- The declarative language, grammar, and editing contributions under `editors/vscode/` remain owned by this plan; the runtime language-client adapter is owned by [plan-vscodeLanguageClientIntegration.prompt.md](plan-vscodeLanguageClientIntegration.prompt.md).
 
 ### Definition of Done
 

@@ -25,6 +25,11 @@ jobs:
         with:
           python-version: '3.12'
 
+      - name: Set up Node for VS Code client tests
+        uses: actions/setup-node@v5
+        with:
+          node-version: 20
+
       - name: Configure
         run: cmake -S . -B build -DBUILD_TESTING=ON -DCMAKE_BUILD_TYPE=Release
 
@@ -33,6 +38,20 @@ jobs:
 
       - name: Test
         run: ctest --test-dir build --build-config Release --output-on-failure
+
+      - name: Install VS Code client dependencies
+        working-directory: editors/vscode
+        run: npm ci
+
+      - name: Test VS Code language client on Linux
+        if: runner.os == 'Linux'
+        working-directory: editors/vscode
+        run: xvfb-run -a npm test
+
+      - name: Test VS Code language client
+        if: runner.os != 'Linux'
+        working-directory: editors/vscode
+        run: npm test
 
   editor-grammar-tests:
     name: Editor grammar tests

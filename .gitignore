@@ -69,3 +69,8 @@ vcpkg_installed/
 Testing/
 .cache/
 /.vs
+
+# VS Code extension build and test output
+editors/vscode/node_modules/
+editors/vscode/out/
+editors/vscode/.vscode-test/

@@ -5,8 +5,12 @@
       "name": "Run RLS Language Extension",
       "type": "extensionHost",
       "request": "launch",
+      "preLaunchTask": "Compile RLS VS Code Extension",
       "args": [
         "--extensionDevelopmentPath=${workspaceFolder}/editors/vscode"
+      ],
+      "outFiles": [
+        "${workspaceFolder}/editors/vscode/out/**/*.js"
       ]
     }
   ]

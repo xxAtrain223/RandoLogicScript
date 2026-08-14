@@ -1,7 +1,7 @@
 {
   "name": "rando-logic-script",
   "displayName": "Rando Logic Script",
-  "description": "Syntax highlighting and basic editing support for Rando Logic Script.",
+  "description": "Language support for Rando Logic Script, including syntax highlighting and live compiler diagnostics.",
   "version": "0.1.0",
   "publisher": "xxAtrain223",
   "license": "MIT",
@@ -17,6 +17,7 @@
   "engines": {
     "vscode": "^1.85.0"
   },
+  "main": "./out/extension.js",
   "categories": [
     "Programming Languages"
   ],
@@ -40,6 +41,59 @@
         "scopeName": "source.rls",
         "path": "./syntaxes/rls.tmLanguage.json"
       }
-    ]
+    ],
+    "commands": [
+      {
+        "command": "randoLogicScript.restartServer",
+        "title": "Restart Language Server",
+        "category": "Rando Logic Script"
+      }
+    ],
+    "configuration": {
+      "title": "Rando Logic Script",
+      "properties": {
+        "randoLogicScript.server.path": {
+          "type": "string",
+          "default": "",
+          "scope": "machine-overridable",
+          "description": "Path to the RLS language server executable. Leave empty to use a bundled server or discover a repository build."
+        },
+        "randoLogicScript.server.arguments": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "default": [],
+          "scope": "machine-overridable",
+          "description": "Additional arguments passed to the RLS language server."
+        },
+        "randoLogicScript.trace.server": {
+          "type": "string",
+          "enum": [
+            "off",
+            "messages",
+            "verbose"
+          ],
+          "default": "off",
+          "scope": "window",
+          "description": "Trace communication between VS Code and the RLS language server."
+        }
+      }
+    }
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run compile",
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./",
+    "test": "npm run compile && node ./out/test/runTest.js"
+  },
+  "dependencies": {
+    "vscode-languageclient": "^9.0.1"
+  },
+  "devDependencies": {
+    "@types/node": "^20.17.30",
+    "@types/vscode": "1.85.0",
+    "@vscode/test-electron": "^2.4.1",
+    "typescript": "^5.8.2"
   }
 }

@@ -1,0 +1,6 @@
+.vscode/**
+src/**
+test-fixture/**
+tsconfig.json
+**/*.map
+**/*.ts
