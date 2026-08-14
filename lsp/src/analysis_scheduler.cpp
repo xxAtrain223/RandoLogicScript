@@ -53,11 +53,15 @@ bool AnalysisScheduler::schedule(AnalysisRequest request) {
 
     std::lock_guard lock(mutex_);
     ProjectState& state = projects_[request.projectId];
-    if (request.generation <= state.latestGeneration) {
+    if (request.generation <= state.latestGeneration
+        || request.documentGeneration < state.latestDocumentGeneration
+        || request.manifestGeneration < state.latestManifestGeneration) {
         return false;
     }
 
     state.latestGeneration = request.generation;
+    state.latestDocumentGeneration = request.documentGeneration;
+    state.latestManifestGeneration = request.manifestGeneration;
     state.removed = false;
     if (state.activeCancellation) {
         state.activeCancellation->request_stop();
@@ -176,7 +180,9 @@ void AnalysisScheduler::worker(std::stop_token shutdown) {
             if (state.activeCancellation == cancellation) {
                 state.activeCancellation.reset();
                 if (snapshot && !cancellation->stop_requested()
-                    && !state.removed && state.latestGeneration == request.generation) {
+                    && !state.removed && state.latestGeneration == request.generation
+                    && state.latestDocumentGeneration == request.documentGeneration
+                    && state.latestManifestGeneration == request.manifestGeneration) {
                     state.accepted = std::move(*snapshot);
                     acceptedSnapshot = state.accepted;
                     acceptedHandler = acceptedHandler_;

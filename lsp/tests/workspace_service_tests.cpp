@@ -135,11 +135,19 @@ TEST(WorkspaceServiceTests, WatchedDiskEditReanalyzesAndClearsDiagnostics) {
         openUri, "rls", 1, "define overlay(): true\n"),
         DocumentSynchronizationResult::Applied);
     services.scheduler.waitForIdle();
+    const uint64_t documentGeneration =
+        services.projects.projectForDocument(openUri)->documentGeneration;
+    const uint64_t manifestGeneration =
+        services.projects.projectForDocument(openUri)->manifestGeneration;
     drain(services.outbound);
 
     writeFile(diskPath, "region RR_TEST { events { EVENT_TEST: true } }\n");
     ASSERT_TRUE(services.workspace.watchedFilesChanged({diskUri}));
     services.scheduler.waitForIdle();
+    EXPECT_GT(services.projects.projectForDocument(openUri)->documentGeneration,
+        documentGeneration);
+    EXPECT_GT(services.projects.projectForDocument(openUri)->manifestGeneration,
+        manifestGeneration);
 
     bool cleared = false;
     while (const auto payload = services.outbound.tryPop()) {
@@ -150,6 +158,41 @@ TEST(WorkspaceServiceTests, WatchedDiskEditReanalyzesAndClearsDiagnostics) {
         }
     }
     EXPECT_TRUE(cleared);
+}
+
+TEST(WorkspaceServiceTests, InitiallyInvalidManifestPublishesErrorAndKeepsOverlayStandalone) {
+    TemporaryDirectory directory;
+    const fs::path manifestPath = directory.path() / "rls.json";
+    writeFile(manifestPath, "{ invalid");
+    const fs::path sourcePath = directory.path() / "logic.rls";
+    writeFile(sourcePath, "define disk(): true\n");
+    const std::string sourceUri = *PathToFileUri(sourcePath);
+    Services services;
+    ASSERT_TRUE(services.workspace.initialize({*PathToFileUri(directory.path())}));
+
+    EXPECT_EQ(services.synchronization.open(
+        sourceUri, "rls", 1, "define overlay(): true\n"),
+        DocumentSynchronizationResult::Applied);
+    ASSERT_NE(services.documents.find(sourceUri), nullptr);
+    ASSERT_NE(services.projects.projectForDocument(sourceUri), nullptr);
+    EXPECT_TRUE(services.projects.projectForDocument(sourceUri)->isStandalone);
+    services.scheduler.waitForIdle();
+    const auto snapshot = services.scheduler.acceptedSnapshot(
+        services.projects.projectForDocument(sourceUri)->id);
+    ASSERT_NE(snapshot, nullptr);
+    EXPECT_EQ(snapshot->sourceText(fs::weakly_canonical(sourcePath).generic_string())->content(),
+        "define overlay(): true\n");
+
+    bool published = false;
+    while (const auto payload = services.outbound.tryPop()) {
+        const Json message = Json::parse(*payload);
+        if (message["params"]["uri"] == *PathToFileUri(manifestPath)
+            && !message["params"]["diagnostics"].empty()
+            && message["params"]["diagnostics"][0]["code"] == "RLS-C002") {
+            published = true;
+        }
+    }
+    EXPECT_TRUE(published);
 }
 
 TEST(WorkspaceServiceTests, FolderRemovalMakesOpenDocumentStandaloneUntilReadded) {
@@ -202,7 +245,18 @@ TEST(WorkspaceServiceTests, InvalidManifestKeepsLastGoodProjectAndRecoversWhenFi
     writeFile(manifestPath, "{ invalid");
     EXPECT_FALSE(services.workspace.watchedFilesChanged({*PathToFileUri(manifestPath)}));
     ASSERT_NE(services.projects.projectForDocument(sourceUri), nullptr);
-    EXPECT_EQ(services.projects.projectForDocument(sourceUri)->id, projectId);
+    EXPECT_TRUE(services.projects.projectForDocument(sourceUri)->isStandalone);
+    services.scheduler.waitForIdle();
+    bool publishedConfigurationError = false;
+    while (const auto payload = services.outbound.tryPop()) {
+        const Json message = Json::parse(*payload);
+        if (message["params"]["uri"] == *PathToFileUri(manifestPath)
+            && !message["params"]["diagnostics"].empty()
+            && message["params"]["diagnostics"][0]["code"] == "RLS-C002") {
+            publishedConfigurationError = true;
+        }
+    }
+    EXPECT_TRUE(publishedConfigurationError);
 
     writeFile(manifestPath, R"({"version":1,"sources":["src"]})");
     EXPECT_TRUE(services.workspace.watchedFilesChanged({*PathToFileUri(manifestPath)}));
@@ -210,6 +264,15 @@ TEST(WorkspaceServiceTests, InvalidManifestKeepsLastGoodProjectAndRecoversWhenFi
     ASSERT_NE(services.projects.projectForDocument(sourceUri), nullptr);
     EXPECT_EQ(services.projects.projectForDocument(sourceUri)->id, projectId);
     EXPECT_GT(services.projects.projectForDocument(sourceUri)->generation, generation);
+    bool clearedConfigurationError = false;
+    while (const auto payload = services.outbound.tryPop()) {
+        const Json message = Json::parse(*payload);
+        if (message["params"]["uri"] == *PathToFileUri(manifestPath)
+            && message["params"]["diagnostics"].empty()) {
+            clearedConfigurationError = true;
+        }
+    }
+    EXPECT_TRUE(clearedConfigurationError);
 }
 
 TEST(WorkspaceServiceTests, MultipleManifestProjectsKeepSourcesAndSnapshotsIsolated) {

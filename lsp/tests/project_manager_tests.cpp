@@ -115,12 +115,18 @@ TEST(ProjectManagerTests, ChangesAdvanceGenerationAndPreserveOverlay) {
     ASSERT_EQ(documents.open(uri, "rls", 1, "one\n"), DocumentUpdateResult::Applied);
     ASSERT_EQ(projects.documentOpened(uri), ProjectAssignmentResult::Assigned);
     const uint64_t before = projects.projectForDocument(uri)->generation;
+    const uint64_t beforeDocumentGeneration =
+        projects.projectForDocument(uri)->documentGeneration;
+    const uint64_t beforeManifestGeneration =
+        projects.projectForDocument(uri)->manifestGeneration;
 
     ASSERT_EQ(documents.applyFullChange(uri, 2, "two\n"), DocumentUpdateResult::Applied);
     ASSERT_EQ(projects.documentChanged(uri), ProjectAssignmentResult::Assigned);
 
     const auto sourceSet = projects.sourceSetForDocument(uri);
     EXPECT_GT(sourceSet.generation, before);
+    EXPECT_GT(sourceSet.documentGeneration, beforeDocumentGeneration);
+    EXPECT_EQ(sourceSet.manifestGeneration, beforeManifestGeneration);
     ASSERT_EQ(sourceSet.sources.size(), 1);
     EXPECT_EQ(sourceSet.sources.front().content, "two\n");
 }

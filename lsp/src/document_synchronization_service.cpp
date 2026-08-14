@@ -47,6 +47,7 @@ DocumentSynchronizationResult DocumentSynchronizationService::open(
             ? DocumentSynchronizationResult::InvalidUri
             : DocumentSynchronizationResult::ProjectResolutionFailed;
     }
+    diagnostics_.publishConfigurationDiagnostics(projects_.configurationDiagnostics());
     diagnostics_.documentOpened(uri);
     return schedule(uri) ? DocumentSynchronizationResult::Applied
         : DocumentSynchronizationResult::ProjectResolutionFailed;

@@ -1,7 +1,9 @@
 #include "project.h"
+#include "project_diagnostics.h"
 
 #include <algorithm>
 #include <fstream>
+#include <iterator>
 #include <set>
 
 #include <nlohmann/json.hpp>
@@ -28,18 +30,19 @@ bool resolvesWithinRoot(const fs::path& root, const fs::path& path) {
 
 std::optional<fs::path> resolveManifestPath(
     const fs::path& root,
+    const fs::path& manifestPath,
     const std::string& value,
-    std::string& error)
+    std::optional<ConfigurationDiagnostic>& diagnostic)
 {
     const fs::path path(value);
     if (path.is_absolute()) {
-        error = "manifest paths must be relative: " + value;
+        diagnostic = diagnostics::ManifestPathMustBeRelative(manifestPath, value);
         return std::nullopt;
     }
 
     const auto resolved = canonicalPath(root / path);
     if (!resolvesWithinRoot(root, resolved)) {
-        error = "manifest path escapes the project root: " + value;
+        diagnostic = diagnostics::ManifestPathEscapesRoot(manifestPath, value);
         return std::nullopt;
     }
     return resolved;
@@ -89,6 +92,12 @@ bool isExcluded(
     if (!includesOutput && isOutputExcluded(config, path))
         return true;
     return !overridesDefaultExclusions && isDefaultExcluded(path.lexically_relative(config.root));
+}
+
+void setManifestError(
+    ManifestLoadResult& result, ConfigurationDiagnostic diagnostic) {
+    result.error = diagnostic.message;
+    result.diagnostics.push_back(std::move(diagnostic));
 }
 
 } // namespace
@@ -143,34 +152,42 @@ ManifestLoadResult LoadManifest(const fs::path& manifestPath) {
     const auto canonicalManifest = canonicalPath(manifestPath);
     std::ifstream input(canonicalManifest);
     if (!input) {
-        result.error = "could not open manifest: " + manifestPath.string();
+        setManifestError(result, diagnostics::ManifestUnavailable(
+            canonicalManifest, manifestPath.string()));
         return result;
     }
 
+    const std::string manifestContent{
+        std::istreambuf_iterator<char>(input), std::istreambuf_iterator<char>()};
+
     nlohmann::json json;
     try {
-        input >> json;
-    } catch (const nlohmann::json::exception& exception) {
-        result.error = "invalid JSON: " + std::string(exception.what());
+        json = nlohmann::json::parse(manifestContent);
+    } catch (const nlohmann::json::parse_error& exception) {
+        const size_t offset = exception.byte == 0
+            ? 0 : std::min(exception.byte - 1, manifestContent.size());
+        setManifestError(result, diagnostics::InvalidJson(
+            canonicalManifest, exception.what(), offset, offset));
         return result;
     }
 
     if (!json.is_object()) {
-        result.error = "manifest must be a JSON object";
+        setManifestError(result, diagnostics::ManifestMustBeObject(canonicalManifest));
         return result;
     }
     for (const auto& [key, value] : json.items()) {
         if (key != "version" && key != "sources" && key != "exclude" && key != "transpilers") {
-            result.error = "unknown manifest field: " + key;
+            setManifestError(result, diagnostics::UnknownManifestField(
+                canonicalManifest, key));
             return result;
         }
     }
     if (json.value("version", 0) != 1) {
-        result.error = "unsupported manifest version";
+        setManifestError(result, diagnostics::UnsupportedManifestVersion(canonicalManifest));
         return result;
     }
     if (!json.contains("sources") || !json["sources"].is_array() || json["sources"].empty()) {
-        result.error = "manifest requires a non-empty sources array";
+        setManifestError(result, diagnostics::SourcesRequired(canonicalManifest));
         return result;
     }
 
@@ -179,44 +196,58 @@ ManifestLoadResult LoadManifest(const fs::path& manifestPath) {
     config.root = canonicalManifest.parent_path();
     for (const auto& source : json["sources"]) {
         if (!source.is_string()) {
-            result.error = "sources entries must be strings";
+            setManifestError(result, diagnostics::SourceEntryMustBeString(canonicalManifest));
             return result;
         }
-        auto resolved = resolveManifestPath(config.root, source.get<std::string>(), result.error);
-        if (!resolved)
+        std::optional<ConfigurationDiagnostic> diagnostic;
+        auto resolved = resolveManifestPath(
+            config.root, canonicalManifest, source.get<std::string>(), diagnostic);
+        if (!resolved) {
+            setManifestError(result, std::move(*diagnostic));
             return result;
+        }
         config.sources.push_back(std::move(*resolved));
     }
     if (json.contains("exclude")) {
         if (!json["exclude"].is_array()) {
-            result.error = "exclude must be an array";
+            setManifestError(result, diagnostics::ExcludeMustBeArray(canonicalManifest));
             return result;
         }
         for (const auto& exclude : json["exclude"]) {
             if (!exclude.is_string()) {
-                result.error = "exclude entries must be strings";
+                setManifestError(result, diagnostics::ExcludeEntryMustBeString(canonicalManifest));
                 return result;
             }
-            auto resolved = resolveManifestPath(config.root, exclude.get<std::string>(), result.error);
-            if (!resolved)
+            std::optional<ConfigurationDiagnostic> diagnostic;
+            auto resolved = resolveManifestPath(
+                config.root, canonicalManifest, exclude.get<std::string>(), diagnostic);
+            if (!resolved) {
+                setManifestError(result, std::move(*diagnostic));
                 return result;
+            }
             config.excludes.push_back(std::move(*resolved));
         }
     }
     if (json.contains("transpilers")) {
         if (!json["transpilers"].is_object()) {
-            result.error = "transpilers must be an object";
+            setManifestError(result, diagnostics::TranspilersMustBeObject(canonicalManifest));
             return result;
         }
         for (const auto& [name, settings] : json["transpilers"].items()) {
             if (!settings.is_object() ||
                 !settings.contains("output") || !settings["output"].is_string()) {
-                result.error = "invalid transpiler configuration: " + name;
+                setManifestError(result, diagnostics::InvalidTranspilerConfiguration(
+                    canonicalManifest, name));
                 return result;
             }
-            auto output = resolveManifestPath(config.root, settings["output"].get<std::string>(), result.error);
-            if (!output)
+            std::optional<ConfigurationDiagnostic> diagnostic;
+            auto output = resolveManifestPath(
+                config.root, canonicalManifest,
+                settings["output"].get<std::string>(), diagnostic);
+            if (!output) {
+                setManifestError(result, std::move(*diagnostic));
                 return result;
+            }
             config.transpilerOutputs.emplace_back(name, std::move(*output));
         }
     }
@@ -290,12 +321,15 @@ FileProject ResolveFileProject(const fs::path& file) {
     auto manifest = LoadManifest(*manifestPath);
     if (!manifest.config) {
         result.error = std::move(manifest.error);
+        result.diagnostics = std::move(manifest.diagnostics);
         return result;
     }
 
     auto sources = CollectManifestSources(*manifest.config);
     if (!sources.error.empty()) {
         result.error = std::move(sources.error);
+        result.diagnostics.push_back(diagnostics::SourceCollectionFailed(
+            *manifestPath, result.error));
         return result;
     }
 

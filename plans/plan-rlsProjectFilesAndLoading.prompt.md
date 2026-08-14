@@ -56,7 +56,7 @@ This plan owns manifest format, discovery, validation, source membership, and sh
 
 ### Diagnostics and Tests
 
-1. [ ] Emit configuration diagnostics with manifest URI/ranges for schema and path errors. This requires the absent editor/LSP diagnostic transport; the shared loader currently returns actionable configuration errors.
+1. [x] Emit configuration diagnostics with manifest URI/ranges for schema and path errors.
 2. Test:
    - [x] Manifest version/unknown-field errors.
    - [ ] Relative paths from nested working directories.
@@ -73,5 +73,5 @@ This plan owns manifest format, discovery, validation, source membership, and sh
 
 - [x] CLI and editor tooling receive identical project membership for the same `rls.json`.
 - [x] A file can be mapped deterministically to its nearest project or standalone state.
-- [ ] Manifest mistakes produce actionable diagnostics instead of silently analyzing an unintended file set.
+- [x] Manifest mistakes produce actionable diagnostics instead of silently analyzing an unintended file set.
 - [x] No project loader accidentally parses build or generated output as RLS source.

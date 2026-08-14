@@ -218,4 +218,60 @@ TEST(DiagnosticPublisherTests, PublishesCrossFileRelatedDeclarationLocations) {
         *rls::lsp::PathToFileUri(firstPath));
 }
 
+TEST(DiagnosticPublisherTests, PublishesAndClearsManifestConfigurationDiagnostics) {
+    TemporaryDirectory directory;
+    const fs::path manifestPath = directory.path() / "rls.json";
+    const std::string content = "{\"name\":\"\xF0\x9F\x98\x80\", invalid}";
+    std::ofstream(manifestPath, std::ios::binary) << content;
+    const auto loaded = rls::project::LoadManifest(manifestPath);
+    ASSERT_EQ(loaded.diagnostics.size(), 1);
+
+    OutboundMessageQueue outbound;
+    DiagnosticPublisher publisher(outbound);
+    publisher.publishConfigurationDiagnostics(loaded.diagnostics);
+    const auto payload = outbound.tryPop();
+    ASSERT_TRUE(payload.has_value());
+    const Json notification = Json::parse(*payload);
+    ASSERT_EQ(notification["params"]["diagnostics"].size(), 1);
+    const Json& diagnostic = notification["params"]["diagnostics"][0];
+    EXPECT_EQ(notification["params"]["uri"], *rls::lsp::PathToFileUri(manifestPath));
+    EXPECT_EQ(diagnostic["code"], "RLS-C002");
+    EXPECT_EQ(diagnostic["severity"], 1);
+    EXPECT_EQ(diagnostic["source"], "rls");
+    EXPECT_LT(diagnostic["range"]["start"]["character"].get<size_t>(),
+        loaded.diagnostics[0].startByte);
+
+    publisher.publishConfigurationDiagnostics({});
+    const auto clearPayload = outbound.tryPop();
+    ASSERT_TRUE(clearPayload.has_value());
+    EXPECT_TRUE(Json::parse(*clearPayload)["params"]["diagnostics"].empty());
+}
+
+TEST(DiagnosticPublisherTests, KeepsMultipleManifestDiagnosticsIsolated) {
+    TemporaryDirectory first;
+    TemporaryDirectory second;
+    const fs::path firstManifest = first.path() / "rls.json";
+    const fs::path secondManifest = second.path() / "rls.json";
+    std::ofstream(firstManifest) << "{ invalid";
+    std::ofstream(secondManifest) << "{ invalid";
+    const auto firstLoad = rls::project::LoadManifest(firstManifest);
+    const auto secondLoad = rls::project::LoadManifest(secondManifest);
+    std::vector<rls::project::ConfigurationDiagnostic> both = firstLoad.diagnostics;
+    both.insert(both.end(), secondLoad.diagnostics.begin(), secondLoad.diagnostics.end());
+
+    OutboundMessageQueue outbound;
+    DiagnosticPublisher publisher(outbound);
+    publisher.publishConfigurationDiagnostics(both);
+    ASSERT_TRUE(outbound.tryPop().has_value());
+    ASSERT_TRUE(outbound.tryPop().has_value());
+
+    publisher.publishConfigurationDiagnostics(secondLoad.diagnostics);
+    const auto clearPayload = outbound.tryPop();
+    ASSERT_TRUE(clearPayload.has_value());
+    const Json clear = Json::parse(*clearPayload);
+    EXPECT_EQ(clear["params"]["uri"], *rls::lsp::PathToFileUri(firstManifest));
+    EXPECT_TRUE(clear["params"]["diagnostics"].empty());
+    EXPECT_FALSE(outbound.tryPop().has_value());
+}
+
 } // namespace

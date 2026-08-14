@@ -58,7 +58,12 @@ ProjectAssignmentResult ProjectManager::documentOpened(std::string_view uri) {
 
     project::FileProject resolved = resolver_(*path);
     if (!resolved.error.empty()) {
-        return ProjectAssignmentResult::ResolutionFailed;
+        recordConfigurationDiagnostics(*path, resolved.diagnostics);
+        resolved = {};
+        resolved.sourceFiles.push_back(canonicalPath(*path));
+        resolved.isStandalone = true;
+    } else {
+        clearConfigurationDiagnostics(*path);
     }
     if (resolved.sourceFiles.empty()) {
         return ProjectAssignmentResult::ResolutionFailed;
@@ -69,11 +74,13 @@ ProjectAssignmentResult ProjectManager::documentOpened(std::string_view uri) {
     ManagedProject& managed = projectIt->second;
     if (inserted) {
         managed.id = id;
+        managed.manifestGeneration = ++manifestGeneration_;
     }
     managed.manifestPath = resolved.manifest
         ? std::optional(resolved.manifest->manifestPath) : std::nullopt;
     managed.sourceFiles = std::move(resolved.sourceFiles);
     managed.isStandalone = resolved.isStandalone;
+    managed.documentGeneration = ++documentGeneration_;
     managed.generation = ++generation_;
 
     const auto canonicalDocumentPath = canonicalPath(*path);
@@ -95,7 +102,9 @@ ProjectAssignmentResult ProjectManager::documentChanged(std::string_view uri) {
     if (assignment == assignments_.end()) {
         return ProjectAssignmentResult::NotAssigned;
     }
-    projects_.at(assignment->second.projectId).generation = ++generation_;
+    ManagedProject& project = projects_.at(assignment->second.projectId);
+    project.documentGeneration = ++documentGeneration_;
+    project.generation = ++generation_;
     return ProjectAssignmentResult::Assigned;
 }
 
@@ -132,6 +141,15 @@ ProjectRefreshResult ProjectManager::refreshOpenDocuments(
         if (!resolved.error.empty() || resolved.sourceFiles.empty()) {
             result.errors.push_back(resolved.error.empty()
                 ? "project resolves to no source files" : std::move(resolved.error));
+            recordConfigurationDiagnostics(assignment.path, resolved.diagnostics);
+            resolved = {};
+            resolved.sourceFiles.push_back(canonicalPath(assignment.path));
+            resolved.isStandalone = true;
+        } else {
+            clearConfigurationDiagnostics(assignment.path);
+        }
+
+        if (resolved.sourceFiles.empty()) {
             continue;
         }
 
@@ -150,7 +168,10 @@ ProjectRefreshResult ProjectManager::refreshOpenDocuments(
         currentProjectIds.insert(assignment.projectId);
     }
     for (const auto& id : currentProjectIds) {
-        projects_.at(id).generation = ++generation_;
+        ManagedProject& project = projects_.at(id);
+        project.documentGeneration = ++documentGeneration_;
+        project.manifestGeneration = ++manifestGeneration_;
+        project.generation = ++generation_;
         result.changedProjectIds.push_back(id);
     }
     for (const auto& id : previousProjectIds) {
@@ -168,6 +189,7 @@ ProjectRefreshResult ProjectManager::refreshOpenDocuments(
 
     std::sort(result.changedProjectIds.begin(), result.changedProjectIds.end());
     std::sort(result.removedProjectIds.begin(), result.removedProjectIds.end());
+    result.configurationDiagnostics = configurationDiagnostics();
     return result;
 }
 
@@ -203,6 +225,8 @@ ProjectSourceSet ProjectManager::sourceSetForProject(std::string_view projectId)
     }
     const ManagedProject* project = &projectIt->second;
     result.generation = project->generation;
+    result.documentGeneration = project->documentGeneration;
+    result.manifestGeneration = project->manifestGeneration;
 
     for (const auto& sourcePath : project->sourceFiles) {
         const TextDocument* overlay = nullptr;
@@ -229,6 +253,38 @@ ProjectSourceSet ProjectManager::sourceSetForProject(std::string_view projectId)
             std::string(std::istreambuf_iterator<char>(input), std::istreambuf_iterator<char>())});
     }
     return result;
+}
+
+std::vector<project::ConfigurationDiagnostic> ProjectManager::configurationDiagnostics() const {
+    std::vector<project::ConfigurationDiagnostic> diagnostics;
+    diagnostics.reserve(configurationDiagnostics_.size());
+    for (const auto& [key, diagnostic] : configurationDiagnostics_) {
+        diagnostics.push_back(diagnostic);
+    }
+    std::sort(diagnostics.begin(), diagnostics.end(), [](const auto& left, const auto& right) {
+        return pathKey(left.path) < pathKey(right.path);
+    });
+    return diagnostics;
+}
+
+void ProjectManager::recordConfigurationDiagnostics(
+    const std::filesystem::path& documentPath,
+    const std::vector<project::ConfigurationDiagnostic>& diagnostics) {
+    clearConfigurationDiagnostics(documentPath);
+    for (const auto& diagnostic : diagnostics) {
+        configurationDiagnostics_.insert_or_assign(pathKey(diagnostic.path), diagnostic);
+    }
+}
+
+void ProjectManager::clearConfigurationDiagnostics(const std::filesystem::path& documentPath) {
+    for (auto diagnostic = configurationDiagnostics_.begin();
+         diagnostic != configurationDiagnostics_.end();) {
+        if (isWithin(documentPath, diagnostic->second.path.parent_path())) {
+            diagnostic = configurationDiagnostics_.erase(diagnostic);
+        } else {
+            ++diagnostic;
+        }
+    }
 }
 
 std::string ProjectManager::projectId(const project::FileProject& project) {

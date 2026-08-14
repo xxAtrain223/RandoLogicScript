@@ -100,7 +100,7 @@ TEST(DocumentSynchronizationServiceTests, RejectsStaleChangesWithoutAdvancingPro
     EXPECT_EQ(services.projects.projectForDocument(uri)->generation, generation);
 }
 
-TEST(DocumentSynchronizationServiceTests, FailedProjectResolutionRollsBackOverlay) {
+TEST(DocumentSynchronizationServiceTests, FailedProjectResolutionKeepsOverlayStandalone) {
     TemporaryDirectory directory;
     const fs::path missingPath = directory.path() / "missing.rls";
     const std::string uri = fileUri(missingPath);
@@ -108,8 +108,16 @@ TEST(DocumentSynchronizationServiceTests, FailedProjectResolutionRollsBackOverla
     services.start();
 
     EXPECT_EQ(services.synchronization.open(uri, "rls", 1, "overlay\n"),
-        DocumentSynchronizationResult::ProjectResolutionFailed);
-    EXPECT_EQ(services.documents.find(uri), nullptr);
+        DocumentSynchronizationResult::Applied);
+    ASSERT_NE(services.documents.find(uri), nullptr);
+    ASSERT_NE(services.projects.projectForDocument(uri), nullptr);
+    EXPECT_TRUE(services.projects.projectForDocument(uri)->isStandalone);
+    services.scheduler.waitForIdle();
+    const auto snapshot = services.scheduler.acceptedSnapshot(
+        services.projects.projectForDocument(uri)->id);
+    ASSERT_NE(snapshot, nullptr);
+    EXPECT_EQ(snapshot->sourceText(fs::absolute(missingPath).generic_string())->content(),
+        "overlay\n");
 }
 
 TEST(DocumentSynchronizationServiceTests, ClosingOverlayRestoresDiskSource) {

@@ -23,6 +23,8 @@ struct AnalysisRequest {
     std::string projectId;
     uint64_t generation = 0;
     std::vector<sema::SourceInput> sources;
+    uint64_t documentGeneration = 0;
+    uint64_t manifestGeneration = 0;
 };
 
 class AnalysisScheduler {
@@ -58,6 +60,8 @@ private:
 
     struct ProjectState {
         uint64_t latestGeneration = 0;
+        uint64_t latestDocumentGeneration = 0;
+        uint64_t latestManifestGeneration = 0;
         std::optional<PendingRequest> pending;
         std::shared_ptr<std::stop_source> activeCancellation;
         Snapshot accepted;

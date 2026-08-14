@@ -25,11 +25,15 @@ struct ManagedProject {
     std::vector<std::filesystem::path> sourceFiles;
     bool isStandalone = false;
     uint64_t generation = 0;
+    uint64_t documentGeneration = 0;
+    uint64_t manifestGeneration = 0;
 };
 
 struct ProjectSourceSet {
     std::vector<ProjectSource> sources;
     uint64_t generation = 0;
+    uint64_t documentGeneration = 0;
+    uint64_t manifestGeneration = 0;
     std::string error;
 };
 
@@ -37,6 +41,7 @@ struct ProjectRefreshResult {
     std::vector<std::string> changedProjectIds;
     std::vector<std::string> removedProjectIds;
     std::vector<std::string> errors;
+    std::vector<project::ConfigurationDiagnostic> configurationDiagnostics;
 };
 
 enum class ProjectAssignmentResult {
@@ -62,6 +67,7 @@ public:
     const ManagedProject* projectForDocument(std::string_view uri) const;
     ProjectSourceSet sourceSetForDocument(std::string_view uri) const;
     ProjectSourceSet sourceSetForProject(std::string_view projectId) const;
+    std::vector<project::ConfigurationDiagnostic> configurationDiagnostics() const;
 
 private:
     struct Assignment {
@@ -72,12 +78,19 @@ private:
     };
 
     static std::string projectId(const project::FileProject& project);
+    void recordConfigurationDiagnostics(
+        const std::filesystem::path& documentPath,
+        const std::vector<project::ConfigurationDiagnostic>& diagnostics);
+    void clearConfigurationDiagnostics(const std::filesystem::path& documentPath);
 
     DocumentStore& documents_;
     Resolver resolver_;
     std::unordered_map<std::string, Assignment> assignments_;
     std::unordered_map<std::string, ManagedProject> projects_;
+    std::unordered_map<std::string, project::ConfigurationDiagnostic> configurationDiagnostics_;
     uint64_t generation_ = 0;
+    uint64_t documentGeneration_ = 0;
+    uint64_t manifestGeneration_ = 0;
 };
 
 } // namespace rls::lsp

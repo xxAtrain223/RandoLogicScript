@@ -32,6 +32,8 @@ bool ScheduleProjectAnalysis(
         std::string(projectId),
         sourceSet.generation,
         std::move(sources),
+        sourceSet.documentGeneration,
+        sourceSet.manifestGeneration,
     });
 }
 

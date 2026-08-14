@@ -112,6 +112,27 @@ TEST(ProjectManifest, RejectsUnknownFieldsAndEscapingOutputPaths) {
         "manifest path escapes the project root: ../outside");
 }
 
+TEST(ProjectManifest, ReturnsStructuredConfigurationDiagnostics) {
+    TemporaryDirectory directory;
+    const fs::path manifestPath = directory.path() / "rls.json";
+    writeFile(manifestPath, "{\"name\":\"\xF0\x9F\x98\x80\", invalid}");
+
+    const auto invalidJson = rls::project::LoadManifest(manifestPath);
+    ASSERT_FALSE(invalidJson.config.has_value());
+    ASSERT_EQ(invalidJson.diagnostics.size(), 1);
+    EXPECT_EQ(invalidJson.diagnostics[0].path, fs::weakly_canonical(manifestPath));
+    EXPECT_EQ(invalidJson.diagnostics[0].code, "RLS-C002");
+    EXPECT_GT(invalidJson.diagnostics[0].startByte, 0);
+
+    writeFile(manifestPath, R"({"version":1,"sources":["missing"]})");
+    writeFile(directory.path() / "logic.rls");
+    const auto resolved = rls::project::ResolveFileProject(directory.path() / "logic.rls");
+    ASSERT_FALSE(resolved.error.empty());
+    ASSERT_EQ(resolved.diagnostics.size(), 1);
+    EXPECT_EQ(resolved.diagnostics[0].code, "RLS-C004");
+    EXPECT_EQ(resolved.diagnostics[0].path, fs::weakly_canonical(manifestPath));
+}
+
 TEST(ProjectManifest, AcceptsTranspilerNamesWithoutKnowingImplementations) {
     TemporaryDirectory directory;
     writeFile(directory.path() / "rls.json", R"({

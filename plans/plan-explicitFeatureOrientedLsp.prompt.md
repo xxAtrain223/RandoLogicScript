@@ -58,7 +58,7 @@ Expose the compiler query model through a robust, portable LSP server. This plan
 ### 5. Scheduling and Stale Results
 
 - [x] Schedule one debounced analysis stream per project.
-- [ ] Capture document and manifest generations before work starts.
+- [x] Capture document and manifest generations before work starts.
 - [ ] Support cancellation tokens and cancellation at read, parse, sema, and indexing boundaries.
 - [x] Publish a snapshot only when every triggering generation remains current. Discard older results without client notifications.
 - [x] Begin with whole-project analysis. Hide this policy behind scheduler interfaces so later incremental work does not affect handlers.
@@ -66,11 +66,11 @@ Expose the compiler query model through a robust, portable LSP server. This plan
 
 ### 6. Diagnostics
 
-- [ ] Convert compiler/configuration diagnostics to LSP ranges through the shared SourceText conversion API.
+- [x] Convert compiler/configuration diagnostics to LSP ranges through the shared SourceText conversion API.
 - [ ] Preserve severity, stable code, source, related information, and structured future-action data.
 - [x] Publish diagnostics grouped by document for accepted snapshots.
 - [x] Publish empty diagnostics to clear resolved diagnostics, removed files, and closed standalone documents.
-- [ ] Publish manifest errors against `rls.json`; cross-file semantic errors use the primary span plus related declaration locations.
+- [x] Publish manifest errors against `rls.json`; cross-file semantic errors use the primary span plus related declaration locations.
 - [x] Use push diagnostics first for broad client support. Defer pull diagnostics until snapshot consistency is proven.
 
 ### Tests
@@ -81,7 +81,7 @@ Expose the compiler query model through a robust, portable LSP server. This plan
 - [x] Open/change/close version behavior and overlay-versus-disk behavior.
 - [x] Per-project debounce, cancellation, and stale-result suppression.
 - [x] Nested/multiple project assignment and manifest reload behavior.
-- [ ] Parser, sema, configuration, cross-file, and diagnostic-clearing flows.
+- [x] Parser, sema, configuration, cross-file, and diagnostic-clearing flows.
 - [ ] Windows, Linux, and macOS process/URI smoke tests.
 
 ### Definition of Done

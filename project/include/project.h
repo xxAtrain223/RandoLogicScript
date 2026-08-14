@@ -7,6 +7,14 @@
 
 namespace rls::project {
 
+struct ConfigurationDiagnostic {
+    std::filesystem::path path;
+    std::string code;
+    std::string message;
+    size_t startByte = 0;
+    size_t endByte = 0;
+};
+
 struct SourceCollection {
     std::vector<std::filesystem::path> sourceFiles;
     std::vector<std::string> warnings;
@@ -24,6 +32,7 @@ struct ManifestConfig {
 struct ManifestLoadResult {
     std::optional<ManifestConfig> config;
     std::string error;
+    std::vector<ConfigurationDiagnostic> diagnostics;
 };
 
 struct FileProject {
@@ -31,6 +40,7 @@ struct FileProject {
     std::vector<std::filesystem::path> sourceFiles;
     bool isStandalone = false;
     std::string error;
+    std::vector<ConfigurationDiagnostic> diagnostics;
 };
 
 /// Collect explicit file and directory inputs using canonical, stable paths.

@@ -1,6 +1,8 @@
 #include "rls/lsp/diagnostic_publisher.h"
 
 #include <optional>
+#include <fstream>
+#include <iterator>
 #include <utility>
 #include <vector>
 
@@ -48,6 +50,31 @@ Json rangeFor(const sema::AnalysisSnapshot& snapshot, const ast::Span& span) {
         return zeroRange();
     }
     return Json{
+        {"start", {{"line", start->line - 1}, {"character", start->column - 1}}},
+        {"end", {{"line", end->line - 1}, {"character", end->column - 1}}},
+    };
+}
+
+Json rangeFor(const project::ConfigurationDiagnostic& diagnostic) {
+    std::ifstream input(diagnostic.path, std::ios::binary);
+    if (!input) {
+        return zeroRange();
+    }
+    const std::string content{
+        std::istreambuf_iterator<char>(input), std::istreambuf_iterator<char>()};
+    const auto source = ast::SourceText::FromUtf8(content);
+    if (!source) {
+        return zeroRange();
+    }
+    const size_t startOffset = std::min(diagnostic.startByte, content.size());
+    const size_t endOffset = std::min(
+        std::max(diagnostic.endByte, startOffset), content.size());
+    const auto start = source->utf16PositionAtByteOffset(startOffset);
+    const auto end = source->utf16PositionAtByteOffset(endOffset);
+    if (!start || !end) {
+        return zeroRange();
+    }
+    return {
         {"start", {{"line", start->line - 1}, {"character", start->column - 1}}},
         {"end", {{"line", end->line - 1}, {"character", end->column - 1}}},
     };
@@ -145,6 +172,58 @@ void DiagnosticPublisher::clearProject(std::string_view projectId) {
             }
         }
         published_.erase(project);
+    }
+    for (auto& message : messages) {
+        outbound_.push(std::move(message));
+    }
+}
+
+void DiagnosticPublisher::publishConfigurationDiagnostics(
+    const std::vector<project::ConfigurationDiagnostic>& diagnostics) {
+    std::unordered_map<std::string, Json> grouped;
+    std::unordered_map<std::string, std::string> uris;
+    for (const auto& diagnostic : diagnostics) {
+        const auto uri = PathToFileUri(diagnostic.path);
+        if (!uri) {
+            continue;
+        }
+        const auto key = DocumentUriKey(*uri);
+        if (!key) {
+            continue;
+        }
+        if (!grouped.contains(*key)) grouped[*key] = Json::array();
+        grouped[*key].push_back({
+            {"range", rangeFor(diagnostic)},
+            {"severity", 1},
+            {"code", diagnostic.code},
+            {"source", "rls"},
+            {"message", diagnostic.message},
+        });
+        uris[*key] = *uri;
+    }
+
+    DocumentPayloads current;
+    for (auto& [key, values] : grouped) {
+        current[key] = PublishedDocument{uris.at(key), values.dump()};
+    }
+
+    std::vector<std::string> messages;
+    {
+        std::lock_guard lock(mutex_);
+        for (const auto& [key, document] : current) {
+            const auto old = configurationPublished_.find(key);
+            if (old == configurationPublished_.end()
+                || old->second.diagnostics != document.diagnostics) {
+                messages.push_back(notification(
+                    document.uri, Json::parse(document.diagnostics)));
+            }
+        }
+        for (const auto& [key, document] : configurationPublished_) {
+            if (!current.contains(key)) {
+                messages.push_back(notification(document.uri, Json::array()));
+            }
+        }
+        configurationPublished_ = std::move(current);
     }
     for (auto& message : messages) {
         outbound_.push(std::move(message));

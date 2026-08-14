@@ -81,6 +81,7 @@ size_t WorkspaceService::folderCount() const {
 bool WorkspaceService::refreshProjects() {
     ProjectRefreshResult refresh = projects_.refreshOpenDocuments(
         folderPaths_, restrictToWorkspaceFolders_);
+    diagnostics_.publishConfigurationDiagnostics(refresh.configurationDiagnostics);
     for (const auto& projectId : refresh.removedProjectIds) {
         scheduler_.removeProject(projectId);
         diagnostics_.clearProject(projectId);

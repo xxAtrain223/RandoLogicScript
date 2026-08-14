@@ -174,4 +174,26 @@ TEST(AnalysisSchedulerTests, BuilderFailureDoesNotStrandScheduler) {
     EXPECT_EQ(scheduler.acceptedSnapshot("project")->generation(), 2);
 }
 
+TEST(AnalysisSchedulerTests, RejectsRegressedDocumentOrManifestGenerations) {
+    AnalysisScheduler scheduler(
+        {.debounce = std::chrono::milliseconds(40), .maximumConcurrency = 1});
+    AnalysisRequest current = request("project", 10);
+    current.documentGeneration = 4;
+    current.manifestGeneration = 6;
+    ASSERT_TRUE(scheduler.schedule(std::move(current)));
+
+    AnalysisRequest staleDocument = request("project", 11);
+    staleDocument.documentGeneration = 3;
+    staleDocument.manifestGeneration = 7;
+    EXPECT_FALSE(scheduler.schedule(std::move(staleDocument)));
+
+    AnalysisRequest staleManifest = request("project", 12);
+    staleManifest.documentGeneration = 5;
+    staleManifest.manifestGeneration = 5;
+    EXPECT_FALSE(scheduler.schedule(std::move(staleManifest)));
+    scheduler.waitForIdle();
+    ASSERT_NE(scheduler.acceptedSnapshot("project"), nullptr);
+    EXPECT_EQ(scheduler.acceptedSnapshot("project")->generation(), 10);
+}
+
 } // namespace
