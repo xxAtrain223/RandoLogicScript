@@ -16,7 +16,9 @@ namespace rls::lsp {
 
 struct ProjectSource {
     std::filesystem::path path;
-    std::string content;
+    // Present for an open editor overlay, including a valid empty overlay.
+    // Absent when the scheduler must materialize the source from disk.
+    std::optional<std::string> content;
 };
 
 struct ManagedProject {

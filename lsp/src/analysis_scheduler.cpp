@@ -1,6 +1,8 @@
 #include "rls/lsp/analysis_scheduler.h"
 
 #include <algorithm>
+#include <array>
+#include <fstream>
 #include <stdexcept>
 #include <utility>
 
@@ -14,13 +16,54 @@ std::optional<AnalysisScheduler::Snapshot> buildSnapshot(
         std::move(sources), generation, cancellation);
 }
 
+std::optional<std::string> readSource(
+    const std::filesystem::path& path, std::stop_token cancellation) {
+    if (cancellation.stop_requested()) {
+        return std::nullopt;
+    }
+    std::ifstream input(path, std::ios::binary);
+    if (!input) {
+        return std::nullopt;
+    }
+
+    std::string content;
+    std::array<char, 64 * 1024> buffer;
+    while (input) {
+        if (cancellation.stop_requested()) {
+            return std::nullopt;
+        }
+        input.read(buffer.data(), static_cast<std::streamsize>(buffer.size()));
+        const auto count = input.gcount();
+        if (count > 0) {
+            content.append(buffer.data(), static_cast<size_t>(count));
+        }
+    }
+    if (!input.eof() || cancellation.stop_requested()) {
+        return std::nullopt;
+    }
+    return content;
+}
+
+std::string pathString(const std::filesystem::path& path) {
+    const auto generic = path.generic_u8string();
+    std::string value;
+    value.reserve(generic.size());
+    for (const char8_t byte : generic) {
+        value.push_back(static_cast<char>(byte));
+    }
+    return value;
+}
+
 } // namespace
 
 AnalysisScheduler::AnalysisScheduler()
     : AnalysisScheduler(Options{}) {}
 
-AnalysisScheduler::AnalysisScheduler(Options options, Builder builder)
-    : options_(options), builder_(builder ? std::move(builder) : Builder(buildSnapshot)) {
+AnalysisScheduler::AnalysisScheduler(
+        Options options, Builder builder, SourceReader sourceReader)
+        : options_(options),
+            builder_(builder ? std::move(builder) : Builder(buildSnapshot)),
+            sourceReader_(sourceReader ? std::move(sourceReader) : SourceReader(readSource)) {
     if (options_.maximumConcurrency == 0) {
         throw std::invalid_argument("analysis concurrency must be at least one");
     }
@@ -166,8 +209,27 @@ void AnalysisScheduler::worker(std::stop_token shutdown) {
 
         std::optional<Snapshot> snapshot;
         try {
-            snapshot = builder_(
-                std::move(request.sources), request.generation, cancellation->get_token());
+            std::vector<sema::SourceInput> sources;
+            sources.reserve(request.sources.size());
+            for (auto& source : request.sources) {
+                if (cancellation->stop_requested()) {
+                    sources.clear();
+                    break;
+                }
+                std::optional<std::string> content = std::move(source.content);
+                if (!content) {
+                    content = sourceReader_(source.path, cancellation->get_token());
+                }
+                if (!content || cancellation->stop_requested()) {
+                    sources.clear();
+                    break;
+                }
+                sources.push_back({pathString(source.path), std::move(*content)});
+            }
+            if (!sources.empty()) {
+                snapshot = builder_(
+                    std::move(sources), request.generation, cancellation->get_token());
+            }
         } catch (...) {
             snapshot = std::nullopt;
         }

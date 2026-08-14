@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cstdint>
 #include <filesystem>
 #include <optional>
 #include <string>
@@ -7,12 +8,19 @@
 
 namespace rls::project {
 
+struct ConfigurationDiagnosticData {
+    uint32_t version = 1;
+    std::string actionKind;
+    std::vector<std::string> arguments;
+};
+
 struct ConfigurationDiagnostic {
     std::filesystem::path path;
     std::string code;
     std::string message;
     size_t startByte = 0;
     size_t endByte = 0;
+    std::optional<ConfigurationDiagnosticData> data;
 };
 
 struct SourceCollection {

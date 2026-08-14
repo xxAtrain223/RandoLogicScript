@@ -59,7 +59,7 @@ Expose the compiler query model through a robust, portable LSP server. This plan
 
 - [x] Schedule one debounced analysis stream per project.
 - [x] Capture document and manifest generations before work starts.
-- [ ] Support cancellation tokens and cancellation at read, parse, sema, and indexing boundaries.
+- [x] Support cancellation tokens and cancellation at read, parse, sema, and indexing boundaries.
 - [x] Publish a snapshot only when every triggering generation remains current. Discard older results without client notifications.
 - [x] Begin with whole-project analysis. Hide this policy behind scheduler interfaces so later incremental work does not affect handlers.
 - [x] Bound concurrent analyses across projects.
@@ -67,7 +67,7 @@ Expose the compiler query model through a robust, portable LSP server. This plan
 ### 6. Diagnostics
 
 - [x] Convert compiler/configuration diagnostics to LSP ranges through the shared SourceText conversion API.
-- [ ] Preserve severity, stable code, source, related information, and structured future-action data.
+- [x] Preserve severity, stable code, source, related information, and structured future-action data.
 - [x] Publish diagnostics grouped by document for accepted snapshots.
 - [x] Publish empty diagnostics to clear resolved diagnostics, removed files, and closed standalone documents.
 - [x] Publish manifest errors against `rls.json`; cross-file semantic errors use the primary span plus related declaration locations.

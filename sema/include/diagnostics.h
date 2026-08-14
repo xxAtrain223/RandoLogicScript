@@ -25,7 +25,9 @@ inline ast::Diagnostic AmbiguousIdentifier(ast::Span span, std::string_view name
 	return {"RLS-T005", std::move(span), ast::DiagnosticLevel::Error, std::format("ambiguous identifier '{}' found in multiple enums ({}); use EnumName.{} to disambiguate", name, enums, name)};
 }
 inline ast::Diagnostic UnknownIdentifier(ast::Span span, std::string_view name) {
-	return {"RLS-T006", std::move(span), ast::DiagnosticLevel::Error, std::format("unknown identifier '{}'", name)};
+	return {"RLS-T006", std::move(span), ast::DiagnosticLevel::Error,
+		std::format("unknown identifier '{}'", name),
+		ast::DiagnosticActionData{1, "rls.declareSymbol", {std::string(name)}}};
 }
 inline ast::Diagnostic UnaryRequiresBool(ast::Span span, std::string_view type) {
 	return {"RLS-T007", std::move(span), ast::DiagnosticLevel::Error, std::format("'not' requires a Bool operand, got {}", type)};
@@ -85,7 +87,9 @@ inline ast::Diagnostic ZeroArgumentCallMismatch(ast::Span span, std::string_view
 	return {"RLS-T025", std::move(span), ast::DiagnosticLevel::Error, std::format("'{}' expects 0 argument(s), got {}", name, count)};
 }
 inline ast::Diagnostic UnknownFunction(ast::Span span, std::string_view name) {
-	return {"RLS-T026", std::move(span), ast::DiagnosticLevel::Error, std::format("unknown function '{}'", name)};
+	return {"RLS-T026", std::move(span), ast::DiagnosticLevel::Error,
+		std::format("unknown function '{}'", name),
+		ast::DiagnosticActionData{1, "rls.declareFunction", {std::string(name)}}};
 }
 inline ast::Diagnostic ExpressionNotCallable(ast::Span span, std::string_view type) {
 	return {"RLS-T027", std::move(span), ast::DiagnosticLevel::Error, std::format("expression is not callable (type {})", type)};
@@ -131,7 +135,9 @@ inline ast::Diagnostic UnknownParameterTypeAnnotation(ast::Span span, std::strin
 }
 
 inline ast::Diagnostic UnknownExtensionTarget(ast::Span span, std::string_view regionName) {
-    return {"RLS-V001", std::move(span), ast::DiagnosticLevel::Error, std::format("extend region targets unknown region '{}'", regionName)};
+	return {"RLS-V001", std::move(span), ast::DiagnosticLevel::Error,
+		std::format("extend region targets unknown region '{}'", regionName),
+		ast::DiagnosticActionData{1, "rls.createRegion", {std::string(regionName)}}};
 }
 inline ast::Diagnostic DuplicateRegionData(ast::Span span, std::string_view key, std::string_view regionName) {
     return {"RLS-V002", std::move(span), ast::DiagnosticLevel::Error, std::format("duplicate data key '{}' in region '{}'", key, regionName)};

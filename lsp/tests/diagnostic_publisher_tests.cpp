@@ -274,4 +274,46 @@ TEST(DiagnosticPublisherTests, KeepsMultipleManifestDiagnosticsIsolated) {
     EXPECT_FALSE(outbound.tryPop().has_value());
 }
 
+TEST(DiagnosticPublisherTests, PreservesStructuredCompilerActionData) {
+    TemporaryDirectory directory;
+    const fs::path path = directory.path() / "main.rls";
+    std::ofstream(path) << "placeholder";
+    const auto analyzed = snapshot(path, "define broken(): missing\n", 1);
+    ASSERT_NE(analyzed, nullptr);
+
+    OutboundMessageQueue outbound;
+    DiagnosticPublisher publisher(outbound);
+    publisher.acceptedSnapshot("project", analyzed);
+    const auto payload = outbound.tryPop();
+    ASSERT_TRUE(payload.has_value());
+    const Json notification = Json::parse(*payload);
+    const Json* diagnostic = findDiagnostic(notification, "RLS-T006");
+    ASSERT_NE(diagnostic, nullptr);
+    ASSERT_TRUE(diagnostic->contains("data"));
+    EXPECT_EQ((*diagnostic)["data"]["version"], 1);
+    EXPECT_EQ((*diagnostic)["data"]["actionKind"], "rls.declareSymbol");
+    ASSERT_EQ((*diagnostic)["data"]["arguments"].size(), 1);
+    EXPECT_EQ((*diagnostic)["data"]["arguments"][0], "missing");
+}
+
+TEST(DiagnosticPublisherTests, PreservesStructuredConfigurationActionData) {
+    TemporaryDirectory directory;
+    const fs::path manifestPath = directory.path() / "rls.json";
+    std::ofstream(manifestPath) << "{ invalid";
+    const auto loaded = rls::project::LoadManifest(manifestPath);
+    ASSERT_EQ(loaded.diagnostics.size(), 1);
+    ASSERT_TRUE(loaded.diagnostics[0].data.has_value());
+
+    OutboundMessageQueue outbound;
+    DiagnosticPublisher publisher(outbound);
+    publisher.publishConfigurationDiagnostics(loaded.diagnostics);
+    const auto payload = outbound.tryPop();
+    ASSERT_TRUE(payload.has_value());
+    const Json diagnostic = Json::parse(*payload)["params"]["diagnostics"][0];
+    EXPECT_EQ(diagnostic["data"]["version"], 1);
+    EXPECT_EQ(diagnostic["data"]["actionKind"], "rls.fixManifestJson");
+    ASSERT_EQ(diagnostic["data"]["arguments"].size(), 1);
+    EXPECT_FALSE(diagnostic["data"]["arguments"][0].get<std::string>().empty());
+}
+
 } // namespace

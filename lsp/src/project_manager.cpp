@@ -2,8 +2,6 @@
 
 #include <algorithm>
 #include <cctype>
-#include <fstream>
-#include <iterator>
 #include <unordered_set>
 #include <utility>
 
@@ -243,14 +241,7 @@ ProjectSourceSet ProjectManager::sourceSetForProject(std::string_view projectId)
             continue;
         }
 
-        std::ifstream input(sourcePath, std::ios::binary);
-        if (!input) {
-            result.error = "failed to read source file: " + sourcePath.string();
-            result.sources.clear();
-            return result;
-        }
-        result.sources.push_back({sourcePath,
-            std::string(std::istreambuf_iterator<char>(input), std::istreambuf_iterator<char>())});
+        result.sources.push_back({sourcePath, std::nullopt});
     }
     return result;
 }

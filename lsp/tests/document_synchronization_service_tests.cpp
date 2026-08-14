@@ -134,7 +134,13 @@ TEST(DocumentSynchronizationServiceTests, ClosingOverlayRestoresDiskSource) {
     const auto sourceSet = services.projects.sourceSetForDocument(uri);
     ASSERT_TRUE(sourceSet.error.empty()) << sourceSet.error;
     ASSERT_EQ(sourceSet.sources.size(), 1);
-    EXPECT_EQ(sourceSet.sources.front().content, "disk\n");
+    EXPECT_FALSE(sourceSet.sources.front().content.has_value());
+    services.scheduler.waitForIdle();
+    const auto snapshot = services.scheduler.acceptedSnapshot(
+        services.projects.projectForDocument(uri)->id);
+    ASSERT_NE(snapshot, nullptr);
+    EXPECT_EQ(snapshot->sourceText(fs::weakly_canonical(sourcePath).generic_string())->content(),
+        "disk\n");
 }
 
 TEST(DocumentSynchronizationServiceTests, AcceptedChangesScheduleLatestGeneration) {

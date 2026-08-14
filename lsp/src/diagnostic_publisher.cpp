@@ -84,6 +84,22 @@ std::optional<std::string> uriForPath(std::string_view path) {
     return PathToFileUri(std::filesystem::path(path));
 }
 
+Json actionData(const ast::DiagnosticActionData& data) {
+    return {
+        {"version", data.version},
+        {"actionKind", data.actionKind},
+        {"arguments", data.arguments},
+    };
+}
+
+Json actionData(const project::ConfigurationDiagnosticData& data) {
+    return {
+        {"version", data.version},
+        {"actionKind", data.actionKind},
+        {"arguments", data.arguments},
+    };
+}
+
 Json diagnosticsFor(const sema::AnalysisSnapshot& snapshot, std::string_view path) {
     Json diagnostics = Json::array();
     for (const auto& diagnostic : snapshot.diagnosticsFor(path)) {
@@ -110,6 +126,9 @@ Json diagnosticsFor(const sema::AnalysisSnapshot& snapshot, std::string_view pat
         }
         if (!relatedInformation.empty()) {
             value["relatedInformation"] = std::move(relatedInformation);
+        }
+        if (diagnostic.data) {
+            value["data"] = actionData(*diagnostic.data);
         }
         diagnostics.push_back(std::move(value));
     }
@@ -192,13 +211,17 @@ void DiagnosticPublisher::publishConfigurationDiagnostics(
             continue;
         }
         if (!grouped.contains(*key)) grouped[*key] = Json::array();
-        grouped[*key].push_back({
+        Json value = {
             {"range", rangeFor(diagnostic)},
             {"severity", 1},
             {"code", diagnostic.code},
             {"source", "rls"},
             {"message", diagnostic.message},
-        });
+        };
+        if (diagnostic.data) {
+            value["data"] = actionData(*diagnostic.data);
+        }
+        grouped[*key].push_back(std::move(value));
         uris[*key] = *uri;
     }
 

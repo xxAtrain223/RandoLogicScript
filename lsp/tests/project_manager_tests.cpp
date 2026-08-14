@@ -92,7 +92,8 @@ TEST(ProjectManagerTests, OpenOverlayWinsThenCloseRestoresDiskContent) {
     auto sourceSet = projects.sourceSetForDocument(uri);
     ASSERT_TRUE(sourceSet.error.empty()) << sourceSet.error;
     ASSERT_EQ(sourceSet.sources.size(), 1);
-    EXPECT_EQ(sourceSet.sources.front().content, "overlay content\n");
+    ASSERT_TRUE(sourceSet.sources.front().content.has_value());
+    EXPECT_EQ(*sourceSet.sources.front().content, "overlay content\n");
     const uint64_t openGeneration = sourceSet.generation;
 
     ASSERT_TRUE(documents.close(uri));
@@ -100,7 +101,7 @@ TEST(ProjectManagerTests, OpenOverlayWinsThenCloseRestoresDiskContent) {
     sourceSet = projects.sourceSetForDocument(uri);
     ASSERT_TRUE(sourceSet.error.empty()) << sourceSet.error;
     ASSERT_EQ(sourceSet.sources.size(), 1);
-    EXPECT_EQ(sourceSet.sources.front().content, "disk content\n");
+    EXPECT_FALSE(sourceSet.sources.front().content.has_value());
     EXPECT_GT(sourceSet.generation, openGeneration);
 }
 
@@ -128,7 +129,8 @@ TEST(ProjectManagerTests, ChangesAdvanceGenerationAndPreserveOverlay) {
     EXPECT_GT(sourceSet.documentGeneration, beforeDocumentGeneration);
     EXPECT_EQ(sourceSet.manifestGeneration, beforeManifestGeneration);
     ASSERT_EQ(sourceSet.sources.size(), 1);
-    EXPECT_EQ(sourceSet.sources.front().content, "two\n");
+    ASSERT_TRUE(sourceSet.sources.front().content.has_value());
+    EXPECT_EQ(*sourceSet.sources.front().content, "two\n");
 }
 
 TEST(ProjectManagerTests, RequiresAnOpenDocumentBeforeAssignment) {
@@ -172,7 +174,8 @@ TEST(ProjectManagerTests, RefreshReassignsOpenDocumentAcrossNestedManifestChange
     EXPECT_GT(nestedProject->generation, outerGeneration);
     auto sourceSet = projects.sourceSetForProject(nestedProject->id);
     ASSERT_EQ(sourceSet.sources.size(), 1);
-    EXPECT_EQ(sourceSet.sources.front().content, "define overlay(): true\n");
+    ASSERT_TRUE(sourceSet.sources.front().content.has_value());
+    EXPECT_EQ(*sourceSet.sources.front().content, "define overlay(): true\n");
     const std::string nestedProjectId = nestedProject->id;
 
     fs::remove(directory.path() / "nested" / "rls.json");

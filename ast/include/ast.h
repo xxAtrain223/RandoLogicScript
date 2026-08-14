@@ -650,6 +650,12 @@ using Decl = std::variant<
 
 enum class DiagnosticLevel { Error, Warning, Info };
 
+struct DiagnosticActionData {
+	uint32_t version = 1;
+	std::string actionKind;
+	std::vector<std::string> arguments;
+};
+
 inline std::string levelToString(rls::ast::DiagnosticLevel level) {
 	switch (level) {
 	case rls::ast::DiagnosticLevel::Error:   return "error";
@@ -665,14 +671,17 @@ struct Diagnostic {
 	Span span; // location of the offending construct
 	DiagnosticLevel level = DiagnosticLevel::Error;
 	std::string message;
+	std::optional<DiagnosticActionData> data;
 
 	Diagnostic() = default;
 
-	Diagnostic(std::string code, Span span, DiagnosticLevel level, std::string message)
+	Diagnostic(std::string code, Span span, DiagnosticLevel level, std::string message,
+	           std::optional<DiagnosticActionData> data = std::nullopt)
 		: code(std::move(code)),
 		  span(std::move(span)),
 		  level(level),
-		  message(std::move(message)) {}
+		  message(std::move(message)),
+		  data(std::move(data)) {}
 };
 
 // == File =====================================================================

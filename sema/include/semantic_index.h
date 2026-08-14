@@ -99,6 +99,7 @@ struct CompilerDiagnostic {
 	std::string message;
 	ast::Span span;
 	std::vector<DiagnosticRelatedLocation> related;
+	std::optional<ast::DiagnosticActionData> data;
 };
 
 /// Snapshot-local semantic records that retain no AST pointers.

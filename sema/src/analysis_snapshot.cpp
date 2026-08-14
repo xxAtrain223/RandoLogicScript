@@ -40,7 +40,7 @@ std::optional<std::shared_ptr<const AnalysisSnapshot>> AnalysisSnapshot::Create(
 	for (const auto& diagnostic : snapshot->diagnostics_) {
 		if (diagnostic.code.starts_with("RLS-V")) continue;
 		snapshot->compilerDiagnostics_.push_back({diagnostic.code, diagnostic.level,
-			diagnostic.message, diagnostic.span, {}});
+			diagnostic.message, diagnostic.span, {}, diagnostic.data});
 	}
 	for (const auto& diagnostic : snapshot->semanticIndex_.diagnostics()) {
 		snapshot->compilerDiagnostics_.push_back(diagnostic);

@@ -202,6 +202,22 @@ TEST(AnalysisSnapshotTests, ExposesStructuredValidationDiagnostics) {
 	EXPECT_NE(diagnostic->message.find("must be Bool"), std::string::npos);
 }
 
+TEST(AnalysisSnapshotTests, PreservesStructuredDiagnosticActionData) {
+	const auto snapshot = AnalysisSnapshot::Create({
+		{"actions.rls", "define broken(): missing\n"},
+	}, 104);
+	ASSERT_TRUE(snapshot);
+	const auto diagnostics = (*snapshot)->diagnosticsFor("actions.rls");
+	const auto diagnostic = std::find_if(diagnostics.begin(), diagnostics.end(),
+		[](const CompilerDiagnostic& candidate) { return candidate.code == "RLS-T006"; });
+	ASSERT_NE(diagnostic, diagnostics.end());
+	ASSERT_TRUE(diagnostic->data.has_value());
+	EXPECT_EQ(diagnostic->data->version, 1u);
+	EXPECT_EQ(diagnostic->data->actionKind, "rls.declareSymbol");
+	ASSERT_EQ(diagnostic->data->arguments.size(), 1u);
+	EXPECT_EQ(diagnostic->data->arguments[0], "missing");
+}
+
 TEST(AnalysisSnapshotTests, RelatesDuplicateRegionDataToFirstDefinition) {
 	const auto snapshot = AnalysisSnapshot::Create({
 		{"duplicate-data.rls", "region RR_TEST { name: \"First\" name: \"Second\" }\n"},

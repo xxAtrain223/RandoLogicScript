@@ -1,6 +1,8 @@
 #include <algorithm>
 #include <condition_variable>
 #include <cstdint>
+#include <filesystem>
+#include <fstream>
 #include <mutex>
 #include <stdexcept>
 #include <stop_token>
@@ -194,6 +196,95 @@ TEST(AnalysisSchedulerTests, RejectsRegressedDocumentOrManifestGenerations) {
     scheduler.waitForIdle();
     ASSERT_NE(scheduler.acceptedSnapshot("project"), nullptr);
     EXPECT_EQ(scheduler.acceptedSnapshot("project")->generation(), 10);
+}
+
+TEST(AnalysisSchedulerTests, CancelsSupersededDiskReadBeforeSnapshotBuild) {
+    std::mutex mutex;
+    std::condition_variable started;
+    std::condition_variable cancelled;
+    bool readStarted = false;
+    bool readCancelled = false;
+    std::vector<uint64_t> builtGenerations;
+
+    AnalysisScheduler scheduler(
+        {.debounce = std::chrono::milliseconds(0), .maximumConcurrency = 1},
+        [&](std::vector<rls::sema::SourceInput> sources, uint64_t generation,
+            std::stop_token) {
+            builtGenerations.push_back(generation);
+            return snapshotFor(std::move(sources), generation);
+        },
+        [&](const std::filesystem::path&, std::stop_token cancellationToken)
+            -> std::optional<std::string> {
+            std::unique_lock lock(mutex);
+            readStarted = true;
+            started.notify_all();
+            std::stop_callback wakeOnCancellation(
+                cancellationToken, [&] { cancelled.notify_all(); });
+            cancelled.wait(lock, [&] { return cancellationToken.stop_requested(); });
+            readCancelled = true;
+            return std::nullopt;
+        });
+
+    ASSERT_TRUE(scheduler.schedule({
+        "project", 1, {{"slow.rls", std::nullopt}}, 1, 1,
+    }));
+    {
+        std::unique_lock lock(mutex);
+        started.wait(lock, [&] { return readStarted; });
+    }
+    ASSERT_TRUE(scheduler.schedule({
+        "project", 2, {{"fresh.rls", "define fresh(): true\n"}}, 2, 1,
+    }));
+    scheduler.waitForIdle();
+
+    EXPECT_TRUE(readCancelled);
+    ASSERT_EQ(builtGenerations.size(), 1);
+    EXPECT_EQ(builtGenerations.front(), 2);
+    ASSERT_NE(scheduler.acceptedSnapshot("project"), nullptr);
+    EXPECT_EQ(scheduler.acceptedSnapshot("project")->generation(), 2);
+}
+
+TEST(AnalysisSchedulerTests, DefaultReaderAnalyzesEmptyDiskFile) {
+    const auto path = std::filesystem::temp_directory_path() /
+        ("rls-empty-source-" + std::to_string(
+            std::chrono::steady_clock::now().time_since_epoch().count()) + ".rls");
+    std::ofstream(path, std::ios::binary);
+    AnalysisScheduler scheduler(
+        {.debounce = std::chrono::milliseconds(0), .maximumConcurrency = 1});
+
+    ASSERT_TRUE(scheduler.schedule({
+        "project", 1, {{path, std::nullopt}}, 1, 1,
+    }));
+    scheduler.waitForIdle();
+
+    const auto snapshot = scheduler.acceptedSnapshot("project");
+    ASSERT_NE(snapshot, nullptr);
+    ASSERT_EQ(snapshot->documentCount(), 1);
+    ASSERT_NE(snapshot->sourceText(path.generic_string()), nullptr);
+    EXPECT_TRUE(snapshot->sourceText(path.generic_string())->content().empty());
+    std::error_code error;
+    std::filesystem::remove(path, error);
+}
+
+TEST(AnalysisSchedulerTests, DiskReadFailureDoesNotInvokeSnapshotBuilder) {
+    size_t buildCount = 0;
+    AnalysisScheduler scheduler(
+        {.debounce = std::chrono::milliseconds(0), .maximumConcurrency = 1},
+        [&](std::vector<rls::sema::SourceInput> sources, uint64_t generation,
+            std::stop_token) {
+            ++buildCount;
+            return snapshotFor(std::move(sources), generation);
+        },
+        [](const std::filesystem::path&, std::stop_token)
+            -> std::optional<std::string> { return std::nullopt; });
+
+    ASSERT_TRUE(scheduler.schedule({
+        "project", 1, {{"missing.rls", std::nullopt}}, 1, 1,
+    }));
+    scheduler.waitForIdle();
+
+    EXPECT_EQ(buildCount, 0);
+    EXPECT_EQ(scheduler.acceptedSnapshot("project"), nullptr);
 }
 
 } // namespace

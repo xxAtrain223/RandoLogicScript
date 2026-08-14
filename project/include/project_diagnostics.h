@@ -12,14 +12,16 @@ namespace rls::project::diagnostics {
 inline ConfigurationDiagnostic ManifestUnavailable(
     std::filesystem::path path, std::string_view requestedPath) {
     return {std::move(path), "RLS-C001",
-        "could not open manifest: " + std::string(requestedPath), 0, 0};
+        "could not open manifest: " + std::string(requestedPath), 0, 0,
+        ConfigurationDiagnosticData{1, "rls.openManifest", {std::string(requestedPath)}}};
 }
 
 inline ConfigurationDiagnostic InvalidJson(
     std::filesystem::path path, std::string_view detail,
     size_t startByte, size_t endByte) {
     return {std::move(path), "RLS-C002",
-        "invalid JSON: " + std::string(detail), startByte, endByte};
+        "invalid JSON: " + std::string(detail), startByte, endByte,
+        ConfigurationDiagnosticData{1, "rls.fixManifestJson", {std::string(detail)}}};
 }
 
 inline ConfigurationDiagnostic ManifestMustBeObject(std::filesystem::path path) {
@@ -29,7 +31,8 @@ inline ConfigurationDiagnostic ManifestMustBeObject(std::filesystem::path path) 
 inline ConfigurationDiagnostic UnknownManifestField(
     std::filesystem::path path, std::string_view field) {
     return {std::move(path), "RLS-C003",
-        "unknown manifest field: " + std::string(field), 0, 0};
+        "unknown manifest field: " + std::string(field), 0, 0,
+        ConfigurationDiagnosticData{1, "rls.removeManifestField", {std::string(field)}}};
 }
 
 inline ConfigurationDiagnostic UnsupportedManifestVersion(std::filesystem::path path) {
@@ -77,7 +80,10 @@ inline ConfigurationDiagnostic InvalidTranspilerConfiguration(
 
 inline ConfigurationDiagnostic SourceCollectionFailed(
     std::filesystem::path path, std::string message) {
-    return {std::move(path), "RLS-C004", std::move(message), 0, 0};
+    ConfigurationDiagnosticData data{
+        1, "rls.configureManifestSources", {message}};
+    return {std::move(path), "RLS-C004", std::move(message), 0, 0,
+        std::move(data)};
 }
 
 } // namespace rls::project::diagnostics
