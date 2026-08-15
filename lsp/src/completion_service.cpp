@@ -151,7 +151,12 @@ std::string regionKeySnippet(std::string_view key) {
     return std::string(key) + ": ${1}";
 }
 
-std::string sectionSnippet(ast::SectionKind kind, std::string_view indentation) {
+std::string sectionSnippet(ast::SectionKind kind) {
+    return std::string(sectionName(kind)) + " {\n    $0\n}";
+}
+
+std::string sectionSnippet(
+    ast::SectionKind kind, std::string_view indentation) {
     return std::string(sectionName(kind)) + " {\n"
         + std::string(indentation) + "    $0\n"
         + std::string(indentation) + '}';
@@ -488,7 +493,8 @@ std::vector<CompletionItem> CompletionService::complete(
                 [&] {
                     auto item = makeItem(std::string(sectionName(kind)), CompletionItemKind::Keyword,
                         "region section");
-                    item.snippetText = sectionSnippet(kind, lineIndentation);
+                    item.snippetText = sectionSnippet(kind);
+                    item.serverIndentedSnippetText = sectionSnippet(kind, lineIndentation);
                     return item;
                 }(), 10, prefix);
         }

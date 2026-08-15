@@ -2,12 +2,19 @@
 
 namespace rls::lsp {
 
+enum class SectionSnippetIndentation {
+    Client,
+    Server,
+};
+
 class LifecycleService {
 public:
     void initialize(
         bool definitionLinkSupport = false,
         bool documentSymbolHierarchySupport = false,
-        bool completionSnippetSupport = false);
+        bool completionSnippetSupport = false,
+        SectionSnippetIndentation sectionSnippetIndentation =
+            SectionSnippetIndentation::Server);
     void initialized();
     void shutdown();
     void exit();
@@ -16,6 +23,7 @@ public:
     bool supportsDefinitionLinks() const;
     bool supportsDocumentSymbolHierarchy() const;
     bool supportsCompletionSnippets() const;
+    SectionSnippetIndentation sectionSnippetIndentation() const;
     bool shouldExit() const;
     int exitCode() const;
 
@@ -24,6 +32,8 @@ private:
     bool definitionLinkSupport_ = false;
     bool documentSymbolHierarchySupport_ = false;
     bool completionSnippetSupport_ = false;
+    SectionSnippetIndentation sectionSnippetIndentation_ =
+        SectionSnippetIndentation::Server;
     bool initialized_ = false;
     bool shutdownRequested_ = false;
     bool exitRequested_ = false;

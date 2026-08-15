@@ -67,6 +67,20 @@
           "scope": "machine-overridable",
           "description": "Additional arguments passed to the RLS language server."
         },
+        "randoLogicScript.completion.sectionSnippetIndentation": {
+          "type": "string",
+          "enum": [
+            "client",
+            "server"
+          ],
+          "enumDescriptions": [
+            "Send relative indentation and let the editor adjust multiline completion snippets. Recommended for VS Code.",
+            "Embed the current line indentation for editors that insert multiline snippet text as-is."
+          ],
+          "default": "client",
+          "scope": "window",
+          "description": "Controls whether the editor or language server supplies indentation for multiline section completion snippets. Restart the language server after changing this setting."
+        },
         "randoLogicScript.trace.server": {
           "type": "string",
           "enum": [

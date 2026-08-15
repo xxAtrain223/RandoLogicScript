@@ -13,6 +13,8 @@ import {
 let client: LanguageClient | undefined;
 let watcher: vscode.FileSystemWatcher | undefined;
 
+type SectionSnippetIndentation = 'client' | 'server';
+
 function executableName(): string {
   return process.platform === 'win32' ? 'rls_language_server.exe' : 'rls_language_server';
 }
@@ -40,6 +42,12 @@ function configuredServerPath(): string | undefined {
   }
   const workspaceRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
   return workspaceRoot ? path.resolve(workspaceRoot, configured) : path.resolve(configured);
+}
+
+function configuredSectionSnippetIndentation(): SectionSnippetIndentation {
+  return vscode.workspace
+    .getConfiguration('randoLogicScript')
+    .get<SectionSnippetIndentation>('completion.sectionSnippetIndentation', 'client');
 }
 
 export function resolveServerExecutable(context: vscode.ExtensionContext): string | undefined {
@@ -95,6 +103,11 @@ async function startClient(context: vscode.ExtensionContext): Promise<void> {
   const serverOptions: ServerOptions = executable;
   const clientOptions: LanguageClientOptions = {
     documentSelector: [{ scheme: 'file', language: 'rls' }],
+    initializationOptions: {
+      completion: {
+        sectionSnippetIndentation: configuredSectionSnippetIndentation(),
+      },
+    },
     synchronize: {
       fileEvents: watcher,
     },

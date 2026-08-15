@@ -29,6 +29,7 @@ struct CompletionItem {
     std::string documentation;
     std::string insertText;
     std::optional<std::string> snippetText;
+    std::optional<std::string> serverIndentedSnippetText;
     PresentationRange replacementRange;
     std::string sortText;
 };

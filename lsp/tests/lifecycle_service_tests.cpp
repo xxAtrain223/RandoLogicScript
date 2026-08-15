@@ -57,4 +57,17 @@ TEST(LifecycleServiceTests, StoresNegotiatedCompletionSnippetSupport) {
     EXPECT_TRUE(supported.supportsCompletionSnippets());
 }
 
+TEST(LifecycleServiceTests, DefaultsSectionSnippetIndentationToServer) {
+    LifecycleService lifecycle;
+    lifecycle.initialize();
+    EXPECT_EQ(lifecycle.sectionSnippetIndentation(),
+        rls::lsp::SectionSnippetIndentation::Server);
+
+    LifecycleService clientIndented;
+    clientIndented.initialize(false, false, true,
+        rls::lsp::SectionSnippetIndentation::Client);
+    EXPECT_EQ(clientIndented.sectionSnippetIndentation(),
+        rls::lsp::SectionSnippetIndentation::Client);
+}
+
 } // namespace

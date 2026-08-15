@@ -1,5 +1,6 @@
 #include <chrono>
 #include <filesystem>
+#include <optional>
 
 #include <gtest/gtest.h>
 #include <nlohmann/json.hpp>
@@ -98,7 +99,9 @@ TEST(ServerCompositionRootTests, RoutesCompletionWithActiveTokenTextEdit) {
 TEST(ServerCompositionRootTests, NegotiatesCompletionSnippetsWithPlainFallback) {
     const fs::path sourcePath = fs::temp_directory_path() / "rls-snippet-route.rls";
     const std::string uri = *rls::lsp::PathToFileUri(sourcePath);
-    const auto complete = [&](bool snippetSupport, std::string text,
+    const auto complete = [&](bool snippetSupport,
+                              std::optional<std::string> indentationMode,
+                              std::string text,
                               uint32_t line, uint32_t character) {
         ServerCompositionRoot server(standaloneProject);
         Json initializeParams = Json::object();
@@ -107,6 +110,13 @@ TEST(ServerCompositionRootTests, NegotiatesCompletionSnippetsWithPlainFallback) 
                 {"capabilities", {{"textDocument", {{"completion", {
                     {"completionItem", {{"snippetSupport", true}}},
                 }}}}}},
+            };
+        }
+        if (indentationMode) {
+            initializeParams["initializationOptions"] = {
+                {"completion", {
+                    {"sectionSnippetIndentation", *indentationMode},
+                }},
             };
         }
         server.handlePayload(Json{
@@ -152,12 +162,19 @@ TEST(ServerCompositionRootTests, NegotiatesCompletionSnippetsWithPlainFallback) 
         "region RR_TEST {\n"
         "  \n"
         "}\n";
-    const auto plainField = find(complete(false, regionText, 2, 2), "customField");
+    const auto plainField = find(
+        complete(false, std::nullopt, regionText, 2, 2), "customField");
     ASSERT_FALSE(plainField.is_null());
     EXPECT_EQ(plainField["insertTextFormat"], 1);
     EXPECT_EQ(plainField["textEdit"]["newText"], "customField");
 
-    const auto snippetItems = complete(true, regionText, 2, 2);
+    const auto serverItems = complete(true, std::nullopt, regionText, 2, 2);
+    const auto serverEvents = find(serverItems, "events");
+    ASSERT_FALSE(serverEvents.is_null());
+    EXPECT_EQ(serverEvents["insertTextMode"], 1);
+    EXPECT_EQ(serverEvents["textEdit"]["newText"], "events {\n      $0\n  }");
+
+    const auto snippetItems = complete(true, "client", regionText, 2, 2);
     const auto snippetField = find(snippetItems, "customField");
     ASSERT_FALSE(snippetField.is_null());
     EXPECT_EQ(snippetField["insertTextFormat"], 2);
@@ -165,9 +182,11 @@ TEST(ServerCompositionRootTests, NegotiatesCompletionSnippetsWithPlainFallback) 
     const auto snippetEvents = find(snippetItems, "events");
     ASSERT_FALSE(snippetEvents.is_null());
     EXPECT_EQ(snippetEvents["insertTextFormat"], 2);
-    EXPECT_EQ(snippetEvents["textEdit"]["newText"], "events {\n      $0\n  }");
+    EXPECT_EQ(snippetEvents["insertTextMode"], 2);
+    EXPECT_EQ(snippetEvents["textEdit"]["newText"], "events {\n    $0\n}");
 
-    const auto plainKeyword = find(complete(true, "def\n", 0, 3), "define");
+    const auto plainKeyword = find(
+        complete(true, "client", "def\n", 0, 3), "define");
     ASSERT_FALSE(plainKeyword.is_null());
     EXPECT_EQ(plainKeyword["insertTextFormat"], 1);
     EXPECT_EQ(plainKeyword["textEdit"]["newText"], "define");

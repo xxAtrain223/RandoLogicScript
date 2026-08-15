@@ -205,6 +205,15 @@ TEST(CompletionServiceTests, FallsBackToSectionsWithoutObservedRegionKeys) {
     EXPECT_NE(findItem(items, "events"), nullptr);
     EXPECT_NE(findItem(items, "locations"), nullptr);
     EXPECT_NE(findItem(items, "exits"), nullptr);
+    EXPECT_EQ(findItem(items, "events")->snippetText, "events {\n    $0\n}");
+    EXPECT_EQ(findItem(items, "locations")->snippetText, "locations {\n    $0\n}");
+    EXPECT_EQ(findItem(items, "exits")->snippetText, "exits {\n    $0\n}");
+    EXPECT_EQ(findItem(items, "events")->serverIndentedSnippetText,
+        "events {\n      $0\n  }");
+    EXPECT_EQ(findItem(items, "locations")->serverIndentedSnippetText,
+        "locations {\n      $0\n  }");
+    EXPECT_EQ(findItem(items, "exits")->serverIndentedSnippetText,
+        "exits {\n      $0\n  }");
 }
 
 TEST(CompletionServiceTests, LimitsExtensionBodiesToMissingSections) {

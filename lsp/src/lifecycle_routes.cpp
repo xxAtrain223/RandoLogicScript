@@ -83,6 +83,25 @@ bool completionSnippetSupport(const Json& params) {
     return completionItem.value("snippetSupport", false);
 }
 
+SectionSnippetIndentation sectionSnippetIndentation(const Json& params) {
+    if (!params.contains("initializationOptions")
+        || !params.at("initializationOptions").is_object()) {
+        return SectionSnippetIndentation::Server;
+    }
+    const auto& options = params.at("initializationOptions");
+    if (!options.contains("completion") || !options.at("completion").is_object()) {
+        return SectionSnippetIndentation::Server;
+    }
+    const auto& completion = options.at("completion");
+    if (!completion.contains("sectionSnippetIndentation")
+        || !completion.at("sectionSnippetIndentation").is_string()) {
+        return SectionSnippetIndentation::Server;
+    }
+    return completion.at("sectionSnippetIndentation").get<std::string>() == "client"
+        ? SectionSnippetIndentation::Client
+        : SectionSnippetIndentation::Server;
+}
+
 } // namespace
 
 void RegisterLifecycleRoutes(
@@ -97,7 +116,7 @@ void RegisterLifecycleRoutes(
         }
         lifecycle.initialize(
             definitionLinkSupport(params), documentSymbolHierarchySupport(params),
-            completionSnippetSupport(params));
+            completionSnippetSupport(params), sectionSnippetIndentation(params));
         return Json{
             {"capabilities", {
                 {"textDocumentSync", {

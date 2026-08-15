@@ -28,7 +28,7 @@ Consume parser context, semantic scope/type/call queries from [plan-compilerQuer
 - [x] Support named argument labels from resolved callable parameters, excluding parameters already bound positionally or by name.
 - [x] Rank candidates by syntactic context, expected type, enum identity, scope proximity, and typed prefix.
 - [x] Use the SourceText replacement range only for the active partial token; never derive candidate identity lexically.
-- [x] Provide snippets only where inserted syntax is unambiguous and clients advertise snippet support; retain plain-text fallbacks for all clients.
+- [x] Provide snippets only where inserted syntax is unambiguous and clients advertise snippet support; retain plain-text fallbacks and configurable client/server multiline indentation.
 
 ### 3. Signature Help
 

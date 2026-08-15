@@ -80,6 +80,13 @@ void RegisterAuthoringRoutes(
                  document.at("uri").get<std::string>(), cursor)) {
             const bool useSnippet = lifecycle.supportsCompletionSnippets()
                 && item.snippetText.has_value();
+            const bool serverIndented = useSnippet
+                && lifecycle.sectionSnippetIndentation()
+                    == SectionSnippetIndentation::Server
+                && item.serverIndentedSnippetText.has_value();
+            const std::string& insertion = serverIndented
+                ? *item.serverIndentedSnippetText
+                : useSnippet ? *item.snippetText : item.insertText;
             Json completionItem = {
                 {"label", item.label},
                 {"kind", completionKind(item.kind)},
@@ -87,9 +94,12 @@ void RegisterAuthoringRoutes(
                 {"insertTextFormat", useSnippet ? 2 : 1},
                 {"textEdit", {
                     {"range", range(item.replacementRange)},
-                    {"newText", useSnippet ? *item.snippetText : item.insertText},
+                    {"newText", insertion},
                 }},
             };
+            if (useSnippet && item.serverIndentedSnippetText) {
+                completionItem["insertTextMode"] = serverIndented ? 1 : 2;
+            }
             if (!item.detail.empty()) completionItem["detail"] = item.detail;
             if (!item.documentation.empty()) {
                 completionItem["documentation"] = {
