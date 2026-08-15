@@ -25,7 +25,7 @@ Consume parser context, semantic scope/type/call queries from [plan-compilerQuer
 - [x] Support declared region, event, and location expression values using semantic domain types and expected-type filtering.
 - [x] Complete event and location entry labels from previously declared values of the matching kind, excluding entries already contributed to the active region.
 - [x] Complete exit labels from declared and recovered regions, excluding the active region and targets already contributed to it.
-- [x] Support built-in and user enum types in type positions.
+- [x] Support built-in and user enum types in function parameter and extern return type positions, including blank/partial annotations and malformed same-file enum recovery.
 - [x] Support explicit enum members after `.` for the resolved enum type only; do not offer extern wildcard patterns as concrete members.
 - [x] Complete concrete extern-enum wildcard values previously observed in resolved source, without fabricating pattern expansions or source declarations.
 - [x] Support named argument labels from resolved callable parameters, excluding parameters already bound positionally or by name.
@@ -71,6 +71,7 @@ Consume parser context, semantic scope/type/call queries from [plan-compilerQuer
 - [x] Cross-file and malformed same-file event/location entry-label completion, kind filtering, snippets, blank labels, comment-aware recovery, and canonical-region duplicate suppression.
 - [x] Cross-file and malformed same-file exit-label completion, snippets, blank labels, comment-aware region recovery, self suppression, and canonical-region duplicate suppression.
 - [x] Partial token replacement.
+- [x] Parameter and extern return type completion with recovered type-position boundaries and default-expression exclusion.
 - [x] Incomplete and parsed call completion for named argument labels.
 - [x] Expected-value completion for incomplete positional and named calls using resolved parameter type and enum identity.
 - [x] Named argument binding and nested-call isolation.

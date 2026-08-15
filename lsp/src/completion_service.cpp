@@ -101,10 +101,12 @@ bool startsWithCaseInsensitive(std::string_view value, std::string_view prefix) 
 CompletionContext completionContextAt(
     const parser::SourceIndex& index, ast::Position position,
     const std::optional<parser::RegionContext>& region,
+    const std::optional<parser::TypePositionContext>& typePosition,
     const std::optional<parser::SectionEntryContext>& sectionEntry,
     const std::optional<parser::MemberAccessContext>& memberAccess,
     const std::optional<parser::NamedArgumentContext>& namedArgument,
     const std::optional<parser::CallArgumentContext>& callArgument) {
+    if (typePosition) return CompletionContext::Type;
     if (sectionEntry) return CompletionContext::SectionEntry;
     if (memberAccess) return CompletionContext::MemberAccess;
     if (namedArgument || callArgument) return CompletionContext::Expression;
@@ -348,6 +350,7 @@ std::vector<CompletionItem> CompletionService::complete(
     const std::string lineIndentation = lineIndentationAt(*document->source, replacement.start);
 
     const auto region = document->sourceIndex->regionContextAt(contextPosition);
+    const auto typePosition = document->sourceIndex->typePositionAt(*cursorPosition);
     const auto sectionEntry = document->sourceIndex->sectionEntryAt(*cursorPosition);
     const auto memberAccess = document->sourceIndex->memberAccessAt(*cursorPosition);
     auto namedArgument = document->sourceIndex->namedArgumentAt(*cursorPosition);
@@ -361,8 +364,8 @@ std::vector<CompletionItem> CompletionService::complete(
         callArgument.reset();
     }
     const auto context = completionContextAt(
-        *document->sourceIndex, contextPosition, region, sectionEntry, memberAccess,
-        namedArgument, callArgument);
+        *document->sourceIndex, contextPosition, region, typePosition,
+        sectionEntry, memberAccess, namedArgument, callArgument);
     const auto findCallable = [&](std::string_view callee) -> const sema::SymbolRecord* {
         for (const auto& symbol : document->snapshot->semanticIndex().symbols()) {
             const bool isCallable = symbol.category == sema::SymbolCategory::Define
@@ -476,6 +479,22 @@ std::vector<CompletionItem> CompletionService::complete(
                 makeItem(symbol.displayName, CompletionItemKind::Enum,
                     rendered.detail, rendered.documentation),
                 0, prefix);
+        }
+        for (const auto& documentPath : document->snapshot->documentPaths()) {
+            const auto* sourceIndex = document->snapshot->sourceIndex(documentPath);
+            if (!sourceIndex) continue;
+            for (const auto& enumName : sourceIndex->enumNames()) {
+                PresentationSymbol symbol{
+                    .kind = PresentationSymbolKind::Enum,
+                    .name = enumName,
+                    .type = PresentationType{.name = "Enum", .enumIdentity = enumName},
+                };
+                const auto rendered = PresentationRenderer{}.render(symbol);
+                addCandidate(candidates, labels,
+                    makeItem(enumName, CompletionItemKind::Enum,
+                        rendered.detail, rendered.documentation),
+                    0, prefix);
+            }
         }
     } else if (context == CompletionContext::RegionBody && region) {
         if (!region->extension) {

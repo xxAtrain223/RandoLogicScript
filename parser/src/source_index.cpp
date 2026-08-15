@@ -143,7 +143,8 @@ std::vector<RecoveryToken> recoveryTokens(std::string_view source) {
 		}
 		if (character == '{' || character == '}' || character == ':' || character == '.'
 			|| character == '(' || character == ')' || character == '[' || character == ']'
-			|| character == ',') {
+			|| character == ',' || character == '-' || character == '>'
+			|| character == '=') {
 			result.push_back({source.substr(offset, 1), offset + 1, character});
 		}
 		++offset;
@@ -183,6 +184,104 @@ void addRecoveredMemberAccesses(
 
 size_t tokenStart(const RecoveryToken& token) {
 	return token.end - token.text.size();
+}
+
+void addRecoveredTypePositions(
+	SourceIndex& index, const ast::File& file, const ast::SourceText& source) {
+	const auto tokens = recoveryTokens(source.content());
+	for (size_t declarationIndex = 0; declarationIndex < tokens.size(); ++declarationIndex) {
+		bool isExtern = false;
+		size_t defineIndex = declarationIndex;
+		if (tokens[declarationIndex].text == "extern") {
+			isExtern = true;
+			if (++defineIndex >= tokens.size() || tokens[defineIndex].text != "define") continue;
+		} else if (tokens[declarationIndex].text != "define") {
+			continue;
+		}
+		if (defineIndex + 2 >= tokens.size()
+			|| tokens[defineIndex + 1].punctuation != 0
+			|| tokens[defineIndex + 2].punctuation != '(') {
+			continue;
+		}
+
+		const size_t openIndex = defineIndex + 2;
+		size_t closeIndex = tokens.size();
+		size_t depth = 1;
+		for (size_t cursor = openIndex + 1; cursor < tokens.size(); ++cursor) {
+			if (tokens[cursor].punctuation == '(') ++depth;
+			if (tokens[cursor].punctuation == ')' && --depth == 0) {
+				closeIndex = cursor;
+				break;
+			}
+		}
+
+		depth = 1;
+		size_t segmentStart = openIndex + 1;
+		bool segmentHasDefault = false;
+		bool segmentHasType = false;
+		for (size_t cursor = openIndex + 1;
+			 cursor < closeIndex && cursor < tokens.size(); ++cursor) {
+			if (tokens[cursor].punctuation == '(') {
+				++depth;
+				continue;
+			}
+			if (tokens[cursor].punctuation == ')') {
+				if (depth > 1) --depth;
+				continue;
+			}
+			if (depth != 1) continue;
+			if (tokens[cursor].punctuation == ',') {
+				segmentStart = cursor + 1;
+				segmentHasDefault = false;
+				segmentHasType = false;
+				continue;
+			}
+			if (tokens[cursor].punctuation == '=') {
+				segmentHasDefault = true;
+				continue;
+			}
+			if (tokens[cursor].punctuation != ':' || segmentHasDefault || segmentHasType
+				|| segmentStart >= cursor || tokens[segmentStart].punctuation != 0) {
+				continue;
+			}
+			const size_t candidateIndex = cursor + 1;
+			const bool hasType = candidateIndex < closeIndex
+				&& candidateIndex < tokens.size()
+				&& tokens[candidateIndex].punctuation == 0;
+			const size_t start = tokens[cursor].end;
+			const size_t end = hasType
+				? tokens[candidateIndex].end
+				: candidateIndex < tokens.size()
+					? tokenStart(tokens[candidateIndex])
+					: source.content().size();
+			if (const auto span = spanFromOffsets(source, file.path, start, end)) {
+				index.addTypePosition({*span});
+			}
+			segmentHasType = true;
+		}
+
+		if (isExtern && closeIndex + 2 < tokens.size()
+			&& tokens[closeIndex + 1].punctuation == '-'
+			&& tokens[closeIndex + 2].punctuation == '>') {
+			const size_t typeIndex = closeIndex + 3;
+			const bool hasType = typeIndex < tokens.size()
+				&& tokens[typeIndex].punctuation == 0;
+			const size_t start = tokens[closeIndex + 2].end;
+			const size_t end = hasType ? tokens[typeIndex].end : source.content().size();
+			if (const auto span = spanFromOffsets(source, file.path, start, end)) {
+				index.addTypePosition({*span});
+			}
+		}
+	}
+}
+
+void addRecoveredEnumNames(SourceIndex& index, const ast::SourceText& source) {
+	const auto tokens = recoveryTokens(source.content());
+	for (size_t cursor = 0; cursor + 1 < tokens.size(); ++cursor) {
+		if (tokens[cursor].text == "enum" && tokens[cursor + 1].punctuation == 0) {
+			index.addEnumName(std::string(tokens[cursor + 1].text));
+		}
+	}
 }
 
 void addRecoveredNamedArguments(
@@ -487,6 +586,18 @@ void SourceIndex::addSectionEntry(SectionEntryContext context) {
 	sectionEntries_.push_back(std::move(context));
 }
 
+void SourceIndex::addTypePosition(TypePositionContext context) {
+	if (context.typeSpan.start.line == 0) return;
+	typePositions_.push_back(std::move(context));
+}
+
+void SourceIndex::addEnumName(std::string name) {
+	if (std::find(enumNames_.begin(), enumNames_.end(), name) == enumNames_.end()) {
+		enumNames_.push_back(std::move(name));
+		std::sort(enumNames_.begin(), enumNames_.end());
+	}
+}
+
 std::optional<SyntaxContext> SourceIndex::syntaxAt(ast::Position position) const {
 	if (const auto name = narrowestAt(names_, position)) return SyntaxContext{SyntaxKind::Name, name->span};
 	return narrowestAt(syntax_, position);
@@ -600,6 +711,19 @@ std::optional<SectionEntryContext> SourceIndex::sectionEntryAt(ast::Position pos
 	return result ? std::optional<SectionEntryContext>(*result) : std::nullopt;
 }
 
+std::optional<TypePositionContext> SourceIndex::typePositionAt(ast::Position position) const {
+	const TypePositionContext* result = nullptr;
+	for (const auto& context : typePositions_) {
+		const bool atType = isBeforeOrEqual(context.typeSpan.start, position)
+			&& isBeforeOrEqual(position, context.typeSpan.end);
+		if (atType && (!result
+			|| spanSize(context.typeSpan) < spanSize(result->typeSpan))) {
+			result = &context;
+		}
+	}
+	return result ? std::optional<TypePositionContext>(*result) : std::nullopt;
+}
+
 std::vector<std::string> SourceIndex::sectionEntryNames(
 	ast::SectionKind kind, std::optional<std::string_view> regionName) const {
 	std::vector<std::string> result;
@@ -639,6 +763,8 @@ SourceIndex BuildSourceIndex(const ast::File& file, const ast::SourceText* sourc
 		addRecoveredRegionContexts(index, file, *source);
 		addRecoveredMemberAccesses(index, file, *source);
 		addRecoveredNamedArguments(index, file, *source);
+		addRecoveredTypePositions(index, file, *source);
+		addRecoveredEnumNames(index, *source);
 	}
 	for (const auto& declaration : file.declarations) {
 		std::visit([&](const auto& node) {

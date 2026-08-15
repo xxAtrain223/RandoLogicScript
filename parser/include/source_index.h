@@ -75,6 +75,10 @@ struct SectionEntryContext {
 	ast::Span labelSpan;
 };
 
+struct TypePositionContext {
+	ast::Span typeSpan;
+};
+
 struct MemberAccessContext {
 	std::string object;
 	ast::Span memberSpan;
@@ -106,10 +110,12 @@ public:
 	std::optional<NamedArgumentContext> namedArgumentAt(ast::Position position) const;
 	std::optional<CallArgumentContext> callArgumentAt(ast::Position position) const;
 	std::optional<SectionEntryContext> sectionEntryAt(ast::Position position) const;
+	std::optional<TypePositionContext> typePositionAt(ast::Position position) const;
 	std::vector<std::string> sectionEntryNames(
 		ast::SectionKind kind,
 		std::optional<std::string_view> regionName = std::nullopt) const;
 	std::vector<std::string> regionNames() const;
+	const std::vector<std::string>& enumNames() const { return enumNames_; }
 	const std::vector<SyntaxContext>& declarations() const { return declarations_; }
 	std::vector<SyntaxContext> declarationsIn(std::string_view file) const;
 
@@ -124,6 +130,8 @@ public:
 	void addNamedArgument(NamedArgumentContext context);
 	void addCallArgument(CallArgumentContext context);
 	void addSectionEntry(SectionEntryContext context);
+	void addTypePosition(TypePositionContext context);
+	void addEnumName(std::string name);
 
 private:
 	std::vector<SyntaxContext> syntax_;
@@ -140,6 +148,8 @@ private:
 	std::vector<NamedArgumentContext> namedArguments_;
 	std::vector<CallArgumentContext> callArguments_;
 	std::vector<SectionEntryContext> sectionEntries_;
+	std::vector<TypePositionContext> typePositions_;
+	std::vector<std::string> enumNames_;
 };
 
 SourceIndex BuildSourceIndex(const ast::File& file, const ast::SourceText* source = nullptr);

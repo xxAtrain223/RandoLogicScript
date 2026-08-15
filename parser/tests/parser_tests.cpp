@@ -682,6 +682,50 @@ TEST(SourceIndexTests, ReportsRecoveredNamedArgumentContexts) {
 	EXPECT_EQ(nestedValue->activeArgument, 0u);
 }
 
+TEST(SourceIndexTests, ReportsRecoveredFunctionTypePositions) {
+	const auto positionAtEnd = [](const std::string& source) {
+		const auto text = SourceText::FromUtf8(source);
+		EXPECT_TRUE(text);
+		return *text->utf8PositionAtByteOffset(source.size());
+	};
+
+	const std::string parameterSource =
+		"enum Color { RED }\ndefine choose(value: Col";
+	const auto parameter = rls::parser::ParseStringWithIndex(
+		parameterSource, "parameter-type.rls");
+	ASSERT_FALSE(parameter.file.diagnostics.empty());
+	const auto parameterType = parameter.sourceIndex.typePositionAt(
+		positionAtEnd(parameterSource));
+	ASSERT_TRUE(parameterType);
+	EXPECT_EQ(parameter.sourceIndex.enumNames(), std::vector<std::string>{"Color"});
+
+	const std::string blankParameterSource = "define choose(value: ";
+	const auto blankParameter = rls::parser::ParseStringWithIndex(
+		blankParameterSource, "blank-parameter-type.rls");
+	EXPECT_TRUE(blankParameter.sourceIndex.typePositionAt(
+		positionAtEnd(blankParameterSource)));
+
+	const std::string returnSource =
+		"extern define choose(value: Bool) -> Col";
+	const auto returnType = rls::parser::ParseStringWithIndex(
+		returnSource, "return-type.rls");
+	ASSERT_TRUE(returnType.file.diagnostics.empty());
+	EXPECT_TRUE(returnType.sourceIndex.typePositionAt(positionAtEnd(returnSource)));
+
+	const std::string blankReturnSource = "extern define choose() -> ";
+	const auto blankReturn = rls::parser::ParseStringWithIndex(
+		blankReturnSource, "blank-return-type.rls");
+	EXPECT_TRUE(blankReturn.sourceIndex.typePositionAt(
+		positionAtEnd(blankReturnSource)));
+
+	const std::string defaultSource =
+		"define choose(value = true ? false : tru";
+	const auto defaultExpression = rls::parser::ParseStringWithIndex(
+		defaultSource, "default-expression.rls");
+	EXPECT_FALSE(defaultExpression.sourceIndex.typePositionAt(
+		positionAtEnd(defaultSource)));
+}
+
 TEST(ParseExpr, NestedCalls) {
 	const auto& e = parseExpr("can_use(setting(RSK_FOO))");
 	ASSERT_TRUE(std::holds_alternative<CallExpr>(e.node));

@@ -142,6 +142,34 @@ TEST(CompletionServiceTests, OffersBuiltInAndDeclaredTypesInTypePosition) {
     EXPECT_EQ(findItem(items, "choose"), nullptr);
 }
 
+TEST(CompletionServiceTests, CompletesRecoveredParameterAndReturnTypes) {
+    const std::string parameterSource =
+        "enum Color { RED }\ndefine choose(value: Col";
+    CompletionFixture parameterFixture(parameterSource);
+    const auto parameters = CompletionService(
+        parameterFixture.projects, parameterFixture.scheduler)
+        .complete(parameterFixture.uri, {1, 24});
+
+    EXPECT_NE(findItem(parameters, "Color"), nullptr);
+    EXPECT_NE(findItem(parameters, "Condition"), nullptr);
+    EXPECT_NE(findItem(parameters, "Event"), nullptr);
+    EXPECT_NE(findItem(parameters, "Location"), nullptr);
+    EXPECT_NE(findItem(parameters, "Region"), nullptr);
+    EXPECT_EQ(findItem(parameters, "RED"), nullptr);
+    EXPECT_EQ(parameters.front().label, "Color");
+
+    const std::string returnSource =
+        "enum Color { RED }\nextern define choose() -> Col";
+    CompletionFixture returnFixture(returnSource);
+    const auto returns = CompletionService(returnFixture.projects, returnFixture.scheduler)
+        .complete(returnFixture.uri, {1, 29});
+
+    EXPECT_NE(findItem(returns, "Color"), nullptr);
+    EXPECT_NE(findItem(returns, "Bool"), nullptr);
+    EXPECT_EQ(findItem(returns, "RED"), nullptr);
+    EXPECT_EQ(returns.front().label, "Color");
+}
+
 TEST(CompletionServiceTests, UsesScopeAndExpectedEnumForExpressionCandidates) {
     CompletionFixture fixture(
         "enum Color { RED, BLUE }\n"
