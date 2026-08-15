@@ -16,6 +16,7 @@ using rls::lsp::AnalysisScheduler;
 using rls::lsp::CompletionItem;
 using rls::lsp::CompletionService;
 using rls::lsp::DocumentStore;
+using rls::lsp::PresentationPosition;
 using rls::lsp::ProjectManager;
 
 struct CompletionFixture {
@@ -106,6 +107,10 @@ struct CrossFileCompletionFixture {
     std::vector<CompletionItem> completeAtEnd(std::string_view usage) {
         return CompletionService(projects, scheduler).complete(
             usageUri, {0, static_cast<uint32_t>(usage.size())});
+    }
+
+    std::vector<CompletionItem> complete(PresentationPosition position) {
+        return CompletionService(projects, scheduler).complete(usageUri, position);
     }
 };
 
@@ -297,6 +302,117 @@ TEST(CompletionServiceTests, OffersHereOnlyInRegionExpressions) {
     ASSERT_NE(findItem(regionItems, "here"), nullptr);
     EXPECT_EQ(findItem(regionItems, "here")->detail, "built-in here: Region");
     EXPECT_EQ(findItem(defineItems, "here"), nullptr);
+}
+
+TEST(CompletionServiceTests, CompletesPreviouslyDeclaredSectionEntriesByKind) {
+    const std::string declarations =
+        "region RR_TEMPLATE {\n"
+        "  events {\n"
+        "    EVENT_EXISTING: true\n"
+        "    EVENT_OTHER: true\n"
+        "  }\n"
+        "  locations {\n"
+        "    RC_EXISTING: true\n"
+        "    RC_OTHER: true\n"
+        "  }\n"
+        "}\n";
+    const std::string eventUsage =
+        "region RR_CURRENT {\n"
+        "  events {\n"
+        "    EVENT_EXISTING: true\n"
+        "    EVENT_\n"
+        "  }\n"
+        "}\n";
+    CrossFileCompletionFixture eventFixture(declarations, eventUsage);
+
+    const auto events = eventFixture.complete({3, 10});
+
+    const auto* event = findItem(events, "EVENT_OTHER");
+    ASSERT_NE(event, nullptr);
+    EXPECT_EQ(event->insertText, "EVENT_OTHER: ");
+    EXPECT_EQ(event->snippetText, "EVENT_OTHER: ${1}");
+    EXPECT_EQ(event->detail, "EVENT_OTHER: Event");
+    EXPECT_EQ(findItem(events, "EVENT_EXISTING"), nullptr);
+    EXPECT_EQ(findItem(events, "RC_OTHER"), nullptr);
+
+    const std::string locationUsage =
+        "region RR_CURRENT {\n"
+        "  locations {\n"
+        "    RC_EXISTING: true\n"
+        "    \n"
+        "  }\n"
+        "}\n";
+    CrossFileCompletionFixture locationFixture(declarations, locationUsage);
+    const auto locations = locationFixture.complete({3, 4});
+
+    const auto* location = findItem(locations, "RC_OTHER");
+    ASSERT_NE(location, nullptr);
+    EXPECT_EQ(location->snippetText, "RC_OTHER: ${1}");
+    EXPECT_EQ(location->detail, "RC_OTHER: Location");
+    EXPECT_EQ(findItem(locations, "RC_EXISTING"), nullptr);
+    EXPECT_EQ(findItem(locations, "EVENT_OTHER"), nullptr);
+}
+
+TEST(CompletionServiceTests, DoesNotOfferEventOrLocationNamesForExits) {
+    const std::string declarations =
+        "region RR_TEMPLATE {\n"
+        "  events { EVENT_OTHER: true }\n"
+        "  locations { RC_OTHER: true }\n"
+        "}\n";
+    const std::string usage =
+        "region RR_CURRENT {\n"
+        "  exits {\n"
+        "    \n"
+        "  }\n"
+        "}\n";
+    CrossFileCompletionFixture fixture(declarations, usage);
+
+    const auto items = fixture.complete({2, 4});
+
+    EXPECT_TRUE(items.empty());
+}
+
+TEST(CompletionServiceTests, SuppressesEntriesFromOtherContributionsToActiveRegion) {
+    const std::string declarations =
+        "region RR_CURRENT { events { EVENT_EXISTING: true } }\n"
+        "region RR_OTHER { events { EVENT_OTHER: true } }\n";
+    const std::string usage =
+        "extend region RR_CURRENT {\n"
+        "  events {\n"
+        "    EVENT_\n"
+        "  }\n"
+        "}\n";
+    CrossFileCompletionFixture fixture(declarations, usage);
+
+    const auto items = fixture.complete({2, 10});
+
+    EXPECT_EQ(findItem(items, "EVENT_EXISTING"), nullptr);
+    EXPECT_NE(findItem(items, "EVENT_OTHER"), nullptr);
+}
+
+TEST(CompletionServiceTests, RecoversSameFileEventsWhileRecreatingCommentedRegion) {
+    CompletionFixture fixture(
+        "region RR_KOKIRI_FOREST {\n"
+        "  events {\n"
+        "    LOGIC_FAIRY_ACCESS: always\n"
+        "    LOGIC_OTHER: true\n"
+        "  }\n"
+        "}\n"
+        "# region RR_KF_STORMS_GROTTO {\n"
+        "#   events {\n"
+        "#     LOGIC_FAIRY_ACCESS: true\n"
+        "#   }\n"
+        "# }\n"
+        "region RR_KF_STORMS_GROTTO {\n"
+        "  events {\n"
+        "    LO\n");
+
+    const auto items = CompletionService(fixture.projects, fixture.scheduler)
+        .complete(fixture.uri, {13, 6});
+
+    ASSERT_NE(findItem(items, "LOGIC_FAIRY_ACCESS"), nullptr);
+    ASSERT_NE(findItem(items, "LOGIC_OTHER"), nullptr);
+    EXPECT_EQ(items.front().label, "LOGIC_FAIRY_ACCESS");
 }
 
 TEST(CompletionServiceTests, CompletesOnlyMembersOfQualifiedEnum) {

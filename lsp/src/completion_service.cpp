@@ -17,6 +17,7 @@ enum class CompletionContext {
     TopLevel,
     Type,
     RegionBody,
+    SectionEntry,
     MemberAccess,
     Expression,
     Unsupported,
@@ -100,9 +101,11 @@ bool startsWithCaseInsensitive(std::string_view value, std::string_view prefix) 
 CompletionContext completionContextAt(
     const parser::SourceIndex& index, ast::Position position,
     const std::optional<parser::RegionContext>& region,
+    const std::optional<parser::SectionEntryContext>& sectionEntry,
     const std::optional<parser::MemberAccessContext>& memberAccess,
     const std::optional<parser::NamedArgumentContext>& namedArgument,
     const std::optional<parser::CallArgumentContext>& callArgument) {
+    if (sectionEntry) return CompletionContext::SectionEntry;
     if (memberAccess) return CompletionContext::MemberAccess;
     if (namedArgument || callArgument) return CompletionContext::Expression;
     if (const auto name = index.nameAt(position)) {
@@ -333,6 +336,7 @@ std::vector<CompletionItem> CompletionService::complete(
     const std::string lineIndentation = lineIndentationAt(*document->source, replacement.start);
 
     const auto region = document->sourceIndex->regionContextAt(contextPosition);
+    const auto sectionEntry = document->sourceIndex->sectionEntryAt(*cursorPosition);
     const auto memberAccess = document->sourceIndex->memberAccessAt(*cursorPosition);
     auto namedArgument = document->sourceIndex->namedArgumentAt(*cursorPosition);
     if (namedArgument && document->sourceIndex->syntaxAt(contextPosition)
@@ -345,7 +349,7 @@ std::vector<CompletionItem> CompletionService::complete(
         callArgument.reset();
     }
     const auto context = completionContextAt(
-        *document->sourceIndex, contextPosition, region, memberAccess,
+        *document->sourceIndex, contextPosition, region, sectionEntry, memberAccess,
         namedArgument, callArgument);
     const auto findCallable = [&](std::string_view callee) -> const sema::SymbolRecord* {
         for (const auto& symbol : document->snapshot->semanticIndex().symbols()) {
@@ -500,6 +504,66 @@ std::vector<CompletionItem> CompletionService::complete(
                     item.serverIndentedSnippetText = sectionSnippet(kind, lineIndentation);
                     return item;
                 }(), 10, prefix);
+        }
+    } else if (context == CompletionContext::SectionEntry && sectionEntry && region) {
+        const auto expectedType = sectionEntry->kind == ast::SectionKind::Events
+            ? std::optional(ast::Type::Event)
+            : sectionEntry->kind == ast::SectionKind::Locations
+                ? std::optional(ast::Type::Location)
+                : std::nullopt;
+        if (expectedType) {
+            std::set<std::string> existingNames(
+                region->activeSectionEntries.begin(),
+                region->activeSectionEntries.end());
+            std::set<std::string> recoveredNames;
+            for (const auto& documentPath : document->snapshot->documentPaths()) {
+                const auto* sourceIndex = document->snapshot->sourceIndex(documentPath);
+                if (!sourceIndex) continue;
+                for (auto& name : sourceIndex->sectionEntryNames(sectionEntry->kind)) {
+                    recoveredNames.insert(std::move(name));
+                }
+                for (auto& name : sourceIndex->sectionEntryNames(
+                         sectionEntry->kind, region->name)) {
+                    existingNames.insert(std::move(name));
+                }
+            }
+            for (const auto& symbol : document->snapshot->semanticIndex().symbols()) {
+                if (symbol.category != sema::SymbolCategory::SectionEntry
+                    || symbol.type != expectedType || !symbol.container) {
+                    continue;
+                }
+                const auto container = document->snapshot->declaration(*symbol.container);
+                if (container && container->displayName == region->name) {
+                    existingNames.insert(symbol.displayName);
+                }
+            }
+            for (const auto& symbol : document->snapshot->semanticIndex().symbols()) {
+                if (symbol.category != sema::SymbolCategory::SectionEntry
+                    || symbol.type != expectedType
+                    || existingNames.contains(symbol.displayName)) {
+                    continue;
+                }
+                const auto rendered = PresentationRenderer{}.render(
+                    presentationSymbol(*document->snapshot, symbol));
+                auto item = makeItem(symbol.displayName, CompletionItemKind::Value,
+                    rendered.detail, rendered.documentation);
+                item.insertText += ": ";
+                item.snippetText = symbol.displayName + ": ${1}";
+                addCandidate(candidates, labels, std::move(item), 0, prefix);
+            }
+            for (const auto& name : recoveredNames) {
+                if (existingNames.contains(name)) continue;
+                PresentationSymbol symbol{
+                    .name = name,
+                    .type = presentationType(*expectedType),
+                };
+                const auto rendered = PresentationRenderer{}.render(symbol);
+                auto item = makeItem(name, CompletionItemKind::Value,
+                    rendered.detail, rendered.documentation);
+                item.insertText += ": ";
+                item.snippetText = name + ": ${1}";
+                addCandidate(candidates, labels, std::move(item), 0, prefix);
+            }
         }
     } else if (context == CompletionContext::MemberAccess && memberAccess) {
         const sema::SymbolRecord* enumSymbol = nullptr;

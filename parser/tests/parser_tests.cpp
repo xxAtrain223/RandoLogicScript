@@ -562,6 +562,45 @@ TEST(SourceIndexTests, ReportsCompleteAndRecoveredRegionContexts) {
 	EXPECT_EQ(recoveredRegion->dataKeys, std::vector<std::string>{"name"});
 }
 
+TEST(SourceIndexTests, ReportsRecoveredSectionEntryLabelContexts) {
+	const auto parsed = rls::parser::ParseStringWithIndex(
+		"region RR_TEST {\n"
+		"  events {\n"
+		"    EVENT_EXISTING: true\n"
+		"    EVENT_PAR\n"
+		"  }\n"
+		"  locations {\n"
+		"    \n"
+		"  }\n"
+		"}\n",
+		"section-entries.rls");
+	ASSERT_FALSE(parsed.file.diagnostics.empty());
+
+	const auto event = parsed.sourceIndex.sectionEntryAt({4, 14});
+	ASSERT_TRUE(event);
+	EXPECT_EQ(event->kind, SectionKind::Events);
+	EXPECT_EQ(event->labelSpan.start.column, 5u);
+	EXPECT_EQ(event->labelSpan.end.column, 14u);
+	const auto eventRegion = parsed.sourceIndex.regionContextAt({4, 14});
+	ASSERT_TRUE(eventRegion);
+	EXPECT_EQ(eventRegion->name, "RR_TEST");
+	EXPECT_EQ(eventRegion->activeSection, SectionKind::Events);
+	EXPECT_EQ(eventRegion->activeSectionEntries,
+		std::vector<std::string>{"EVENT_EXISTING"});
+	EXPECT_EQ(parsed.sourceIndex.sectionEntryNames(SectionKind::Events),
+		std::vector<std::string>{"EVENT_EXISTING"});
+	EXPECT_EQ(parsed.sourceIndex.sectionEntryNames(
+		SectionKind::Events, "RR_TEST"),
+		std::vector<std::string>{"EVENT_EXISTING"});
+
+	const auto location = parsed.sourceIndex.sectionEntryAt({7, 5});
+	ASSERT_TRUE(location);
+	EXPECT_EQ(location->kind, SectionKind::Locations);
+	EXPECT_EQ(location->labelSpan.start.column, 5u);
+	EXPECT_EQ(location->labelSpan.end.column, 5u);
+	EXPECT_FALSE(parsed.sourceIndex.sectionEntryAt({3, 21}));
+}
+
 TEST(SourceIndexTests, ReportsCompleteAndRecoveredMemberAccessContexts) {
 	const auto complete = rls::parser::ParseStringWithIndex(
 		"define check(): Color.RED\n", "member.rls");

@@ -23,6 +23,7 @@ Consume parser context, semantic scope/type/call queries from [plan-compilerQuer
 - [x] Support visible parameters, defines, extern defines, Boolean literals, and core expression keywords.
 - [x] Support the region-only `here` expression keyword where valid.
 - [x] Support declared region, event, and location expression values using semantic domain types and expected-type filtering.
+- [x] Complete event and location entry labels from previously declared values of the matching kind, excluding entries already contributed to the active region.
 - [x] Support built-in and user enum types in type positions.
 - [x] Support explicit enum members after `.` for the resolved enum type only; do not offer extern wildcard patterns as concrete members.
 - [x] Support named argument labels from resolved callable parameters, excluding parameters already bound positionally or by name.
@@ -64,6 +65,7 @@ Consume parser context, semantic scope/type/call queries from [plan-compilerQuer
 - [x] Qualified versus ambiguous enum completion, including cross-file declarations and unknown qualifiers.
 - [x] Scoped parameter completion.
 - [x] Cross-file declaration completion for regions, events, locations, defines, enums, and enum members.
+- [x] Cross-file and malformed same-file event/location entry-label completion, kind filtering, snippets, blank labels, comment-aware recovery, and canonical-region duplicate suppression.
 - [x] Partial token replacement.
 - [x] Incomplete and parsed call completion for named argument labels.
 - [x] Expected-value completion for incomplete positional and named calls using resolved parameter type and enum identity.

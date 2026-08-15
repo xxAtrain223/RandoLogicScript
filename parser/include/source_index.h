@@ -57,14 +57,22 @@ struct CallContext {
 struct RegionSectionContext {
 	ast::SectionKind kind;
 	ast::Span span;
+	std::vector<std::string> entryNames;
 };
 
 struct RegionContext {
 	ast::Span span;
+	std::string name;
 	bool extension = false;
 	std::vector<std::string> dataKeys;
 	std::vector<ast::SectionKind> sectionKinds;
 	std::optional<ast::SectionKind> activeSection;
+	std::vector<std::string> activeSectionEntries;
+};
+
+struct SectionEntryContext {
+	ast::SectionKind kind;
+	ast::Span labelSpan;
 };
 
 struct MemberAccessContext {
@@ -97,6 +105,10 @@ public:
 	std::optional<MemberAccessContext> memberAccessAt(ast::Position position) const;
 	std::optional<NamedArgumentContext> namedArgumentAt(ast::Position position) const;
 	std::optional<CallArgumentContext> callArgumentAt(ast::Position position) const;
+	std::optional<SectionEntryContext> sectionEntryAt(ast::Position position) const;
+	std::vector<std::string> sectionEntryNames(
+		ast::SectionKind kind,
+		std::optional<std::string_view> regionName = std::nullopt) const;
 	const std::vector<SyntaxContext>& declarations() const { return declarations_; }
 	std::vector<SyntaxContext> declarationsIn(std::string_view file) const;
 
@@ -110,6 +122,7 @@ public:
 	void addMemberAccess(MemberAccessContext context);
 	void addNamedArgument(NamedArgumentContext context);
 	void addCallArgument(CallArgumentContext context);
+	void addSectionEntry(SectionEntryContext context);
 
 private:
 	std::vector<SyntaxContext> syntax_;
@@ -125,6 +138,7 @@ private:
 	std::vector<MemberAccessContext> memberAccesses_;
 	std::vector<NamedArgumentContext> namedArguments_;
 	std::vector<CallArgumentContext> callArguments_;
+	std::vector<SectionEntryContext> sectionEntries_;
 };
 
 SourceIndex BuildSourceIndex(const ast::File& file, const ast::SourceText* source = nullptr);

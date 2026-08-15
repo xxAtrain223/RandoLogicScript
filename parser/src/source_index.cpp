@@ -297,6 +297,65 @@ std::optional<ast::Span> spanFromOffsets(
 	return ast::Span{std::string(file), *startPosition, *endPosition};
 }
 
+RegionSectionContext recoveredSectionContext(
+	SourceIndex& index, const ast::File& file, const ast::SourceText& source,
+	ast::SectionKind kind, size_t bodyStart, size_t bodyEnd) {
+	RegionSectionContext result{kind, {}, {}};
+	if (const auto span = spanFromOffsets(source, file.path, bodyStart, bodyEnd)) {
+		result.span = *span;
+	}
+
+	const auto& content = source.content();
+	size_t lineStart = bodyStart;
+	while (lineStart <= bodyEnd) {
+		size_t lineEnd = content.find('\n', lineStart);
+		if (lineEnd == std::string::npos || lineEnd > bodyEnd) lineEnd = bodyEnd;
+		if (lineEnd > lineStart && content[lineEnd - 1] == '\r') --lineEnd;
+
+		size_t labelStart = lineStart;
+		while (labelStart < lineEnd
+			&& (content[labelStart] == ' ' || content[labelStart] == '\t')) {
+			++labelStart;
+		}
+		if (labelStart == lineEnd) {
+			if (const auto labelSpan = spanFromOffsets(
+					source, file.path, labelStart, labelStart)) {
+				index.addSectionEntry({kind, *labelSpan});
+			}
+		} else if (content[labelStart] != '#' && content[labelStart] != '}') {
+			size_t labelEnd = labelStart;
+			if (std::isalpha(static_cast<unsigned char>(content[labelEnd]))
+				|| content[labelEnd] == '_') {
+				++labelEnd;
+				while (labelEnd < lineEnd
+					&& (std::isalnum(static_cast<unsigned char>(content[labelEnd]))
+						|| content[labelEnd] == '_')) {
+					++labelEnd;
+				}
+				size_t afterLabel = labelEnd;
+				while (afterLabel < lineEnd
+					&& (content[afterLabel] == ' ' || content[afterLabel] == '\t')) {
+					++afterLabel;
+				}
+				if (afterLabel == lineEnd || content[afterLabel] == ':') {
+					if (const auto labelSpan = spanFromOffsets(
+							source, file.path, labelStart, labelEnd)) {
+						index.addSectionEntry({kind, *labelSpan});
+					}
+					if (afterLabel < lineEnd && content[afterLabel] == ':') {
+						result.entryNames.push_back(
+							content.substr(labelStart, labelEnd - labelStart));
+					}
+				}
+			}
+		}
+
+		if (lineEnd >= bodyEnd) break;
+		lineStart = lineEnd + 1;
+	}
+	return result;
+}
+
 void addRecoveredRegionContexts(
 	SourceIndex& index, const ast::File& file, const ast::SourceText& source) {
 	const auto tokens = recoveryTokens(source.content());
@@ -331,7 +390,11 @@ void addRecoveredRegionContexts(
 			source, file.path, tokens[openIndex].end, bodyEnd);
 		if (!bodySpan) continue;
 
-		RegionContext context{.span = *bodySpan, .extension = extension};
+		RegionContext context{
+			.span = *bodySpan,
+			.name = std::string(tokens[regionIndex + 1].text),
+			.extension = extension,
+		};
 		std::vector<RegionSectionContext> sections;
 		depth = 1;
 		for (size_t cursor = openIndex + 1; cursor < closeIndex && cursor < tokens.size(); ++cursor) {
@@ -364,11 +427,9 @@ void addRecoveredRegionContexts(
 				}
 			}
 			const size_t sectionEnd = sectionClose < tokens.size()
-				? tokens[sectionClose].end : bodyEnd;
-			if (const auto sectionSpan = spanFromOffsets(
-					source, file.path, tokens[cursor + 1].end, sectionEnd)) {
-				sections.push_back({*kind, *sectionSpan});
-			}
+				? tokenStart(tokens[sectionClose]) : bodyEnd;
+			sections.push_back(recoveredSectionContext(
+				index, file, source, *kind, tokens[cursor + 1].end, sectionEnd));
 		}
 		index.addRegionContext(std::move(context), std::move(sections));
 		tokenIndex = closeIndex < tokens.size() ? closeIndex : tokens.size();
@@ -419,6 +480,11 @@ void SourceIndex::addNamedArgument(NamedArgumentContext context) {
 void SourceIndex::addCallArgument(CallArgumentContext context) {
 	if (context.valueSpan.start.line == 0) return;
 	callArguments_.push_back(std::move(context));
+}
+
+void SourceIndex::addSectionEntry(SectionEntryContext context) {
+	if (context.labelSpan.start.line == 0) return;
+	sectionEntries_.push_back(std::move(context));
 }
 
 std::optional<SyntaxContext> SourceIndex::syntaxAt(ast::Position position) const {
@@ -475,6 +541,7 @@ std::optional<RegionContext> SourceIndex::regionContextAt(ast::Position position
 	for (const auto& section : result->sections) {
 		if (contains(section.span, position)) {
 			context.activeSection = section.kind;
+			context.activeSectionEntries = section.entryNames;
 			break;
 		}
 	}
@@ -520,6 +587,34 @@ std::optional<CallArgumentContext> SourceIndex::callArgumentAt(ast::Position pos
 	return result ? std::optional<CallArgumentContext>(*result) : std::nullopt;
 }
 
+std::optional<SectionEntryContext> SourceIndex::sectionEntryAt(ast::Position position) const {
+	const SectionEntryContext* result = nullptr;
+	for (const auto& context : sectionEntries_) {
+		const bool atLabel = isBeforeOrEqual(context.labelSpan.start, position)
+			&& isBeforeOrEqual(position, context.labelSpan.end);
+		if (atLabel && (!result
+			|| spanSize(context.labelSpan) < spanSize(result->labelSpan))) {
+			result = &context;
+		}
+	}
+	return result ? std::optional<SectionEntryContext>(*result) : std::nullopt;
+}
+
+std::vector<std::string> SourceIndex::sectionEntryNames(
+	ast::SectionKind kind, std::optional<std::string_view> regionName) const {
+	std::vector<std::string> result;
+	for (const auto& indexed : regionContexts_) {
+		if (regionName && indexed.context.name != *regionName) continue;
+		for (const auto& section : indexed.sections) {
+			if (section.kind != kind) continue;
+			result.insert(result.end(), section.entryNames.begin(), section.entryNames.end());
+		}
+	}
+	std::sort(result.begin(), result.end());
+	result.erase(std::unique(result.begin(), result.end()), result.end());
+	return result;
+}
+
 std::vector<SyntaxContext> SourceIndex::declarationsIn(std::string_view file) const {
 	std::vector<SyntaxContext> result;
 	for (const auto& declaration : declarations_) {
@@ -543,12 +638,17 @@ SourceIndex BuildSourceIndex(const ast::File& file, const ast::SourceText* sourc
 				if (!source) {
 					RegionContext context{
 						.span = {node.span.file, node.key.span.end, node.span.end},
+						.name = node.key.text,
 					};
 					std::vector<RegionSectionContext> sections;
 					for (const auto& data : node.body.data) context.dataKeys.push_back(data.key.text);
 					for (const auto& section : node.body.sections) {
 						context.sectionKinds.push_back(section.kind);
-						sections.push_back({section.kind, section.span});
+						RegionSectionContext sectionContext{section.kind, section.span, {}};
+						for (const auto& entry : section.entries) {
+							sectionContext.entryNames.push_back(entry.name.text);
+						}
+						sections.push_back(std::move(sectionContext));
 					}
 					index.addRegionContext(std::move(context), std::move(sections));
 				}
@@ -563,12 +663,17 @@ SourceIndex BuildSourceIndex(const ast::File& file, const ast::SourceText* sourc
 				if (!source) {
 					RegionContext context{
 						.span = {node.span.file, node.name.span.end, node.span.end},
+						.name = node.name.text,
 						.extension = true,
 					};
 					std::vector<RegionSectionContext> sections;
 					for (const auto& section : node.sections) {
 						context.sectionKinds.push_back(section.kind);
-						sections.push_back({section.kind, section.span});
+						RegionSectionContext sectionContext{section.kind, section.span, {}};
+						for (const auto& entry : section.entries) {
+							sectionContext.entryNames.push_back(entry.name.text);
+						}
+						sections.push_back(std::move(sectionContext));
 					}
 					index.addRegionContext(std::move(context), std::move(sections));
 				}
