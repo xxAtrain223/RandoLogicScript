@@ -35,9 +35,9 @@ Consume [plan-compilerQueryModelAndDiagnosticLsp.prompt.md](plan-compilerQueryMo
    - [x] Present extend-region blocks once as top-level extension symbols, with their own entries as children; do not also nest them under canonical base regions.
 
 4. **Workspace symbols**
-   - [ ] Implement `workspace/symbol` from project declaration records only.
-   - [ ] Support case-insensitive query filtering and stable category-aware ordering.
-   - [ ] Scope results to the requesting workspace/project according to client context; never leak symbols from a separate discovered project.
+   - [x] Implement `workspace/symbol` from project declaration records only.
+   - [x] Support case-insensitive query filtering and stable category-aware ordering.
+   - [x] Scope results to the requesting workspace/project according to client context; never leak symbols from a separate discovered project.
 
 ### Edge Cases
 
@@ -54,11 +54,11 @@ Consume [plan-compilerQueryModelAndDiagnosticLsp.prompt.md](plan-compilerQueryMo
 - [x] Base-region versus extension behavior.
 - [x] Include-declaration reference flag.
 - [x] Document-symbol structure and selection ranges.
-- [ ] Workspace-symbol filtering/category ordering/project isolation.
+- [x] Workspace-symbol filtering/category ordering/project isolation.
 - [ ] Ambiguous, unresolved, malformed, and stale-document cases.
 
 ### Definition of Done
 
-- [ ] All navigation responses derive from stable semantic/source queries.
-- [ ] Navigation works across files in one RLS project.
-- [ ] Endpoint code never depends on text matching or AST traversal.
+- [x] All navigation responses derive from stable semantic/source queries.
+- [x] Navigation works across files in one RLS project.
+- [x] Endpoint code never depends on text matching or AST traversal.

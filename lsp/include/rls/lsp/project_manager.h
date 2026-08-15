@@ -67,6 +67,8 @@ public:
         bool restrictToWorkspaceRoots = false);
 
     const ManagedProject* projectForDocument(std::string_view uri) const;
+    const ManagedProject* project(std::string_view projectId) const;
+    std::vector<std::string> projectIds() const;
     ProjectSourceSet sourceSetForDocument(std::string_view uri) const;
     ProjectSourceSet sourceSetForProject(std::string_view projectId) const;
     std::vector<project::ConfigurationDiagnostic> configurationDiagnostics() const;

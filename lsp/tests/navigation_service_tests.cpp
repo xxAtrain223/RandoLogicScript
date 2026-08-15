@@ -195,6 +195,77 @@ TEST(NavigationServiceTests, BuildsStableSourceOrderedDocumentSymbolHierarchy) {
     EXPECT_TRUE(navigation.documentSymbols(uri).empty());
 }
 
+TEST(NavigationServiceTests, FiltersAndOrdersWorkspaceProjectDeclarations) {
+    const fs::path firstPath = fs::temp_directory_path() / "rls-workspace-symbol-first.rls";
+    const fs::path secondPath = fs::temp_directory_path() / "rls-workspace-symbol-second.rls";
+    const std::string firstUri = *rls::lsp::PathToFileUri(firstPath);
+    const std::string secondUri = *rls::lsp::PathToFileUri(secondPath);
+    DocumentStore documents;
+    ASSERT_EQ(documents.open(firstUri, "rls", 1,
+        "enum Holder { ALPHA_MEMBER }\n"
+        "extern define alpha_host() -> Bool\n"
+        "define alpha_define(): true\n"
+        "region ALPHA_REGION { name: \"Alpha\" }\n"),
+        rls::lsp::DocumentUpdateResult::Applied);
+    ASSERT_EQ(documents.open(secondUri, "rls", 1, "define alpha_other(): true\n"),
+        rls::lsp::DocumentUpdateResult::Applied);
+    ProjectManager projects(documents, [](const fs::path& path) {
+        rls::project::FileProject project;
+        project.sourceFiles = {path};
+        project.isStandalone = true;
+        return project;
+    });
+    ASSERT_EQ(projects.documentOpened(firstUri),
+        rls::lsp::ProjectAssignmentResult::Assigned);
+    ASSERT_EQ(projects.documentOpened(secondUri),
+        rls::lsp::ProjectAssignmentResult::Assigned);
+    const auto* firstProject = projects.projectForDocument(firstUri);
+    const auto* secondProject = projects.projectForDocument(secondUri);
+    ASSERT_NE(firstProject, nullptr);
+    ASSERT_NE(secondProject, nullptr);
+    const std::string firstProjectId = firstProject->id;
+    const std::string secondProjectId = secondProject->id;
+
+    AnalysisScheduler scheduler({
+        .debounce = std::chrono::milliseconds(0),
+        .maximumConcurrency = 1,
+    });
+    ASSERT_TRUE(scheduler.schedule({
+        firstProjectId,
+        firstProject->generation,
+        {{firstPath,
+            "enum Holder { ALPHA_MEMBER }\n"
+            "extern define alpha_host() -> Bool\n"
+            "define alpha_define(): true\n"
+            "region ALPHA_REGION { name: \"Alpha\" }\n"}},
+        firstProject->documentGeneration,
+        firstProject->manifestGeneration,
+    }));
+    ASSERT_TRUE(scheduler.schedule({
+        secondProjectId,
+        secondProject->generation,
+        {{secondPath, "define alpha_other(): true\n"}},
+        secondProject->documentGeneration,
+        secondProject->manifestGeneration,
+    }));
+    scheduler.waitForIdle();
+
+    NavigationService navigation(projects, scheduler);
+    const auto symbols = navigation.workspaceSymbols("AlPhA", {firstProjectId});
+    ASSERT_EQ(symbols.size(), 4u);
+    EXPECT_EQ(symbols[0].name, "ALPHA_REGION");
+    EXPECT_EQ(symbols[1].name, "alpha_define");
+    EXPECT_EQ(symbols[2].name, "alpha_host");
+    EXPECT_EQ(symbols[3].name, "ALPHA_MEMBER");
+    EXPECT_EQ(symbols[3].containerName, "Holder");
+    EXPECT_EQ(symbols[0].location.uri, firstUri);
+
+    const auto bothProjects = navigation.workspaceSymbols(
+        "alpha", {firstProjectId, secondProjectId});
+    ASSERT_EQ(bothProjects.size(), 5u);
+    EXPECT_EQ(bothProjects[2].name, "alpha_other");
+}
+
 TEST(NavigationServiceTests, ResolvesCanonicalRegionAndRejectsNamesWithoutConcreteTargets) {
     const fs::path sourcePath = fs::temp_directory_path() / "rls-navigation-targets.rls";
     const std::string uri = *rls::lsp::PathToFileUri(sourcePath);

@@ -32,6 +32,7 @@ TEST(ServerCompositionRootTests, RegistersOnlyImplementedRoutes) {
     EXPECT_TRUE(server.router().contains("textDocument/references"));
     EXPECT_TRUE(server.router().contains("textDocument/documentHighlight"));
     EXPECT_TRUE(server.router().contains("textDocument/documentSymbol"));
+    EXPECT_TRUE(server.router().contains("workspace/symbol"));
     EXPECT_FALSE(server.router().contains("textDocument/publishDiagnostics"));
 }
 
@@ -48,6 +49,7 @@ TEST(ServerCompositionRootTests, AdvertisesImplementedTextDocumentFeatures) {
     EXPECT_EQ(result["capabilities"]["referencesProvider"], true);
     EXPECT_EQ(result["capabilities"]["documentHighlightProvider"], true);
     EXPECT_EQ(result["capabilities"]["documentSymbolProvider"], true);
+    EXPECT_EQ(result["capabilities"]["workspaceSymbolProvider"], true);
 }
 
 TEST(ServerCompositionRootTests, RoutesDefinitionFromAcceptedSnapshot) {
@@ -263,6 +265,66 @@ TEST(ServerCompositionRootTests, FallsBackToFlatDocumentSymbols) {
     EXPECT_FALSE(result[0].contains("children"));
     EXPECT_EQ(result[1]["name"], "RED");
     EXPECT_EQ(result[1]["containerName"], "Color");
+}
+
+TEST(ServerCompositionRootTests, RoutesWorkspaceSymbolsWithoutLeakingExternalProject) {
+    const auto suffix = std::to_string(
+        std::chrono::steady_clock::now().time_since_epoch().count());
+    const fs::path workspaceRoot = fs::temp_directory_path() /
+        ("rls-workspace-symbol-root-" + suffix);
+    const fs::path externalRoot = fs::temp_directory_path() /
+        ("rls-workspace-symbol-external-" + suffix);
+    fs::create_directories(workspaceRoot);
+    fs::create_directories(externalRoot);
+    const fs::path insidePath = workspaceRoot / "inside.rls";
+    const fs::path outsidePath = externalRoot / "outside.rls";
+    const std::string insideUri = *rls::lsp::PathToFileUri(insidePath);
+    const std::string outsideUri = *rls::lsp::PathToFileUri(outsidePath);
+    ServerCompositionRoot server(standaloneProject);
+    server.handlePayload(Json{
+        {"jsonrpc", "2.0"},
+        {"id", 1},
+        {"method", "initialize"},
+        {"params", {{"workspaceFolders", Json::array({{
+            {"uri", *rls::lsp::PathToFileUri(workspaceRoot)},
+            {"name", "workspace"},
+        }})}}},
+    }.dump());
+    server.handlePayload(
+        R"({"jsonrpc":"2.0","method":"initialized","params":{}})");
+    const auto open = [&](const std::string& uri, std::string text) {
+        server.handlePayload(Json{
+            {"jsonrpc", "2.0"},
+            {"method", "textDocument/didOpen"},
+            {"params", {{"textDocument", {
+                {"uri", uri},
+                {"languageId", "rls"},
+                {"version", 1},
+                {"text", std::move(text)},
+            }}}},
+        }.dump());
+    };
+    open(insideUri, "define InsideTarget(): true\n");
+    open(outsideUri, "define OutsideTarget(): true\n");
+    server.scheduler().waitForIdle();
+
+    const auto responses = server.handlePayload(Json{
+        {"jsonrpc", "2.0"},
+        {"id", 2},
+        {"method", "workspace/symbol"},
+        {"params", {{"query", "target"}}},
+    }.dump());
+
+    ASSERT_EQ(responses.size(), 1u);
+    const auto result = Json::parse(responses.front())["result"];
+    ASSERT_EQ(result.size(), 1u);
+    EXPECT_EQ(result[0]["name"], "InsideTarget");
+    EXPECT_EQ(result[0]["kind"], 12);
+    EXPECT_EQ(result[0]["location"]["uri"], insideUri);
+
+    std::error_code error;
+    fs::remove_all(workspaceRoot, error);
+    fs::remove_all(externalRoot, error);
 }
 
 TEST(ServerCompositionRootTests, SynchronizesOpenChangeAndClose) {

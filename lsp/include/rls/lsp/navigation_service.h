@@ -51,6 +51,13 @@ struct NavigationDocumentSymbol {
     std::vector<NavigationDocumentSymbol> children;
 };
 
+struct NavigationWorkspaceSymbol {
+    std::string name;
+    NavigationSymbolKind kind;
+    NavigationLocation location;
+    std::optional<std::string> containerName;
+};
+
 class NavigationService {
 public:
     NavigationService(const ProjectManager& projects, const AnalysisScheduler& scheduler);
@@ -62,6 +69,8 @@ public:
     std::vector<NavigationRange> documentHighlights(
         std::string_view uri, NavigationPosition position) const;
     std::vector<NavigationDocumentSymbol> documentSymbols(std::string_view uri) const;
+    std::vector<NavigationWorkspaceSymbol> workspaceSymbols(
+        std::string_view query, const std::vector<std::string>& projectIds) const;
 
 private:
     const ProjectManager& projects_;

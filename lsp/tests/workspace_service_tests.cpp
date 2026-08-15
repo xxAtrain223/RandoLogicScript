@@ -317,4 +317,29 @@ TEST(WorkspaceServiceTests, MultipleManifestProjectsKeepSourcesAndSnapshotsIsola
     EXPECT_EQ(secondSnapshot->sourceText(fs::weakly_canonical(firstPath).generic_string()), nullptr);
 }
 
+TEST(WorkspaceServiceTests, ProjectIdsExcludeManagedDocumentsOutsideWorkspace) {
+    TemporaryDirectory workspaceDirectory;
+    TemporaryDirectory externalDirectory;
+    const fs::path workspacePath = workspaceDirectory.path() / "inside.rls";
+    const fs::path externalPath = externalDirectory.path() / "outside.rls";
+    writeFile(workspacePath, "define inside(): true\n");
+    writeFile(externalPath, "define outside(): true\n");
+    const std::string workspaceUri = *PathToFileUri(workspacePath);
+    const std::string externalUri = *PathToFileUri(externalPath);
+    Services services;
+    ASSERT_TRUE(services.workspace.initialize({
+        *PathToFileUri(workspaceDirectory.path()),
+    }));
+    ASSERT_EQ(services.synchronization.open(
+        workspaceUri, "rls", 1, "define inside(): true\n"),
+        DocumentSynchronizationResult::Applied);
+    ASSERT_EQ(services.synchronization.open(
+        externalUri, "rls", 1, "define outside(): true\n"),
+        DocumentSynchronizationResult::Applied);
+
+    const auto projectIds = services.workspace.projectIds();
+    ASSERT_EQ(projectIds.size(), 1u);
+    EXPECT_EQ(projectIds[0], services.projects.projectForDocument(workspaceUri)->id);
+}
+
 } // namespace

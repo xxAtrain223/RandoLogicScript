@@ -18,7 +18,7 @@ ServerCompositionRoot::ServerCompositionRoot(ProjectManager::Resolver resolver)
         });
     RegisterLifecycleRoutes(router_, lifecycle_, workspace_);
     RegisterDocumentSynchronizationRoutes(router_, synchronization_);
-    RegisterNavigationRoutes(router_, lifecycle_, navigation_);
+    RegisterNavigationRoutes(router_, lifecycle_, navigation_, workspace_);
     RegisterWorkspaceRoutes(router_, lifecycle_, workspace_);
     router_.requireRoutes({
         "initialize",
@@ -32,6 +32,7 @@ ServerCompositionRoot::ServerCompositionRoot(ProjectManager::Resolver resolver)
         "textDocument/references",
         "textDocument/documentHighlight",
         "textDocument/documentSymbol",
+        "workspace/symbol",
         "workspace/didChangeWorkspaceFolders",
         "workspace/didChangeWatchedFiles",
     });

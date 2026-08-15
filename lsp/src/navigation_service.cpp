@@ -1,6 +1,7 @@
 #include "rls/lsp/navigation_service.h"
 
 #include <algorithm>
+#include <cctype>
 #include <filesystem>
 #include <functional>
 #include <limits>
@@ -152,6 +153,33 @@ bool sourceOrder(const sema::SymbolRecord* left, const sema::SymbolRecord* right
             right->selection.end.line, right->selection.end.column);
 }
 
+std::optional<size_t> workspaceCategoryOrder(sema::SymbolCategory category) {
+    switch (category) {
+    case sema::SymbolCategory::Region: return 0;
+    case sema::SymbolCategory::RegionExtension: return 1;
+    case sema::SymbolCategory::Define: return 2;
+    case sema::SymbolCategory::ExternDefine: return 3;
+    case sema::SymbolCategory::Enum: return 4;
+    case sema::SymbolCategory::EnumMember: return 5;
+    case sema::SymbolCategory::ExternEnumPattern: return 6;
+    case sema::SymbolCategory::Parameter:
+    case sema::SymbolCategory::RegionDataEntry:
+    case sema::SymbolCategory::SectionEntry:
+        return std::nullopt;
+    }
+    return std::nullopt;
+}
+
+std::string asciiLower(std::string_view value) {
+    std::string result;
+    result.reserve(value.size());
+    for (const char character : value) {
+        result.push_back(static_cast<char>(
+            std::tolower(static_cast<unsigned char>(character))));
+    }
+    return result;
+}
+
 } // namespace
 
 NavigationService::NavigationService(
@@ -284,6 +312,69 @@ std::vector<NavigationDocumentSymbol> NavigationService::documentSymbols(
         if (auto symbol = build(*record)) {
             result.push_back(std::move(*symbol));
         }
+    }
+    return result;
+}
+
+std::vector<NavigationWorkspaceSymbol> NavigationService::workspaceSymbols(
+    std::string_view query, const std::vector<std::string>& projectIds) const {
+    struct Candidate {
+        NavigationWorkspaceSymbol symbol;
+        size_t categoryOrder;
+        std::string foldedName;
+    };
+
+    const std::string foldedQuery = asciiLower(query);
+    std::vector<Candidate> candidates;
+    for (const auto& projectId : projectIds) {
+        const auto* project = projects_.project(projectId);
+        const auto snapshot = scheduler_.acceptedSnapshot(projectId);
+        if (!project || !snapshot || snapshot->generation() != project->generation) {
+            continue;
+        }
+        for (const auto& record : snapshot->semanticIndex().symbols()) {
+            const auto categoryOrder = workspaceCategoryOrder(record.category);
+            const auto kind = symbolKind(record.category);
+            const std::string foldedName = asciiLower(record.displayName);
+            if (!categoryOrder || !kind
+                || foldedName.find(foldedQuery) == std::string::npos) {
+                continue;
+            }
+            const auto uri = PathToFileUri(record.selection.file);
+            const auto symbolRange = rangeFor(*snapshot, record.selection);
+            if (!uri || !symbolRange) {
+                continue;
+            }
+            std::optional<std::string> containerName;
+            if (record.container) {
+                const auto container = snapshot->declaration(*record.container);
+                if (container) containerName = container->displayName;
+            }
+            candidates.push_back({
+                {
+                    record.displayName,
+                    *kind,
+                    {*uri, *symbolRange},
+                    std::move(containerName),
+                },
+                *categoryOrder,
+                foldedName,
+            });
+        }
+    }
+
+    std::sort(candidates.begin(), candidates.end(), [](const auto& left, const auto& right) {
+        return std::tie(left.categoryOrder, left.foldedName, left.symbol.name,
+            left.symbol.location.uri, left.symbol.location.range.start.line,
+            left.symbol.location.range.start.character)
+            < std::tie(right.categoryOrder, right.foldedName, right.symbol.name,
+                right.symbol.location.uri, right.symbol.location.range.start.line,
+                right.symbol.location.range.start.character);
+    });
+    std::vector<NavigationWorkspaceSymbol> result;
+    result.reserve(candidates.size());
+    for (auto& candidate : candidates) {
+        result.push_back(std::move(candidate.symbol));
     }
     return result;
 }

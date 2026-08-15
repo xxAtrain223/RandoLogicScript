@@ -204,6 +204,21 @@ const ManagedProject* ProjectManager::projectForDocument(std::string_view uri) c
     return project == projects_.end() ? nullptr : &project->second;
 }
 
+const ManagedProject* ProjectManager::project(std::string_view projectId) const {
+    const auto project = projects_.find(std::string(projectId));
+    return project == projects_.end() ? nullptr : &project->second;
+}
+
+std::vector<std::string> ProjectManager::projectIds() const {
+    std::vector<std::string> result;
+    result.reserve(projects_.size());
+    for (const auto& [id, project] : projects_) {
+        result.push_back(id);
+    }
+    std::sort(result.begin(), result.end());
+    return result;
+}
+
 ProjectSourceSet ProjectManager::sourceSetForDocument(std::string_view uri) const {
     const auto project = projectForDocument(uri);
     if (!project) {

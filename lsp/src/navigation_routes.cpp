@@ -8,6 +8,7 @@
 #include "rls/lsp/json_rpc_router.h"
 #include "rls/lsp/lifecycle_service.h"
 #include "rls/lsp/navigation_service.h"
+#include "rls/lsp/workspace_service.h"
 
 namespace rls::lsp {
 namespace {
@@ -106,7 +107,8 @@ NavigationPosition requestPosition(const Json& object) {
 } // namespace
 
 void RegisterNavigationRoutes(
-    JsonRpcRouter& router, LifecycleService& lifecycle, NavigationService& navigation) {
+    JsonRpcRouter& router, LifecycleService& lifecycle, NavigationService& navigation,
+    WorkspaceService& workspace) {
     router.registerRequest("textDocument/definition", [&lifecycle, &navigation](const Json& params) {
         const auto& object = requireObject(params);
         const auto& document = requireObject(object.at("textDocument"));
@@ -170,6 +172,29 @@ void RegisterNavigationRoutes(
             } else {
                 appendSymbolInformation(result, symbol, uri, std::nullopt);
             }
+        }
+        return result;
+    });
+    router.registerRequest("workspace/symbol", [&navigation, &workspace](const Json& params) {
+        const auto& object = requireObject(params);
+        if (!object.at("query").is_string()) {
+            throw InvalidParams("workspace symbol query must be a string");
+        }
+        Json result = Json::array();
+        for (const auto& symbol : navigation.workspaceSymbols(
+            object.at("query").get<std::string>(), workspace.projectIds())) {
+            Json information = {
+                {"name", symbol.name},
+                {"kind", symbolKind(symbol.kind)},
+                {"location", {
+                    {"uri", symbol.location.uri},
+                    {"range", range(symbol.location.range)},
+                }},
+            };
+            if (symbol.containerName) {
+                information["containerName"] = *symbol.containerName;
+            }
+            result.push_back(std::move(information));
         }
         return result;
     });

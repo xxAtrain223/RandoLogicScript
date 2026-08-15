@@ -25,6 +25,7 @@ public:
     bool watchedFilesChanged(const std::vector<std::string>& uris);
 
     size_t folderCount() const;
+    std::vector<std::string> projectIds() const;
 
 private:
     bool refreshProjects();
