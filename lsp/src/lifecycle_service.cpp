@@ -4,12 +4,14 @@
 
 namespace rls::lsp {
 
-void LifecycleService::initialize(bool definitionLinkSupport) {
+void LifecycleService::initialize(
+    bool definitionLinkSupport, bool documentSymbolHierarchySupport) {
     if (initializeRequested_) {
         throw std::logic_error("initialize was already requested");
     }
     initializeRequested_ = true;
     definitionLinkSupport_ = definitionLinkSupport;
+    documentSymbolHierarchySupport_ = documentSymbolHierarchySupport;
 }
 
 void LifecycleService::initialized() {
@@ -36,6 +38,10 @@ bool LifecycleService::acceptsDocumentUpdates() const {
 
 bool LifecycleService::supportsDefinitionLinks() const {
     return definitionLinkSupport_;
+}
+
+bool LifecycleService::supportsDocumentSymbolHierarchy() const {
+    return documentSymbolHierarchySupport_;
 }
 
 bool LifecycleService::shouldExit() const {

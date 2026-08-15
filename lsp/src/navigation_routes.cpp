@@ -48,6 +48,53 @@ Json range(const NavigationRange& value) {
     return {{"start", position(value.start)}, {"end", position(value.end)}};
 }
 
+int symbolKind(NavigationSymbolKind kind) {
+    switch (kind) {
+    case NavigationSymbolKind::Namespace: return 3;
+    case NavigationSymbolKind::Function: return 12;
+    case NavigationSymbolKind::Enum: return 10;
+    case NavigationSymbolKind::EnumMember: return 22;
+    case NavigationSymbolKind::Variable: return 13;
+    case NavigationSymbolKind::Property: return 7;
+    case NavigationSymbolKind::Field: return 8;
+    }
+    return 13;
+}
+
+Json documentSymbol(const NavigationDocumentSymbol& symbol) {
+    Json children = Json::array();
+    for (const auto& child : symbol.children) {
+        children.push_back(documentSymbol(child));
+    }
+    return {
+        {"name", symbol.name},
+        {"kind", symbolKind(symbol.kind)},
+        {"range", range(symbol.range)},
+        {"selectionRange", range(symbol.selectionRange)},
+        {"children", std::move(children)},
+    };
+}
+
+void appendSymbolInformation(
+    Json& result, const NavigationDocumentSymbol& symbol,
+    std::string_view uri, std::optional<std::string_view> containerName) {
+    Json information = {
+        {"name", symbol.name},
+        {"kind", symbolKind(symbol.kind)},
+        {"location", {
+            {"uri", uri},
+            {"range", range(symbol.selectionRange)},
+        }},
+    };
+    if (containerName) {
+        information["containerName"] = *containerName;
+    }
+    result.push_back(std::move(information));
+    for (const auto& child : symbol.children) {
+        appendSymbolInformation(result, child, uri, symbol.name);
+    }
+}
+
 NavigationPosition requestPosition(const Json& object) {
     const auto& value = requireObject(object.at("position"));
     return {
@@ -110,6 +157,19 @@ void RegisterNavigationRoutes(
                 {"range", range(highlight)},
                 {"kind", 1},
             });
+        }
+        return result;
+    });
+    router.registerRequest("textDocument/documentSymbol", [&lifecycle, &navigation](const Json& params) {
+        const auto& document = requireObject(requireObject(params).at("textDocument"));
+        const std::string uri = document.at("uri").get<std::string>();
+        Json result = Json::array();
+        for (const auto& symbol : navigation.documentSymbols(uri)) {
+            if (lifecycle.supportsDocumentSymbolHierarchy()) {
+                result.push_back(documentSymbol(symbol));
+            } else {
+                appendSymbolInformation(result, symbol, uri, std::nullopt);
+            }
         }
         return result;
     });

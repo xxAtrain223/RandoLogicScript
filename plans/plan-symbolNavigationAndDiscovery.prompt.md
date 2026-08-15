@@ -29,10 +29,10 @@ Consume [plan-compilerQueryModelAndDiagnosticLsp.prompt.md](plan-compilerQueryMo
    - [x] Preserve occurrence kind where the protocol supports read/write/text distinctions; do not invent write semantics for declarative RLS.
 
 3. **Document symbols**
-   - [ ] Implement `textDocument/documentSymbol` from parser/source declaration records.
-   - [ ] Present regions, defines, extern defines, enums, enum members, and appropriate children without exposing internal AST layout.
-   - [ ] Use full declaration spans and name selection ranges consistently.
-   - [ ] Decide/document whether extend-region blocks appear as top-level extension symbols, children of virtual region groups, or both; use one stable representation.
+   - [x] Implement `textDocument/documentSymbol` from parser/source declaration records.
+   - [x] Present regions, defines, extern defines, enums, enum members, and appropriate children without exposing internal AST layout.
+   - [x] Use full declaration spans and name selection ranges consistently.
+   - [x] Present extend-region blocks once as top-level extension symbols, with their own entries as children; do not also nest them under canonical base regions.
 
 4. **Workspace symbols**
    - [ ] Implement `workspace/symbol` from project declaration records only.
@@ -53,7 +53,7 @@ Consume [plan-compilerQueryModelAndDiagnosticLsp.prompt.md](plan-compilerQueryMo
 - [ ] Definition/reference navigation across files for defines, regions, enums, members, parameters, and externs.
 - [x] Base-region versus extension behavior.
 - [x] Include-declaration reference flag.
-- [ ] Document-symbol structure and selection ranges.
+- [x] Document-symbol structure and selection ranges.
 - [ ] Workspace-symbol filtering/category ordering/project isolation.
 - [ ] Ambiguous, unresolved, malformed, and stale-document cases.
 

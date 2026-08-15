@@ -126,6 +126,75 @@ TEST(NavigationServiceTests, KeepsSameNameParametersInSeparateScopes) {
     EXPECT_EQ(firstHighlights[1].start.line, 0u);
 }
 
+TEST(NavigationServiceTests, BuildsStableSourceOrderedDocumentSymbolHierarchy) {
+    const fs::path sourcePath = fs::temp_directory_path() / "rls-document-symbols.rls";
+    const std::string uri = *rls::lsp::PathToFileUri(sourcePath);
+    const std::string content =
+        "region RR_BASE { name: \"Base\" events { EVENT_BASE: true } }\n"
+        "extend region RR_BASE { events { EVENT_EXT: true } }\n"
+        "define check(value: Bool): value\n"
+        "extern define host(item: Item) -> Bool\n"
+        "enum Color { RED, BLUE }\n"
+        "extern enum Item { RG_HOOKSHOT, RG_* }\n";
+    DocumentStore documents;
+    ASSERT_EQ(documents.open(uri, "rls", 1, content),
+        rls::lsp::DocumentUpdateResult::Applied);
+    ProjectManager projects(documents, [&](const fs::path&) {
+        rls::project::FileProject project;
+        project.sourceFiles = {sourcePath};
+        project.isStandalone = true;
+        return project;
+    });
+    ASSERT_EQ(projects.documentOpened(uri),
+        rls::lsp::ProjectAssignmentResult::Assigned);
+    const auto* project = projects.projectForDocument(uri);
+    ASSERT_NE(project, nullptr);
+
+    AnalysisScheduler scheduler({
+        .debounce = std::chrono::milliseconds(0),
+        .maximumConcurrency = 1,
+    });
+    ASSERT_TRUE(scheduler.schedule({
+        project->id,
+        project->generation,
+        {{sourcePath, content}},
+        project->documentGeneration,
+        project->manifestGeneration,
+    }));
+    scheduler.waitForIdle();
+
+    NavigationService navigation(projects, scheduler);
+    const auto symbols = navigation.documentSymbols(uri);
+    ASSERT_EQ(symbols.size(), 6u);
+    EXPECT_EQ(symbols[0].name, "RR_BASE");
+    EXPECT_EQ(symbols[1].name, "RR_BASE");
+    EXPECT_EQ(symbols[2].name, "check");
+    EXPECT_EQ(symbols[3].name, "host");
+    EXPECT_EQ(symbols[4].name, "Color");
+    EXPECT_EQ(symbols[5].name, "Item");
+
+    ASSERT_EQ(symbols[0].children.size(), 2u);
+    EXPECT_EQ(symbols[0].children[0].name, "name");
+    EXPECT_EQ(symbols[0].children[1].name, "EVENT_BASE");
+    ASSERT_EQ(symbols[1].children.size(), 1u);
+    EXPECT_EQ(symbols[1].children[0].name, "EVENT_EXT");
+    ASSERT_EQ(symbols[2].children.size(), 1u);
+    EXPECT_EQ(symbols[2].children[0].name, "value");
+    EXPECT_EQ(symbols[2].children[0].range.start.character, 13u);
+    EXPECT_EQ(symbols[2].children[0].range.end.character, 24u);
+    EXPECT_EQ(symbols[2].children[0].selectionRange.start.character, 13u);
+    EXPECT_EQ(symbols[2].children[0].selectionRange.end.character, 18u);
+    ASSERT_EQ(symbols[4].children.size(), 2u);
+    EXPECT_EQ(symbols[4].children[0].name, "RED");
+    EXPECT_EQ(symbols[4].children[1].name, "BLUE");
+    ASSERT_EQ(symbols[5].children.size(), 2u);
+    EXPECT_EQ(symbols[5].children[1].name, "RG_*");
+
+    ASSERT_EQ(projects.documentChanged(uri),
+        rls::lsp::ProjectAssignmentResult::Assigned);
+    EXPECT_TRUE(navigation.documentSymbols(uri).empty());
+}
+
 TEST(NavigationServiceTests, ResolvesCanonicalRegionAndRejectsNamesWithoutConcreteTargets) {
     const fs::path sourcePath = fs::temp_directory_path() / "rls-navigation-targets.rls";
     const std::string uri = *rls::lsp::PathToFileUri(sourcePath);

@@ -55,6 +55,22 @@ bool definitionLinkSupport(const Json& params) {
     return definition.value("linkSupport", false);
 }
 
+bool documentSymbolHierarchySupport(const Json& params) {
+    if (!params.contains("capabilities")) {
+        return false;
+    }
+    const auto& capabilities = requireObject(params.at("capabilities"));
+    if (!capabilities.contains("textDocument")) {
+        return false;
+    }
+    const auto& textDocument = requireObject(capabilities.at("textDocument"));
+    if (!textDocument.contains("documentSymbol")) {
+        return false;
+    }
+    const auto& documentSymbol = requireObject(textDocument.at("documentSymbol"));
+    return documentSymbol.value("hierarchicalDocumentSymbolSupport", false);
+}
+
 } // namespace
 
 void RegisterLifecycleRoutes(
@@ -67,7 +83,8 @@ void RegisterLifecycleRoutes(
         if (!workspace.initialize(workspaceFolders(params), hasWorkspaceRoot)) {
             throw InvalidParams("invalid workspace folder URI");
         }
-        lifecycle.initialize(definitionLinkSupport(params));
+        lifecycle.initialize(
+            definitionLinkSupport(params), documentSymbolHierarchySupport(params));
         return Json{
             {"capabilities", {
                 {"textDocumentSync", {
@@ -77,6 +94,7 @@ void RegisterLifecycleRoutes(
                 {"definitionProvider", true},
                 {"referencesProvider", true},
                 {"documentHighlightProvider", true},
+                {"documentSymbolProvider", true},
                 {"workspace", {
                     {"workspaceFolders", {
                         {"supported", true},

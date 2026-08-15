@@ -125,8 +125,10 @@ SemanticIndex buildSemanticIndex(const ast::Project& project,
 		for (const auto& parameter : parameters) {
 			const auto type = project.getType(&parameter);
 			const auto enumName = project.getEnumType(&parameter);
+			const auto declaration = parameter.span.start.line == 0
+				? parameter.name.span : parameter.span;
 			index.addSymbol(SymbolCategory::Parameter, SymbolProvenance::Source,
-				parameter.name.text, parameter.name.span, parameter.name.span,
+				parameter.name.text, declaration, parameter.name.span,
 				container, std::nullopt, type,
 				enumName ? std::optional<std::string>(*enumName) :
 					(parameter.type ? std::optional<std::string>(parameter.type->name.text) : std::nullopt));

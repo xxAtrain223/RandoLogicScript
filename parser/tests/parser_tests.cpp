@@ -455,6 +455,10 @@ TEST(SourceIndexTests, IndexesDeclarationsNamesExpressionsAndCalls) {
 	ASSERT_TRUE(parameter);
 	EXPECT_EQ(parameter->kind, rls::parser::SourceNameKind::Parameter);
 	EXPECT_EQ(parameter->text, "target");
+	const auto& define = std::get<DefineDecl>(parsed.file.declarations[0]);
+	ASSERT_EQ(define.params.size(), 1u);
+	EXPECT_EQ(define.params[0].span.start.column, 14u);
+	EXPECT_EQ(define.params[0].span.end.column, 26u);
 
 	const auto type = index.nameAt({1, 23});
 	ASSERT_TRUE(type);

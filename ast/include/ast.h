@@ -457,11 +457,13 @@ struct Param {
 	Name name;
 	std::optional<TypeRef> type;
 	ExprPtr defaultValue; // nullptr if no default
+	Span span;
 
-	Param(Name name, std::optional<TypeRef> type, ExprPtr defaultValue)
+	Param(Name name, std::optional<TypeRef> type, ExprPtr defaultValue, Span span = {})
 		: name(std::move(name)),
 		  type(std::move(type)),
-		  defaultValue(std::move(defaultValue)) {}
+		  defaultValue(std::move(defaultValue)),
+		  span(std::move(span)) {}
 };
 
 /// A single entry in a region section: `NAME: condition`.

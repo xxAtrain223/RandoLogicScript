@@ -31,6 +31,7 @@ TEST(ServerCompositionRootTests, RegistersOnlyImplementedRoutes) {
     EXPECT_TRUE(server.router().contains("textDocument/definition"));
     EXPECT_TRUE(server.router().contains("textDocument/references"));
     EXPECT_TRUE(server.router().contains("textDocument/documentHighlight"));
+    EXPECT_TRUE(server.router().contains("textDocument/documentSymbol"));
     EXPECT_FALSE(server.router().contains("textDocument/publishDiagnostics"));
 }
 
@@ -46,6 +47,7 @@ TEST(ServerCompositionRootTests, AdvertisesImplementedTextDocumentFeatures) {
     EXPECT_EQ(result["capabilities"]["definitionProvider"], true);
     EXPECT_EQ(result["capabilities"]["referencesProvider"], true);
     EXPECT_EQ(result["capabilities"]["documentHighlightProvider"], true);
+    EXPECT_EQ(result["capabilities"]["documentSymbolProvider"], true);
 }
 
 TEST(ServerCompositionRootTests, RoutesDefinitionFromAcceptedSnapshot) {
@@ -177,6 +179,90 @@ TEST(ServerCompositionRootTests, RoutesReferencesAndDocumentHighlights) {
     ASSERT_EQ(highlights.size(), 3u);
     EXPECT_EQ(highlights[0]["kind"], 1);
     EXPECT_EQ(highlights[0]["range"]["start"]["line"], 0);
+}
+
+TEST(ServerCompositionRootTests, RoutesHierarchicalDocumentSymbols) {
+    const fs::path sourcePath = fs::temp_directory_path() / "rls-document-symbol-route.rls";
+    const std::string uri = *rls::lsp::PathToFileUri(sourcePath);
+    ServerCompositionRoot server(standaloneProject);
+    server.handlePayload(R"({
+        "jsonrpc":"2.0","id":1,"method":"initialize","params":{
+            "capabilities":{"textDocument":{"documentSymbol":{
+                "hierarchicalDocumentSymbolSupport":true
+            }}}
+        }
+    })");
+    server.handlePayload(
+        R"({"jsonrpc":"2.0","method":"initialized","params":{}})");
+    server.handlePayload(Json{
+        {"jsonrpc", "2.0"},
+        {"method", "textDocument/didOpen"},
+        {"params", {{"textDocument", {
+            {"uri", uri},
+            {"languageId", "rls"},
+            {"version", 1},
+            {"text", "define check(value: Bool): value\nenum Color { RED }\n"},
+        }}}},
+    }.dump());
+    server.scheduler().waitForIdle();
+
+    const auto responses = server.handlePayload(Json{
+        {"jsonrpc", "2.0"},
+        {"id", 2},
+        {"method", "textDocument/documentSymbol"},
+        {"params", {{"textDocument", {{"uri", uri}}}}},
+    }.dump());
+
+    ASSERT_EQ(responses.size(), 1u);
+    const auto result = Json::parse(responses.front())["result"];
+    ASSERT_EQ(result.size(), 2u);
+    EXPECT_EQ(result[0]["name"], "check");
+    EXPECT_EQ(result[0]["kind"], 12);
+    ASSERT_EQ(result[0]["children"].size(), 1u);
+    EXPECT_EQ(result[0]["children"][0]["name"], "value");
+    EXPECT_EQ(result[0]["children"][0]["kind"], 13);
+    EXPECT_EQ(result[0]["children"][0]["range"]["end"]["character"], 24);
+    EXPECT_EQ(result[0]["children"][0]["selectionRange"]["end"]["character"], 18);
+    EXPECT_EQ(result[1]["name"], "Color");
+    EXPECT_EQ(result[1]["kind"], 10);
+    EXPECT_EQ(result[1]["children"][0]["kind"], 22);
+}
+
+TEST(ServerCompositionRootTests, FallsBackToFlatDocumentSymbols) {
+    const fs::path sourcePath = fs::temp_directory_path() / "rls-flat-symbol-route.rls";
+    const std::string uri = *rls::lsp::PathToFileUri(sourcePath);
+    ServerCompositionRoot server(standaloneProject);
+    server.handlePayload(
+        R"({"jsonrpc":"2.0","id":1,"method":"initialize","params":{}})");
+    server.handlePayload(
+        R"({"jsonrpc":"2.0","method":"initialized","params":{}})");
+    server.handlePayload(Json{
+        {"jsonrpc", "2.0"},
+        {"method", "textDocument/didOpen"},
+        {"params", {{"textDocument", {
+            {"uri", uri},
+            {"languageId", "rls"},
+            {"version", 1},
+            {"text", "enum Color { RED }\n"},
+        }}}},
+    }.dump());
+    server.scheduler().waitForIdle();
+
+    const auto responses = server.handlePayload(Json{
+        {"jsonrpc", "2.0"},
+        {"id", 2},
+        {"method", "textDocument/documentSymbol"},
+        {"params", {{"textDocument", {{"uri", uri}}}}},
+    }.dump());
+
+    ASSERT_EQ(responses.size(), 1u);
+    const auto result = Json::parse(responses.front())["result"];
+    ASSERT_EQ(result.size(), 2u);
+    EXPECT_EQ(result[0]["name"], "Color");
+    EXPECT_EQ(result[0]["location"]["uri"], uri);
+    EXPECT_FALSE(result[0].contains("children"));
+    EXPECT_EQ(result[1]["name"], "RED");
+    EXPECT_EQ(result[1]["containerName"], "Color");
 }
 
 TEST(ServerCompositionRootTests, SynchronizesOpenChangeAndClose) {

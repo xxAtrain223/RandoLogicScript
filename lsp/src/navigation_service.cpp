@@ -1,7 +1,10 @@
 #include "rls/lsp/navigation_service.h"
 
+#include <algorithm>
 #include <filesystem>
+#include <functional>
 #include <limits>
+#include <tuple>
 
 #include "rls/lsp/document_uri.h"
 
@@ -13,6 +16,11 @@ struct NavigationQuery {
     std::string documentPath;
     sema::SymbolId symbol;
     sema::OccurrenceRecord occurrence;
+};
+
+struct CurrentDocument {
+    AnalysisScheduler::Snapshot snapshot;
+    std::string path;
 };
 
 std::string pathString(const std::filesystem::path& path) {
@@ -49,13 +57,9 @@ std::optional<NavigationRange> rangeFor(
     };
 }
 
-std::optional<NavigationQuery> queryAt(
+std::optional<CurrentDocument> currentDocument(
     const ProjectManager& projects, const AnalysisScheduler& scheduler,
-    std::string_view uri, NavigationPosition position) {
-    if (position.line == std::numeric_limits<uint32_t>::max()
-        || position.character == std::numeric_limits<uint32_t>::max()) {
-        return std::nullopt;
-    }
+    std::string_view uri) {
     const auto* project = projects.projectForDocument(uri);
     const auto path = FileUriToPath(uri);
     if (!project || !path) {
@@ -65,12 +69,25 @@ std::optional<NavigationQuery> queryAt(
     if (!snapshot || snapshot->generation() != project->generation) {
         return std::nullopt;
     }
-
     const std::string documentPath = pathString(*path);
-    const ast::SourceText* source = snapshot->sourceText(documentPath);
-    if (!source) {
+    if (!snapshot->sourceText(documentPath) || !snapshot->sourceIndex(documentPath)) {
         return std::nullopt;
     }
+    return CurrentDocument{snapshot, documentPath};
+}
+
+std::optional<NavigationQuery> queryAt(
+    const ProjectManager& projects, const AnalysisScheduler& scheduler,
+    std::string_view uri, NavigationPosition position) {
+    if (position.line == std::numeric_limits<uint32_t>::max()
+        || position.character == std::numeric_limits<uint32_t>::max()) {
+        return std::nullopt;
+    }
+    const auto document = currentDocument(projects, scheduler, uri);
+    if (!document) {
+        return std::nullopt;
+    }
+    const ast::SourceText* source = document->snapshot->sourceText(document->path);
     const auto offset = source->byteOffsetFromUtf16Position({
         position.line + 1, position.character + 1});
     if (!offset) {
@@ -81,12 +98,58 @@ std::optional<NavigationQuery> queryAt(
         return std::nullopt;
     }
 
-    const auto symbol = snapshot->symbolAt(documentPath, *sourcePosition);
-    const auto occurrence = snapshot->occurrenceAt(documentPath, *sourcePosition);
+    const auto symbol = document->snapshot->symbolAt(document->path, *sourcePosition);
+    const auto occurrence = document->snapshot->occurrenceAt(document->path, *sourcePosition);
     if (!symbol || !occurrence || occurrence->symbol != symbol) {
         return std::nullopt;
     }
-    return NavigationQuery{snapshot, documentPath, *symbol, *occurrence};
+    return NavigationQuery{document->snapshot, document->path, *symbol, *occurrence};
+}
+
+bool sameSpan(const ast::Span& left, const ast::Span& right) {
+    return left.file == right.file
+        && left.start.line == right.start.line
+        && left.start.column == right.start.column
+        && left.end.line == right.end.line
+        && left.end.column == right.end.column;
+}
+
+bool isTopLevel(sema::SymbolCategory category) {
+    return category == sema::SymbolCategory::Region
+        || category == sema::SymbolCategory::RegionExtension
+        || category == sema::SymbolCategory::Define
+        || category == sema::SymbolCategory::ExternDefine
+        || category == sema::SymbolCategory::Enum;
+}
+
+std::optional<NavigationSymbolKind> symbolKind(sema::SymbolCategory category) {
+    switch (category) {
+    case sema::SymbolCategory::Region:
+    case sema::SymbolCategory::RegionExtension:
+        return NavigationSymbolKind::Namespace;
+    case sema::SymbolCategory::Define:
+    case sema::SymbolCategory::ExternDefine:
+        return NavigationSymbolKind::Function;
+    case sema::SymbolCategory::Enum:
+        return NavigationSymbolKind::Enum;
+    case sema::SymbolCategory::EnumMember:
+    case sema::SymbolCategory::ExternEnumPattern:
+        return NavigationSymbolKind::EnumMember;
+    case sema::SymbolCategory::Parameter:
+        return NavigationSymbolKind::Variable;
+    case sema::SymbolCategory::RegionDataEntry:
+        return NavigationSymbolKind::Property;
+    case sema::SymbolCategory::SectionEntry:
+        return NavigationSymbolKind::Field;
+    }
+    return std::nullopt;
+}
+
+bool sourceOrder(const sema::SymbolRecord* left, const sema::SymbolRecord* right) {
+    return std::tie(left->selection.start.line, left->selection.start.column,
+        left->selection.end.line, left->selection.end.column)
+        < std::tie(right->selection.start.line, right->selection.start.column,
+            right->selection.end.line, right->selection.end.column);
 }
 
 } // namespace
@@ -156,6 +219,70 @@ std::vector<NavigationRange> NavigationService::documentHighlights(
         }
         if (const auto occurrenceRange = rangeFor(*query->snapshot, occurrence.span)) {
             result.push_back(*occurrenceRange);
+        }
+    }
+    return result;
+}
+
+std::vector<NavigationDocumentSymbol> NavigationService::documentSymbols(
+    std::string_view uri) const {
+    const auto document = currentDocument(projects_, scheduler_, uri);
+    if (!document) {
+        return {};
+    }
+    const auto* sourceIndex = document->snapshot->sourceIndex(document->path);
+    const auto declarations = sourceIndex->declarationsIn(document->path);
+    const auto& records = document->snapshot->semanticIndex().symbols();
+
+    std::function<std::optional<NavigationDocumentSymbol>(const sema::SymbolRecord&)> build;
+    build = [&](const sema::SymbolRecord& record)
+        -> std::optional<NavigationDocumentSymbol> {
+        const auto kind = symbolKind(record.category);
+        const auto symbolRange = rangeFor(*document->snapshot, record.declaration);
+        const auto selectionRange = rangeFor(*document->snapshot, record.selection);
+        if (!kind || !symbolRange || !selectionRange) {
+            return std::nullopt;
+        }
+
+        std::vector<const sema::SymbolRecord*> childRecords;
+        for (const auto& candidate : records) {
+            if (candidate.declaration.file == document->path
+                && candidate.container == record.id
+                && !isTopLevel(candidate.category)) {
+                childRecords.push_back(&candidate);
+            }
+        }
+        std::sort(childRecords.begin(), childRecords.end(), sourceOrder);
+
+        NavigationDocumentSymbol result{
+            record.displayName, *kind, *symbolRange, *selectionRange, {}};
+        for (const auto* child : childRecords) {
+            if (auto symbol = build(*child)) {
+                result.children.push_back(std::move(*symbol));
+            }
+        }
+        return result;
+    };
+
+    std::vector<const sema::SymbolRecord*> topLevelRecords;
+    for (const auto& record : records) {
+        if (record.declaration.file != document->path || !isTopLevel(record.category)) {
+            continue;
+        }
+        const bool parserDeclaration = std::any_of(
+            declarations.begin(), declarations.end(), [&](const auto& declaration) {
+                return sameSpan(declaration.span, record.declaration);
+            });
+        if (parserDeclaration) {
+            topLevelRecords.push_back(&record);
+        }
+    }
+    std::sort(topLevelRecords.begin(), topLevelRecords.end(), sourceOrder);
+
+    std::vector<NavigationDocumentSymbol> result;
+    for (const auto* record : topLevelRecords) {
+        if (auto symbol = build(*record)) {
+            result.push_back(std::move(*symbol));
         }
     }
     return result;

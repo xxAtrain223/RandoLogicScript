@@ -33,6 +33,24 @@ struct NavigationLocation {
     NavigationRange range;
 };
 
+enum class NavigationSymbolKind {
+    Namespace,
+    Function,
+    Enum,
+    EnumMember,
+    Variable,
+    Property,
+    Field,
+};
+
+struct NavigationDocumentSymbol {
+    std::string name;
+    NavigationSymbolKind kind;
+    NavigationRange range;
+    NavigationRange selectionRange;
+    std::vector<NavigationDocumentSymbol> children;
+};
+
 class NavigationService {
 public:
     NavigationService(const ProjectManager& projects, const AnalysisScheduler& scheduler);
@@ -43,6 +61,7 @@ public:
         std::string_view uri, NavigationPosition position, bool includeDeclaration) const;
     std::vector<NavigationRange> documentHighlights(
         std::string_view uri, NavigationPosition position) const;
+    std::vector<NavigationDocumentSymbol> documentSymbols(std::string_view uri) const;
 
 private:
     const ProjectManager& projects_;

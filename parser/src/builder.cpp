@@ -341,7 +341,10 @@ ast::Param buildParam(const Node& n, Diags& diags) {
 		}
 	}
 
-	return ast::Param(std::move(name), std::move(type), std::move(defaultValue));
+	ast::Span span{name.span.file, name.span.start, name.span.end};
+	if (type) span.end = type->name.span.end;
+	if (defaultValue) span.end = defaultValue->span.end;
+	return ast::Param(std::move(name), std::move(type), std::move(defaultValue), std::move(span));
 }
 
 // =============================================================================
