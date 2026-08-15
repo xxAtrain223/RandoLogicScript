@@ -266,6 +266,86 @@ TEST(NavigationServiceTests, FiltersAndOrdersWorkspaceProjectDeclarations) {
     EXPECT_EQ(bothProjects[2].name, "alpha_other");
 }
 
+TEST(NavigationServiceTests, CoversDefinitionAndReferenceCategoriesAcrossProjectFiles) {
+    const fs::path root = fs::temp_directory_path() / "rls-navigation-category-matrix";
+    const fs::path declarationPath = root / "declarations.rls";
+    const fs::path usagePath = root / "usages.rls";
+    const std::string declarationUri = *rls::lsp::PathToFileUri(declarationPath);
+    const std::string usageUri = *rls::lsp::PathToFileUri(usagePath);
+    const std::string declarations =
+        "region RR_HOME { name: \"Home\" }\n"
+        "enum Color { RED }\n"
+        "define check(flag: Bool): flag\n"
+        "extern define host() -> Bool\n";
+    const std::string usages =
+        "extend region RR_HOME { events { EVENT_HOME: true } }\n"
+        "define use_color(value: Color): Color.RED == value\n"
+        "define caller(): check(true) and host()\n";
+    DocumentStore documents;
+    ASSERT_EQ(documents.open(declarationUri, "rls", 1, declarations),
+        rls::lsp::DocumentUpdateResult::Applied);
+    ASSERT_EQ(documents.open(usageUri, "rls", 1, usages),
+        rls::lsp::DocumentUpdateResult::Applied);
+    ProjectManager projects(documents, [&](const fs::path&) {
+        rls::project::FileProject project;
+        project.sourceFiles = {declarationPath, usagePath};
+        return project;
+    });
+    ASSERT_EQ(projects.documentOpened(declarationUri),
+        rls::lsp::ProjectAssignmentResult::Assigned);
+    ASSERT_EQ(projects.documentOpened(usageUri),
+        rls::lsp::ProjectAssignmentResult::Assigned);
+    const auto* project = projects.projectForDocument(usageUri);
+    ASSERT_NE(project, nullptr);
+
+    AnalysisScheduler scheduler({
+        .debounce = std::chrono::milliseconds(0),
+        .maximumConcurrency = 1,
+    });
+    ASSERT_TRUE(scheduler.schedule({
+        project->id,
+        project->generation,
+        {
+            {declarationPath, declarations},
+            {usagePath, usages},
+        },
+        project->documentGeneration,
+        project->manifestGeneration,
+    }));
+    scheduler.waitForIdle();
+
+    struct NavigationCase {
+        std::string uri;
+        rls::lsp::NavigationPosition position;
+        size_t referenceCount;
+        bool hasCrossFileReference;
+    };
+    const std::vector<NavigationCase> cases = {
+        {usageUri, {0, 15}, 2, true},
+        {usageUri, {1, 25}, 3, true},
+        {usageUri, {1, 39}, 2, true},
+        {usageUri, {2, 18}, 2, true},
+        {usageUri, {2, 34}, 2, true},
+        {declarationUri, {2, 27}, 2, false},
+    };
+
+    NavigationService navigation(projects, scheduler);
+    for (const auto& navigationCase : cases) {
+        const auto definition = navigation.definition(
+            navigationCase.uri, navigationCase.position);
+        ASSERT_TRUE(definition);
+        EXPECT_EQ(definition->targetUri, declarationUri);
+        const auto references = navigation.references(
+            navigationCase.uri, navigationCase.position, true);
+        ASSERT_EQ(references.size(), navigationCase.referenceCount);
+        const bool hasUsageReference = std::any_of(
+            references.begin(), references.end(), [&](const auto& reference) {
+                return reference.uri == usageUri;
+            });
+        EXPECT_EQ(hasUsageReference, navigationCase.hasCrossFileReference);
+    }
+}
+
 TEST(NavigationServiceTests, ResolvesCanonicalRegionAndRejectsNamesWithoutConcreteTargets) {
     const fs::path sourcePath = fs::temp_directory_path() / "rls-navigation-targets.rls";
     const std::string uri = *rls::lsp::PathToFileUri(sourcePath);
@@ -320,6 +400,72 @@ TEST(NavigationServiceTests, ResolvesCanonicalRegionAndRejectsNamesWithoutConcre
     EXPECT_FALSE(navigation.definition(uri, {7, 20}));
     EXPECT_TRUE(navigation.references(uri, {7, 20}, true).empty());
     EXPECT_TRUE(navigation.documentHighlights(uri, {7, 20}).empty());
+}
+
+TEST(NavigationServiceTests, RejectsNavigationFromCurrentMalformedOverlay) {
+    const fs::path root = fs::temp_directory_path() / "rls-navigation-malformed";
+    const fs::path declarationPath = root / "declaration.rls";
+    const fs::path usagePath = root / "usage.rls";
+    const std::string usageUri = *rls::lsp::PathToFileUri(usagePath);
+    DocumentStore documents;
+    ASSERT_EQ(documents.open(
+        usageUri, "rls", 1, "define caller(): target()\n"),
+        rls::lsp::DocumentUpdateResult::Applied);
+    ProjectManager projects(documents, [&](const fs::path&) {
+        rls::project::FileProject project;
+        project.sourceFiles = {declarationPath, usagePath};
+        return project;
+    });
+    ASSERT_EQ(projects.documentOpened(usageUri),
+        rls::lsp::ProjectAssignmentResult::Assigned);
+    const auto* project = projects.projectForDocument(usageUri);
+    ASSERT_NE(project, nullptr);
+
+    AnalysisScheduler scheduler({
+        .debounce = std::chrono::milliseconds(0),
+        .maximumConcurrency = 1,
+    });
+    ASSERT_TRUE(scheduler.schedule({
+        project->id,
+        project->generation,
+        {
+            {declarationPath, "define target(): true\n"},
+            {usagePath, "define caller(): target()\n"},
+        },
+        project->documentGeneration,
+        project->manifestGeneration,
+    }));
+    scheduler.waitForIdle();
+    NavigationService navigation(projects, scheduler);
+    ASSERT_TRUE(navigation.definition(usageUri, {0, 18}));
+
+    ASSERT_EQ(documents.applyFullChange(
+        usageUri, 2, "define caller(): target(\n"),
+        rls::lsp::DocumentUpdateResult::Applied);
+    ASSERT_EQ(projects.documentChanged(usageUri),
+        rls::lsp::ProjectAssignmentResult::Assigned);
+    project = projects.projectForDocument(usageUri);
+    ASSERT_NE(project, nullptr);
+    ASSERT_TRUE(scheduler.schedule({
+        project->id,
+        project->generation,
+        {
+            {declarationPath, "define target(): true\n"},
+            {usagePath, "define caller(): target(\n"},
+        },
+        project->documentGeneration,
+        project->manifestGeneration,
+    }));
+    scheduler.waitForIdle();
+
+    const auto snapshot = scheduler.acceptedSnapshot(project->id);
+    ASSERT_NE(snapshot, nullptr);
+    EXPECT_EQ(snapshot->generation(), project->generation);
+    EXPECT_FALSE(snapshot->diagnosticsFor(
+        fs::weakly_canonical(usagePath).generic_string()).empty());
+    EXPECT_FALSE(navigation.definition(usageUri, {0, 18}));
+    EXPECT_TRUE(navigation.references(usageUri, {0, 18}, true).empty());
+    EXPECT_TRUE(navigation.documentHighlights(usageUri, {0, 18}).empty());
 }
 
 } // namespace

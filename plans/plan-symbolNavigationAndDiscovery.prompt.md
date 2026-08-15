@@ -44,18 +44,18 @@ Consume [plan-compilerQueryModelAndDiagnosticLsp.prompt.md](plan-compilerQueryMo
 - [x] Same-name parameters in distinct define scopes remain distinct symbols.
 - [x] Ambiguous bare enum values return no arbitrary navigation target.
 - [x] Unresolved symbols return empty responses, not textual best matches.
-- [ ] Invalid/incomplete active files can use the current snapshot only when the source index identifies the same current occurrence; otherwise return no result.
+- [x] Invalid/incomplete active files can use the current snapshot only when the source index identifies the same current occurrence; otherwise return no result.
 - [x] Cross-file and unsaved-overlay locations use current snapshot paths/ranges.
 - [x] Snapshot generations are checked before returning results.
 
 ### Tests
 
-- [ ] Definition/reference navigation across files for defines, regions, enums, members, parameters, and externs.
+- [x] Definition/reference navigation across files for defines, regions, enums, members, parameters, and externs.
 - [x] Base-region versus extension behavior.
 - [x] Include-declaration reference flag.
 - [x] Document-symbol structure and selection ranges.
 - [x] Workspace-symbol filtering/category ordering/project isolation.
-- [ ] Ambiguous, unresolved, malformed, and stale-document cases.
+- [x] Ambiguous, unresolved, malformed, and stale-document cases.
 
 ### Definition of Done
 

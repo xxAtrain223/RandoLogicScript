@@ -77,6 +77,14 @@ std::optional<CurrentDocument> currentDocument(
     return CurrentDocument{snapshot, documentPath};
 }
 
+bool sameSpan(const ast::Span& left, const ast::Span& right) {
+    return left.file == right.file
+        && left.start.line == right.start.line
+        && left.start.column == right.start.column
+        && left.end.line == right.end.line
+        && left.end.column == right.end.column;
+}
+
 std::optional<NavigationQuery> queryAt(
     const ProjectManager& projects, const AnalysisScheduler& scheduler,
     std::string_view uri, NavigationPosition position) {
@@ -101,18 +109,13 @@ std::optional<NavigationQuery> queryAt(
 
     const auto symbol = document->snapshot->symbolAt(document->path, *sourcePosition);
     const auto occurrence = document->snapshot->occurrenceAt(document->path, *sourcePosition);
-    if (!symbol || !occurrence || occurrence->symbol != symbol) {
+    const auto sourceName = document->snapshot->sourceIndex(document->path)
+        ->nameAt(*sourcePosition);
+    if (!symbol || !occurrence || occurrence->symbol != symbol
+        || !sourceName || !sameSpan(sourceName->span, occurrence->span)) {
         return std::nullopt;
     }
     return NavigationQuery{document->snapshot, document->path, *symbol, *occurrence};
-}
-
-bool sameSpan(const ast::Span& left, const ast::Span& right) {
-    return left.file == right.file
-        && left.start.line == right.start.line
-        && left.start.column == right.start.column
-        && left.end.line == right.end.line
-        && left.end.column == right.end.column;
 }
 
 bool isTopLevel(sema::SymbolCategory category) {
