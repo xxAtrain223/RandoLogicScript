@@ -19,7 +19,7 @@ Consume parser context, semantic scope/type/call queries from [plan-compilerQuer
 
 - [x] Implement `textDocument/completion` using parser context first, then semantic visible-symbol/expected-type queries.
 - [x] Support top-level declarations and keywords.
-- [x] Support canonical region body keys and section names, excluding entries already present in the body.
+- [x] Support project-observed region data keys and language-defined section names, excluding entries already present in the body.
 - [x] Support visible parameters, defines, extern defines, Boolean literals, and core expression keywords.
 - [x] Support the region-only `here` expression keyword where valid.
 - [ ] Support region and entry expression symbols if/when the semantic query model marks them valid at the cursor.
@@ -28,7 +28,7 @@ Consume parser context, semantic scope/type/call queries from [plan-compilerQuer
 - [x] Support named argument labels from resolved callable parameters, excluding parameters already bound positionally or by name.
 - [x] Rank candidates by syntactic context, expected type, enum identity, scope proximity, and typed prefix.
 - [x] Use the SourceText replacement range only for the active partial token; never derive candidate identity lexically.
-- [ ] Provide snippets only where inserted syntax is unambiguous and clients advertise snippet support.
+- [x] Provide snippets only where inserted syntax is unambiguous and clients advertise snippet support; retain plain-text fallbacks for all clients.
 
 ### 3. Signature Help
 
@@ -70,7 +70,7 @@ Consume parser context, semantic scope/type/call queries from [plan-compilerQuer
 - [ ] Defaults in completion/signature presentation from compiler query metadata.
 - [ ] Hover/signature rendering for user and extern declarations.
 - [x] Malformed top-level/region-body/member-access/call source and stale snapshot completion behavior.
-- [ ] Unsupported client capability behavior.
+- [x] Supported and unsupported completion snippet capability behavior.
 
 ### Definition of Done
 

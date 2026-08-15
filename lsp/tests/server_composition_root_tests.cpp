@@ -90,8 +90,87 @@ TEST(ServerCompositionRootTests, RoutesCompletionWithActiveTokenTextEdit) {
     EXPECT_EQ(result[0]["label"], "define");
     EXPECT_EQ(result[0]["kind"], 14);
     EXPECT_EQ(result[0]["textEdit"]["newText"], "define");
+    EXPECT_EQ(result[0]["insertTextFormat"], 1);
     EXPECT_EQ(result[0]["textEdit"]["range"]["start"]["character"], 0);
     EXPECT_EQ(result[0]["textEdit"]["range"]["end"]["character"], 3);
+}
+
+TEST(ServerCompositionRootTests, NegotiatesCompletionSnippetsWithPlainFallback) {
+    const fs::path sourcePath = fs::temp_directory_path() / "rls-snippet-route.rls";
+    const std::string uri = *rls::lsp::PathToFileUri(sourcePath);
+    const auto complete = [&](bool snippetSupport, std::string text,
+                              uint32_t line, uint32_t character) {
+        ServerCompositionRoot server(standaloneProject);
+        Json initializeParams = Json::object();
+        if (snippetSupport) {
+            initializeParams = {
+                {"capabilities", {{"textDocument", {{"completion", {
+                    {"completionItem", {{"snippetSupport", true}}},
+                }}}}}},
+            };
+        }
+        server.handlePayload(Json{
+            {"jsonrpc", "2.0"},
+            {"id", 1},
+            {"method", "initialize"},
+            {"params", std::move(initializeParams)},
+        }.dump());
+        server.handlePayload(
+            R"({"jsonrpc":"2.0","method":"initialized","params":{}})");
+        server.handlePayload(Json{
+            {"jsonrpc", "2.0"},
+            {"method", "textDocument/didOpen"},
+            {"params", {{"textDocument", {
+                {"uri", uri},
+                {"languageId", "rls"},
+                {"version", 1},
+                {"text", std::move(text)},
+            }}}},
+        }.dump());
+        server.scheduler().waitForIdle();
+        const auto responses = server.handlePayload(Json{
+            {"jsonrpc", "2.0"},
+            {"id", 2},
+            {"method", "textDocument/completion"},
+            {"params", {
+                {"textDocument", {{"uri", uri}}},
+                {"position", {{"line", line}, {"character", character}}},
+            }},
+        }.dump());
+        EXPECT_EQ(responses.size(), 1u);
+        return Json::parse(responses.front())["result"];
+    };
+    const auto find = [](const Json& items, std::string_view label) -> Json {
+        for (const auto& item : items) {
+            if (item.at("label").get<std::string>() == label) return item;
+        }
+        return Json(nullptr);
+    };
+
+    const std::string regionText =
+        "region RR_TEMPLATE { customField: true }\n"
+        "region RR_TEST {\n"
+        "  \n"
+        "}\n";
+    const auto plainField = find(complete(false, regionText, 2, 2), "customField");
+    ASSERT_FALSE(plainField.is_null());
+    EXPECT_EQ(plainField["insertTextFormat"], 1);
+    EXPECT_EQ(plainField["textEdit"]["newText"], "customField");
+
+    const auto snippetItems = complete(true, regionText, 2, 2);
+    const auto snippetField = find(snippetItems, "customField");
+    ASSERT_FALSE(snippetField.is_null());
+    EXPECT_EQ(snippetField["insertTextFormat"], 2);
+    EXPECT_EQ(snippetField["textEdit"]["newText"], "customField: ${1}");
+    const auto snippetEvents = find(snippetItems, "events");
+    ASSERT_FALSE(snippetEvents.is_null());
+    EXPECT_EQ(snippetEvents["insertTextFormat"], 2);
+    EXPECT_EQ(snippetEvents["textEdit"]["newText"], "events {\n      $0\n  }");
+
+    const auto plainKeyword = find(complete(true, "def\n", 0, 3), "define");
+    ASSERT_FALSE(plainKeyword.is_null());
+    EXPECT_EQ(plainKeyword["insertTextFormat"], 1);
+    EXPECT_EQ(plainKeyword["textEdit"]["newText"], "define");
 }
 
 TEST(ServerCompositionRootTests, RoutesDefinitionFromAcceptedSnapshot) {

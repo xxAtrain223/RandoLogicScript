@@ -173,24 +173,38 @@ TEST(CompletionServiceTests, RejectsAStaleAcceptedSnapshot) {
 }
 
 TEST(CompletionServiceTests, CompletesRecoveredRegionBodyWithoutDuplicates) {
-    CompletionFixture fixture(
-        "region RR_TEST {\n"
-        "  name: \"Test\"\n"
-        "  events {}\n"
-        "  loc\n");
+    const std::string usage =
+        "region RR_CURRENT { displayLabel: \"Current\" wo";
+    CrossFileCompletionFixture fixture(
+        "region RR_TEMPLATE { displayLabel: \"Template\" worldNode: true }\n",
+        usage);
 
-    const auto items = CompletionService(fixture.projects, fixture.scheduler)
-        .complete(fixture.uri, {3, 5});
+    const auto items = fixture.completeAtEnd(usage);
 
     ASSERT_NE(findItem(items, "locations"), nullptr);
-    ASSERT_NE(findItem(items, "scene"), nullptr);
-    ASSERT_NE(findItem(items, "areas"), nullptr);
-    EXPECT_EQ(findItem(items, "name"), nullptr);
-    EXPECT_EQ(findItem(items, "events"), nullptr);
+    ASSERT_NE(findItem(items, "worldNode"), nullptr);
+    EXPECT_EQ(findItem(items, "worldNode")->snippetText, "worldNode: ${1}");
+    EXPECT_EQ(findItem(items, "worldNode")->detail, "project region data key");
+    EXPECT_EQ(findItem(items, "displayLabel"), nullptr);
     EXPECT_EQ(findItem(items, "define"), nullptr);
-    EXPECT_EQ(items.front().label, "locations");
-    EXPECT_EQ(items.front().replacementRange.start.character, 2u);
-    EXPECT_EQ(items.front().replacementRange.end.character, 5u);
+    EXPECT_EQ(items.front().label, "worldNode");
+    EXPECT_EQ(items.front().replacementRange.start.character, usage.size() - 2);
+    EXPECT_EQ(items.front().replacementRange.end.character, usage.size());
+}
+
+TEST(CompletionServiceTests, FallsBackToSectionsWithoutObservedRegionKeys) {
+    CompletionFixture fixture(
+        "region RR_TEST {\n"
+        "  \n"
+        "}\n");
+
+    const auto items = CompletionService(fixture.projects, fixture.scheduler)
+        .complete(fixture.uri, {1, 2});
+
+    ASSERT_EQ(items.size(), 3u);
+    EXPECT_NE(findItem(items, "events"), nullptr);
+    EXPECT_NE(findItem(items, "locations"), nullptr);
+    EXPECT_NE(findItem(items, "exits"), nullptr);
 }
 
 TEST(CompletionServiceTests, LimitsExtensionBodiesToMissingSections) {
@@ -341,6 +355,7 @@ TEST(CompletionServiceTests, CompletesOnlyUnboundNamedArgumentsAcrossFiles) {
     const auto* second = findItem(items, "second");
     ASSERT_NE(second, nullptr);
     EXPECT_EQ(second->insertText, "second: ");
+    EXPECT_EQ(second->snippetText, "second: ${1}");
     EXPECT_EQ(second->detail, "second: Bool");
     EXPECT_EQ(findItem(items, "first"), nullptr);
     EXPECT_EQ(findItem(items, "third"), nullptr);

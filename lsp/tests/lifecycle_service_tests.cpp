@@ -47,4 +47,14 @@ TEST(LifecycleServiceTests, ExitCodeReflectsCleanShutdown) {
     EXPECT_EQ(cleanExit.exitCode(), 0);
 }
 
+TEST(LifecycleServiceTests, StoresNegotiatedCompletionSnippetSupport) {
+    LifecycleService unsupported;
+    unsupported.initialize();
+    EXPECT_FALSE(unsupported.supportsCompletionSnippets());
+
+    LifecycleService supported;
+    supported.initialize(false, false, true);
+    EXPECT_TRUE(supported.supportsCompletionSnippets());
+}
+
 } // namespace

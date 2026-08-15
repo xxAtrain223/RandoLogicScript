@@ -1,5 +1,6 @@
 #pragma once
 
+#include <optional>
 #include <string>
 #include <string_view>
 #include <vector>
@@ -27,6 +28,7 @@ struct CompletionItem {
     std::string detail;
     std::string documentation;
     std::string insertText;
+    std::optional<std::string> snippetText;
     PresentationRange replacementRange;
     std::string sortText;
 };

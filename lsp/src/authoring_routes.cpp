@@ -7,6 +7,7 @@
 
 #include "rls/lsp/completion_service.h"
 #include "rls/lsp/json_rpc_router.h"
+#include "rls/lsp/lifecycle_service.h"
 
 namespace rls::lsp {
 namespace {
@@ -63,8 +64,9 @@ int completionKind(CompletionItemKind kind) {
 
 } // namespace
 
-void RegisterAuthoringRoutes(JsonRpcRouter& router, CompletionService& completion) {
-    router.registerRequest("textDocument/completion", [&completion](const Json& params) {
+void RegisterAuthoringRoutes(
+    JsonRpcRouter& router, LifecycleService& lifecycle, CompletionService& completion) {
+    router.registerRequest("textDocument/completion", [&lifecycle, &completion](const Json& params) {
         const auto& object = requireObject(params);
         const auto& document = requireObject(object.at("textDocument"));
         const auto& requestPosition = requireObject(object.at("position"));
@@ -76,13 +78,16 @@ void RegisterAuthoringRoutes(JsonRpcRouter& router, CompletionService& completio
         Json result = Json::array();
         for (const auto& item : completion.complete(
                  document.at("uri").get<std::string>(), cursor)) {
+            const bool useSnippet = lifecycle.supportsCompletionSnippets()
+                && item.snippetText.has_value();
             Json completionItem = {
                 {"label", item.label},
                 {"kind", completionKind(item.kind)},
                 {"sortText", item.sortText},
+                {"insertTextFormat", useSnippet ? 2 : 1},
                 {"textEdit", {
                     {"range", range(item.replacementRange)},
-                    {"newText", item.insertText},
+                    {"newText", useSnippet ? *item.snippetText : item.insertText},
                 }},
             };
             if (!item.detail.empty()) completionItem["detail"] = item.detail;

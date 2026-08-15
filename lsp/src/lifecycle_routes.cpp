@@ -71,6 +71,18 @@ bool documentSymbolHierarchySupport(const Json& params) {
     return documentSymbol.value("hierarchicalDocumentSymbolSupport", false);
 }
 
+bool completionSnippetSupport(const Json& params) {
+    if (!params.contains("capabilities")) return false;
+    const auto& capabilities = requireObject(params.at("capabilities"));
+    if (!capabilities.contains("textDocument")) return false;
+    const auto& textDocument = requireObject(capabilities.at("textDocument"));
+    if (!textDocument.contains("completion")) return false;
+    const auto& completion = requireObject(textDocument.at("completion"));
+    if (!completion.contains("completionItem")) return false;
+    const auto& completionItem = requireObject(completion.at("completionItem"));
+    return completionItem.value("snippetSupport", false);
+}
+
 } // namespace
 
 void RegisterLifecycleRoutes(
@@ -84,7 +96,8 @@ void RegisterLifecycleRoutes(
             throw InvalidParams("invalid workspace folder URI");
         }
         lifecycle.initialize(
-            definitionLinkSupport(params), documentSymbolHierarchySupport(params));
+            definitionLinkSupport(params), documentSymbolHierarchySupport(params),
+            completionSnippetSupport(params));
         return Json{
             {"capabilities", {
                 {"textDocumentSync", {

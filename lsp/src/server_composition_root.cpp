@@ -19,7 +19,7 @@ ServerCompositionRoot::ServerCompositionRoot(ProjectManager::Resolver resolver)
         });
     RegisterLifecycleRoutes(router_, lifecycle_, workspace_);
     RegisterDocumentSynchronizationRoutes(router_, synchronization_);
-    RegisterAuthoringRoutes(router_, completion_);
+    RegisterAuthoringRoutes(router_, lifecycle_, completion_);
     RegisterNavigationRoutes(router_, lifecycle_, navigation_, workspace_);
     RegisterWorkspaceRoutes(router_, lifecycle_, workspace_);
     router_.requireRoutes({

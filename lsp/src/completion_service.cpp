@@ -147,6 +147,29 @@ std::string_view sectionName(ast::SectionKind kind) {
     return {};
 }
 
+std::string regionKeySnippet(std::string_view key) {
+    return std::string(key) + ": ${1}";
+}
+
+std::string sectionSnippet(ast::SectionKind kind, std::string_view indentation) {
+    return std::string(sectionName(kind)) + " {\n"
+        + std::string(indentation) + "    $0\n"
+        + std::string(indentation) + '}';
+}
+
+std::string lineIndentationAt(
+    const ast::SourceText& source, ast::Position position) {
+    const auto offset = source.byteOffsetFromUtf8Position(position);
+    if (!offset || position.line == 0 || position.line > source.lineStarts().size()) return {};
+    const size_t lineStart = source.lineStarts()[position.line - 1];
+    const std::string indentation = source.content().substr(lineStart, *offset - lineStart);
+    const bool onlyWhitespace = std::all_of(
+        indentation.begin(), indentation.end(), [](char character) {
+            return character == ' ' || character == '\t';
+        });
+    return onlyWhitespace ? indentation : std::string{};
+}
+
 PresentationType presentationType(
     ast::Type type, const std::optional<std::string>& enumName = std::nullopt) {
     std::string name;
@@ -296,6 +319,7 @@ std::vector<CompletionItem> CompletionService::complete(
     }
     const auto editRange = presentationRange(*document->source, replacement);
     if (!editRange) return {};
+    const std::string lineIndentation = lineIndentationAt(*document->source, replacement.start);
 
     const auto region = document->sourceIndex->regionContextAt(contextPosition);
     const auto memberAccess = document->sourceIndex->memberAccessAt(*cursorPosition);
@@ -427,18 +451,24 @@ std::vector<CompletionItem> CompletionService::complete(
         }
     } else if (context == CompletionContext::RegionBody && region) {
         if (!region->extension) {
-            static constexpr std::string_view dataKeys[] = {
-                "areas", "name", "scene", "timePasses",
-            };
-            for (const auto key : dataKeys) {
+            std::set<std::string> observedKeys;
+            for (const auto& symbol : document->snapshot->semanticIndex().symbols()) {
+                if (symbol.category == sema::SymbolCategory::RegionDataEntry) {
+                    observedKeys.insert(symbol.displayName);
+                }
+            }
+            for (const auto& key : observedKeys) {
                 if (std::find(region->dataKeys.begin(), region->dataKeys.end(), key)
                     != region->dataKeys.end()) {
                     continue;
                 }
                 addCandidate(candidates, labels,
-                    makeItem(std::string(key), CompletionItemKind::Property,
-                        "region data key"),
-                    0, prefix);
+                    [&] {
+                        auto item = makeItem(key, CompletionItemKind::Property,
+                            "project region data key");
+                        item.snippetText = regionKeySnippet(key);
+                        return item;
+                    }(), 0, prefix);
             }
         }
         for (const auto kind : {
@@ -451,9 +481,12 @@ std::vector<CompletionItem> CompletionService::complete(
                 continue;
             }
             addCandidate(candidates, labels,
-                makeItem(std::string(sectionName(kind)), CompletionItemKind::Keyword,
-                    "region section"),
-                10, prefix);
+                [&] {
+                    auto item = makeItem(std::string(sectionName(kind)), CompletionItemKind::Keyword,
+                        "region section");
+                    item.snippetText = sectionSnippet(kind, lineIndentation);
+                    return item;
+                }(), 10, prefix);
         }
     } else if (context == CompletionContext::MemberAccess && memberAccess) {
         const sema::SymbolRecord* enumSymbol = nullptr;
@@ -516,6 +549,7 @@ std::vector<CompletionItem> CompletionService::complete(
                     auto item = makeItem(parameter->displayName, CompletionItemKind::Property,
                         rendered.detail, rendered.documentation);
                     item.insertText += ": ";
+                    item.snippetText = parameter->displayName + ": ${1}";
                     addCandidate(candidates, labels, std::move(item), 0, prefix);
                 }
             }

@@ -14,7 +14,7 @@ void RegisterLifecycleRoutes(
 void RegisterDocumentSynchronizationRoutes(
     JsonRpcRouter& router, DocumentSynchronizationService& synchronization);
 void RegisterAuthoringRoutes(
-    JsonRpcRouter& router, CompletionService& completion);
+    JsonRpcRouter& router, LifecycleService& lifecycle, CompletionService& completion);
 void RegisterNavigationRoutes(
     JsonRpcRouter& router, LifecycleService& lifecycle, NavigationService& navigation,
     WorkspaceService& workspace);
