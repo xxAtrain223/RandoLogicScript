@@ -87,7 +87,9 @@ RenderedPresentation PresentationRenderer::render(const PresentationSymbol& symb
     } else {
         result.detail += symbolKeyword(symbol.kind);
         result.detail += symbol.name;
-        if (symbol.type && symbol.kind != PresentationSymbolKind::Enum) {
+        if (symbol.type
+            && symbol.kind != PresentationSymbolKind::Enum
+            && symbol.kind != PresentationSymbolKind::Region) {
             result.detail += ": ";
             result.detail += renderType(*symbol.type);
         }

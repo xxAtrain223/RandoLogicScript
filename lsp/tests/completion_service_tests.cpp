@@ -353,23 +353,29 @@ TEST(CompletionServiceTests, CompletesPreviouslyDeclaredSectionEntriesByKind) {
     EXPECT_EQ(findItem(locations, "EVENT_OTHER"), nullptr);
 }
 
-TEST(CompletionServiceTests, DoesNotOfferEventOrLocationNamesForExits) {
+TEST(CompletionServiceTests, CompletesExitLabelsFromDeclaredRegions) {
     const std::string declarations =
-        "region RR_TEMPLATE {\n"
-        "  events { EVENT_OTHER: true }\n"
-        "  locations { RC_OTHER: true }\n"
-        "}\n";
+        "region RR_FIRST {}\n"
+        "region RR_SECOND {}\n"
+        "region RR_THIRD {}\n";
     const std::string usage =
-        "region RR_CURRENT {\n"
+        "region RR_FIRST {\n"
         "  exits {\n"
-        "    \n"
+        "    RR_SECOND: true\n"
+        "    RR_\n"
         "  }\n"
         "}\n";
     CrossFileCompletionFixture fixture(declarations, usage);
 
-    const auto items = fixture.complete({2, 4});
+    const auto items = fixture.complete({3, 7});
 
-    EXPECT_TRUE(items.empty());
+    const auto* third = findItem(items, "RR_THIRD");
+    ASSERT_NE(third, nullptr);
+    EXPECT_EQ(third->insertText, "RR_THIRD: ");
+    EXPECT_EQ(third->snippetText, "RR_THIRD: ${1}");
+    EXPECT_EQ(third->detail, "region RR_THIRD");
+    EXPECT_EQ(findItem(items, "RR_FIRST"), nullptr);
+    EXPECT_EQ(findItem(items, "RR_SECOND"), nullptr);
 }
 
 TEST(CompletionServiceTests, SuppressesEntriesFromOtherContributionsToActiveRegion) {
@@ -413,6 +419,24 @@ TEST(CompletionServiceTests, RecoversSameFileEventsWhileRecreatingCommentedRegio
     ASSERT_NE(findItem(items, "LOGIC_FAIRY_ACCESS"), nullptr);
     ASSERT_NE(findItem(items, "LOGIC_OTHER"), nullptr);
     EXPECT_EQ(items.front().label, "LOGIC_FAIRY_ACCESS");
+}
+
+TEST(CompletionServiceTests, RecoversSameFileRegionsForExitCompletion) {
+    CompletionFixture fixture(
+        "region RR_FIRST {}\n"
+        "region RR_SECOND {}\n"
+        "# region RR_COMMENTED {}\n"
+        "region RR_CURRENT {\n"
+        "  exits {\n"
+        "    RR_\n");
+
+    const auto items = CompletionService(fixture.projects, fixture.scheduler)
+        .complete(fixture.uri, {5, 7});
+
+    EXPECT_NE(findItem(items, "RR_FIRST"), nullptr);
+    EXPECT_NE(findItem(items, "RR_SECOND"), nullptr);
+    EXPECT_EQ(findItem(items, "RR_CURRENT"), nullptr);
+    EXPECT_EQ(findItem(items, "RR_COMMENTED"), nullptr);
 }
 
 TEST(CompletionServiceTests, CompletesOnlyMembersOfQualifiedEnum) {

@@ -222,6 +222,9 @@ PresentationSymbol presentationSymbol(
     if (record.type) result.type = presentationType(*record.type, record.enumName);
 
     switch (record.category) {
+    case sema::SymbolCategory::Region:
+        result.kind = PresentationSymbolKind::Region;
+        break;
     case sema::SymbolCategory::Define:
     case sema::SymbolCategory::ExternDefine: {
         result.kind = PresentationSymbolKind::Function;
@@ -510,7 +513,9 @@ std::vector<CompletionItem> CompletionService::complete(
             ? std::optional(ast::Type::Event)
             : sectionEntry->kind == ast::SectionKind::Locations
                 ? std::optional(ast::Type::Location)
-                : std::nullopt;
+                : sectionEntry->kind == ast::SectionKind::Exits
+                    ? std::optional(ast::Type::Region)
+                    : std::nullopt;
         if (expectedType) {
             std::set<std::string> existingNames(
                 region->activeSectionEntries.begin(),
@@ -526,9 +531,16 @@ std::vector<CompletionItem> CompletionService::complete(
                          sectionEntry->kind, region->name)) {
                     existingNames.insert(std::move(name));
                 }
+				if (*expectedType == ast::Type::Region) {
+					for (auto& name : sourceIndex->regionNames()) {
+						recoveredNames.insert(std::move(name));
+					}
+				}
             }
+            existingNames.insert(region->name);
             for (const auto& symbol : document->snapshot->semanticIndex().symbols()) {
                 if (symbol.category != sema::SymbolCategory::SectionEntry
+					|| sectionEntry->kind == ast::SectionKind::Exits
                     || symbol.type != expectedType || !symbol.container) {
                     continue;
                 }
@@ -538,8 +550,14 @@ std::vector<CompletionItem> CompletionService::complete(
                 }
             }
             for (const auto& symbol : document->snapshot->semanticIndex().symbols()) {
-                if (symbol.category != sema::SymbolCategory::SectionEntry
-                    || symbol.type != expectedType
+                const bool matchingDomainEntry =
+                    symbol.category == sema::SymbolCategory::SectionEntry
+                    && sectionEntry->kind != ast::SectionKind::Exits
+                    && symbol.type == expectedType;
+                const bool matchingRegion =
+                    symbol.category == sema::SymbolCategory::Region
+                    && *expectedType == ast::Type::Region;
+                if ((!matchingDomainEntry && !matchingRegion)
                     || existingNames.contains(symbol.displayName)) {
                     continue;
                 }

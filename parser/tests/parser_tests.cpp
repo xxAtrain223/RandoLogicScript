@@ -592,6 +592,8 @@ TEST(SourceIndexTests, ReportsRecoveredSectionEntryLabelContexts) {
 	EXPECT_EQ(parsed.sourceIndex.sectionEntryNames(
 		SectionKind::Events, "RR_TEST"),
 		std::vector<std::string>{"EVENT_EXISTING"});
+	EXPECT_EQ(parsed.sourceIndex.regionNames(),
+		std::vector<std::string>{"RR_TEST"});
 
 	const auto location = parsed.sourceIndex.sectionEntryAt({7, 5});
 	ASSERT_TRUE(location);

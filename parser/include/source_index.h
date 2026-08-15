@@ -109,6 +109,7 @@ public:
 	std::vector<std::string> sectionEntryNames(
 		ast::SectionKind kind,
 		std::optional<std::string_view> regionName = std::nullopt) const;
+	std::vector<std::string> regionNames() const;
 	const std::vector<SyntaxContext>& declarations() const { return declarations_; }
 	std::vector<SyntaxContext> declarationsIn(std::string_view file) const;
 

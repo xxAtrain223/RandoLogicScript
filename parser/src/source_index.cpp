@@ -615,6 +615,16 @@ std::vector<std::string> SourceIndex::sectionEntryNames(
 	return result;
 }
 
+std::vector<std::string> SourceIndex::regionNames() const {
+	std::vector<std::string> result;
+	for (const auto& indexed : regionContexts_) {
+		if (!indexed.context.extension) result.push_back(indexed.context.name);
+	}
+	std::sort(result.begin(), result.end());
+	result.erase(std::unique(result.begin(), result.end()), result.end());
+	return result;
+}
+
 std::vector<SyntaxContext> SourceIndex::declarationsIn(std::string_view file) const {
 	std::vector<SyntaxContext> result;
 	for (const auto& declaration : declarations_) {
