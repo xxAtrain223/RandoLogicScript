@@ -96,6 +96,51 @@ TEST(ServerCompositionRootTests, RoutesCompletionWithActiveTokenTextEdit) {
     EXPECT_EQ(result[0]["textEdit"]["range"]["end"]["character"], 3);
 }
 
+TEST(ServerCompositionRootTests, RoutesCompletionImmediatelyAfterDocumentChange) {
+    const fs::path sourcePath = fs::temp_directory_path() /
+        "rls-immediate-completion-route.rls";
+    const std::string uri = *rls::lsp::PathToFileUri(sourcePath);
+    ServerCompositionRoot server(standaloneProject);
+    server.handlePayload(
+        R"({"jsonrpc":"2.0","id":1,"method":"initialize","params":{}})");
+    server.handlePayload(
+        R"({"jsonrpc":"2.0","method":"initialized","params":{}})");
+    server.handlePayload(Json{
+        {"jsonrpc", "2.0"},
+        {"method", "textDocument/didOpen"},
+        {"params", {{"textDocument", {
+            {"uri", uri},
+            {"languageId", "rls"},
+            {"version", 1},
+            {"text", "def\n"},
+        }}}},
+    }.dump());
+    server.scheduler().waitForIdle();
+
+    server.handlePayload(Json{
+        {"jsonrpc", "2.0"},
+        {"method", "textDocument/didChange"},
+        {"params", {
+            {"textDocument", {{"uri", uri}, {"version", 2}}},
+            {"contentChanges", Json::array({{{"text", "reg\n"}}})},
+        }},
+    }.dump());
+    const auto responses = server.handlePayload(Json{
+        {"jsonrpc", "2.0"},
+        {"id", 2},
+        {"method", "textDocument/completion"},
+        {"params", {
+            {"textDocument", {{"uri", uri}}},
+            {"position", {{"line", 0}, {"character", 3}}},
+        }},
+    }.dump());
+
+    ASSERT_EQ(responses.size(), 1u);
+    const auto result = Json::parse(responses.front())["result"];
+    ASSERT_FALSE(result.empty());
+    EXPECT_EQ(result[0]["label"], "region");
+}
+
 TEST(ServerCompositionRootTests, NegotiatesCompletionSnippetsWithPlainFallback) {
     const fs::path sourcePath = fs::temp_directory_path() / "rls-snippet-route.rls";
     const std::string uri = *rls::lsp::PathToFileUri(sourcePath);

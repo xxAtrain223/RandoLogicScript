@@ -58,6 +58,30 @@ TEST(AnalysisSchedulerTests, DebouncesPendingWorkPerProject) {
     EXPECT_EQ(scheduler.acceptedSnapshot("project")->generation(), 2);
 }
 
+TEST(AnalysisSchedulerTests, AwaitSnapshotExpeditesPendingGeneration) {
+    AnalysisScheduler scheduler(
+        {.debounce = std::chrono::seconds(5), .maximumConcurrency = 1});
+
+    ASSERT_TRUE(scheduler.schedule(request("project", 1)));
+    const auto snapshot = scheduler.awaitSnapshot(
+        "project", 1, std::chrono::seconds(1));
+
+    ASSERT_NE(snapshot, nullptr);
+    EXPECT_EQ(snapshot->generation(), 1u);
+}
+
+TEST(AnalysisSchedulerTests, AwaitSnapshotFailsClosedWithoutScheduledGeneration) {
+    AnalysisScheduler scheduler(
+        {.debounce = std::chrono::seconds(5), .maximumConcurrency = 1});
+    ASSERT_TRUE(scheduler.schedule(request("project", 1)));
+
+    EXPECT_EQ(scheduler.awaitSnapshot(
+        "project", 2, std::chrono::milliseconds(10)), nullptr);
+    const auto snapshot = scheduler.awaitSnapshot(
+        "project", 1, std::chrono::seconds(1));
+    ASSERT_NE(snapshot, nullptr);
+}
+
 TEST(AnalysisSchedulerTests, CancelsRunningWorkAndSuppressesItsResult) {
     std::mutex mutex;
     std::condition_variable started;

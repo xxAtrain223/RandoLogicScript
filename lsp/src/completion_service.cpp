@@ -48,16 +48,19 @@ std::string pathString(const std::filesystem::path& path) {
 }
 
 std::optional<CurrentDocument> currentDocument(
-    const ProjectManager& projects, const AnalysisScheduler& scheduler,
+    const ProjectManager& projects, AnalysisScheduler& scheduler,
     std::string_view uri) {
     const auto* project = projects.projectForDocument(uri);
     const auto path = FileUriToPath(uri);
     if (!project || !path) return std::nullopt;
+    const std::string projectId = project->id;
+    const uint64_t generation = project->generation;
 
-    const auto snapshot = scheduler.acceptedSnapshot(project->id);
-    if (!snapshot || snapshot->generation() != project->generation) {
-        return std::nullopt;
+    auto snapshot = scheduler.acceptedSnapshot(projectId);
+    if (!snapshot || snapshot->generation() != generation) {
+        snapshot = scheduler.awaitSnapshot(projectId, generation);
     }
+    if (!snapshot || snapshot->generation() != generation) return std::nullopt;
     const std::string documentPath = pathString(*path);
     const auto* source = snapshot->sourceText(documentPath);
     const auto* sourceIndex = snapshot->sourceIndex(documentPath);
@@ -293,7 +296,7 @@ void addCandidate(
 } // namespace
 
 CompletionService::CompletionService(
-    const ProjectManager& projects, const AnalysisScheduler& scheduler)
+    const ProjectManager& projects, AnalysisScheduler& scheduler)
     : projects_(projects), scheduler_(scheduler) {}
 
 std::vector<CompletionItem> CompletionService::complete(

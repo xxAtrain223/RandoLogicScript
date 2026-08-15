@@ -103,7 +103,7 @@ struct CrossFileCompletionFixture {
         scheduler.waitForIdle();
     }
 
-    std::vector<CompletionItem> completeAtEnd(std::string_view usage) const {
+    std::vector<CompletionItem> completeAtEnd(std::string_view usage) {
         return CompletionService(projects, scheduler).complete(
             usageUri, {0, static_cast<uint32_t>(usage.size())});
     }
@@ -170,6 +170,59 @@ TEST(CompletionServiceTests, RejectsAStaleAcceptedSnapshot) {
         .complete(fixture.uri, {0, 31});
 
     EXPECT_TRUE(items.empty());
+}
+
+TEST(CompletionServiceTests, ExpeditesLatestScheduledDocumentGeneration) {
+    const fs::path sourcePath = fs::temp_directory_path() /
+        "rls-immediate-completion.rls";
+    const std::string uri = *rls::lsp::PathToFileUri(sourcePath);
+    DocumentStore documents;
+    ASSERT_EQ(documents.open(uri, "rls", 1, "def\n"),
+        rls::lsp::DocumentUpdateResult::Applied);
+    ProjectManager projects(documents, [&](const fs::path&) {
+        rls::project::FileProject project;
+        project.sourceFiles = {sourcePath};
+        project.isStandalone = true;
+        return project;
+    });
+    ASSERT_EQ(projects.documentOpened(uri),
+        rls::lsp::ProjectAssignmentResult::Assigned);
+    const auto* project = projects.projectForDocument(uri);
+    ASSERT_NE(project, nullptr);
+    AnalysisScheduler scheduler({
+        .debounce = std::chrono::seconds(5),
+        .maximumConcurrency = 1,
+    });
+    ASSERT_TRUE(scheduler.schedule({
+        project->id,
+        project->generation,
+        {{sourcePath, "def\n"}},
+        project->documentGeneration,
+        project->manifestGeneration,
+    }));
+    ASSERT_NE(scheduler.awaitSnapshot(
+        project->id, project->generation, std::chrono::seconds(1)), nullptr);
+
+    const std::string changed = "reg\n";
+    ASSERT_EQ(documents.applyFullChange(uri, 2, changed),
+        rls::lsp::DocumentUpdateResult::Applied);
+    ASSERT_EQ(projects.documentChanged(uri),
+        rls::lsp::ProjectAssignmentResult::Assigned);
+    project = projects.projectForDocument(uri);
+    ASSERT_NE(project, nullptr);
+    ASSERT_TRUE(scheduler.schedule({
+        project->id,
+        project->generation,
+        {{sourcePath, changed}},
+        project->documentGeneration,
+        project->manifestGeneration,
+    }));
+
+    const auto items = CompletionService(projects, scheduler)
+        .complete(uri, {0, 3});
+
+    ASSERT_NE(findItem(items, "region"), nullptr);
+    EXPECT_EQ(items.front().label, "region");
 }
 
 TEST(CompletionServiceTests, CompletesRecoveredRegionBodyWithoutDuplicates) {

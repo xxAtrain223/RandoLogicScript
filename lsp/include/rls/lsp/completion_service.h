@@ -36,14 +36,14 @@ struct CompletionItem {
 
 class CompletionService {
 public:
-    CompletionService(const ProjectManager& projects, const AnalysisScheduler& scheduler);
+    CompletionService(const ProjectManager& projects, AnalysisScheduler& scheduler);
 
     std::vector<CompletionItem> complete(
         std::string_view uri, PresentationPosition position) const;
 
 private:
     const ProjectManager& projects_;
-    const AnalysisScheduler& scheduler_;
+    AnalysisScheduler& scheduler_;
 };
 
 } // namespace rls::lsp

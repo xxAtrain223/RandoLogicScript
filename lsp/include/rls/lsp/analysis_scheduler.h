@@ -62,6 +62,9 @@ public:
     void removeProject(std::string_view projectId);
     void setAcceptedHandler(AcceptedHandler handler);
     Snapshot acceptedSnapshot(std::string_view projectId) const;
+    Snapshot awaitSnapshot(
+        std::string_view projectId, uint64_t generation,
+        std::chrono::milliseconds timeout = std::chrono::milliseconds(500));
     void waitForIdle();
 
 private:
@@ -89,6 +92,7 @@ private:
     mutable std::mutex mutex_;
     std::condition_variable_any wake_;
     std::condition_variable idle_;
+    std::condition_variable snapshotReady_;
     std::unordered_map<std::string, ProjectState> projects_;
     AcceptedHandler acceptedHandler_;
     std::vector<std::jthread> workers_;

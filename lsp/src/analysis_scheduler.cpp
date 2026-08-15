@@ -114,6 +114,7 @@ bool AnalysisScheduler::schedule(AnalysisRequest request) {
         std::chrono::steady_clock::now() + options_.debounce,
     };
     wake_.notify_all();
+    snapshotReady_.notify_all();
     return true;
 }
 
@@ -134,6 +135,7 @@ void AnalysisScheduler::removeProject(std::string_view projectId) {
         idle_.notify_all();
     }
     wake_.notify_all();
+    snapshotReady_.notify_all();
 }
 
 void AnalysisScheduler::setAcceptedHandler(AcceptedHandler handler) {
@@ -145,6 +147,43 @@ AnalysisScheduler::Snapshot AnalysisScheduler::acceptedSnapshot(std::string_view
     std::lock_guard lock(mutex_);
     const auto project = projects_.find(std::string(projectId));
     return project == projects_.end() ? nullptr : project->second.accepted;
+}
+
+AnalysisScheduler::Snapshot AnalysisScheduler::awaitSnapshot(
+    std::string_view projectId, uint64_t generation,
+    std::chrono::milliseconds timeout) {
+    std::unique_lock lock(mutex_);
+    const std::string id(projectId);
+    auto ready = [&]() {
+        const auto project = projects_.find(id);
+        if (project == projects_.end() || project->second.removed) return true;
+        const ProjectState& state = project->second;
+        if (state.accepted && state.accepted->generation() == generation) return true;
+        if (state.latestGeneration != generation) return true;
+        return !state.pending && !state.activeCancellation;
+    };
+
+    auto project = projects_.find(id);
+    if (project == projects_.end() || project->second.removed
+        || project->second.latestGeneration != generation) {
+        return nullptr;
+    }
+    if (project->second.accepted
+        && project->second.accepted->generation() == generation) {
+        return project->second.accepted;
+    }
+    if (project->second.pending) {
+        project->second.pending->readyAt = std::chrono::steady_clock::now();
+        wake_.notify_all();
+    }
+
+    if (!snapshotReady_.wait_for(lock, timeout, ready)) return nullptr;
+    project = projects_.find(id);
+    if (project == projects_.end() || !project->second.accepted
+        || project->second.accepted->generation() != generation) {
+        return nullptr;
+    }
+    return project->second.accepted;
 }
 
 void AnalysisScheduler::waitForIdle() {
@@ -251,6 +290,7 @@ void AnalysisScheduler::worker(std::stop_token shutdown) {
                 }
             }
             --activeBuilds_;
+            snapshotReady_.notify_all();
             if (isIdle()) {
                 idle_.notify_all();
             }
