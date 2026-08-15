@@ -28,11 +28,11 @@ static std::pair<Project, std::vector<Diagnostic>> validateFromSource(
 	const std::string hostRegionEnum = source.find("enum Region") == std::string::npos
 		? "extern enum Region { RR_* }\n"
 		: "";
-	const std::string hostCheckEnum = source.find("enum Check") == std::string::npos
-		? "extern enum Check { RC_* }\n"
+	const std::string hostLocationEnum = source.find("enum Location") == std::string::npos
+		? "extern enum Location { RC_* }\n"
 		: "";
 	project.files.push_back(rls::parser::ParseString(
-		hostItemEnum + hostSettingEnum + hostRegionEnum + hostCheckEnum
+		hostItemEnum + hostSettingEnum + hostRegionEnum + hostLocationEnum
 		+ "extern enum Distance { ED_* }\n"
 		+ "extern define setting(key: Setting) -> Int\n"
 		+ source));
@@ -634,6 +634,15 @@ TEST(ValidateDeclarations, ExternDefineTypedDefaults_Ok) {
 		"    name: \"Root\"\n"
 		"    scene: SCENE_LINKS_HOUSE\n"
 		"}\n");
+	EXPECT_EQ(countErrors(diags), 0u);
+}
+
+TEST(ValidateDeclarations, DomainTypedLegacyEnumDefaults_Ok) {
+	auto [project, diags] = validateFromSource(
+		"extern enum Event { LOGIC_* }\n"
+		"extern define values(reg: Region = RR_NONE, event: Event = LOGIC_NONE, "
+		"location: Location = RC_UNKNOWN_CHECK) -> Bool\n");
+
 	EXPECT_EQ(countErrors(diags), 0u);
 }
 

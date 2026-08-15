@@ -505,6 +505,50 @@ TEST(SemanticIndexTests, CopiesResolvedTypesCallsAndMemberOccurrences) {
 	EXPECT_TRUE(std::find(visibleInCheck.begin(), visibleInCheck.end(), value->id) == visibleInCheck.end());
 }
 
+TEST(SemanticIndexTests, TypesAndLinksDeclaredDomainValues) {
+	Project project;
+	project.files.push_back(rls::parser::ParseString(
+		"region RR_TARGET {\n"
+		"  events { EVENT_OPEN: true }\n"
+		"  locations { RC_CHEST: true }\n"
+		"}\n"
+		"define region_value(): RR_TARGET\n"
+		"define event_value(): EVENT_OPEN\n"
+		"define location_value(): RC_CHEST\n",
+		"domain-values.rls"));
+	analyze(project);
+	const auto index = buildSemanticIndex(project);
+
+	const auto find = [&](SymbolCategory category, std::string_view name) {
+		return std::find_if(index.symbols().begin(), index.symbols().end(),
+			[&](const SymbolRecord& symbol) {
+				return symbol.category == category && symbol.displayName == name;
+			});
+	};
+	const auto region = find(SymbolCategory::Region, "RR_TARGET");
+	const auto event = find(SymbolCategory::SectionEntry, "EVENT_OPEN");
+	const auto location = find(SymbolCategory::SectionEntry, "RC_CHEST");
+	ASSERT_NE(region, index.symbols().end());
+	ASSERT_NE(event, index.symbols().end());
+	ASSERT_NE(location, index.symbols().end());
+	EXPECT_EQ(region->type, Type::Region);
+	EXPECT_EQ(event->type, Type::Event);
+	EXPECT_EQ(location->type, Type::Location);
+
+	const auto regionUse = index.occurrenceAt("domain-values.rls", {5, 25});
+	const auto eventUse = index.occurrenceAt("domain-values.rls", {6, 24});
+	const auto locationUse = index.occurrenceAt("domain-values.rls", {7, 27});
+	ASSERT_TRUE(regionUse && eventUse && locationUse);
+	EXPECT_EQ(regionUse->symbol, region->id);
+	EXPECT_EQ(eventUse->symbol, event->id);
+	EXPECT_EQ(locationUse->symbol, location->id);
+
+	const auto visible = index.visibleSymbolsAt("domain-values.rls", {5, 25});
+	EXPECT_NE(std::find(visible.begin(), visible.end(), region->id), visible.end());
+	EXPECT_NE(std::find(visible.begin(), visible.end(), event->id), visible.end());
+	EXPECT_NE(std::find(visible.begin(), visible.end(), location->id), visible.end());
+}
+
 // == Empty project ============================================================
 
 TEST(CollectDeclarations, EmptyProject) {

@@ -260,3 +260,14 @@ TEST(SohSolverTests, GenerateFunctionWithUnidentifiedEnumParamUsesInt) {
 		"}\n"
 	);
 }
+
+TEST(SohSolverTests, GenerateFunctionWithDomainValueParams) {
+	auto project = resolveFromSource(
+		"define uses_domain(reg: Region, evt: Event, loc: Location): true\n");
+	MemoryWriter out;
+	rls::transpilers::soh::SohTranspiler(project).GenerateFunctionDefinitionsHeader(out);
+
+	EXPECT_NE(out.content("functions.gen.h").find(
+		"bool uses_domain(const RandomizerRegion reg, const LogicVal evt, "
+		"const RandomizerCheck loc);"), std::string::npos);
+}

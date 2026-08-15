@@ -101,7 +101,7 @@ inline ast::Diagnostic UnknownEnum(ast::Span span, std::string_view name) {
 	return {"RLS-T029", std::move(span), ast::DiagnosticLevel::Error, std::format("unknown enum '{}' in member access", name)};
 }
 inline ast::Diagnostic HereOutsideRegion(ast::Span span) {
-	return {"RLS-T030", std::move(span), ast::DiagnosticLevel::Error, "'here' can only be used inside a region entry condition; it resolves to enum 'Region'"};
+	return {"RLS-T030", std::move(span), ast::DiagnosticLevel::Error, "'here' can only be used inside a region entry condition; it has type Region"};
 }
 inline ast::Diagnostic MatchWildcardNotStandalone(ast::Span span) {
 	return {"RLS-T031", std::move(span), ast::DiagnosticLevel::Error, "match wildcard '_' must be a standalone pattern"};

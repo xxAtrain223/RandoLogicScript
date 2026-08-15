@@ -2,14 +2,14 @@ extern enum Item { RG_* }
 extern enum Enemy { RE_* }
 extern enum Distance { ED_* }
 extern enum Trick { RT_* }
-extern enum Logic { LOGIC_* }
+extern enum Event { LOGIC_* }
 extern enum Scene { SCENE_* }
 extern enum Dungeon { DUNGEON_* }
 extern enum Area { RA_* }
 extern enum Trial { TK_* }
 extern enum Setting { RSK_*, RO_* }
 extern enum Region { RR_* }
-extern enum Check { RC_* }
+extern enum Location { RC_* }
 
 enum TimePasses {
     Auto,
@@ -19,7 +19,7 @@ enum TimePasses {
 
 extern define has(item: Item) -> Bool
 extern define can_use(item: Item) -> Bool
-extern define flag(key: Logic) -> Bool
+extern define flag(key: Event) -> Bool
 extern define setting(key: Setting) -> Int
 extern define trick(key: Trick) -> Bool
 extern define can_plant_bean(reg: Region, bean: Item) -> Bool
@@ -31,7 +31,7 @@ extern define is_vanilla() -> Bool
 extern define is_mq() -> Bool
 extern define required_triforce_pieces() -> Int
 extern define collected_triforce_pieces() -> Int
-extern define check_price(check = RC_UNKNOWN_CHECK) -> Int
+extern define check_price(check: Location = RC_UNKNOWN_CHECK) -> Int
 extern define bottle_count() -> Int
 extern define any_age(condition: Condition) -> Bool
 extern define spirit_shared(

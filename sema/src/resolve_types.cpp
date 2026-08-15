@@ -252,6 +252,31 @@ struct ExprResolver {
 			return ast::Type::Condition;
 		}
 
+		std::vector<std::pair<std::string_view, T>> declaredTypes;
+		if (project.RegionDecls.contains(node.name.text)) {
+			declaredTypes.emplace_back("Region", T::Region);
+		}
+		if (project.EventDecls.contains(node.name.text)) {
+			declaredTypes.emplace_back("Event", T::Event);
+		}
+		if (project.LocationDecls.contains(node.name.text)) {
+			declaredTypes.emplace_back("Location", T::Location);
+		}
+		if (declaredTypes.size() > 1) {
+			std::string categories(declaredTypes.front().first);
+			for (size_t index = 1; index < declaredTypes.size(); ++index) {
+				categories += ", ";
+				categories += declaredTypes[index].first;
+			}
+			diags.push_back(diagnostics::AmbiguousIdentifier(
+				expr.span, node.name.text, categories));
+			return T::Error;
+		}
+		if (declaredTypes.size() == 1) {
+			node.kind = ast::IdentifierKind::DeclaredValue;
+			return declaredTypes.front().second;
+		}
+
 		// Resolve identifiers exclusively through declared enum metadata.
 		auto lookup = lookupIdentifierInEnums(node.name.text, project);
 
@@ -344,20 +369,25 @@ struct ExprResolver {
 		// Equality: both sides must be the same type.
 		case ast::BinaryOp::Eq:
 		case ast::BinaryOp::NotEq:
+		{
+			const auto leftEnum = leftType == T::Enum
+				? project.getEnumType(node.left.get()) : std::optional<std::string_view>{};
+			const auto rightEnum = rightType == T::Enum
+				? project.getEnumType(node.right.get()) : std::optional<std::string_view>{};
 			if (leftType != T::Error && rightType != T::Error
 				&& leftType != rightType
 				&& !(leftType == T::Int && isEnumLikeType(rightType))
-				&& !(rightType == T::Int && isEnumLikeType(leftType))) {
+				&& !(rightType == T::Int && isEnumLikeType(leftType))
+				&& !areDomainAndEnumCompatible(leftType, leftEnum, rightType, rightEnum)) {
 				diags.push_back(diagnostics::IncompatibleComparison(expr.span, typeName(leftType), typeName(rightType)));
 			}
 			if (leftType == T::Enum && rightType == T::Enum) {
-				auto leftEnum = project.getEnumType(node.left.get());
-				auto rightEnum = project.getEnumType(node.right.get());
 				if (leftEnum.has_value() && rightEnum.has_value() && *leftEnum != *rightEnum) {
 					diags.push_back(diagnostics::EnumComparisonMismatch(expr.span, *leftEnum, *rightEnum));
 				}
 			}
 			return T::Bool;
+		}
 
 		// Ordering: both sides must be Int.
 		case ast::BinaryOp::Lt:
@@ -592,6 +622,13 @@ struct ExprResolver {
 			}
 
 			if (argTypes[argIndex] == T::Error) continue;
+			auto actualEnum = argTypes[argIndex] == T::Enum
+				? project.getEnumType(node.args[argIndex].value.get())
+				: std::optional<std::string_view>{};
+			if (areDomainAndEnumCompatible(
+					*paramType, expectedEnum, argTypes[argIndex], actualEnum)) {
+				continue;
+			}
 
 			// For Enum-typed parameters with known identity, require the same enum.
 			if (*paramType == T::Enum) {
@@ -621,7 +658,6 @@ struct ExprResolver {
 				}
 
 				if (expectedEnum.has_value() && argTypes[argIndex] == T::Enum) {
-					auto actualEnum = project.getEnumType(node.args[argIndex].value.get());
 					if (!actualEnum.has_value() || *actualEnum != *expectedEnum) {
 						diags.push_back(diagnostics::EnumArgumentMismatch(
 							node.args[argIndex].value->span, function, argIndex + 1, *expectedEnum,
@@ -846,8 +882,7 @@ struct ExprResolver {
 			return T::Error;
 		}
 		node.resolvedRegion = *currentRegion;
-		project.setEnumType(&expr, "Region");
-		return T::Enum;
+		return T::Region;
 	}
 
 	ast::Type resolve(const ast::MatchExpr& node, const ast::Expr& expr) {

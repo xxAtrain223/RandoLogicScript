@@ -1,5 +1,6 @@
 #include "semantic_index.h"
 
+#include "type_helpers.h"
 #include "validate_declarations.h"
 
 #include <algorithm>
@@ -109,6 +110,11 @@ std::vector<SymbolId> SemanticIndex::visibleSymbolsAt(std::string_view file,
 			result.push_back(symbol.id);
 			continue;
 		}
+		if (symbol.category == SymbolCategory::SectionEntry
+			&& (symbol.type == ast::Type::Event || symbol.type == ast::Type::Location)) {
+			result.push_back(symbol.id);
+			continue;
+		}
 		const auto container = declaration(*symbol.container);
 		if (symbol.category == SymbolCategory::Parameter && container &&
 			container->category == SymbolCategory::Define && contains(container->declaration, file, position)) {
@@ -136,9 +142,15 @@ SemanticIndex buildSemanticIndex(const ast::Project& project,
 	};
 	auto addSections = [&](const std::vector<ast::Section>& sections, SymbolId container) {
 		for (const auto& section : sections) {
+			const auto type = section.kind == ast::SectionKind::Events
+				? std::optional(ast::Type::Event)
+				: section.kind == ast::SectionKind::Locations
+					? std::optional(ast::Type::Location)
+					: std::nullopt;
 			for (const auto& entry : section.entries) {
 				index.addSymbol(SymbolCategory::SectionEntry, SymbolProvenance::Source,
-					entry.name.text, entry.span, entry.name.span, container);
+					entry.name.text, entry.span, entry.name.span, container,
+					std::nullopt, type);
 			}
 		}
 	};
@@ -149,7 +161,8 @@ SemanticIndex buildSemanticIndex(const ast::Project& project,
 				using T = std::decay_t<decltype(node)>;
 				if constexpr (std::is_same_v<T, ast::RegionDecl>) {
 					const auto id = index.addSymbol(SymbolCategory::Region, SymbolProvenance::Source,
-						node.key.text, node.span, node.key.span);
+						node.key.text, node.span, node.key.span, std::nullopt,
+						std::nullopt, ast::Type::Region);
 					for (const auto& data : node.body.data) {
 						index.addSymbol(SymbolCategory::RegionDataEntry, SymbolProvenance::Source,
 							data.key.text, data.span, data.key.span, id);
@@ -206,6 +219,7 @@ SemanticIndex buildSemanticIndex(const ast::Project& project,
 		return std::nullopt;
 	};
 	auto addTypeReference = [&](const ast::TypeRef& typeReference) {
+		if (typeFromAnnotation(typeReference.name.text)) return;
 		const auto target = findSymbol(SymbolCategory::Enum, typeReference.name.text);
 		index.occurrences_.push_back({target, typeReference.name.span, OccurrenceKind::TypeReference});
 	};
@@ -310,6 +324,21 @@ SemanticIndex buildSemanticIndex(const ast::Project& project,
 				} else if (node.kind == ast::IdentifierKind::FunctionRef) {
 					target = findSymbol(SymbolCategory::Define, node.name.text);
 					if (!target) target = findSymbol(SymbolCategory::ExternDefine, node.name.text);
+					kind = target ? OccurrenceKind::Reference : OccurrenceKind::Unresolved;
+				} else if (node.kind == ast::IdentifierKind::DeclaredValue) {
+					const auto type = project.getType(&expression);
+					if (type == ast::Type::Region) {
+						target = findSymbol(SymbolCategory::Region, node.name.text);
+					} else if (type == ast::Type::Event || type == ast::Type::Location) {
+						for (const auto& symbol : index.symbols_) {
+							if (symbol.category == SymbolCategory::SectionEntry
+								&& symbol.type == type
+								&& symbol.displayName == node.name.text) {
+								target = symbol.id;
+								break;
+							}
+						}
+					}
 					kind = target ? OccurrenceKind::Reference : OccurrenceKind::Unresolved;
 				} else if (node.kind == ast::IdentifierKind::EnumValue) {
 					const auto enumName = project.getEnumType(&expression);

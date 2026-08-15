@@ -22,6 +22,9 @@ inline std::string_view typeName(ast::Type t) {
 	case ast::Type::Callable:   return "Callable";
 	case ast::Type::Condition:  return "Condition";
 	case ast::Type::Enum:       return "Enum";
+	case ast::Type::Region:     return "Region";
+	case ast::Type::Event:      return "Event";
+	case ast::Type::Location:   return "Location";
 	case ast::Type::Void:       return "Void";
 	case ast::Type::Error:      return "<error>";
 	}
@@ -33,6 +36,28 @@ inline std::string_view typeName(ast::Type t) {
 inline bool isBoolCompatible(ast::Type t) {
 	return t == ast::Type::Bool
 		|| t == ast::Type::Int;
+}
+
+inline bool isDomainEnumCompatible(
+	ast::Type domainType, std::optional<std::string_view> enumName) {
+	if (!enumName) return false;
+	switch (domainType) {
+	case ast::Type::Region:
+		return *enumName == "Region";
+	case ast::Type::Event:
+		return *enumName == "Event";
+	case ast::Type::Location:
+		return *enumName == "Location";
+	default:
+		return false;
+	}
+}
+
+inline bool areDomainAndEnumCompatible(
+	ast::Type expected, std::optional<std::string_view> expectedEnum,
+	ast::Type actual, std::optional<std::string_view> actualEnum) {
+	return (actual == ast::Type::Enum && isDomainEnumCompatible(expected, actualEnum))
+		|| (expected == ast::Type::Enum && isDomainEnumCompatible(actual, expectedEnum));
 }
 
 /// Parse a built-in type annotation string (e.g. "Bool") to a Type enum value.
@@ -52,6 +77,9 @@ inline std::optional<ast::Type> typeFromAnnotation(std::string_view annotation) 
 		{"Callable",   ast::Type::Callable},
 		{"Condition",  ast::Type::Condition},
 		{"Enum",       ast::Type::Enum},
+		{"Region",     ast::Type::Region},
+		{"Event",      ast::Type::Event},
+		{"Location",   ast::Type::Location},
 	};
 
 	for (const auto& [name, type] : table) {

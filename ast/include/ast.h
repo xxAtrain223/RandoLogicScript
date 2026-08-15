@@ -233,6 +233,7 @@ enum class IdentifierKind {
 	Unresolved,
 	Parameter,
 	EnumValue,
+	DeclaredValue,
 	FunctionRef,
 };
 
@@ -521,7 +522,7 @@ struct RegionBody {
 
 // == Top-level declarations ===================================================
 
-/// `region RR_KEY { name: "Display Name" scene: SCENE_ID ... }`
+/// `region KEY { <data and sections> }`
 struct RegionDecl {
 	Name key;
 	RegionBody body;
@@ -534,7 +535,7 @@ struct RegionDecl {
 };
 
 /// `extend region RR_NAME { ... }`
-/// Extensions can only add sections, not redefine scene, time_passes, or areas.
+/// Extensions add sections and cannot add or replace base-region data.
 struct ExtendRegionDecl {
 	Name name;
 	std::vector<Section> sections;
@@ -706,6 +707,9 @@ enum class Type {
 	Callable,   // generic callable value
 	Condition,  // callable with signature () -> Bool
 	Enum,       // user-defined or host-defined enum value, identified by Project metadata
+	Region,     // declared region value
+	Event,      // declared event entry value
+	Location,   // declared location entry value
     Void,       // statements / declarations with no value
     Error,      // poison type — inference failed, suppress cascading errors
 };
@@ -761,6 +765,8 @@ struct Project {
 
 	std::map<std::string, const RegionDecl*> RegionDecls;
 	std::map<std::string, std::vector<const ExtendRegionDecl*>> ExtendRegionDecls;
+	std::map<std::string, std::vector<const Entry*>> EventDecls;
+	std::map<std::string, std::vector<const Entry*>> LocationDecls;
 	std::map<std::string, const DefineDecl*> DefineDecls;
 	std::map<std::string, const ExternDefineDecl*> ExternDefineDecls;
 	std::map<std::string, EnumInfo> EnumInfos;

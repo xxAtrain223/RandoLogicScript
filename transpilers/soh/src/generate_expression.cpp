@@ -59,6 +59,17 @@ std::string SohTranspiler::GenerateExpression(const rls::ast::Identifier& node) 
         return node.name.text;
     } else if (node.kind == rls::ast::IdentifierKind::Parameter) {
         return node.name.text;
+    } else if (node.kind == rls::ast::IdentifierKind::DeclaredValue) {
+        if (project.RegionDecls.contains(node.name.text)) {
+            return qualifyEnumValue("Region", node.name.text);
+        }
+        if (project.EventDecls.contains(node.name.text)) {
+            return qualifyEnumValue("Event", node.name.text);
+        }
+        if (project.LocationDecls.contains(node.name.text)) {
+            return qualifyEnumValue("Location", node.name.text);
+        }
+        return "";
     } else if (node.kind == rls::ast::IdentifierKind::FunctionRef) {
         return node.name.text;
     } else {

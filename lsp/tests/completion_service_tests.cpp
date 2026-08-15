@@ -533,4 +533,42 @@ TEST(CompletionServiceTests, DoesNotInventExpectedTypeForUnknownCall) {
     EXPECT_EQ(findItem(items, "RED"), nullptr);
 }
 
+TEST(CompletionServiceTests, FiltersCrossFileDeclaredDomainValuesByExpectedType) {
+    const std::string declarations =
+        "region RR_FIRST {\n"
+        "  events { EVENT_FIRST: true }\n"
+        "  locations { RC_FIRST: true }\n"
+        "}\n"
+        "region RR_SECOND {\n"
+        "  events { EVENT_SECOND: true }\n"
+        "  locations { RC_SECOND: true }\n"
+        "}\n"
+        "extern define use_values(reg: Region, evt: Event, loc: Location) -> Bool\n";
+
+    const std::string regionUsage = "define use(): use_values(RR_";
+    CrossFileCompletionFixture regionFixture(declarations, regionUsage);
+    const auto regions = regionFixture.completeAtEnd(regionUsage);
+    EXPECT_NE(findItem(regions, "RR_FIRST"), nullptr);
+    EXPECT_NE(findItem(regions, "RR_SECOND"), nullptr);
+    EXPECT_EQ(findItem(regions, "EVENT_FIRST"), nullptr);
+    EXPECT_EQ(findItem(regions, "RC_FIRST"), nullptr);
+
+    const std::string eventUsage = "define use(): use_values(RR_FIRST, EVENT_";
+    CrossFileCompletionFixture eventFixture(declarations, eventUsage);
+    const auto events = eventFixture.completeAtEnd(eventUsage);
+    EXPECT_NE(findItem(events, "EVENT_FIRST"), nullptr);
+    EXPECT_NE(findItem(events, "EVENT_SECOND"), nullptr);
+    EXPECT_EQ(findItem(events, "RR_FIRST"), nullptr);
+    EXPECT_EQ(findItem(events, "RC_FIRST"), nullptr);
+
+    const std::string locationUsage =
+        "define use(): use_values(RR_FIRST, EVENT_FIRST, RC_";
+    CrossFileCompletionFixture locationFixture(declarations, locationUsage);
+    const auto locations = locationFixture.completeAtEnd(locationUsage);
+    EXPECT_NE(findItem(locations, "RC_FIRST"), nullptr);
+    EXPECT_NE(findItem(locations, "RC_SECOND"), nullptr);
+    EXPECT_EQ(findItem(locations, "RR_FIRST"), nullptr);
+    EXPECT_EQ(findItem(locations, "EVENT_FIRST"), nullptr);
+}
+
 } // namespace

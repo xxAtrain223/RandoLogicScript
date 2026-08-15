@@ -181,6 +181,9 @@ PresentationType presentationType(
     case ast::Type::Callable: name = "Callable"; break;
     case ast::Type::Condition: name = "Condition"; break;
     case ast::Type::Enum: name = "Enum"; break;
+    case ast::Type::Region: name = "Region"; break;
+    case ast::Type::Event: name = "Event"; break;
+    case ast::Type::Location: name = "Location"; break;
     case ast::Type::Void: name = "Void"; break;
     case ast::Type::Error: name = "<error>"; break;
     }
@@ -433,7 +436,8 @@ std::vector<CompletionItem> CompletionService::complete(
         }
     } else if (context == CompletionContext::Type) {
         static constexpr std::string_view builtInTypes[] = {
-            "Bool", "Callable", "Condition", "Int", "List", "String",
+            "Bool", "Callable", "Condition", "Event", "Int", "List", "Location",
+            "Region", "String",
         };
         for (const auto type : builtInTypes) {
             addCandidate(candidates, labels,
@@ -561,13 +565,17 @@ std::vector<CompletionItem> CompletionService::complete(
             const bool callable = symbol->category == sema::SymbolCategory::Define
                 || symbol->category == sema::SymbolCategory::ExternDefine;
             const bool parameter = symbol->category == sema::SymbolCategory::Parameter;
-            if ((!callable && !parameter)
-                || (parameter && !matchesExpectedType(*symbol, expected))) {
+            const bool domainValue = symbol->category == sema::SymbolCategory::Region
+                || (symbol->category == sema::SymbolCategory::SectionEntry
+                    && (symbol->type == ast::Type::Event
+                        || symbol->type == ast::Type::Location));
+            if ((!callable && !parameter && !domainValue)
+                || ((parameter || domainValue) && !matchesExpectedType(*symbol, expected))) {
                 continue;
             }
             const auto rendered = PresentationRenderer{}.render(
                 presentationSymbol(*document->snapshot, *symbol));
-            const size_t rank = parameter ? 10 : 20;
+            const size_t rank = domainValue ? 5 : (parameter ? 10 : 20);
             addCandidate(candidates, labels,
                 makeItem(symbol->displayName, completionKind(symbol->category),
                     rendered.detail, rendered.documentation),

@@ -22,7 +22,7 @@ Consume parser context, semantic scope/type/call queries from [plan-compilerQuer
 - [x] Support project-observed region data keys and language-defined section names, excluding entries already present in the body.
 - [x] Support visible parameters, defines, extern defines, Boolean literals, and core expression keywords.
 - [x] Support the region-only `here` expression keyword where valid.
-- [ ] Support region and entry expression symbols if/when the semantic query model marks them valid at the cursor.
+- [x] Support declared region, event, and location expression values using semantic domain types and expected-type filtering.
 - [x] Support built-in and user enum types in type positions.
 - [x] Support explicit enum members after `.` for the resolved enum type only; do not offer extern wildcard patterns as concrete members.
 - [x] Support named argument labels from resolved callable parameters, excluding parameters already bound positionally or by name.
@@ -58,11 +58,12 @@ Consume parser context, semantic scope/type/call queries from [plan-compilerQuer
 
 ### Tests
 
+- [x] Declared `Region`, `Event`, and `Location` value typing, same-named host-enum fallback compatibility, semantic indexing, transpiler output, and completion filtering.
 - [x] Shared presentation rendering for types, enum identities, defaults, documentation, provenance, and source-range separation.
 - [x] Top-level, region-body, type-position, and expression completion contexts with expected-type/enum filtering.
 - [x] Qualified versus ambiguous enum completion, including cross-file declarations and unknown qualifiers.
 - [x] Scoped parameter completion.
-- [ ] Cross-file declaration completion.
+- [x] Cross-file declaration completion for regions, events, locations, defines, enums, and enum members.
 - [x] Partial token replacement.
 - [x] Incomplete and parsed call completion for named argument labels.
 - [x] Expected-value completion for incomplete positional and named calls using resolved parameter type and enum identity.

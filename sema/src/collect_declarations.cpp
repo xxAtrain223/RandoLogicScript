@@ -19,6 +19,8 @@ std::vector<ast::Diagnostic> collectDeclarations(ast::Project& project) {
 	// Clear any previous state so the function is idempotent.
 	project.RegionDecls.clear();
 	project.ExtendRegionDecls.clear();
+	project.EventDecls.clear();
+	project.LocationDecls.clear();
 	project.DefineDecls.clear();
 	project.ExternDefineDecls.clear();
 	project.EnumInfos.clear();
@@ -118,6 +120,32 @@ std::vector<ast::Diagnostic> collectDeclarations(ast::Project& project) {
 							std::move(entries),
 							d.span);
 					}
+				}
+			}, decl);
+		}
+	}
+
+	auto collectEntries = [&](const std::vector<ast::Section>& sections) {
+		for (const auto& section : sections) {
+			auto* declarations = section.kind == ast::SectionKind::Events
+				? &project.EventDecls
+				: section.kind == ast::SectionKind::Locations
+					? &project.LocationDecls
+					: nullptr;
+			if (declarations == nullptr) continue;
+			for (const auto& entry : section.entries) {
+				(*declarations)[entry.name.text].push_back(&entry);
+			}
+		}
+	};
+	for (const auto& file : project.files) {
+		for (const auto& decl : file.declarations) {
+			std::visit([&](const auto& node) {
+				using T = std::decay_t<decltype(node)>;
+				if constexpr (std::is_same_v<T, ast::RegionDecl>) {
+					collectEntries(node.body.sections);
+				} else if constexpr (std::is_same_v<T, ast::ExtendRegionDecl>) {
+					collectEntries(node.sections);
 				}
 			}, decl);
 		}

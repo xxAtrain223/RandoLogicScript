@@ -362,10 +362,14 @@ static void checkFunctionSignatures(
 			};
 
 			bool defaultCompatible = isDefaultCompatible(*paramType, *defaultType);
+			const auto parameterEnum = *paramType == ast::Type::Enum
+				? project.getEnumType(&param) : std::optional<std::string_view>{};
+			const auto defaultEnum = *defaultType == ast::Type::Enum
+				? project.getEnumType(param.defaultValue.get()) : std::optional<std::string_view>{};
+			defaultCompatible = defaultCompatible || areDomainAndEnumCompatible(
+				*paramType, parameterEnum, *defaultType, defaultEnum);
 			if (defaultCompatible && *paramType == ast::Type::Enum
 				&& *defaultType == ast::Type::Enum) {
-				auto parameterEnum = project.getEnumType(&param);
-				auto defaultEnum = project.getEnumType(param.defaultValue.get());
 				defaultCompatible = !parameterEnum.has_value() || !defaultEnum.has_value()
 					|| *parameterEnum == *defaultEnum;
 			}

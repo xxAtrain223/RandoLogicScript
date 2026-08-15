@@ -30,14 +30,14 @@ static std::string withHostExterns(const std::string& source) {
 		"extern enum Enemy { RE_* }\n"
 		"extern enum Distance { ED_* }\n"
 		"extern enum Trick { RT_* }\n"
-		"extern enum Logic { LOGIC_* }\n"
+		"extern enum Event { LOGIC_* }\n"
 		"extern enum Scene { SCENE_* }\n"
 		"extern enum Dungeon { DUNGEON_* }\n"
 		"extern enum Area { RA_* }\n"
 		"extern enum Trial { TK_* }\n"
 		"extern enum Setting { RSK_*, RO_* }\n"
 		"extern enum Region { RR_* }\n"
-		"extern enum Check { RC_* }\n"
+		"extern enum Location { RC_* }\n"
 		"extern define has(item: Item) -> Bool\n"
 		"extern define can_use(item: Item) -> Bool\n"
 		"extern define keys(sc: Scene, amount: Int) -> Bool\n"
@@ -46,7 +46,7 @@ static std::string withHostExterns(const std::string& source) {
 		"extern define any_age(condition: Condition) -> Bool\n"
 		"extern define spirit_shared(first_region: Region, first_condition: Condition, any_age: Bool = false, second_region: Region = RR_NONE, second_condition: Condition = false, third_region: Region = RR_NONE, third_condition: Condition = false) -> Bool\n"
 		"extern define hearts() -> Int\n"
-		"extern define check_price(chk: Check = RC_UNKNOWN_CHECK) -> Int\n"
+		"extern define check_price(chk: Location = RC_UNKNOWN_CHECK) -> Int\n"
 		+ source;
 }
 
@@ -728,7 +728,7 @@ TEST(ResolveTypes, UntypedForwardingParamInheritsEnumIdentity) {
 		"    locations { TEST_LOC: forwards_color(Color.RED) }\n"
 		"}\n");
 
-	EXPECT_TRUE(diags.empty());
+	ASSERT_TRUE(diags.empty()) << diags.front().message;
 	const auto* decl = project.DefineDecls.at("forwards_color");
 	EXPECT_EQ(project.getType(&decl->params[0]), Type::Enum);
 	EXPECT_EQ(project.getEnumType(&decl->params[0]), "Color");
@@ -841,7 +841,7 @@ TEST(ResolveTypes, HostCallTooManyArgs) {
 }
 
 TEST(ResolveTypes, HostCallOptionalArgOmitted) {
-	// check_price() — 0 args, optional Check param.
+	// check_price() — 0 args, optional Location param.
 	auto [project, diags] = resolveFromSource(
 		"region RR_TEST {\n"
 		"    name: \"Test\"\n"
@@ -1443,8 +1443,8 @@ TEST(ResolveTypes, HereResolvesToCurrentRegion) {
 	ASSERT_EQ(resolved->size(), 1u);
 	ASSERT_TRUE(std::holds_alternative<HereRef>((*resolved)[0]->node));
 	EXPECT_EQ(std::get<HereRef>((*resolved)[0]->node).resolvedRegion, "RR_TEST");
-	EXPECT_EQ(project.getType((*resolved)[0]), Type::Enum);
-	EXPECT_EQ(project.getEnumType((*resolved)[0]), "Region");
+	EXPECT_EQ(project.getType((*resolved)[0]), Type::Region);
+	EXPECT_FALSE(project.getEnumType((*resolved)[0]));
 }
 
 TEST(ResolveTypes, HereInExtendRegionResolvesToTargetName) {
@@ -1465,8 +1465,8 @@ TEST(ResolveTypes, HereInExtendRegionResolvesToTargetName) {
 	ASSERT_NE(resolved, nullptr);
 	ASSERT_TRUE(std::holds_alternative<HereRef>((*resolved)[0]->node));
 	EXPECT_EQ(std::get<HereRef>((*resolved)[0]->node).resolvedRegion, "RR_BASE");
-	EXPECT_EQ(project.getType((*resolved)[0]), Type::Enum);
-	EXPECT_EQ(project.getEnumType((*resolved)[0]), "Region");
+	EXPECT_EQ(project.getType((*resolved)[0]), Type::Region);
+	EXPECT_FALSE(project.getEnumType((*resolved)[0]));
 }
 
 TEST(ResolveTypes, HereOutsideRegionIsError) {
@@ -1474,7 +1474,7 @@ TEST(ResolveTypes, HereOutsideRegionIsError) {
 		"extern define uses_region(r: Region) -> Bool\n"
 		"define test(): uses_region(here)\n");
 	EXPECT_EQ(countErrors(diags), 1u);
-	EXPECT_NE(diags[0].message.find("resolves to enum 'Region'"), std::string::npos);
+	EXPECT_NE(diags[0].message.find("has type Region"), std::string::npos);
 }
 
 TEST(ResolveTypes, RegionParameterDiagnosticUsesEnumIdentity) {
@@ -1487,7 +1487,7 @@ TEST(ResolveTypes, RegionParameterDiagnosticUsesEnumIdentity) {
 		"}\n");
 
 	ASSERT_EQ(countErrors(diags), 1u);
-	EXPECT_NE(diags[0].message.find("expected enum 'Region', got Bool"), std::string::npos);
+	EXPECT_NE(diags[0].message.find("expected Region, got Bool"), std::string::npos);
 }
 
 // -- Match expression ---------------------------------------------------------
@@ -1815,9 +1815,19 @@ TEST(TypeAnnotation, CoreTypes) {
 	EXPECT_EQ(typeFromAnnotation("Callable"),   Type::Callable);
 	EXPECT_EQ(typeFromAnnotation("Condition"),  Type::Condition);
 	EXPECT_EQ(typeFromAnnotation("Enum"),       Type::Enum);
+	EXPECT_EQ(typeFromAnnotation("Region"),     Type::Region);
+	EXPECT_EQ(typeFromAnnotation("Event"),      Type::Event);
+	EXPECT_EQ(typeFromAnnotation("Location"),   Type::Location);
 	EXPECT_FALSE(typeFromAnnotation("Setting").has_value());
-	EXPECT_FALSE(typeFromAnnotation("Region").has_value());
 	EXPECT_FALSE(typeFromAnnotation("Check").has_value());
+}
+
+TEST(TypeAnnotation, DomainEnumCompatibilityUsesExactNames) {
+	EXPECT_TRUE(isDomainEnumCompatible(Type::Region, "Region"));
+	EXPECT_TRUE(isDomainEnumCompatible(Type::Event, "Event"));
+	EXPECT_TRUE(isDomainEnumCompatible(Type::Location, "Location"));
+	EXPECT_FALSE(isDomainEnumCompatible(Type::Event, "Logic"));
+	EXPECT_FALSE(isDomainEnumCompatible(Type::Location, "Check"));
 }
 
 TEST(TypeAnnotation, Unknown) {
@@ -1854,6 +1864,73 @@ TEST(ResolveTypes, DefineParamWithProjectEnumAnnotation) {
 	EXPECT_EQ(project.getEnumType(&decl->params[0]), "Color");
 	EXPECT_EQ(project.getType(body), Type::Enum);
 	EXPECT_EQ(project.getEnumType(body), "Color");
+}
+
+TEST(ResolveTypes, DeclaredRegionsEventsAndLocationsAreTypedValues) {
+	auto [project, diags] = resolveFromSource(
+		"region RR_TARGET {\n"
+		"  events { EVENT_OPEN: true }\n"
+		"  locations { RC_CHEST: true }\n"
+		"}\n"
+		"define region_value(): RR_TARGET\n"
+		"define event_value(): EVENT_OPEN\n"
+		"define location_value(): RC_CHEST\n"
+		"extern define take_region(value: Region) -> Bool\n"
+		"extern define take_event(value: Event) -> Bool\n"
+		"extern define take_location(value: Location) -> Bool\n"
+		"extern define flag(value: Event) -> Bool\n"
+		"define use_values(): take_region(RR_TARGET) and take_region(RR_NONE)\n"
+		"  and take_event(EVENT_OPEN) and flag(EVENT_OPEN)\n"
+		"  and take_location(RC_CHEST) and (check_price(RC_CHEST) >= 0)\n");
+
+	ASSERT_TRUE(diags.empty()) << diags.front().message;
+	const auto expectValue = [&](std::string_view defineName, Type type) {
+		const auto* body = project.DefineDecls.at(std::string(defineName))->body.get();
+		EXPECT_EQ(project.getType(body), type);
+		ASSERT_TRUE(std::holds_alternative<Identifier>(body->node));
+		EXPECT_EQ(std::get<Identifier>(body->node).kind, IdentifierKind::DeclaredValue);
+	};
+	expectValue("region_value", Type::Region);
+	expectValue("event_value", Type::Event);
+	expectValue("location_value", Type::Location);
+}
+
+TEST(ResolveTypes, DeclaredDomainValuesRejectWrongCategories) {
+	auto [project, diags] = resolveFromSource(
+		"region RR_TARGET { events { EVENT_OPEN: true } }\n"
+		"extern define take_event(value: Event) -> Bool\n"
+		"define wrong(): take_event(RR_TARGET)\n");
+
+	ASSERT_EQ(countErrors(diags), 1u);
+	EXPECT_NE(diags[0].message.find("expected Event, got Region"), std::string::npos);
+}
+
+TEST(ResolveTypes, RepeatedLocationDeclarationsShareLocationType) {
+	auto [project, diags] = resolveFromSource(
+		"region RR_FIRST { locations { RC_SHARED: true } }\n"
+		"region RR_SECOND { locations { RC_SHARED: true } }\n"
+		"define location_value(): RC_SHARED\n");
+
+	EXPECT_TRUE(diags.empty());
+	EXPECT_EQ(project.LocationDecls.at("RC_SHARED").size(), 2u);
+	EXPECT_EQ(project.getType(project.DefineDecls.at("location_value")->body.get()),
+		Type::Location);
+}
+
+TEST(ResolveTypes, DeclaredDomainValuesCompareWithLegacyEnumSentinels) {
+	auto [project, diags] = resolveFromSource(
+		"region RR_TARGET {\n"
+		"  events { LOGIC_OPEN: true }\n"
+		"  locations { RC_CHEST: true }\n"
+		"}\n"
+		"define compare_region(): RR_TARGET != RR_NONE\n"
+		"define compare_event(): LOGIC_OPEN != LOGIC_NONE\n"
+		"define compare_location(): RC_CHEST != RC_UNKNOWN_CHECK\n");
+
+	EXPECT_TRUE(diags.empty());
+	EXPECT_EQ(project.getType(project.DefineDecls.at("compare_region")->body.get()), Type::Bool);
+	EXPECT_EQ(project.getType(project.DefineDecls.at("compare_event")->body.get()), Type::Bool);
+	EXPECT_EQ(project.getType(project.DefineDecls.at("compare_location")->body.get()), Type::Bool);
 }
 
 TEST(ResolveTypes, DefineParamWithDefault) {

@@ -464,6 +464,23 @@ TEST(SohExpressions, CallHostFunctions) {
 		"any_age([]{return has(RandomizerGet::RG_HOOKSHOT) || can_use(RandomizerGet::RG_BOOMERANG);})");
 }
 
+TEST(SohExpressions, DeclaredDomainValuesUseHostNamespaces) {
+	EXPECT_EQ(GenerateExpression(sourceToExpression(
+		"extern define use_event(value: Event) -> Bool\n"
+		"extern define use_location(value: Location) -> Bool\n"
+		"region RR_TARGET {\n"
+		"  events { LOGIC_OPEN: true }\n"
+		"  locations { RC_CHEST: true }\n"
+		"}\n"
+		"define test(): can_plant_bean(RR_TARGET, RG_KOKIRI_FOREST_BEAN_SOUL)\n"
+		"  and use_event(LOGIC_OPEN)\n"
+		"  and use_location(RC_CHEST)\n",
+		"test")),
+		"can_plant_bean(RandomizerRegion::RR_TARGET, RandomizerGet::RG_KOKIRI_FOREST_BEAN_SOUL)"
+		" && use_event(LogicVal::LOGIC_OPEN)"
+		" && use_location(RandomizerCheck::RC_CHEST)");
+}
+
 TEST(SohExpressions, CallExternDefineReorderedAndDefaultedArgs) {
 	EXPECT_EQ(GenerateExpression(sourceToExpression(
 		"extern define host_custom(item: Item, distance: Distance = ED_CLOSE, enabled: Bool = false) -> Bool\n"

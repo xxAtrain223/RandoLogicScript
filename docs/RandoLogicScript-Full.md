@@ -98,7 +98,10 @@ extend region RR_SPIRIT_TEMPLE_FOYER {
 | `bool`       | `true`, `false`, comparisons, logical expressions                                  | Boolean value.                                        |
 | `int`        | `0`, `3`, arithmetic expressions                                                    | Integer value.                                        |
 | `Condition`  | `has(RG_HOOKSHOT)`, a zero-argument callable                                        | Callable condition.                                   |
-| Enum name    | `Item`, `Setting`, `Region`, `Check`, `Distance`, `Color`, `EnemyDistance`          | A first-class enum type declared by `enum` or `extern enum`. |
+| `Region`     | A key declared by `region`, or `here`                                               | Declared region value.                                |
+| `Event`      | A name declared in an `events` section                                              | Declared event value.                                 |
+| `Location`   | A name declared in a `locations` section                                           | Declared location value.                              |
+| Enum name    | `Item`, `Setting`, `Distance`, `Color`, `EnemyDistance`                            | A first-class enum type declared by `enum` or `extern enum`. |
 
 Host enum names use the **same identifiers as their target-language enums**. This keeps generated references straightforward; RLS resolves only its declared enum members and patterns, while the target compiler validates host-specific spelling.
 
@@ -106,22 +109,24 @@ Host enum names use the **same identifiers as their target-language enums**. Thi
 
 RLS does not require type annotations in most cases - the transpiler infers types at transpile time from context:
 
-1. **Enum identifiers are resolved from declarations.** Normal and extern enum declarations provide known members and wildcard-pattern matches. Host value categories, including setting keys, regions, and checks, are ordinary named enums; for example `extern enum Setting { RSK_*, RO_* }`, `extern enum Region { RR_* }`, and `extern enum Check { RC_* }`. If a bare identifier matches multiple enums, this is a hard error and requires dotted disambiguation (`EnumName.ValueName`).
+1. **Declared domain values resolve before enum patterns.** Region keys and names declared in `events` or `locations` sections have built-in `Region`, `Event`, or `Location` types. Repeating the same event or location name in multiple regions still denotes one symbolic value. A name used across different domain categories is ambiguous.
 
-2. **Host-call signatures are declared with `extern define`.** For example, `extern define has(item: Item) -> bool`, `extern define keys(scene: Scene, n: int) -> int`, and `extern define trick(key: Trick) -> bool`. The transpiler validates arguments against these declared signatures.
+2. **Enum identifiers are resolved from declarations.** Normal and extern enum declarations provide known members and wildcard-pattern matches. Host fallback constants can coexist through matching enum names: enum `Region` values are compatible with `Region`, enum `Event` values with `Event`, and enum `Location` values with `Location`. `Logic` and `Check` are not aliases. If a bare identifier matches multiple unrelated enums, this is a hard error and requires dotted disambiguation (`EnumName.ValueName`).
 
-3. **`match` arms provide type context.** `match distance { ED_CLOSE: ... }` tells the transpiler the discriminant is `Distance`. If a call site passes a non-`Distance` value, it's a type error.
+3. **Host-call signatures are declared with `extern define`.** For example, `extern define has(item: Item) -> bool`, `extern define keys(scene: Scene, n: int) -> int`, and `extern define trick(key: Trick) -> bool`. The transpiler validates arguments against these declared signatures.
 
-4. **`define` parameters are inferred from usage.** If you write `define foo(d): can_hit_switch(d)` and `can_hit_switch` expects a `Distance` first argument, the transpiler infers `d: Distance`. If a call site passes `foo(RG_HOOKSHOT)`, that's a type error.
+4. **`match` arms provide type context.** `match distance { ED_CLOSE: ... }` tells the transpiler the discriminant is `Distance`. If a call site passes a non-`Distance` value, it's a type error.
 
-5. **Literals and booleans.** Number literals are `int`. `true`/`false` (and their aliases `always`/`never`) are `bool`. `and`/`or`/`not` produce `bool`. Condition expressions in `locations`/`exits`/`events` must be `bool`. Integers have an implicit conversion to `bool` - zero is `false`, non-zero is `true` - so functions returning a count can be used directly in conditions.
+5. **`define` parameters are inferred from usage.** If you write `define foo(d): can_hit_switch(d)` and `can_hit_switch` expects a `Distance` first argument, the transpiler infers `d: Distance`. If a call site passes `foo(RG_HOOKSHOT)`, that's a type error.
 
-6. **Enum/int implicit conversion is context-aware.**
+6. **Literals and booleans.** Number literals are `int`. `true`/`false` (and their aliases `always`/`never`) are `bool`. `and`/`or`/`not` produce `bool`. Condition expressions in `locations`/`exits`/`events` must be `bool`. Integers have an implicit conversion to `bool` - zero is `false`, non-zero is `true` - so functions returning a count can be used directly in conditions.
+
+7. **Enum/int implicit conversion is context-aware.**
    - `enum -> int` is allowed in arithmetic, comparison, and call binding where `int` is expected.
    - `int -> enum` is allowed where an enum is expected (for example, a typed parameter).
    - If an integer literal could map to multiple enum identities and there is no explicit enum context, this is a hard ambiguity error requiring explicit disambiguation.
 
-7. **Enum identity is enforced for enum-typed parameters.** Two enum-typed values must belong to the same enum identity when binding enum parameters, unless an explicit `int` conversion path is used.
+8. **Enum identity is enforced for enum-typed parameters.** Two enum-typed values must belong to the same enum identity when binding enum parameters, unless an explicit `int` conversion path is used.
 
 ### 3.4 Enum Declarations And Resolution
 
@@ -140,7 +145,7 @@ extern enum Setting {
 }
 
 extern enum Region { RR_* }
-extern enum Check { RC_* }
+extern enum Location { RC_* }
 
 enum WaterLevel {
     WL_LOW = 0,
