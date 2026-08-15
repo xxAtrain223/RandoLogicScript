@@ -15,6 +15,7 @@ enum class CompletionItemKind {
     Enum,
     EnumMember,
     Type,
+    Property,
     Variable,
     Value,
     Keyword,

@@ -1,6 +1,7 @@
 #include "source_index.h"
 
 #include <algorithm>
+#include <cctype>
 #include <type_traits>
 
 namespace rls::parser {
@@ -97,6 +98,142 @@ void indexSections(SourceIndex& index, const std::vector<ast::Section>& sections
 	}
 }
 
+std::optional<ast::SectionKind> sectionKind(std::string_view token) {
+	if (token == "events") return ast::SectionKind::Events;
+	if (token == "locations") return ast::SectionKind::Locations;
+	if (token == "exits") return ast::SectionKind::Exits;
+	return std::nullopt;
+}
+
+struct RecoveryToken {
+	std::string_view text;
+	size_t end = 0;
+	char punctuation = 0;
+};
+
+std::vector<RecoveryToken> recoveryTokens(std::string_view source) {
+	std::vector<RecoveryToken> result;
+	for (size_t offset = 0; offset < source.size();) {
+		const char character = source[offset];
+		if (character == '#') {
+			while (offset < source.size() && source[offset] != '\n') ++offset;
+			continue;
+		}
+		if (character == '"') {
+			++offset;
+			while (offset < source.size()) {
+				if (source[offset] == '\\' && offset + 1 < source.size()) {
+					offset += 2;
+				} else if (source[offset++] == '"') {
+					break;
+				}
+			}
+			continue;
+		}
+		if (std::isalpha(static_cast<unsigned char>(character)) || character == '_') {
+			const size_t start = offset++;
+			while (offset < source.size()
+				&& (std::isalnum(static_cast<unsigned char>(source[offset]))
+					|| source[offset] == '_')) {
+				++offset;
+			}
+			result.push_back({source.substr(start, offset - start), offset, 0});
+			continue;
+		}
+		if (character == '{' || character == '}' || character == ':') {
+			result.push_back({source.substr(offset, 1), offset + 1, character});
+		}
+		++offset;
+	}
+	return result;
+}
+
+std::optional<ast::Span> spanFromOffsets(
+	const ast::SourceText& source, std::string_view file, size_t start, size_t end) {
+	const auto startPosition = source.utf8PositionAtByteOffset(start);
+	const auto endPosition = source.utf8PositionAtByteOffset(end);
+	if (!startPosition || !endPosition) return std::nullopt;
+	return ast::Span{std::string(file), *startPosition, *endPosition};
+}
+
+void addRecoveredRegionContexts(
+	SourceIndex& index, const ast::File& file, const ast::SourceText& source) {
+	const auto tokens = recoveryTokens(source.content());
+	for (size_t tokenIndex = 0; tokenIndex < tokens.size(); ++tokenIndex) {
+		bool extension = false;
+		size_t regionIndex = tokenIndex;
+		if (tokens[tokenIndex].text == "extend") {
+			extension = true;
+			if (++regionIndex >= tokens.size() || tokens[regionIndex].text != "region") continue;
+		} else if (tokens[tokenIndex].text != "region") {
+			continue;
+		}
+		if (regionIndex + 2 >= tokens.size()
+			|| tokens[regionIndex + 1].punctuation != 0
+			|| tokens[regionIndex + 2].punctuation != '{') {
+			continue;
+		}
+
+		const size_t openIndex = regionIndex + 2;
+		size_t closeIndex = tokens.size();
+		size_t depth = 1;
+		for (size_t cursor = openIndex + 1; cursor < tokens.size(); ++cursor) {
+			if (tokens[cursor].punctuation == '{') ++depth;
+			if (tokens[cursor].punctuation == '}' && --depth == 0) {
+				closeIndex = cursor;
+				break;
+			}
+		}
+		const size_t bodyEnd = closeIndex < tokens.size()
+			? tokens[closeIndex].end : source.content().size();
+		const auto bodySpan = spanFromOffsets(
+			source, file.path, tokens[openIndex].end, bodyEnd);
+		if (!bodySpan) continue;
+
+		RegionContext context{.span = *bodySpan, .extension = extension};
+		std::vector<RegionSectionContext> sections;
+		depth = 1;
+		for (size_t cursor = openIndex + 1; cursor < closeIndex && cursor < tokens.size(); ++cursor) {
+			if (tokens[cursor].punctuation == '{') {
+				++depth;
+				continue;
+			}
+			if (tokens[cursor].punctuation == '}') {
+				if (depth > 1) --depth;
+				continue;
+			}
+			if (depth != 1 || tokens[cursor].punctuation != 0 || cursor + 1 >= tokens.size()) {
+				continue;
+			}
+			if (tokens[cursor + 1].punctuation == ':' && !extension) {
+				context.dataKeys.emplace_back(tokens[cursor].text);
+				continue;
+			}
+			const auto kind = sectionKind(tokens[cursor].text);
+			if (!kind || tokens[cursor + 1].punctuation != '{') continue;
+			context.sectionKinds.push_back(*kind);
+			size_t sectionDepth = 1;
+			size_t sectionClose = closeIndex;
+			for (size_t sectionCursor = cursor + 2;
+				 sectionCursor < closeIndex && sectionCursor < tokens.size(); ++sectionCursor) {
+				if (tokens[sectionCursor].punctuation == '{') ++sectionDepth;
+				if (tokens[sectionCursor].punctuation == '}' && --sectionDepth == 0) {
+					sectionClose = sectionCursor;
+					break;
+				}
+			}
+			const size_t sectionEnd = sectionClose < tokens.size()
+				? tokens[sectionClose].end : bodyEnd;
+			if (const auto sectionSpan = spanFromOffsets(
+					source, file.path, tokens[cursor + 1].end, sectionEnd)) {
+				sections.push_back({*kind, *sectionSpan});
+			}
+		}
+		index.addRegionContext(std::move(context), std::move(sections));
+		tokenIndex = closeIndex < tokens.size() ? closeIndex : tokens.size();
+	}
+}
+
 } // namespace
 
 void SourceIndex::addSyntax(SyntaxKind kind, const ast::Span& span) {
@@ -120,6 +257,12 @@ void SourceIndex::addDeclaration(const ast::Span& span) {
 	if (span.start.line == 0) return;
 	declarations_.push_back({SyntaxKind::Declaration, span});
 	addSyntax(SyntaxKind::Declaration, span);
+}
+
+void SourceIndex::addRegionContext(
+	RegionContext context, std::vector<RegionSectionContext> sections) {
+	if (context.span.start.line == 0) return;
+	regionContexts_.push_back({std::move(context), std::move(sections)});
 }
 
 std::optional<SyntaxContext> SourceIndex::syntaxAt(ast::Position position) const {
@@ -163,6 +306,25 @@ std::optional<CallContext> SourceIndex::enclosingCall(ast::Position position) co
 	return result;
 }
 
+std::optional<RegionContext> SourceIndex::regionContextAt(ast::Position position) const {
+	const IndexedRegionContext* result = nullptr;
+	for (const auto& indexed : regionContexts_) {
+		if (contains(indexed.context.span, position)
+			&& (!result || spanSize(indexed.context.span) < spanSize(result->context.span))) {
+			result = &indexed;
+		}
+	}
+	if (!result) return std::nullopt;
+	RegionContext context = result->context;
+	for (const auto& section : result->sections) {
+		if (contains(section.span, position)) {
+			context.activeSection = section.kind;
+			break;
+		}
+	}
+	return context;
+}
+
 std::vector<SyntaxContext> SourceIndex::declarationsIn(std::string_view file) const {
 	std::vector<SyntaxContext> result;
 	for (const auto& declaration : declarations_) {
@@ -171,13 +333,26 @@ std::vector<SyntaxContext> SourceIndex::declarationsIn(std::string_view file) co
 	return result;
 }
 
-SourceIndex BuildSourceIndex(const ast::File& file) {
+SourceIndex BuildSourceIndex(const ast::File& file, const ast::SourceText* source) {
 	SourceIndex index;
+	if (source) addRecoveredRegionContexts(index, file, *source);
 	for (const auto& declaration : file.declarations) {
 		std::visit([&](const auto& node) {
 			using T = std::decay_t<decltype(node)>;
 			index.addDeclaration(node.span);
 			if constexpr (std::is_same_v<T, ast::RegionDecl>) {
+				if (!source) {
+					RegionContext context{
+						.span = {node.span.file, node.key.span.end, node.span.end},
+					};
+					std::vector<RegionSectionContext> sections;
+					for (const auto& data : node.body.data) context.dataKeys.push_back(data.key.text);
+					for (const auto& section : node.body.sections) {
+						context.sectionKinds.push_back(section.kind);
+						sections.push_back({section.kind, section.span});
+					}
+					index.addRegionContext(std::move(context), std::move(sections));
+				}
 				index.addName(SourceNameKind::Declaration, node.key);
 				for (const auto& data : node.body.data) {
 					index.addSyntax(SyntaxKind::RegionData, data.span);
@@ -186,6 +361,18 @@ SourceIndex BuildSourceIndex(const ast::File& file) {
 				}
 				indexSections(index, node.body.sections);
 			} else if constexpr (std::is_same_v<T, ast::ExtendRegionDecl>) {
+				if (!source) {
+					RegionContext context{
+						.span = {node.span.file, node.name.span.end, node.span.end},
+						.extension = true,
+					};
+					std::vector<RegionSectionContext> sections;
+					for (const auto& section : node.sections) {
+						context.sectionKinds.push_back(section.kind);
+						sections.push_back({section.kind, section.span});
+					}
+					index.addRegionContext(std::move(context), std::move(sections));
+				}
 				index.addName(SourceNameKind::Declaration, node.name);
 				indexSections(index, node.sections);
 			} else if constexpr (std::is_same_v<T, ast::DefineDecl>) {

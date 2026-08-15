@@ -54,6 +54,19 @@ struct CallContext {
 	std::optional<size_t> activeArgument;
 };
 
+struct RegionSectionContext {
+	ast::SectionKind kind;
+	ast::Span span;
+};
+
+struct RegionContext {
+	ast::Span span;
+	bool extension = false;
+	std::vector<std::string> dataKeys;
+	std::vector<ast::SectionKind> sectionKinds;
+	std::optional<ast::SectionKind> activeSection;
+};
+
 /// A value-only cursor index built from trustworthy parser spans.
 class SourceIndex {
 public:
@@ -61,6 +74,7 @@ public:
 	std::optional<SourceNameContext> nameAt(ast::Position position) const;
 	std::optional<SyntaxContext> enclosingExpression(ast::Position position) const;
 	std::optional<CallContext> enclosingCall(ast::Position position) const;
+	std::optional<RegionContext> regionContextAt(ast::Position position) const;
 	const std::vector<SyntaxContext>& declarations() const { return declarations_; }
 	std::vector<SyntaxContext> declarationsIn(std::string_view file) const;
 
@@ -70,6 +84,7 @@ public:
 	void addExpression(const ast::Span& span);
 	void addCall(CallContext call);
 	void addDeclaration(const ast::Span& span);
+	void addRegionContext(RegionContext context, std::vector<RegionSectionContext> sections);
 
 private:
 	std::vector<SyntaxContext> syntax_;
@@ -77,8 +92,13 @@ private:
 	std::vector<SyntaxContext> expressions_;
 	std::vector<CallContext> calls_;
 	std::vector<SyntaxContext> declarations_;
+	struct IndexedRegionContext {
+		RegionContext context;
+		std::vector<RegionSectionContext> sections;
+	};
+	std::vector<IndexedRegionContext> regionContexts_;
 };
 
-SourceIndex BuildSourceIndex(const ast::File& file);
+SourceIndex BuildSourceIndex(const ast::File& file, const ast::SourceText* source = nullptr);
 
 } // namespace rls::parser

@@ -51,6 +51,7 @@ int completionKind(CompletionItemKind kind) {
     switch (kind) {
     case CompletionItemKind::Function: return 3;
     case CompletionItemKind::Type: return 7;
+    case CompletionItemKind::Property: return 10;
     case CompletionItemKind::Variable: return 6;
     case CompletionItemKind::Value: return 12;
     case CompletionItemKind::Enum: return 13;

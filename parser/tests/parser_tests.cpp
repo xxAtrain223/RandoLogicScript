@@ -526,6 +526,42 @@ TEST(SourceIndexTests, IgnoresCommentsAndWhitespaceButIndexesStringsAndRecoveryS
 	EXPECT_FALSE(malformed.sourceIndex.nameAt({1, 8}));
 }
 
+TEST(SourceIndexTests, ReportsCompleteAndRecoveredRegionContexts) {
+	const auto complete = rls::parser::ParseStringWithIndex(
+		"region RR_TEST {\n"
+		"  name: \"} region RR_FAKE {\"\n"
+		"  # locations { FAKE: true }\n"
+		"  events { EVENT_TEST: here == here }\n"
+		"}\n"
+		"extend region RR_TEST { locations {  } }\n",
+		"regions.rls");
+	const auto region = complete.sourceIndex.regionContextAt({2, 3});
+	ASSERT_TRUE(region);
+	EXPECT_FALSE(region->extension);
+	EXPECT_EQ(region->dataKeys, std::vector<std::string>{"name"});
+	EXPECT_EQ(region->sectionKinds,
+		std::vector<SectionKind>{SectionKind::Events});
+	EXPECT_FALSE(region->activeSection);
+	const auto event = complete.sourceIndex.regionContextAt({4, 24});
+	ASSERT_TRUE(event);
+	EXPECT_EQ(event->activeSection, SectionKind::Events);
+	const auto extension = complete.sourceIndex.regionContextAt({6, 36});
+	ASSERT_TRUE(extension);
+	EXPECT_TRUE(extension->extension);
+	EXPECT_EQ(extension->activeSection, SectionKind::Locations);
+
+	const auto recovered = rls::parser::ParseStringWithIndex(
+		"region RR_BROKEN {\n"
+		"  name: \"Broken\"\n"
+		"  loc\n",
+		"broken-region.rls");
+	ASSERT_FALSE(recovered.file.diagnostics.empty());
+	const auto recoveredRegion = recovered.sourceIndex.regionContextAt({3, 5});
+	ASSERT_TRUE(recoveredRegion);
+	EXPECT_FALSE(recoveredRegion->extension);
+	EXPECT_EQ(recoveredRegion->dataKeys, std::vector<std::string>{"name"});
+}
+
 TEST(ParseExpr, NestedCalls) {
 	const auto& e = parseExpr("can_use(setting(RSK_FOO))");
 	ASSERT_TRUE(std::holds_alternative<CallExpr>(e.node));

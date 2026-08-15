@@ -16,6 +16,7 @@ namespace {
 enum class CompletionContext {
     TopLevel,
     Type,
+    RegionBody,
     Expression,
     Unsupported,
 };
@@ -93,11 +94,14 @@ bool startsWithCaseInsensitive(std::string_view value, std::string_view prefix) 
 }
 
 CompletionContext completionContextAt(
-    const parser::SourceIndex& index, ast::Position position) {
+    const parser::SourceIndex& index, ast::Position position,
+    const std::optional<parser::RegionContext>& region) {
     if (const auto name = index.nameAt(position)) {
         switch (name->kind) {
         case parser::SourceNameKind::Type:
             return CompletionContext::Type;
+        case parser::SourceNameKind::RegionDataKey:
+            return CompletionContext::RegionBody;
         case parser::SourceNameKind::Identifier:
         case parser::SourceNameKind::CallCallee:
             return CompletionContext::Expression;
@@ -110,15 +114,31 @@ CompletionContext completionContextAt(
         }
     }
     const auto syntax = index.syntaxAt(position);
-    if (!syntax) return CompletionContext::TopLevel;
+    if (!syntax) {
+        if (!region) return CompletionContext::TopLevel;
+        return region->activeSection
+            ? CompletionContext::Unsupported
+            : CompletionContext::RegionBody;
+    }
     switch (syntax->kind) {
     case parser::SyntaxKind::Expression:
     case parser::SyntaxKind::Call:
     case parser::SyntaxKind::Argument:
         return CompletionContext::Expression;
     default:
-        return CompletionContext::Unsupported;
+        break;
     }
+    if (region && !region->activeSection) return CompletionContext::RegionBody;
+    return CompletionContext::Unsupported;
+}
+
+std::string_view sectionName(ast::SectionKind kind) {
+    switch (kind) {
+    case ast::SectionKind::Events: return "events";
+    case ast::SectionKind::Locations: return "locations";
+    case ast::SectionKind::Exits: return "exits";
+    }
+    return {};
 }
 
 PresentationType presentationType(
@@ -271,7 +291,9 @@ std::vector<CompletionItem> CompletionService::complete(
     const auto editRange = presentationRange(*document->source, replacement);
     if (!editRange) return {};
 
-    const auto context = completionContextAt(*document->sourceIndex, contextPosition);
+    const auto region = document->sourceIndex->regionContextAt(contextPosition);
+    const auto context = completionContextAt(
+        *document->sourceIndex, contextPosition, region);
     const auto expected = document->snapshot->expectedTypeAt(document->path, contextPosition);
     std::vector<Candidate> candidates;
     std::set<std::string> labels;
@@ -313,6 +335,36 @@ std::vector<CompletionItem> CompletionService::complete(
                 makeItem(symbol.displayName, CompletionItemKind::Enum,
                     rendered.detail, rendered.documentation),
                 0, prefix);
+        }
+    } else if (context == CompletionContext::RegionBody && region) {
+        if (!region->extension) {
+            static constexpr std::string_view dataKeys[] = {
+                "areas", "name", "scene", "timePasses",
+            };
+            for (const auto key : dataKeys) {
+                if (std::find(region->dataKeys.begin(), region->dataKeys.end(), key)
+                    != region->dataKeys.end()) {
+                    continue;
+                }
+                addCandidate(candidates, labels,
+                    makeItem(std::string(key), CompletionItemKind::Property,
+                        "region data key"),
+                    0, prefix);
+            }
+        }
+        for (const auto kind : {
+                 ast::SectionKind::Events,
+                 ast::SectionKind::Locations,
+                 ast::SectionKind::Exits,
+             }) {
+            if (std::find(region->sectionKinds.begin(), region->sectionKinds.end(), kind)
+                != region->sectionKinds.end()) {
+                continue;
+            }
+            addCandidate(candidates, labels,
+                makeItem(std::string(sectionName(kind)), CompletionItemKind::Keyword,
+                    "region section"),
+                10, prefix);
         }
     } else if (context == CompletionContext::Expression) {
         for (const auto symbolId : document->snapshot->visibleSymbolsAt(
@@ -368,6 +420,18 @@ std::vector<CompletionItem> CompletionService::complete(
             addCandidate(candidates, labels,
                 makeItem(std::string(keyword), CompletionItemKind::Keyword, "expression keyword"),
                 40, prefix);
+        }
+        if (region) {
+            PresentationSymbol symbol{
+                .name = "here",
+                .provenance = PresentationProvenance::BuiltIn,
+                .type = PresentationType{.name = "Enum", .enumIdentity = "Region"},
+            };
+            const auto rendered = PresentationRenderer{}.render(symbol);
+            addCandidate(candidates, labels,
+                makeItem("here", CompletionItemKind::Keyword,
+                    rendered.detail, rendered.documentation),
+                5, prefix);
         }
     }
 

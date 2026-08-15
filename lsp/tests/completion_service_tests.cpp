@@ -127,4 +127,55 @@ TEST(CompletionServiceTests, RejectsAStaleAcceptedSnapshot) {
     EXPECT_TRUE(items.empty());
 }
 
+TEST(CompletionServiceTests, CompletesRecoveredRegionBodyWithoutDuplicates) {
+    CompletionFixture fixture(
+        "region RR_TEST {\n"
+        "  name: \"Test\"\n"
+        "  events {}\n"
+        "  loc\n");
+
+    const auto items = CompletionService(fixture.projects, fixture.scheduler)
+        .complete(fixture.uri, {3, 5});
+
+    ASSERT_NE(findItem(items, "locations"), nullptr);
+    ASSERT_NE(findItem(items, "scene"), nullptr);
+    ASSERT_NE(findItem(items, "areas"), nullptr);
+    EXPECT_EQ(findItem(items, "name"), nullptr);
+    EXPECT_EQ(findItem(items, "events"), nullptr);
+    EXPECT_EQ(findItem(items, "define"), nullptr);
+    EXPECT_EQ(items.front().label, "locations");
+    EXPECT_EQ(items.front().replacementRange.start.character, 2u);
+    EXPECT_EQ(items.front().replacementRange.end.character, 5u);
+}
+
+TEST(CompletionServiceTests, LimitsExtensionBodiesToMissingSections) {
+    CompletionFixture fixture(
+        "extend region RR_TEST {\n"
+        "  events {}\n"
+        "  ex\n");
+
+    const auto items = CompletionService(fixture.projects, fixture.scheduler)
+        .complete(fixture.uri, {2, 4});
+
+    ASSERT_NE(findItem(items, "exits"), nullptr);
+    ASSERT_NE(findItem(items, "locations"), nullptr);
+    EXPECT_EQ(findItem(items, "events"), nullptr);
+    EXPECT_EQ(findItem(items, "name"), nullptr);
+    EXPECT_EQ(items.front().label, "exits");
+}
+
+TEST(CompletionServiceTests, OffersHereOnlyInRegionExpressions) {
+    CompletionFixture fixture(
+        "region RR_TEST { events { EVENT_TEST: tr } }\n"
+        "define check(): tr\n");
+    CompletionService completion(fixture.projects, fixture.scheduler);
+
+    const auto regionItems = completion.complete(fixture.uri, {0, 40});
+    const auto defineItems = completion.complete(fixture.uri, {1, 18});
+
+    ASSERT_NE(findItem(regionItems, "here"), nullptr);
+    EXPECT_EQ(findItem(regionItems, "here")->detail, "built-in here: Region");
+    EXPECT_EQ(findItem(defineItems, "here"), nullptr);
+}
+
 } // namespace

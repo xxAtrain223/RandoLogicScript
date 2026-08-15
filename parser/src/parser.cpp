@@ -121,7 +121,8 @@ rls::ast::Project ParseProject(const std::filesystem::path& directory) {
 
 IndexedFile ParseStringWithIndex(const std::string& source, const std::string& filename) {
 	auto file = ParseString(source, filename);
-	auto sourceIndex = BuildSourceIndex(file);
+	const auto sourceText = ast::SourceText::FromUtf8(source);
+	auto sourceIndex = BuildSourceIndex(file, sourceText ? &*sourceText : nullptr);
 	return {std::move(file), std::move(sourceIndex)};
 }
 

@@ -19,9 +19,10 @@ Consume parser context, semantic scope/type/call queries from [plan-compilerQuer
 
 - [x] Implement `textDocument/completion` using parser context first, then semantic visible-symbol/expected-type queries.
 - [x] Support top-level declarations and keywords.
-- [ ] Support region body keys and section names.
+- [x] Support canonical region body keys and section names, excluding entries already present in the body.
 - [x] Support visible parameters, defines, extern defines, Boolean literals, and core expression keywords.
-- [ ] Support regions, entries, and region-only expression keywords where valid.
+- [x] Support the region-only `here` expression keyword where valid.
+- [ ] Support region and entry expression symbols if/when the semantic query model marks them valid at the cursor.
 - [x] Support built-in and user enum types in type positions.
 - [ ] Support enum members after `.` for the resolved enum type only.
 - [ ] Support named argument labels from resolved callable parameters.
@@ -58,7 +59,7 @@ Consume parser context, semantic scope/type/call queries from [plan-compilerQuer
 ### Tests
 
 - [x] Shared presentation rendering for types, enum identities, defaults, documentation, provenance, and source-range separation.
-- [x] Top-level, type-position, and expression completion contexts with expected-type/enum filtering.
+- [x] Top-level, region-body, type-position, and expression completion contexts with expected-type/enum filtering.
 - [ ] Qualified versus ambiguous enum completion.
 - [x] Scoped parameter completion.
 - [ ] Cross-file declaration completion.
@@ -66,7 +67,7 @@ Consume parser context, semantic scope/type/call queries from [plan-compilerQuer
 - [ ] Incomplete call completion.
 - [ ] Named arguments, defaults, and nested calls.
 - [ ] Hover/signature rendering for user and extern declarations.
-- [x] Malformed top-level source and stale snapshot completion behavior.
+- [x] Malformed top-level/region-body source and stale snapshot completion behavior.
 - [ ] Unsupported client capability behavior.
 
 ### Definition of Done
