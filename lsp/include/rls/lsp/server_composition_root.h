@@ -4,6 +4,7 @@
 #include <vector>
 
 #include "rls/lsp/analysis_scheduler.h"
+#include "rls/lsp/completion_service.h"
 #include "rls/lsp/diagnostic_publisher.h"
 #include "rls/lsp/document_synchronization_service.h"
 #include "rls/lsp/document_store.h"
@@ -41,6 +42,7 @@ private:
     DiagnosticPublisher diagnostics_;
     AnalysisScheduler scheduler_;
     NavigationService navigation_;
+    CompletionService completion_;
     WorkspaceService workspace_;
     DocumentSynchronizationService synchronization_;
 };

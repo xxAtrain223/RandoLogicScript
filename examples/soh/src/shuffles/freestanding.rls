@@ -17,7 +17,7 @@ extend region RR_KOKIRI_FOREST {
         RC_KF_BEAN_RUPEE_4:   is_adult() and (can_plant_bean(RR_KOKIRI_FOREST, RG_KOKIRI_FOREST_BEAN_SOUL) or can_use(RG_HOVER_BOOTS) or can_use(RG_BOOMERANG))
         RC_KF_BEAN_RUPEE_5:   is_adult() and (can_plant_bean(RR_KOKIRI_FOREST, RG_KOKIRI_FOREST_BEAN_SOUL) or can_use(RG_HOVER_BOOTS) or can_use(RG_BOOMERANG))
         RC_KF_BEAN_RUPEE_6:   is_adult() and (can_plant_bean(RR_KOKIRI_FOREST, RG_KOKIRI_FOREST_BEAN_SOUL) or can_use(RG_HOVER_BOOTS) or can_use(RG_BOOMERANG))
-        RC_KF_BEAN_RED_RUPEE: is_adult() and (can_plant_bean(RR_KOKIRI_FOREST, RG_KOKIRI_FOREST_BEAN_SOUL) or can_use(RG_HOVER_BOOTS) or can_use(RG_BOOMERANG))
+        RC_KF_BEAN_RED_RUPEE: is_adult() and (can_plant_bean(RG_KOKIRI_FOREST, RG_KOKIRI_FOREST_BEAN_SOUL) or can_use(RG_HOVER_BOOTS) or can_use(RG_BOOMERANG))
     }
 }
 

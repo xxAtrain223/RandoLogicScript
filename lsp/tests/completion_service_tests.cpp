@@ -1,0 +1,130 @@
+#include <algorithm>
+#include <chrono>
+#include <filesystem>
+
+#include <gtest/gtest.h>
+
+#include "rls/lsp/completion_service.h"
+#include "rls/lsp/document_store.h"
+#include "rls/lsp/document_uri.h"
+
+namespace fs = std::filesystem;
+
+namespace {
+
+using rls::lsp::AnalysisScheduler;
+using rls::lsp::CompletionItem;
+using rls::lsp::CompletionService;
+using rls::lsp::DocumentStore;
+using rls::lsp::ProjectManager;
+
+struct CompletionFixture {
+    fs::path path = fs::temp_directory_path() / "rls-completion-service.rls";
+    std::string uri = *rls::lsp::PathToFileUri(path);
+    std::string content;
+    DocumentStore documents;
+    ProjectManager projects;
+    AnalysisScheduler scheduler;
+
+    explicit CompletionFixture(std::string source)
+        : content(std::move(source)),
+          projects(documents, [&](const fs::path&) {
+              rls::project::FileProject project;
+              project.sourceFiles = {path};
+              project.isStandalone = true;
+              return project;
+          }),
+          scheduler({
+              .debounce = std::chrono::milliseconds(0),
+              .maximumConcurrency = 1,
+          }) {
+        EXPECT_EQ(documents.open(uri, "rls", 1, content),
+            rls::lsp::DocumentUpdateResult::Applied);
+        EXPECT_EQ(projects.documentOpened(uri),
+            rls::lsp::ProjectAssignmentResult::Assigned);
+        const auto* project = projects.projectForDocument(uri);
+        EXPECT_NE(project, nullptr);
+        if (!project) return;
+        EXPECT_TRUE(scheduler.schedule({
+            project->id,
+            project->generation,
+            {{path, content}},
+            project->documentGeneration,
+            project->manifestGeneration,
+        }));
+        scheduler.waitForIdle();
+    }
+};
+
+const CompletionItem* findItem(
+    const std::vector<CompletionItem>& items, std::string_view label) {
+    const auto found = std::find_if(items.begin(), items.end(), [&](const auto& item) {
+        return item.label == label;
+    });
+    return found == items.end() ? nullptr : &*found;
+}
+
+TEST(CompletionServiceTests, OffersOnlyDeclarationKeywordsAtTopLevel) {
+    CompletionFixture fixture("def\n");
+
+    const auto items = CompletionService(fixture.projects, fixture.scheduler)
+        .complete(fixture.uri, {0, 3});
+
+    ASSERT_NE(findItem(items, "define"), nullptr);
+    ASSERT_NE(findItem(items, "extern define"), nullptr);
+    EXPECT_EQ(findItem(items, "true"), nullptr);
+    EXPECT_EQ(items.front().label, "define");
+    EXPECT_EQ(items.front().replacementRange.start.character, 0u);
+    EXPECT_EQ(items.front().replacementRange.end.character, 3u);
+}
+
+TEST(CompletionServiceTests, OffersBuiltInAndDeclaredTypesInTypePosition) {
+    CompletionFixture fixture(
+        "enum Color { RED }\n"
+        "define choose(value: Color): value\n");
+
+    const auto items = CompletionService(fixture.projects, fixture.scheduler)
+        .complete(fixture.uri, {1, 26});
+
+    ASSERT_NE(findItem(items, "Color"), nullptr);
+    ASSERT_NE(findItem(items, "Bool"), nullptr);
+    EXPECT_EQ(findItem(items, "RED"), nullptr);
+    EXPECT_EQ(findItem(items, "choose"), nullptr);
+}
+
+TEST(CompletionServiceTests, UsesScopeAndExpectedEnumForExpressionCandidates) {
+    CompletionFixture fixture(
+        "enum Color { RED, BLUE }\n"
+        "enum Size { SMALL }\n"
+        "define choose(value: Color): value\n"
+        "define other(hidden: Bool): hidden\n"
+        "define use(input: Color): choose(R)\n");
+
+    const auto items = CompletionService(fixture.projects, fixture.scheduler)
+        .complete(fixture.uri, {4, 34});
+
+    ASSERT_NE(findItem(items, "RED"), nullptr);
+    ASSERT_NE(findItem(items, "BLUE"), nullptr);
+    ASSERT_NE(findItem(items, "input"), nullptr);
+    ASSERT_NE(findItem(items, "choose"), nullptr);
+    EXPECT_EQ(findItem(items, "SMALL"), nullptr);
+    EXPECT_EQ(findItem(items, "hidden"), nullptr);
+    EXPECT_EQ(findItem(items, "true"), nullptr);
+    EXPECT_EQ(items.front().label, "RED");
+    EXPECT_EQ(items.front().replacementRange.start.character, 33u);
+    EXPECT_EQ(items.front().replacementRange.end.character, 34u);
+    EXPECT_EQ(findItem(items, "choose")->detail, "choose(value: Color)");
+}
+
+TEST(CompletionServiceTests, RejectsAStaleAcceptedSnapshot) {
+    CompletionFixture fixture("define check(flag: Bool): flag\n");
+    ASSERT_EQ(fixture.projects.documentChanged(fixture.uri),
+        rls::lsp::ProjectAssignmentResult::Assigned);
+
+    const auto items = CompletionService(fixture.projects, fixture.scheduler)
+        .complete(fixture.uri, {0, 31});
+
+    EXPECT_TRUE(items.empty());
+}
+
+} // namespace

@@ -32,6 +32,7 @@ TEST(ServerCompositionRootTests, RegistersOnlyImplementedRoutes) {
     EXPECT_TRUE(server.router().contains("textDocument/references"));
     EXPECT_TRUE(server.router().contains("textDocument/documentHighlight"));
     EXPECT_TRUE(server.router().contains("textDocument/documentSymbol"));
+    EXPECT_TRUE(server.router().contains("textDocument/completion"));
     EXPECT_TRUE(server.router().contains("workspace/symbol"));
     EXPECT_FALSE(server.router().contains("textDocument/publishDiagnostics"));
 }
@@ -49,7 +50,48 @@ TEST(ServerCompositionRootTests, AdvertisesImplementedTextDocumentFeatures) {
     EXPECT_EQ(result["capabilities"]["referencesProvider"], true);
     EXPECT_EQ(result["capabilities"]["documentHighlightProvider"], true);
     EXPECT_EQ(result["capabilities"]["documentSymbolProvider"], true);
+    EXPECT_EQ(result["capabilities"]["completionProvider"]["resolveProvider"], false);
     EXPECT_EQ(result["capabilities"]["workspaceSymbolProvider"], true);
+}
+
+TEST(ServerCompositionRootTests, RoutesCompletionWithActiveTokenTextEdit) {
+    const fs::path sourcePath = fs::temp_directory_path() / "rls-completion-route.rls";
+    const std::string uri = *rls::lsp::PathToFileUri(sourcePath);
+    ServerCompositionRoot server(standaloneProject);
+    server.handlePayload(
+        R"({"jsonrpc":"2.0","id":1,"method":"initialize","params":{}})");
+    server.handlePayload(
+        R"({"jsonrpc":"2.0","method":"initialized","params":{}})");
+    server.handlePayload(Json{
+        {"jsonrpc", "2.0"},
+        {"method", "textDocument/didOpen"},
+        {"params", {{"textDocument", {
+            {"uri", uri},
+            {"languageId", "rls"},
+            {"version", 1},
+            {"text", "def\n"},
+        }}}},
+    }.dump());
+    server.scheduler().waitForIdle();
+
+    const auto responses = server.handlePayload(Json{
+        {"jsonrpc", "2.0"},
+        {"id", 2},
+        {"method", "textDocument/completion"},
+        {"params", {
+            {"textDocument", {{"uri", uri}}},
+            {"position", {{"line", 0}, {"character", 3}}},
+        }},
+    }.dump());
+
+    ASSERT_EQ(responses.size(), 1u);
+    const auto result = Json::parse(responses.front())["result"];
+    ASSERT_FALSE(result.empty());
+    EXPECT_EQ(result[0]["label"], "define");
+    EXPECT_EQ(result[0]["kind"], 14);
+    EXPECT_EQ(result[0]["textEdit"]["newText"], "define");
+    EXPECT_EQ(result[0]["textEdit"]["range"]["start"]["character"], 0);
+    EXPECT_EQ(result[0]["textEdit"]["range"]["end"]["character"], 3);
 }
 
 TEST(ServerCompositionRootTests, RoutesDefinitionFromAcceptedSnapshot) {

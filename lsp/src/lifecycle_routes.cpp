@@ -95,6 +95,9 @@ void RegisterLifecycleRoutes(
                 {"referencesProvider", true},
                 {"documentHighlightProvider", true},
                 {"documentSymbolProvider", true},
+                {"completionProvider", {
+                    {"resolveProvider", false},
+                }},
                 {"workspaceSymbolProvider", true},
                 {"workspace", {
                     {"workspaceFolders", {

@@ -2,6 +2,7 @@
 
 namespace rls::lsp {
 
+class CompletionService;
 class DocumentSynchronizationService;
 class JsonRpcRouter;
 class LifecycleService;
@@ -12,6 +13,8 @@ void RegisterLifecycleRoutes(
     JsonRpcRouter& router, LifecycleService& lifecycle, WorkspaceService& workspace);
 void RegisterDocumentSynchronizationRoutes(
     JsonRpcRouter& router, DocumentSynchronizationService& synchronization);
+void RegisterAuthoringRoutes(
+    JsonRpcRouter& router, CompletionService& completion);
 void RegisterNavigationRoutes(
     JsonRpcRouter& router, LifecycleService& lifecycle, NavigationService& navigation,
     WorkspaceService& workspace);

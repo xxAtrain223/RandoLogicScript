@@ -17,15 +17,16 @@ Consume parser context, semantic scope/type/call queries from [plan-compilerQuer
 
 ### 2. Completion
 
-- [ ] Implement `textDocument/completion` using parser context first, then semantic visible-symbol/expected-type queries.
-- [ ] Support top-level declarations and keywords.
+- [x] Implement `textDocument/completion` using parser context first, then semantic visible-symbol/expected-type queries.
+- [x] Support top-level declarations and keywords.
 - [ ] Support region body keys and section names.
-- [ ] Support expression symbols, literals, and keywords valid at the cursor.
-- [ ] Support built-in and user enum types in type positions.
+- [x] Support visible parameters, defines, extern defines, Boolean literals, and core expression keywords.
+- [ ] Support regions, entries, and region-only expression keywords where valid.
+- [x] Support built-in and user enum types in type positions.
 - [ ] Support enum members after `.` for the resolved enum type only.
 - [ ] Support named argument labels from resolved callable parameters.
-- [ ] Rank candidates by syntactic context, expected type, enum identity, scope proximity, and typed prefix.
-- [ ] Use the SourceText replacement range only for the active partial token; never derive candidate identity lexically.
+- [x] Rank candidates by syntactic context, expected type, enum identity, scope proximity, and typed prefix.
+- [x] Use the SourceText replacement range only for the active partial token; never derive candidate identity lexically.
 - [ ] Provide snippets only where inserted syntax is unambiguous and clients advertise snippet support.
 
 ### 3. Signature Help
@@ -57,13 +58,16 @@ Consume parser context, semantic scope/type/call queries from [plan-compilerQuer
 ### Tests
 
 - [x] Shared presentation rendering for types, enum identities, defaults, documentation, provenance, and source-range separation.
-- [ ] Completion contexts and expected-type/enum filtering.
+- [x] Top-level, type-position, and expression completion contexts with expected-type/enum filtering.
 - [ ] Qualified versus ambiguous enum completion.
-- [ ] Scoped parameters and cross-file declarations.
-- [ ] Partial token replacement and incomplete calls.
+- [x] Scoped parameter completion.
+- [ ] Cross-file declaration completion.
+- [x] Partial token replacement.
+- [ ] Incomplete call completion.
 - [ ] Named arguments, defaults, and nested calls.
 - [ ] Hover/signature rendering for user and extern declarations.
-- [ ] Malformed source, stale snapshots, and unsupported client capabilities.
+- [x] Malformed top-level source and stale snapshot completion behavior.
+- [ ] Unsupported client capability behavior.
 
 ### Definition of Done
 
