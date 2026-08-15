@@ -97,8 +97,10 @@ bool startsWithCaseInsensitive(std::string_view value, std::string_view prefix) 
 CompletionContext completionContextAt(
     const parser::SourceIndex& index, ast::Position position,
     const std::optional<parser::RegionContext>& region,
-    const std::optional<parser::MemberAccessContext>& memberAccess) {
+    const std::optional<parser::MemberAccessContext>& memberAccess,
+    const std::optional<parser::NamedArgumentContext>& namedArgument) {
     if (memberAccess) return CompletionContext::MemberAccess;
+    if (namedArgument) return CompletionContext::Expression;
     if (const auto name = index.nameAt(position)) {
         switch (name->kind) {
         case parser::SourceNameKind::Type:
@@ -296,8 +298,13 @@ std::vector<CompletionItem> CompletionService::complete(
 
     const auto region = document->sourceIndex->regionContextAt(contextPosition);
     const auto memberAccess = document->sourceIndex->memberAccessAt(*cursorPosition);
+    auto namedArgument = document->sourceIndex->namedArgumentAt(*cursorPosition);
+    if (namedArgument && document->sourceIndex->syntaxAt(contextPosition)
+        && !document->sourceIndex->enclosingCall(contextPosition)) {
+        namedArgument.reset();
+    }
     const auto context = completionContextAt(
-        *document->sourceIndex, contextPosition, region, memberAccess);
+        *document->sourceIndex, contextPosition, region, memberAccess, namedArgument);
     const auto expected = document->snapshot->expectedTypeAt(document->path, contextPosition);
     std::vector<Candidate> candidates;
     std::set<std::string> labels;
@@ -394,6 +401,65 @@ std::vector<CompletionItem> CompletionService::complete(
             }
         }
     } else if (context == CompletionContext::Expression) {
+        if (namedArgument) {
+            const sema::SymbolRecord* callable = nullptr;
+            for (const auto& symbol : document->snapshot->semanticIndex().symbols()) {
+                const bool isCallable = symbol.category == sema::SymbolCategory::Define
+                    || symbol.category == sema::SymbolCategory::ExternDefine;
+                if (isCallable && symbol.displayName == namedArgument->callee) {
+                    callable = &symbol;
+                    break;
+                }
+            }
+            if (callable) {
+                std::vector<const sema::SymbolRecord*> parameters;
+                for (const auto& symbol : document->snapshot->semanticIndex().symbols()) {
+                    if (symbol.category == sema::SymbolCategory::Parameter
+                        && symbol.container == callable->id) {
+                        parameters.push_back(&symbol);
+                    }
+                }
+                std::sort(parameters.begin(), parameters.end(), [](const auto* left, const auto* right) {
+                    return std::tie(left->selection.start.line, left->selection.start.column)
+                        < std::tie(right->selection.start.line, right->selection.start.column);
+                });
+
+                std::vector<bool> bound(parameters.size(), false);
+                size_t nextPositional = 0;
+                for (size_t argumentIndex = 0;
+                     argumentIndex < namedArgument->argumentLabels.size(); ++argumentIndex) {
+                    if (argumentIndex == namedArgument->activeArgument) continue;
+                    const auto& label = namedArgument->argumentLabels[argumentIndex];
+                    if (label) {
+                        const auto parameter = std::find_if(
+                            parameters.begin(), parameters.end(), [&](const auto* candidate) {
+                                return candidate->displayName == *label;
+                            });
+                        if (parameter != parameters.end()) {
+                            bound[static_cast<size_t>(parameter - parameters.begin())] = true;
+                        }
+                        continue;
+                    }
+                    if (argumentIndex > namedArgument->activeArgument) continue;
+                    while (nextPositional < bound.size() && bound[nextPositional]) {
+                        ++nextPositional;
+                    }
+                    if (nextPositional < bound.size()) bound[nextPositional++] = true;
+                }
+
+                for (size_t parameterIndex = 0;
+                     parameterIndex < parameters.size(); ++parameterIndex) {
+                    if (bound[parameterIndex]) continue;
+                    const auto* parameter = parameters[parameterIndex];
+                    const auto rendered = PresentationRenderer{}.render(
+                        presentationSymbol(*document->snapshot, *parameter));
+                    auto item = makeItem(parameter->displayName, CompletionItemKind::Property,
+                        rendered.detail, rendered.documentation);
+                    item.insertText += ": ";
+                    addCandidate(candidates, labels, std::move(item), 0, prefix);
+                }
+            }
+        }
         for (const auto symbolId : document->snapshot->visibleSymbolsAt(
                  document->path, contextPosition)) {
             const auto symbol = document->snapshot->declaration(symbolId);

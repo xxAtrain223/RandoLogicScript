@@ -254,4 +254,142 @@ TEST(CompletionServiceTests, RecoversEmptyMemberAcrossFiles) {
     EXPECT_EQ(items.front().replacementRange.end.character, 23u);
 }
 
+TEST(CompletionServiceTests, CompletesOnlyUnboundNamedArgumentsAcrossFiles) {
+    const fs::path root = fs::temp_directory_path() / "rls-named-argument-completion";
+    const fs::path declarationPath = root / "declaration.rls";
+    const fs::path usagePath = root / "usage.rls";
+    const std::string usageUri = *rls::lsp::PathToFileUri(usagePath);
+    const std::string usage =
+        "define use(): target(true, third: false, se";
+    DocumentStore documents;
+    ASSERT_EQ(documents.open(usageUri, "rls", 1, usage),
+        rls::lsp::DocumentUpdateResult::Applied);
+    ProjectManager projects(documents, [&](const fs::path&) {
+        rls::project::FileProject project;
+        project.sourceFiles = {declarationPath, usagePath};
+        return project;
+    });
+    ASSERT_EQ(projects.documentOpened(usageUri),
+        rls::lsp::ProjectAssignmentResult::Assigned);
+    const auto* project = projects.projectForDocument(usageUri);
+    ASSERT_NE(project, nullptr);
+    AnalysisScheduler scheduler({
+        .debounce = std::chrono::milliseconds(0),
+        .maximumConcurrency = 1,
+    });
+    ASSERT_TRUE(scheduler.schedule({
+        project->id,
+        project->generation,
+        {
+            {declarationPath,
+                "extern define target(first: Bool, second: Bool, third: Bool) -> Bool\n"},
+            {usagePath, usage},
+        },
+        project->documentGeneration,
+        project->manifestGeneration,
+    }));
+    scheduler.waitForIdle();
+
+    const auto items = CompletionService(projects, scheduler)
+        .complete(usageUri, {0, static_cast<uint32_t>(usage.size())});
+
+    const auto* second = findItem(items, "second");
+    ASSERT_NE(second, nullptr);
+    EXPECT_EQ(second->insertText, "second: ");
+    EXPECT_EQ(second->detail, "second: Bool");
+    EXPECT_EQ(findItem(items, "first"), nullptr);
+    EXPECT_EQ(findItem(items, "third"), nullptr);
+    EXPECT_EQ(items.front().label, "second");
+    EXPECT_EQ(second->replacementRange.start.character, usage.size() - 2);
+    EXPECT_EQ(second->replacementRange.end.character, usage.size());
+}
+
+TEST(CompletionServiceTests, KeepsNestedCallsOutOfOuterArgumentBinding) {
+    const fs::path root = fs::temp_directory_path() / "rls-nested-label-completion";
+    const fs::path declarationPath = root / "declaration.rls";
+    const fs::path usagePath = root / "usage.rls";
+    const std::string usageUri = *rls::lsp::PathToFileUri(usagePath);
+    const std::string usage = "define use(): outer(nested(true), se";
+    DocumentStore documents;
+    ASSERT_EQ(documents.open(usageUri, "rls", 1, usage),
+        rls::lsp::DocumentUpdateResult::Applied);
+    ProjectManager projects(documents, [&](const fs::path&) {
+        rls::project::FileProject project;
+        project.sourceFiles = {declarationPath, usagePath};
+        return project;
+    });
+    ASSERT_EQ(projects.documentOpened(usageUri),
+        rls::lsp::ProjectAssignmentResult::Assigned);
+    const auto* project = projects.projectForDocument(usageUri);
+    ASSERT_NE(project, nullptr);
+    AnalysisScheduler scheduler({
+        .debounce = std::chrono::milliseconds(0),
+        .maximumConcurrency = 1,
+    });
+    ASSERT_TRUE(scheduler.schedule({
+        project->id,
+        project->generation,
+        {
+            {declarationPath,
+                "extern define nested(value: Bool) -> Bool\n"
+                "extern define outer(first: Bool, second: Bool) -> Bool\n"},
+            {usagePath, usage},
+        },
+        project->documentGeneration,
+        project->manifestGeneration,
+    }));
+    scheduler.waitForIdle();
+
+    const auto items = CompletionService(projects, scheduler)
+        .complete(usageUri, {0, static_cast<uint32_t>(usage.size())});
+
+    ASSERT_NE(findItem(items, "second"), nullptr);
+    EXPECT_EQ(findItem(items, "first"), nullptr);
+}
+
+TEST(CompletionServiceTests, DoesNotFabricateLabelsForUnknownCallee) {
+    CompletionFixture fixture("define use(): missing(arg\n");
+
+    const auto items = CompletionService(fixture.projects, fixture.scheduler)
+        .complete(fixture.uri, {0, 25});
+
+    EXPECT_EQ(findItem(items, "arg"), nullptr);
+}
+
+TEST(CompletionServiceTests, DoesNotTreatDeclarationParametersAsArguments) {
+    CompletionFixture fixture(
+        "extern define target(first: Bool, second: Bool) -> Bool\n");
+
+    const auto items = CompletionService(fixture.projects, fixture.scheduler)
+        .complete(fixture.uri, {0, 26});
+
+    EXPECT_TRUE(items.empty());
+}
+
+TEST(CompletionServiceTests, CompletesLabelsInParsedCalls) {
+    CompletionFixture fixture(
+        "extern define target(first: Bool, second: Bool) -> Bool\n"
+        "define use(): target(first: true, se: false)\n");
+
+    const auto items = CompletionService(fixture.projects, fixture.scheduler)
+        .complete(fixture.uri, {1, 36});
+
+    ASSERT_NE(findItem(items, "second"), nullptr);
+    EXPECT_EQ(findItem(items, "first"), nullptr);
+    EXPECT_EQ(findItem(items, "second")->insertText, "second: ");
+}
+
+TEST(CompletionServiceTests, KeepsCandidatesBeforeLaterPositionalArguments) {
+    CompletionFixture fixture(
+        "extern define target(first: Bool, second: Bool) -> Bool\n"
+        "define use(): target(fi, true)\n");
+
+    const auto items = CompletionService(fixture.projects, fixture.scheduler)
+        .complete(fixture.uri, {1, 23});
+
+    ASSERT_NE(findItem(items, "first"), nullptr);
+    ASSERT_NE(findItem(items, "second"), nullptr);
+    EXPECT_EQ(items.front().label, "first");
+}
+
 } // namespace

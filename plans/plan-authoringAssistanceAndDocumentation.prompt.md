@@ -25,7 +25,7 @@ Consume parser context, semantic scope/type/call queries from [plan-compilerQuer
 - [ ] Support region and entry expression symbols if/when the semantic query model marks them valid at the cursor.
 - [x] Support built-in and user enum types in type positions.
 - [x] Support explicit enum members after `.` for the resolved enum type only; do not offer extern wildcard patterns as concrete members.
-- [ ] Support named argument labels from resolved callable parameters.
+- [x] Support named argument labels from resolved callable parameters, excluding parameters already bound positionally or by name.
 - [x] Rank candidates by syntactic context, expected type, enum identity, scope proximity, and typed prefix.
 - [x] Use the SourceText replacement range only for the active partial token; never derive candidate identity lexically.
 - [ ] Provide snippets only where inserted syntax is unambiguous and clients advertise snippet support.
@@ -64,10 +64,12 @@ Consume parser context, semantic scope/type/call queries from [plan-compilerQuer
 - [x] Scoped parameter completion.
 - [ ] Cross-file declaration completion.
 - [x] Partial token replacement.
-- [ ] Incomplete call completion.
-- [ ] Named arguments, defaults, and nested calls.
+- [x] Incomplete and parsed call completion for named argument labels.
+- [ ] Expected-value completion for incomplete calls.
+- [x] Named argument binding and nested-call isolation.
+- [ ] Defaults in completion/signature presentation from compiler query metadata.
 - [ ] Hover/signature rendering for user and extern declarations.
-- [x] Malformed top-level/region-body/member-access source and stale snapshot completion behavior.
+- [x] Malformed top-level/region-body/member-access/call source and stale snapshot completion behavior.
 - [ ] Unsupported client capability behavior.
 
 ### Definition of Done

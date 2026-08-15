@@ -589,6 +589,43 @@ TEST(SourceIndexTests, ReportsCompleteAndRecoveredMemberAccessContexts) {
 	EXPECT_FALSE(recovered.sourceIndex.memberAccessAt({3, 31}));
 }
 
+TEST(SourceIndexTests, ReportsRecoveredNamedArgumentContexts) {
+	const auto emptySource = rls::parser::ParseStringWithIndex(
+		"define first(): target(", "empty-argument.rls");
+	ASSERT_FALSE(emptySource.file.diagnostics.empty());
+	const auto empty = emptySource.sourceIndex.namedArgumentAt({1, 24});
+	ASSERT_TRUE(empty);
+	EXPECT_EQ(empty->callee, "target");
+	EXPECT_EQ(empty->activeArgument, 0u);
+	ASSERT_EQ(empty->argumentLabels.size(), 1u);
+	EXPECT_FALSE(empty->argumentLabels[0]);
+	EXPECT_EQ(empty->labelSpan.start.column, 24u);
+	EXPECT_EQ(empty->labelSpan.end.column, 24u);
+
+	const auto partialSource = rls::parser::ParseStringWithIndex(
+		"define second(): target(first: true, se", "partial-argument.rls");
+	ASSERT_FALSE(partialSource.file.diagnostics.empty());
+	const auto partial = partialSource.sourceIndex.namedArgumentAt({1, 40});
+	ASSERT_TRUE(partial);
+	EXPECT_EQ(partial->callee, "target");
+	EXPECT_EQ(partial->activeArgument, 1u);
+	ASSERT_EQ(partial->argumentLabels.size(), 2u);
+	EXPECT_EQ(partial->argumentLabels[0], "first");
+	EXPECT_FALSE(partial->argumentLabels[1]);
+
+	const auto nestedSource = rls::parser::ParseStringWithIndex(
+		"define third(): target(true, nested(value), th", "nested-argument.rls");
+	ASSERT_FALSE(nestedSource.file.diagnostics.empty());
+	const auto nested = nestedSource.sourceIndex.namedArgumentAt({1, 47});
+	ASSERT_TRUE(nested);
+	EXPECT_EQ(nested->callee, "target");
+	EXPECT_EQ(nested->activeArgument, 2u);
+	ASSERT_EQ(nested->argumentLabels.size(), 3u);
+	EXPECT_FALSE(nested->argumentLabels[0]);
+	EXPECT_FALSE(nested->argumentLabels[1]);
+	EXPECT_FALSE(nested->argumentLabels[2]);
+}
+
 TEST(ParseExpr, NestedCalls) {
 	const auto& e = parseExpr("can_use(setting(RSK_FOO))");
 	ASSERT_TRUE(std::holds_alternative<CallExpr>(e.node));
