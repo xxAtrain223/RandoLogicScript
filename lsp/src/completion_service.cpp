@@ -98,9 +98,10 @@ CompletionContext completionContextAt(
     const parser::SourceIndex& index, ast::Position position,
     const std::optional<parser::RegionContext>& region,
     const std::optional<parser::MemberAccessContext>& memberAccess,
-    const std::optional<parser::NamedArgumentContext>& namedArgument) {
+    const std::optional<parser::NamedArgumentContext>& namedArgument,
+    const std::optional<parser::CallArgumentContext>& callArgument) {
     if (memberAccess) return CompletionContext::MemberAccess;
-    if (namedArgument) return CompletionContext::Expression;
+    if (namedArgument || callArgument) return CompletionContext::Expression;
     if (const auto name = index.nameAt(position)) {
         switch (name->kind) {
         case parser::SourceNameKind::Type:
@@ -303,9 +304,86 @@ std::vector<CompletionItem> CompletionService::complete(
         && !document->sourceIndex->enclosingCall(contextPosition)) {
         namedArgument.reset();
     }
+    auto callArgument = document->sourceIndex->callArgumentAt(*cursorPosition);
+    if (callArgument && document->sourceIndex->syntaxAt(contextPosition)
+        && !document->sourceIndex->enclosingCall(contextPosition)) {
+        callArgument.reset();
+    }
     const auto context = completionContextAt(
-        *document->sourceIndex, contextPosition, region, memberAccess, namedArgument);
-    const auto expected = document->snapshot->expectedTypeAt(document->path, contextPosition);
+        *document->sourceIndex, contextPosition, region, memberAccess,
+        namedArgument, callArgument);
+    const auto findCallable = [&](std::string_view callee) -> const sema::SymbolRecord* {
+        for (const auto& symbol : document->snapshot->semanticIndex().symbols()) {
+            const bool isCallable = symbol.category == sema::SymbolCategory::Define
+                || symbol.category == sema::SymbolCategory::ExternDefine;
+            if (isCallable && symbol.displayName == callee) return &symbol;
+        }
+        return nullptr;
+    };
+    const auto parametersFor = [&](const sema::SymbolRecord& callable) {
+        std::vector<const sema::SymbolRecord*> parameters;
+        for (const auto& symbol : document->snapshot->semanticIndex().symbols()) {
+            if (symbol.category == sema::SymbolCategory::Parameter
+                && symbol.container == callable.id) {
+                parameters.push_back(&symbol);
+            }
+        }
+        std::sort(parameters.begin(), parameters.end(), [](const auto* left, const auto* right) {
+            return std::tie(left->selection.start.line, left->selection.start.column)
+                < std::tie(right->selection.start.line, right->selection.start.column);
+        });
+        return parameters;
+    };
+
+    auto expected = document->snapshot->expectedTypeAt(document->path, contextPosition);
+    if (!expected && callArgument
+        && callArgument->activeArgument < callArgument->argumentLabels.size()) {
+        if (const auto* callable = findCallable(callArgument->callee)) {
+            const auto parameters = parametersFor(*callable);
+            std::vector<bool> bound(parameters.size(), false);
+            size_t nextPositional = 0;
+            for (size_t argumentIndex = 0;
+                 argumentIndex < callArgument->activeArgument; ++argumentIndex) {
+                const auto& label = callArgument->argumentLabels[argumentIndex];
+                if (label) {
+                    const auto parameter = std::find_if(
+                        parameters.begin(), parameters.end(), [&](const auto* candidate) {
+                            return candidate->displayName == *label;
+                        });
+                    if (parameter != parameters.end()) {
+                        bound[static_cast<size_t>(parameter - parameters.begin())] = true;
+                    }
+                    continue;
+                }
+                while (nextPositional < bound.size() && bound[nextPositional]) {
+                    ++nextPositional;
+                }
+                if (nextPositional < bound.size()) bound[nextPositional++] = true;
+            }
+
+            const sema::SymbolRecord* activeParameter = nullptr;
+            const auto& activeLabel = callArgument->argumentLabels[callArgument->activeArgument];
+            if (activeLabel) {
+                const auto parameter = std::find_if(
+                    parameters.begin(), parameters.end(), [&](const auto* candidate) {
+                        return candidate->displayName == *activeLabel;
+                    });
+                if (parameter != parameters.end()) activeParameter = *parameter;
+            } else {
+                while (nextPositional < bound.size() && bound[nextPositional]) {
+                    ++nextPositional;
+                }
+                if (nextPositional < parameters.size()) activeParameter = parameters[nextPositional];
+            }
+            if (activeParameter && activeParameter->type) {
+                expected = sema::ExpectedTypeRecord{
+                    callArgument->valueSpan,
+                    *activeParameter->type,
+                    activeParameter->enumName,
+                };
+            }
+        }
+    }
     std::vector<Candidate> candidates;
     std::set<std::string> labels;
     const auto makeItem = [&](std::string label, CompletionItemKind kind,
@@ -402,27 +480,9 @@ std::vector<CompletionItem> CompletionService::complete(
         }
     } else if (context == CompletionContext::Expression) {
         if (namedArgument) {
-            const sema::SymbolRecord* callable = nullptr;
-            for (const auto& symbol : document->snapshot->semanticIndex().symbols()) {
-                const bool isCallable = symbol.category == sema::SymbolCategory::Define
-                    || symbol.category == sema::SymbolCategory::ExternDefine;
-                if (isCallable && symbol.displayName == namedArgument->callee) {
-                    callable = &symbol;
-                    break;
-                }
-            }
+            const sema::SymbolRecord* callable = findCallable(namedArgument->callee);
             if (callable) {
-                std::vector<const sema::SymbolRecord*> parameters;
-                for (const auto& symbol : document->snapshot->semanticIndex().symbols()) {
-                    if (symbol.category == sema::SymbolCategory::Parameter
-                        && symbol.container == callable->id) {
-                        parameters.push_back(&symbol);
-                    }
-                }
-                std::sort(parameters.begin(), parameters.end(), [](const auto* left, const auto* right) {
-                    return std::tie(left->selection.start.line, left->selection.start.column)
-                        < std::tie(right->selection.start.line, right->selection.start.column);
-                });
+                const auto parameters = parametersFor(*callable);
 
                 std::vector<bool> bound(parameters.size(), false);
                 size_t nextPositional = 0;

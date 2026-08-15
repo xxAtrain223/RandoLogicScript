@@ -229,23 +229,38 @@ void addRecoveredNamedArguments(
 		}
 
 		std::vector<std::optional<std::string>> labels;
+		std::vector<std::optional<size_t>> labelColonEnds;
 		labels.reserve(segments.size());
+		labelColonEnds.reserve(segments.size());
 		for (const auto& [start, end] : segments) {
 			std::optional<std::string> label;
+			std::optional<size_t> colonEnd;
 			for (size_t cursor = openIndex + 1; cursor + 1 < tokens.size(); ++cursor) {
 				if (tokenStart(tokens[cursor]) < start || tokens[cursor].end > end) continue;
 				if (tokens[cursor].punctuation == 0
 					&& tokens[cursor + 1].punctuation == ':'
 					&& tokenStart(tokens[cursor + 1]) <= end) {
 					label = std::string(tokens[cursor].text);
+					colonEnd = tokens[cursor + 1].end;
 				}
 				break;
 			}
 			labels.push_back(std::move(label));
+			labelColonEnds.push_back(colonEnd);
 		}
 
 		for (size_t argumentIndex = 0; argumentIndex < segments.size(); ++argumentIndex) {
 			const auto [start, end] = segments[argumentIndex];
+			size_t valueStart = labelColonEnds[argumentIndex].value_or(start);
+			while (valueStart < end
+				&& std::isspace(static_cast<unsigned char>(source.content()[valueStart]))) {
+				++valueStart;
+			}
+			if (const auto valueSpan = spanFromOffsets(source, file.path, valueStart, end)) {
+				index.addCallArgument({
+					std::string(callee.text), labels, argumentIndex, *valueSpan});
+			}
+
 			size_t labelStart = start;
 			while (labelStart < end
 				&& std::isspace(static_cast<unsigned char>(source.content()[labelStart]))) {
@@ -401,6 +416,11 @@ void SourceIndex::addNamedArgument(NamedArgumentContext context) {
 	namedArguments_.push_back(std::move(context));
 }
 
+void SourceIndex::addCallArgument(CallArgumentContext context) {
+	if (context.valueSpan.start.line == 0) return;
+	callArguments_.push_back(std::move(context));
+}
+
 std::optional<SyntaxContext> SourceIndex::syntaxAt(ast::Position position) const {
 	if (const auto name = narrowestAt(names_, position)) return SyntaxContext{SyntaxKind::Name, name->span};
 	return narrowestAt(syntax_, position);
@@ -485,6 +505,19 @@ std::optional<NamedArgumentContext> SourceIndex::namedArgumentAt(ast::Position p
 		}
 	}
 	return result ? std::optional<NamedArgumentContext>(*result) : std::nullopt;
+}
+
+std::optional<CallArgumentContext> SourceIndex::callArgumentAt(ast::Position position) const {
+	const CallArgumentContext* result = nullptr;
+	for (const auto& context : callArguments_) {
+		const bool atValue = isBeforeOrEqual(context.valueSpan.start, position)
+			&& isBeforeOrEqual(position, context.valueSpan.end);
+		if (atValue && (!result
+			|| spanSize(context.valueSpan) < spanSize(result->valueSpan))) {
+			result = &context;
+		}
+	}
+	return result ? std::optional<CallArgumentContext>(*result) : std::nullopt;
 }
 
 std::vector<SyntaxContext> SourceIndex::declarationsIn(std::string_view file) const {

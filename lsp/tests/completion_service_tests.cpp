@@ -64,6 +64,51 @@ const CompletionItem* findItem(
     return found == items.end() ? nullptr : &*found;
 }
 
+struct CrossFileCompletionFixture {
+    fs::path root = fs::temp_directory_path() / "rls-cross-file-completion";
+    fs::path declarationPath = root / "declaration.rls";
+    fs::path usagePath = root / "usage.rls";
+    std::string usageUri = *rls::lsp::PathToFileUri(usagePath);
+    DocumentStore documents;
+    ProjectManager projects;
+    AnalysisScheduler scheduler;
+
+    CrossFileCompletionFixture(std::string declarations, std::string usage)
+        : projects(documents, [&](const fs::path&) {
+              rls::project::FileProject project;
+              project.sourceFiles = {declarationPath, usagePath};
+              return project;
+          }),
+          scheduler({
+              .debounce = std::chrono::milliseconds(0),
+              .maximumConcurrency = 1,
+          }) {
+        EXPECT_EQ(documents.open(usageUri, "rls", 1, usage),
+            rls::lsp::DocumentUpdateResult::Applied);
+        EXPECT_EQ(projects.documentOpened(usageUri),
+            rls::lsp::ProjectAssignmentResult::Assigned);
+        const auto* project = projects.projectForDocument(usageUri);
+        EXPECT_NE(project, nullptr);
+        if (!project) return;
+        EXPECT_TRUE(scheduler.schedule({
+            project->id,
+            project->generation,
+            {
+                {declarationPath, std::move(declarations)},
+                {usagePath, std::move(usage)},
+            },
+            project->documentGeneration,
+            project->manifestGeneration,
+        }));
+        scheduler.waitForIdle();
+    }
+
+    std::vector<CompletionItem> completeAtEnd(std::string_view usage) const {
+        return CompletionService(projects, scheduler).complete(
+            usageUri, {0, static_cast<uint32_t>(usage.size())});
+    }
+};
+
 TEST(CompletionServiceTests, OffersOnlyDeclarationKeywordsAtTopLevel) {
     CompletionFixture fixture("def\n");
 
@@ -390,6 +435,87 @@ TEST(CompletionServiceTests, KeepsCandidatesBeforeLaterPositionalArguments) {
     ASSERT_NE(findItem(items, "first"), nullptr);
     ASSERT_NE(findItem(items, "second"), nullptr);
     EXPECT_EQ(items.front().label, "first");
+}
+
+TEST(CompletionServiceTests, FiltersRecoveredPositionalAndNamedEnumValues) {
+    const std::string declarations =
+        "enum Color { RED, BLUE }\n"
+        "enum Size { SMALL }\n"
+        "extern define paint(color: Color) -> Bool\n";
+    const std::string positionalUsage = "define use(): paint(R";
+    CrossFileCompletionFixture positional(declarations, positionalUsage);
+
+    const auto positionalItems = positional.completeAtEnd(positionalUsage);
+
+    ASSERT_NE(findItem(positionalItems, "RED"), nullptr);
+    ASSERT_NE(findItem(positionalItems, "BLUE"), nullptr);
+    EXPECT_EQ(findItem(positionalItems, "SMALL"), nullptr);
+    EXPECT_EQ(findItem(positionalItems, "true"), nullptr);
+    EXPECT_EQ(positionalItems.front().label, "RED");
+    EXPECT_EQ(positionalItems.front().replacementRange.start.character,
+        positionalUsage.size() - 1);
+
+    const std::string emptyUsage = "define use(): paint(";
+    CrossFileCompletionFixture empty(declarations, emptyUsage);
+    const auto emptyItems = empty.completeAtEnd(emptyUsage);
+
+    ASSERT_NE(findItem(emptyItems, "RED"), nullptr);
+    ASSERT_NE(findItem(emptyItems, "BLUE"), nullptr);
+    EXPECT_EQ(findItem(emptyItems, "SMALL"), nullptr);
+    EXPECT_EQ(findItem(emptyItems, "RED")->replacementRange.start.character,
+        emptyUsage.size());
+    EXPECT_EQ(findItem(emptyItems, "RED")->replacementRange.end.character,
+        emptyUsage.size());
+
+    const std::string namedUsage = "define use(): paint(color: B";
+    CrossFileCompletionFixture named(declarations, namedUsage);
+    const auto namedItems = named.completeAtEnd(namedUsage);
+
+    ASSERT_NE(findItem(namedItems, "BLUE"), nullptr);
+    ASSERT_NE(findItem(namedItems, "RED"), nullptr);
+    EXPECT_EQ(findItem(namedItems, "SMALL"), nullptr);
+    EXPECT_EQ(namedItems.front().label, "BLUE");
+}
+
+TEST(CompletionServiceTests, ReplaysBindingsForRecoveredBooleanValues) {
+    const std::string declarations =
+        "enum Color { RED }\n"
+        "extern define target(first: Color, second: Bool, third: Bool) -> Bool\n";
+    const std::string usage = "define use(): target(RED, third: false, tr";
+    CrossFileCompletionFixture fixture(declarations, usage);
+
+    const auto items = fixture.completeAtEnd(usage);
+
+    ASSERT_NE(findItem(items, "true"), nullptr);
+    ASSERT_NE(findItem(items, "false"), nullptr);
+    EXPECT_EQ(findItem(items, "RED"), nullptr);
+    EXPECT_EQ(findItem(items, "third"), nullptr);
+    EXPECT_EQ(items.front().label, "true");
+}
+
+TEST(CompletionServiceTests, UsesInnermostRecoveredCallExpectedType) {
+    const std::string declarations =
+        "enum Color { RED, BLUE }\n"
+        "extern define nested(value: Color) -> Bool\n"
+        "extern define outer(flag: Bool, result: Bool) -> Bool\n";
+    const std::string usage = "define use(): outer(true, nested(R";
+    CrossFileCompletionFixture fixture(declarations, usage);
+
+    const auto items = fixture.completeAtEnd(usage);
+
+    ASSERT_NE(findItem(items, "RED"), nullptr);
+    ASSERT_NE(findItem(items, "BLUE"), nullptr);
+    EXPECT_EQ(findItem(items, "true"), nullptr);
+}
+
+TEST(CompletionServiceTests, DoesNotInventExpectedTypeForUnknownCall) {
+    const std::string declarations = "enum Color { RED }\n";
+    const std::string usage = "define use(): missing(R";
+    CrossFileCompletionFixture fixture(declarations, usage);
+
+    const auto items = fixture.completeAtEnd(usage);
+
+    EXPECT_EQ(findItem(items, "RED"), nullptr);
 }
 
 } // namespace

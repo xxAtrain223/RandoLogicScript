@@ -79,6 +79,13 @@ struct NamedArgumentContext {
 	ast::Span labelSpan;
 };
 
+struct CallArgumentContext {
+	std::string callee;
+	std::vector<std::optional<std::string>> argumentLabels;
+	size_t activeArgument = 0;
+	ast::Span valueSpan;
+};
+
 /// A value-only cursor index built from trustworthy parser spans.
 class SourceIndex {
 public:
@@ -89,6 +96,7 @@ public:
 	std::optional<RegionContext> regionContextAt(ast::Position position) const;
 	std::optional<MemberAccessContext> memberAccessAt(ast::Position position) const;
 	std::optional<NamedArgumentContext> namedArgumentAt(ast::Position position) const;
+	std::optional<CallArgumentContext> callArgumentAt(ast::Position position) const;
 	const std::vector<SyntaxContext>& declarations() const { return declarations_; }
 	std::vector<SyntaxContext> declarationsIn(std::string_view file) const;
 
@@ -101,6 +109,7 @@ public:
 	void addRegionContext(RegionContext context, std::vector<RegionSectionContext> sections);
 	void addMemberAccess(MemberAccessContext context);
 	void addNamedArgument(NamedArgumentContext context);
+	void addCallArgument(CallArgumentContext context);
 
 private:
 	std::vector<SyntaxContext> syntax_;
@@ -115,6 +124,7 @@ private:
 	std::vector<IndexedRegionContext> regionContexts_;
 	std::vector<MemberAccessContext> memberAccesses_;
 	std::vector<NamedArgumentContext> namedArguments_;
+	std::vector<CallArgumentContext> callArguments_;
 };
 
 SourceIndex BuildSourceIndex(const ast::File& file, const ast::SourceText* source = nullptr);

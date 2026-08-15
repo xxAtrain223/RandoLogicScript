@@ -65,7 +65,7 @@ Consume parser context, semantic scope/type/call queries from [plan-compilerQuer
 - [ ] Cross-file declaration completion.
 - [x] Partial token replacement.
 - [x] Incomplete and parsed call completion for named argument labels.
-- [ ] Expected-value completion for incomplete calls.
+- [x] Expected-value completion for incomplete positional and named calls using resolved parameter type and enum identity.
 - [x] Named argument binding and nested-call isolation.
 - [ ] Defaults in completion/signature presentation from compiler query metadata.
 - [ ] Hover/signature rendering for user and extern declarations.

@@ -601,6 +601,10 @@ TEST(SourceIndexTests, ReportsRecoveredNamedArgumentContexts) {
 	EXPECT_FALSE(empty->argumentLabels[0]);
 	EXPECT_EQ(empty->labelSpan.start.column, 24u);
 	EXPECT_EQ(empty->labelSpan.end.column, 24u);
+	const auto emptyValue = emptySource.sourceIndex.callArgumentAt({1, 24});
+	ASSERT_TRUE(emptyValue);
+	EXPECT_EQ(emptyValue->callee, "target");
+	EXPECT_EQ(emptyValue->activeArgument, 0u);
 
 	const auto partialSource = rls::parser::ParseStringWithIndex(
 		"define second(): target(first: true, se", "partial-argument.rls");
@@ -612,6 +616,13 @@ TEST(SourceIndexTests, ReportsRecoveredNamedArgumentContexts) {
 	ASSERT_EQ(partial->argumentLabels.size(), 2u);
 	EXPECT_EQ(partial->argumentLabels[0], "first");
 	EXPECT_FALSE(partial->argumentLabels[1]);
+	const auto namedValue = partialSource.sourceIndex.callArgumentAt({1, 32});
+	ASSERT_TRUE(namedValue);
+	EXPECT_EQ(namedValue->activeArgument, 0u);
+	EXPECT_EQ(namedValue->valueSpan.start.column, 32u);
+	const auto partialValue = partialSource.sourceIndex.callArgumentAt({1, 40});
+	ASSERT_TRUE(partialValue);
+	EXPECT_EQ(partialValue->activeArgument, 1u);
 
 	const auto nestedSource = rls::parser::ParseStringWithIndex(
 		"define third(): target(true, nested(value), th", "nested-argument.rls");
@@ -624,6 +635,10 @@ TEST(SourceIndexTests, ReportsRecoveredNamedArgumentContexts) {
 	EXPECT_FALSE(nested->argumentLabels[0]);
 	EXPECT_FALSE(nested->argumentLabels[1]);
 	EXPECT_FALSE(nested->argumentLabels[2]);
+	const auto nestedValue = nestedSource.sourceIndex.callArgumentAt({1, 38});
+	ASSERT_TRUE(nestedValue);
+	EXPECT_EQ(nestedValue->callee, "nested");
+	EXPECT_EQ(nestedValue->activeArgument, 0u);
 }
 
 TEST(ParseExpr, NestedCalls) {
