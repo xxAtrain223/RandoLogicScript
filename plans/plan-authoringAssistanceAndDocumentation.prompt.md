@@ -27,6 +27,7 @@ Consume parser context, semantic scope/type/call queries from [plan-compilerQuer
 - [x] Complete exit labels from declared and recovered regions, excluding the active region and targets already contributed to it.
 - [x] Support built-in and user enum types in type positions.
 - [x] Support explicit enum members after `.` for the resolved enum type only; do not offer extern wildcard patterns as concrete members.
+- [x] Complete concrete extern-enum wildcard values previously observed in resolved source, without fabricating pattern expansions or source declarations.
 - [x] Support named argument labels from resolved callable parameters, excluding parameters already bound positionally or by name.
 - [x] Rank candidates by syntactic context, expected type, enum identity, scope proximity, and typed prefix.
 - [x] Use the SourceText replacement range only for the active partial token; never derive candidate identity lexically.
@@ -64,6 +65,7 @@ Consume parser context, semantic scope/type/call queries from [plan-compilerQuer
 - [x] Shared presentation rendering for types, enum identities, defaults, documentation, provenance, and source-range separation.
 - [x] Top-level, region-body, type-position, and expression completion contexts with expected-type/enum filtering.
 - [x] Qualified versus ambiguous enum completion, including cross-file declarations and unknown qualifiers.
+- [x] Bare expected-enum and qualified completion for deduplicated concrete values observed through extern wildcard patterns.
 - [x] Scoped parameter completion.
 - [x] Cross-file declaration completion for regions, events, locations, defines, enums, and enum members.
 - [x] Cross-file and malformed same-file event/location entry-label completion, kind filtering, snippets, blank labels, comment-aware recovery, and canonical-region duplicate suppression.

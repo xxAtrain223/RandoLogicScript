@@ -415,6 +415,25 @@ TEST(SemanticIndexTests, CapturesCrossFileExternsAndAmbiguousEnumValues) {
 	EXPECT_FALSE(ambiguous->symbol);
 }
 
+TEST(SemanticIndexTests, RecordsConcreteValuesObservedThroughExternPatterns) {
+	Project project;
+	project.files.push_back(rls::parser::ParseString(
+		"extern enum Item { RG_EXPLICIT, RG_* }\n"
+		"define first(): RG_HOOKSHOT\n"
+		"define repeated(): RG_HOOKSHOT\n"
+		"define qualified(): Item.RG_BOW\n"
+		"define explicit(): RG_EXPLICIT\n",
+		"observed-enum-values.rls"));
+	analyze(project);
+	const auto index = buildSemanticIndex(project);
+
+	ASSERT_EQ(index.observedEnumValues().size(), 2u);
+	EXPECT_EQ(index.observedEnumValues()[0].enumName, "Item");
+	EXPECT_EQ(index.observedEnumValues()[0].displayName, "RG_BOW");
+	EXPECT_EQ(index.observedEnumValues()[1].enumName, "Item");
+	EXPECT_EQ(index.observedEnumValues()[1].displayName, "RG_HOOKSHOT");
+}
+
 TEST(SemanticIndexTests, RecordsOperatorAndTernaryExpectedTypes) {
 	Project project;
 	project.files.push_back(rls::parser::ParseString(

@@ -267,6 +267,15 @@ PresentationSymbol presentationSymbol(
     return result;
 }
 
+PresentationSymbol presentationSymbol(const sema::ObservedEnumValue& value) {
+    return {
+        .kind = PresentationSymbolKind::EnumMember,
+        .name = value.displayName,
+        .provenance = PresentationProvenance::Pattern,
+        .type = PresentationType{.name = "Enum", .enumIdentity = value.enumName},
+    };
+}
+
 CompletionItemKind completionKind(sema::SymbolCategory category) {
     switch (category) {
     case sema::SymbolCategory::Define:
@@ -605,6 +614,15 @@ std::vector<CompletionItem> CompletionService::complete(
                         rendered.detail, rendered.documentation),
                     0, prefix);
             }
+            for (const auto& value : document->snapshot->semanticIndex().observedEnumValues()) {
+                if (value.enumName != memberAccess->object) continue;
+                const auto rendered = PresentationRenderer{}.render(
+                    presentationSymbol(value));
+                addCandidate(candidates, labels,
+                    makeItem(value.displayName, CompletionItemKind::EnumMember,
+                        rendered.detail, rendered.documentation),
+                    0, prefix);
+            }
         }
     } else if (context == CompletionContext::Expression) {
         if (namedArgument) {
@@ -683,6 +701,15 @@ std::vector<CompletionItem> CompletionService::complete(
                     presentationSymbol(*document->snapshot, symbol));
                 addCandidate(candidates, labels,
                     makeItem(symbol.displayName, CompletionItemKind::EnumMember,
+                        rendered.detail, rendered.documentation),
+                    0, prefix);
+            }
+            for (const auto& value : document->snapshot->semanticIndex().observedEnumValues()) {
+                if (value.enumName != expected->enumName) continue;
+                const auto rendered = PresentationRenderer{}.render(
+                    presentationSymbol(value));
+                addCandidate(candidates, labels,
+                    makeItem(value.displayName, CompletionItemKind::EnumMember,
                         rendered.detail, rendered.documentation),
                     0, prefix);
             }

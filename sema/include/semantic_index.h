@@ -81,6 +81,11 @@ struct ExpectedTypeRecord {
 	std::optional<std::string> enumName;
 };
 
+struct ObservedEnumValue {
+	std::string displayName;
+	std::string enumName;
+};
+
 struct CallRecord {
 	ast::Span span;
 	std::optional<SymbolId> target;
@@ -109,6 +114,7 @@ public:
 	const std::vector<OccurrenceRecord>& occurrences() const { return occurrences_; }
 	const std::vector<TypeRecord>& types() const { return types_; }
 	const std::vector<ExpectedTypeRecord>& expectedTypes() const { return expectedTypes_; }
+	const std::vector<ObservedEnumValue>& observedEnumValues() const { return observedEnumValues_; }
 	const std::vector<CallRecord>& calls() const { return calls_; }
 	const std::vector<CompilerDiagnostic>& diagnostics() const { return diagnostics_; }
 	std::optional<SymbolRecord> declaration(SymbolId id) const;
@@ -124,6 +130,7 @@ private:
 	std::vector<OccurrenceRecord> occurrences_;
 	std::vector<TypeRecord> types_;
 	std::vector<ExpectedTypeRecord> expectedTypes_;
+	std::vector<ObservedEnumValue> observedEnumValues_;
 	std::vector<CallRecord> calls_;
 	std::vector<CompilerDiagnostic> diagnostics_;
 

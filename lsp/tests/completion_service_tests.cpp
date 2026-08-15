@@ -472,6 +472,36 @@ TEST(CompletionServiceTests, ExcludesPatternsAndUnknownEnumFallbacks) {
     EXPECT_TRUE(unknown.empty());
 }
 
+TEST(CompletionServiceTests, CompletesPreviouslyObservedExternPatternValues) {
+    const std::string declarations =
+        "extern enum Item { RG_EXPLICIT, RG_* }\n"
+        "extern enum Status { ST_* }\n"
+        "extern define has(item: Item) -> Bool\n"
+        "define seen(): has(RG_HOOKSHOT)\n"
+        "define seen_qualified(): Item.RG_BOW\n"
+        "define other(): Status.ST_READY\n";
+    const std::string expectedUsage = "define use(): has(RG_";
+    CrossFileCompletionFixture expectedFixture(declarations, expectedUsage);
+
+    const auto expectedItems = expectedFixture.completeAtEnd(expectedUsage);
+
+    EXPECT_NE(findItem(expectedItems, "RG_EXPLICIT"), nullptr);
+    EXPECT_NE(findItem(expectedItems, "RG_HOOKSHOT"), nullptr);
+    EXPECT_NE(findItem(expectedItems, "RG_BOW"), nullptr);
+    EXPECT_EQ(findItem(expectedItems, "RG_*"), nullptr);
+    EXPECT_EQ(findItem(expectedItems, "ST_READY"), nullptr);
+
+    const std::string qualifiedUsage = "define use(): Item.RG_";
+    CrossFileCompletionFixture qualifiedFixture(declarations, qualifiedUsage);
+    const auto qualifiedItems = qualifiedFixture.completeAtEnd(qualifiedUsage);
+
+    EXPECT_NE(findItem(qualifiedItems, "RG_EXPLICIT"), nullptr);
+    EXPECT_NE(findItem(qualifiedItems, "RG_HOOKSHOT"), nullptr);
+    EXPECT_NE(findItem(qualifiedItems, "RG_BOW"), nullptr);
+    EXPECT_EQ(findItem(qualifiedItems, "RG_*"), nullptr);
+    EXPECT_EQ(findItem(qualifiedItems, "ST_READY"), nullptr);
+}
+
 TEST(CompletionServiceTests, RecoversEmptyMemberAcrossFiles) {
     const fs::path root = fs::temp_directory_path() / "rls-member-completion";
     const fs::path declarationPath = root / "declaration.rls";

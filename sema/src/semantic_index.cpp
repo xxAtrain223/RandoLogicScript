@@ -304,6 +304,17 @@ SemanticIndex buildSemanticIndex(const ast::Project& project,
 		std::optional<std::string> enumName = std::nullopt) {
 		index.expectedTypes_.push_back({expression.span, type, std::move(enumName)});
 	};
+	auto addObservedEnumValue = [&](std::string_view displayName, std::string_view enumName) {
+		const auto existing = std::find_if(
+			index.observedEnumValues_.begin(), index.observedEnumValues_.end(),
+			[&](const ObservedEnumValue& value) {
+				return value.displayName == displayName && value.enumName == enumName;
+			});
+		if (existing == index.observedEnumValues_.end()) {
+			index.observedEnumValues_.push_back({
+				std::string(displayName), std::string(enumName)});
+		}
+	};
 	std::function<void(const ast::Expr&, std::optional<SymbolId>)> indexExpression;
 	indexExpression = [&](const ast::Expr& expression, std::optional<SymbolId> defineScope) {
 		addType(expression);
@@ -352,6 +363,7 @@ SemanticIndex buildSemanticIndex(const ast::Project& project,
 								}
 							}
 						}
+						if (!target) addObservedEnumValue(node.name.text, *enumName);
 					}
 					kind = target ? OccurrenceKind::Reference : OccurrenceKind::Unresolved;
 				}
@@ -371,6 +383,12 @@ SemanticIndex buildSemanticIndex(const ast::Project& project,
 				}
 				index.occurrences_.push_back({memberId, node.member.span,
 					memberId ? OccurrenceKind::MemberAccess : OccurrenceKind::Unresolved});
+				const auto expressionType = project.getType(&expression);
+				const auto expressionEnum = project.getEnumType(&expression);
+				if (enumId && !memberId && expressionType == ast::Type::Enum
+					&& expressionEnum && *expressionEnum == node.object.text) {
+					addObservedEnumValue(node.member.text, *expressionEnum);
+				}
 			} else if constexpr (std::is_same_v<T, ast::UnaryExpr>) {
 				addExpectedType(*node.operand, ast::Type::Bool);
 				indexExpression(*node.operand, defineScope);
@@ -506,6 +524,11 @@ SemanticIndex buildSemanticIndex(const ast::Project& project,
 		}
 	}
 	const auto validationDiagnostics = structureValidationDiagnostics(project, diagnostics);
+	std::sort(index.observedEnumValues_.begin(), index.observedEnumValues_.end(),
+		[](const ObservedEnumValue& left, const ObservedEnumValue& right) {
+			return std::tie(left.enumName, left.displayName)
+				< std::tie(right.enumName, right.displayName);
+		});
 	index.diagnostics_.insert(index.diagnostics_.end(), validationDiagnostics.begin(), validationDiagnostics.end());
 	return index;
 }
