@@ -562,6 +562,33 @@ TEST(SourceIndexTests, ReportsCompleteAndRecoveredRegionContexts) {
 	EXPECT_EQ(recoveredRegion->dataKeys, std::vector<std::string>{"name"});
 }
 
+TEST(SourceIndexTests, ReportsCompleteAndRecoveredMemberAccessContexts) {
+	const auto complete = rls::parser::ParseStringWithIndex(
+		"define check(): Color.RED\n", "member.rls");
+	const auto completeMember = complete.sourceIndex.memberAccessAt({1, 24});
+	ASSERT_TRUE(completeMember);
+	EXPECT_EQ(completeMember->object, "Color");
+	EXPECT_EQ(completeMember->memberSpan.start.column, 23u);
+	EXPECT_EQ(completeMember->memberSpan.end.column, 26u);
+	EXPECT_FALSE(complete.sourceIndex.memberAccessAt({1, 20}));
+
+	const auto recovered = rls::parser::ParseStringWithIndex(
+		"define first(): Color.\n"
+		"define second(): Color.R\n"
+		"define ignored(): \"Color.FAKE\" # Color.COMMENT\n",
+		"recovered-member.rls");
+	ASSERT_FALSE(recovered.file.diagnostics.empty());
+	const auto emptyMember = recovered.sourceIndex.memberAccessAt({1, 23});
+	ASSERT_TRUE(emptyMember);
+	EXPECT_EQ(emptyMember->object, "Color");
+	EXPECT_EQ(emptyMember->memberSpan.start.column, 23u);
+	EXPECT_EQ(emptyMember->memberSpan.end.column, 23u);
+	const auto partialMember = recovered.sourceIndex.memberAccessAt({2, 25});
+	ASSERT_TRUE(partialMember);
+	EXPECT_EQ(partialMember->object, "Color");
+	EXPECT_FALSE(recovered.sourceIndex.memberAccessAt({3, 31}));
+}
+
 TEST(ParseExpr, NestedCalls) {
 	const auto& e = parseExpr("can_use(setting(RSK_FOO))");
 	ASSERT_TRUE(std::holds_alternative<CallExpr>(e.node));

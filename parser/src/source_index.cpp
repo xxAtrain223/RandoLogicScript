@@ -50,6 +50,7 @@ void indexExpr(SourceIndex& index, const ast::Expr& expr) {
 		} else if constexpr (std::is_same_v<T, ast::MemberExpr>) {
 			index.addName(SourceNameKind::MemberObject, node.object);
 			index.addName(SourceNameKind::Member, node.member);
+			index.addMemberAccess({node.object.text, node.member.span});
 		} else if constexpr (std::is_same_v<T, ast::UnaryExpr>) {
 			indexExpr(index, *node.operand);
 		} else if constexpr (std::is_same_v<T, ast::BinaryExpr>) {
@@ -140,12 +141,42 @@ std::vector<RecoveryToken> recoveryTokens(std::string_view source) {
 			result.push_back({source.substr(start, offset - start), offset, 0});
 			continue;
 		}
-		if (character == '{' || character == '}' || character == ':') {
+		if (character == '{' || character == '}' || character == ':' || character == '.') {
 			result.push_back({source.substr(offset, 1), offset + 1, character});
 		}
 		++offset;
 	}
 	return result;
+}
+
+std::optional<ast::Span> spanFromOffsets(
+	const ast::SourceText& source, std::string_view file, size_t start, size_t end);
+
+void addRecoveredMemberAccesses(
+	SourceIndex& index, const ast::File& file, const ast::SourceText& source) {
+	const auto tokens = recoveryTokens(source.content());
+	for (size_t tokenIndex = 0; tokenIndex + 1 < tokens.size(); ++tokenIndex) {
+		const auto& object = tokens[tokenIndex];
+		const auto& dot = tokens[tokenIndex + 1];
+		if (object.punctuation != 0 || dot.punctuation != '.'
+			|| object.end != dot.end - 1) {
+			continue;
+		}
+
+		size_t memberEnd = dot.end;
+		if (tokenIndex + 2 < tokens.size()) {
+			const auto& member = tokens[tokenIndex + 2];
+			const size_t memberStart = member.end - member.text.size();
+			if (member.punctuation == 0 && memberStart == dot.end) {
+				memberEnd = member.end;
+			}
+		}
+		const auto memberSpan = spanFromOffsets(
+			source, file.path, dot.end, memberEnd);
+		if (memberSpan) {
+			index.addMemberAccess({std::string(object.text), *memberSpan});
+		}
+	}
 }
 
 std::optional<ast::Span> spanFromOffsets(
@@ -265,6 +296,11 @@ void SourceIndex::addRegionContext(
 	regionContexts_.push_back({std::move(context), std::move(sections)});
 }
 
+void SourceIndex::addMemberAccess(MemberAccessContext context) {
+	if (context.memberSpan.start.line == 0) return;
+	memberAccesses_.push_back(std::move(context));
+}
+
 std::optional<SyntaxContext> SourceIndex::syntaxAt(ast::Position position) const {
 	if (const auto name = narrowestAt(names_, position)) return SyntaxContext{SyntaxKind::Name, name->span};
 	return narrowestAt(syntax_, position);
@@ -325,6 +361,19 @@ std::optional<RegionContext> SourceIndex::regionContextAt(ast::Position position
 	return context;
 }
 
+std::optional<MemberAccessContext> SourceIndex::memberAccessAt(ast::Position position) const {
+	const MemberAccessContext* result = nullptr;
+	for (const auto& context : memberAccesses_) {
+		const bool atMember = isBeforeOrEqual(context.memberSpan.start, position)
+			&& isBeforeOrEqual(position, context.memberSpan.end);
+		if (atMember && (!result
+			|| spanSize(context.memberSpan) < spanSize(result->memberSpan))) {
+			result = &context;
+		}
+	}
+	return result ? std::optional<MemberAccessContext>(*result) : std::nullopt;
+}
+
 std::vector<SyntaxContext> SourceIndex::declarationsIn(std::string_view file) const {
 	std::vector<SyntaxContext> result;
 	for (const auto& declaration : declarations_) {
@@ -335,7 +384,10 @@ std::vector<SyntaxContext> SourceIndex::declarationsIn(std::string_view file) co
 
 SourceIndex BuildSourceIndex(const ast::File& file, const ast::SourceText* source) {
 	SourceIndex index;
-	if (source) addRecoveredRegionContexts(index, file, *source);
+	if (source) {
+		addRecoveredRegionContexts(index, file, *source);
+		addRecoveredMemberAccesses(index, file, *source);
+	}
 	for (const auto& declaration : file.declarations) {
 		std::visit([&](const auto& node) {
 			using T = std::decay_t<decltype(node)>;

@@ -67,6 +67,11 @@ struct RegionContext {
 	std::optional<ast::SectionKind> activeSection;
 };
 
+struct MemberAccessContext {
+	std::string object;
+	ast::Span memberSpan;
+};
+
 /// A value-only cursor index built from trustworthy parser spans.
 class SourceIndex {
 public:
@@ -75,6 +80,7 @@ public:
 	std::optional<SyntaxContext> enclosingExpression(ast::Position position) const;
 	std::optional<CallContext> enclosingCall(ast::Position position) const;
 	std::optional<RegionContext> regionContextAt(ast::Position position) const;
+	std::optional<MemberAccessContext> memberAccessAt(ast::Position position) const;
 	const std::vector<SyntaxContext>& declarations() const { return declarations_; }
 	std::vector<SyntaxContext> declarationsIn(std::string_view file) const;
 
@@ -85,6 +91,7 @@ public:
 	void addCall(CallContext call);
 	void addDeclaration(const ast::Span& span);
 	void addRegionContext(RegionContext context, std::vector<RegionSectionContext> sections);
+	void addMemberAccess(MemberAccessContext context);
 
 private:
 	std::vector<SyntaxContext> syntax_;
@@ -97,6 +104,7 @@ private:
 		std::vector<RegionSectionContext> sections;
 	};
 	std::vector<IndexedRegionContext> regionContexts_;
+	std::vector<MemberAccessContext> memberAccesses_;
 };
 
 SourceIndex BuildSourceIndex(const ast::File& file, const ast::SourceText* source = nullptr);

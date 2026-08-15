@@ -178,4 +178,80 @@ TEST(CompletionServiceTests, OffersHereOnlyInRegionExpressions) {
     EXPECT_EQ(findItem(defineItems, "here"), nullptr);
 }
 
+TEST(CompletionServiceTests, CompletesOnlyMembersOfQualifiedEnum) {
+    CompletionFixture fixture(
+        "enum Alpha { SHARED, ALPHA_ONLY }\n"
+        "enum Beta { SHARED, BETA_ONLY }\n"
+        "define check(): Alpha.S\n");
+
+    const auto items = CompletionService(fixture.projects, fixture.scheduler)
+        .complete(fixture.uri, {2, 23});
+
+    ASSERT_NE(findItem(items, "SHARED"), nullptr);
+    ASSERT_NE(findItem(items, "ALPHA_ONLY"), nullptr);
+    EXPECT_EQ(findItem(items, "BETA_ONLY"), nullptr);
+    EXPECT_EQ(findItem(items, "Alpha"), nullptr);
+    EXPECT_EQ(items.front().label, "SHARED");
+    EXPECT_EQ(items.front().replacementRange.start.character, 22u);
+    EXPECT_EQ(items.front().replacementRange.end.character, 23u);
+}
+
+TEST(CompletionServiceTests, ExcludesPatternsAndUnknownEnumFallbacks) {
+    CompletionFixture fixture(
+        "extern enum Status { READY, ST_* }\n"
+        "define known(): Status.R\n"
+        "define unknown(): Missing.R\n");
+    CompletionService completion(fixture.projects, fixture.scheduler);
+
+    const auto known = completion.complete(fixture.uri, {1, 24});
+    const auto unknown = completion.complete(fixture.uri, {2, 27});
+
+    ASSERT_NE(findItem(known, "READY"), nullptr);
+    EXPECT_EQ(findItem(known, "ST_*"), nullptr);
+    EXPECT_TRUE(unknown.empty());
+}
+
+TEST(CompletionServiceTests, RecoversEmptyMemberAcrossFiles) {
+    const fs::path root = fs::temp_directory_path() / "rls-member-completion";
+    const fs::path declarationPath = root / "declaration.rls";
+    const fs::path usagePath = root / "usage.rls";
+    const std::string usageUri = *rls::lsp::PathToFileUri(usagePath);
+    const std::string usage = "define choose(): Color.\n";
+    DocumentStore documents;
+    ASSERT_EQ(documents.open(usageUri, "rls", 1, usage),
+        rls::lsp::DocumentUpdateResult::Applied);
+    ProjectManager projects(documents, [&](const fs::path&) {
+        rls::project::FileProject project;
+        project.sourceFiles = {declarationPath, usagePath};
+        return project;
+    });
+    ASSERT_EQ(projects.documentOpened(usageUri),
+        rls::lsp::ProjectAssignmentResult::Assigned);
+    const auto* project = projects.projectForDocument(usageUri);
+    ASSERT_NE(project, nullptr);
+    AnalysisScheduler scheduler({
+        .debounce = std::chrono::milliseconds(0),
+        .maximumConcurrency = 1,
+    });
+    ASSERT_TRUE(scheduler.schedule({
+        project->id,
+        project->generation,
+        {
+            {declarationPath, "enum Color { RED, BLUE }\n"},
+            {usagePath, usage},
+        },
+        project->documentGeneration,
+        project->manifestGeneration,
+    }));
+    scheduler.waitForIdle();
+
+    const auto items = CompletionService(projects, scheduler)
+        .complete(usageUri, {0, 23});
+
+    ASSERT_NE(findItem(items, "RED"), nullptr);
+    ASSERT_NE(findItem(items, "BLUE"), nullptr);
+    EXPECT_EQ(items.front().replacementRange.start.character, 23u);
+    EXPECT_EQ(items.front().replacementRange.end.character, 23u);
+}
+
 } // namespace

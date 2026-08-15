@@ -17,6 +17,7 @@ enum class CompletionContext {
     TopLevel,
     Type,
     RegionBody,
+    MemberAccess,
     Expression,
     Unsupported,
 };
@@ -95,7 +96,9 @@ bool startsWithCaseInsensitive(std::string_view value, std::string_view prefix) 
 
 CompletionContext completionContextAt(
     const parser::SourceIndex& index, ast::Position position,
-    const std::optional<parser::RegionContext>& region) {
+    const std::optional<parser::RegionContext>& region,
+    const std::optional<parser::MemberAccessContext>& memberAccess) {
+    if (memberAccess) return CompletionContext::MemberAccess;
     if (const auto name = index.nameAt(position)) {
         switch (name->kind) {
         case parser::SourceNameKind::Type:
@@ -292,8 +295,9 @@ std::vector<CompletionItem> CompletionService::complete(
     if (!editRange) return {};
 
     const auto region = document->sourceIndex->regionContextAt(contextPosition);
+    const auto memberAccess = document->sourceIndex->memberAccessAt(*cursorPosition);
     const auto context = completionContextAt(
-        *document->sourceIndex, contextPosition, region);
+        *document->sourceIndex, contextPosition, region, memberAccess);
     const auto expected = document->snapshot->expectedTypeAt(document->path, contextPosition);
     std::vector<Candidate> candidates;
     std::set<std::string> labels;
@@ -365,6 +369,29 @@ std::vector<CompletionItem> CompletionService::complete(
                 makeItem(std::string(sectionName(kind)), CompletionItemKind::Keyword,
                     "region section"),
                 10, prefix);
+        }
+    } else if (context == CompletionContext::MemberAccess && memberAccess) {
+        const sema::SymbolRecord* enumSymbol = nullptr;
+        for (const auto& symbol : document->snapshot->semanticIndex().symbols()) {
+            if (symbol.category == sema::SymbolCategory::Enum
+                && symbol.displayName == memberAccess->object) {
+                enumSymbol = &symbol;
+                break;
+            }
+        }
+        if (enumSymbol) {
+            for (const auto& symbol : document->snapshot->semanticIndex().symbols()) {
+                if (symbol.category != sema::SymbolCategory::EnumMember
+                    || symbol.container != enumSymbol->id) {
+                    continue;
+                }
+                const auto rendered = PresentationRenderer{}.render(
+                    presentationSymbol(*document->snapshot, symbol));
+                addCandidate(candidates, labels,
+                    makeItem(symbol.displayName, CompletionItemKind::EnumMember,
+                        rendered.detail, rendered.documentation),
+                    0, prefix);
+            }
         }
     } else if (context == CompletionContext::Expression) {
         for (const auto symbolId : document->snapshot->visibleSymbolsAt(
