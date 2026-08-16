@@ -45,7 +45,9 @@ std::optional<std::string> readSource(
 }
 
 std::string pathString(const std::filesystem::path& path) {
-    const auto generic = path.generic_u8string();
+    std::error_code error;
+    const auto canonical = std::filesystem::weakly_canonical(path, error);
+    const auto generic = (error ? path.lexically_normal() : canonical).generic_u8string();
     std::string value;
     value.reserve(generic.size());
     for (const char8_t byte : generic) {
