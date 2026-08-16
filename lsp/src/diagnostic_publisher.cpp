@@ -1,5 +1,7 @@
 #include "rls/lsp/diagnostic_publisher.h"
 
+#include <algorithm>
+#include <cctype>
 #include <optional>
 #include <fstream>
 #include <iterator>
@@ -84,6 +86,23 @@ std::optional<std::string> uriForPath(std::string_view path) {
     return PathToFileUri(std::filesystem::path(path));
 }
 
+std::string pathKey(const std::filesystem::path& path) {
+    std::error_code error;
+    const auto canonical = std::filesystem::weakly_canonical(path, error);
+    const auto generic = (error ? path.lexically_normal() : canonical).generic_u8string();
+    std::string key;
+    key.reserve(generic.size());
+    for (const char8_t byte : generic) {
+        key.push_back(static_cast<char>(byte));
+    }
+#ifdef _WIN32
+    std::transform(key.begin(), key.end(), key.begin(), [](char character) {
+        return static_cast<char>(std::tolower(static_cast<unsigned char>(character)));
+    });
+#endif
+    return key;
+}
+
 Json actionData(const ast::DiagnosticActionData& data) {
     return {
         {"version", data.version},
@@ -150,11 +169,14 @@ DiagnosticPublisher::DiagnosticPublisher(OutboundMessageQueue& outbound)
 
 void DiagnosticPublisher::documentOpened(std::string_view uri) {
     const auto key = DocumentUriKey(uri);
-    if (!key) {
+    const auto normalized = NormalizeDocumentUri(uri);
+    const auto path = FileUriToPath(uri);
+    if (!key || !normalized || !path) {
         return;
     }
     std::lock_guard lock(mutex_);
     suppressed_.erase(*key);
+    openDocumentUris_.insert_or_assign(pathKey(*path), std::move(*normalized));
 }
 
 void DiagnosticPublisher::documentClosed(std::string_view uri, bool standalone) {
@@ -170,6 +192,9 @@ void DiagnosticPublisher::documentClosed(std::string_view uri, bool standalone) 
     {
         std::lock_guard lock(mutex_);
         suppressed_.insert(*key);
+        if (const auto path = FileUriToPath(uri)) {
+            openDocumentUris_.erase(pathKey(*path));
+        }
         for (auto& [projectId, documents] : published_) {
             documents.erase(*key);
         }
@@ -269,7 +294,15 @@ void DiagnosticPublisher::acceptedSnapshot(
         if (!key) {
             continue;
         }
-        current[*key] = PublishedDocument{*uri, diagnosticsFor(*snapshot, path).dump()};
+        std::string documentUri = *uri;
+        {
+            std::lock_guard lock(mutex_);
+            if (const auto openDocument = openDocumentUris_.find(pathKey(path));
+                openDocument != openDocumentUris_.end()) {
+                documentUri = openDocument->second;
+            }
+        }
+        current[*key] = PublishedDocument{std::move(documentUri), diagnosticsFor(*snapshot, path).dump()};
     }
 
     std::vector<std::string> messages;

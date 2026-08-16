@@ -116,7 +116,7 @@ TEST(DocumentSynchronizationServiceTests, FailedProjectResolutionKeepsOverlaySta
     const auto snapshot = services.scheduler.acceptedSnapshot(
         services.projects.projectForDocument(uri)->id);
     ASSERT_NE(snapshot, nullptr);
-    EXPECT_EQ(snapshot->sourceText(fs::absolute(missingPath).generic_string())->content(),
+    EXPECT_EQ(snapshot->sourceText(fs::weakly_canonical(missingPath).generic_string())->content(),
         "overlay\n");
 }
 

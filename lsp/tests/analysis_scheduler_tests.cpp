@@ -284,8 +284,9 @@ TEST(AnalysisSchedulerTests, DefaultReaderAnalyzesEmptyDiskFile) {
     const auto snapshot = scheduler.acceptedSnapshot("project");
     ASSERT_NE(snapshot, nullptr);
     ASSERT_EQ(snapshot->documentCount(), 1);
-    ASSERT_NE(snapshot->sourceText(path.generic_string()), nullptr);
-    EXPECT_TRUE(snapshot->sourceText(path.generic_string())->content().empty());
+    const std::string canonicalPath = std::filesystem::weakly_canonical(path).generic_string();
+    ASSERT_NE(snapshot->sourceText(canonicalPath), nullptr);
+    EXPECT_TRUE(snapshot->sourceText(canonicalPath)->content().empty());
     std::error_code error;
     std::filesystem::remove(path, error);
 }
