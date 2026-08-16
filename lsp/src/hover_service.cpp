@@ -113,8 +113,9 @@ std::string categoryDescription(
             : "Enumeration member.";
     case sema::SymbolCategory::ExternEnumPattern:
         return record.enumName
-            ? "Wildcard pattern for enum `" + *record.enumName + "`."
-            : "External enum wildcard pattern.";
+            ? "Concrete value matched by extern enum pattern `"
+                + record.displayName + "` in `" + *record.enumName + "`."
+            : "Concrete value matched by an external enum wildcard pattern.";
     case sema::SymbolCategory::Parameter:
         if (record.container) {
             const auto container = snapshot.declaration(*record.container);
@@ -246,8 +247,18 @@ std::optional<HoverResult> HoverService::hover(
         const auto declaration = document->snapshot->declaration(*occurrence->symbol);
         const auto range = presentationRange(*document->source, occurrence->span);
         if (!declaration || !range) return std::nullopt;
-        const auto rendered = PresentationRenderer{}.render(
-            presentationSymbol(*document->snapshot, *declaration));
+        auto presentation = presentationSymbol(*document->snapshot, *declaration);
+        if (declaration->category == sema::SymbolCategory::ExternEnumPattern) {
+            const auto sourceName = document->sourceIndex->nameAt(*cursor);
+            if (sourceName && sourceName->span.file == occurrence->span.file
+                && sourceName->span.start.line == occurrence->span.start.line
+                && sourceName->span.start.column == occurrence->span.start.column
+                && sourceName->span.end.line == occurrence->span.end.line
+                && sourceName->span.end.column == occurrence->span.end.column) {
+                presentation.name = sourceName->text;
+            }
+        }
+        const auto rendered = PresentationRenderer{}.render(presentation);
         return HoverResult{hoverMarkdown(rendered), *range};
     }
 

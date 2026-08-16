@@ -411,6 +411,27 @@ SemanticIndex buildSemanticIndex(const ast::Project& project,
 				std::string(displayName), std::string(enumName)});
 		}
 	};
+	auto findUniquePattern = [&](SymbolId enumId, std::string_view valueName) {
+		std::optional<SymbolId> result;
+		for (const auto& symbol : index.symbols_) {
+			if (symbol.category != SymbolCategory::ExternEnumPattern
+				|| symbol.container != enumId
+				|| !globMatches(symbol.displayName, valueName)) {
+				continue;
+			}
+			if (result) return std::optional<SymbolId>{};
+			result = symbol.id;
+		}
+		return result;
+	};
+	auto isPatternSymbol = [&](std::optional<SymbolId> symbolId) {
+		if (!symbolId) return false;
+		return std::any_of(index.symbols_.begin(), index.symbols_.end(),
+			[&](const SymbolRecord& symbol) {
+				return symbol.id == *symbolId
+					&& symbol.category == SymbolCategory::ExternEnumPattern;
+			});
+	};
 	std::function<void(const ast::Expr&, std::optional<SymbolId>)> indexExpression;
 	indexExpression = [&](const ast::Expr& expression, std::optional<SymbolId> defineScope) {
 		addType(expression);
@@ -453,13 +474,18 @@ SemanticIndex buildSemanticIndex(const ast::Project& project,
 						const auto enumId = findSymbol(SymbolCategory::Enum, *enumName);
 						if (enumId) {
 							for (const auto& symbol : index.symbols_) {
-								if (symbol.container == enumId && symbol.displayName == node.name.text) {
+								if (symbol.category == SymbolCategory::EnumMember
+									&& symbol.container == enumId
+									&& symbol.displayName == node.name.text) {
 									target = symbol.id;
 									break;
 								}
 							}
+							if (!target) target = findUniquePattern(*enumId, node.name.text);
 						}
-						if (!target) addObservedEnumValue(node.name.text, *enumName);
+						if (!target || isPatternSymbol(target)) {
+							addObservedEnumValue(node.name.text, *enumName);
+						}
 					}
 					kind = target ? OccurrenceKind::Reference : OccurrenceKind::Unresolved;
 				}
@@ -471,17 +497,21 @@ SemanticIndex buildSemanticIndex(const ast::Project& project,
 				std::optional<SymbolId> memberId;
 				if (enumId) {
 					for (const auto& symbol : index.symbols_) {
-						if (symbol.container == enumId && symbol.displayName == node.member.text) {
+						if (symbol.category == SymbolCategory::EnumMember
+							&& symbol.container == enumId
+							&& symbol.displayName == node.member.text) {
 							memberId = symbol.id;
 							break;
 						}
 					}
+					if (!memberId) memberId = findUniquePattern(*enumId, node.member.text);
 				}
 				index.occurrences_.push_back({memberId, node.member.span,
 					memberId ? OccurrenceKind::MemberAccess : OccurrenceKind::Unresolved});
 				const auto expressionType = project.getType(&expression);
 				const auto expressionEnum = project.getEnumType(&expression);
-				if (enumId && !memberId && expressionType == ast::Type::Enum
+				if (enumId && (!memberId || isPatternSymbol(memberId))
+					&& expressionType == ast::Type::Enum
 					&& expressionEnum && *expressionEnum == node.object.text) {
 					addObservedEnumValue(node.member.text, *expressionEnum);
 				}

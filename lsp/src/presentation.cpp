@@ -19,8 +19,8 @@ std::string_view provenancePrefix(PresentationProvenance provenance) {
     return {};
 }
 
-std::string_view provenanceNote(PresentationProvenance provenance) {
-    switch (provenance) {
+std::string_view provenanceNote(const PresentationSymbol& symbol) {
+    switch (symbol.provenance) {
     case PresentationProvenance::Source:
         return {};
     case PresentationProvenance::Extern:
@@ -28,7 +28,9 @@ std::string_view provenanceNote(PresentationProvenance provenance) {
     case PresentationProvenance::BuiltIn:
         return "*Built-in symbol.*";
     case PresentationProvenance::Pattern:
-        return "*External pattern; no source declaration.*";
+        return symbol.declaration
+            ? "*External wildcard pattern declaration.*"
+            : "*External pattern; no source declaration.*";
     }
     return {};
 }
@@ -107,7 +109,7 @@ RenderedPresentation PresentationRenderer::render(const PresentationSymbol& symb
         renderedBlock += block.markdown;
         appendMarkdownBlock(result.documentation, renderedBlock);
     }
-    appendMarkdownBlock(result.documentation, provenanceNote(symbol.provenance));
+    appendMarkdownBlock(result.documentation, provenanceNote(symbol));
     return result;
 }
 

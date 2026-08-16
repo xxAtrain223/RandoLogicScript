@@ -571,6 +571,37 @@ TEST(SemanticIndexTests, RecordsConcreteValuesObservedThroughExternPatterns) {
 	EXPECT_EQ(index.observedEnumValues()[0].displayName, "RG_BOW");
 	EXPECT_EQ(index.observedEnumValues()[1].enumName, "Item");
 	EXPECT_EQ(index.observedEnumValues()[1].displayName, "RG_HOOKSHOT");
+
+	const auto bare = index.occurrenceAt("observed-enum-values.rls", {2, 18});
+	ASSERT_TRUE(bare);
+	ASSERT_TRUE(bare->symbol);
+	const auto barePattern = index.declaration(*bare->symbol);
+	ASSERT_TRUE(barePattern);
+	EXPECT_EQ(barePattern->category, SymbolCategory::ExternEnumPattern);
+	EXPECT_EQ(barePattern->displayName, "RG_*");
+	EXPECT_EQ(bare->kind, OccurrenceKind::Reference);
+
+	const auto qualified = index.occurrenceAt(
+		"observed-enum-values.rls", {4, 27});
+	ASSERT_TRUE(qualified);
+	ASSERT_TRUE(qualified->symbol);
+	EXPECT_EQ(qualified->symbol, bare->symbol);
+	EXPECT_EQ(qualified->kind, OccurrenceKind::MemberAccess);
+}
+
+TEST(SemanticIndexTests, LeavesOverlappingExternPatternsUnresolved) {
+	Project project;
+	project.files.push_back(rls::parser::ParseString(
+		"extern enum Item { RG_*, *_HOOKSHOT }\n"
+		"define use(): RG_HOOKSHOT\n",
+		"ambiguous-pattern.rls"));
+	analyze(project);
+	const auto index = buildSemanticIndex(project);
+
+	const auto occurrence = index.occurrenceAt("ambiguous-pattern.rls", {2, 16});
+	ASSERT_TRUE(occurrence);
+	EXPECT_EQ(occurrence->kind, OccurrenceKind::Unresolved);
+	EXPECT_FALSE(occurrence->symbol);
 }
 
 TEST(SemanticIndexTests, RecordsOperatorAndTernaryExpectedTypes) {

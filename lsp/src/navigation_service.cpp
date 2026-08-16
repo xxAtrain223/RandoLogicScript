@@ -15,6 +15,7 @@ namespace {
 struct NavigationQuery {
     AnalysisScheduler::Snapshot snapshot;
     std::string documentPath;
+    std::string occurrenceText;
     sema::SymbolId symbol;
     sema::OccurrenceRecord occurrence;
 };
@@ -115,7 +116,19 @@ std::optional<NavigationQuery> queryAt(
         || !sourceName || !sameSpan(sourceName->span, occurrence->span)) {
         return std::nullopt;
     }
-    return NavigationQuery{document->snapshot, document->path, *symbol, *occurrence};
+    return NavigationQuery{
+        document->snapshot, document->path, sourceName->text, *symbol, *occurrence};
+}
+
+bool occurrenceHasText(
+    const sema::AnalysisSnapshot& snapshot,
+    const sema::OccurrenceRecord& occurrence, std::string_view text) {
+    const auto* source = snapshot.sourceText(occurrence.span.file);
+    if (!source) return false;
+    const auto start = source->byteOffsetFromUtf8Position(occurrence.span.start);
+    const auto end = source->byteOffsetFromUtf8Position(occurrence.span.end);
+    return start && end && *start <= *end
+        && source->content().substr(*start, *end - *start) == text;
 }
 
 bool isTopLevel(sema::SymbolCategory category) {
@@ -196,7 +209,7 @@ std::optional<DefinitionResult> NavigationService::definition(
         return std::nullopt;
     }
     const auto declaration = query->snapshot->declaration(query->symbol);
-    if (!declaration || declaration->provenance == sema::SymbolProvenance::Pattern) {
+    if (!declaration) {
         return std::nullopt;
     }
 
@@ -222,9 +235,16 @@ std::vector<NavigationLocation> NavigationService::references(
         return {};
     }
 
+    const auto declaration = query->snapshot->declaration(query->symbol);
+    const bool concreteWildcardValue = declaration
+        && declaration->category == sema::SymbolCategory::ExternEnumPattern;
     std::vector<NavigationLocation> result;
     for (const auto& occurrence : query->snapshot->references(query->symbol)) {
         if (!includeDeclaration && occurrence.kind == sema::OccurrenceKind::Declaration) {
+            continue;
+        }
+        if (concreteWildcardValue
+            && !occurrenceHasText(*query->snapshot, occurrence, query->occurrenceText)) {
             continue;
         }
         const auto occurrenceUri = PathToFileUri(occurrence.span.file);
@@ -243,9 +263,16 @@ std::vector<NavigationRange> NavigationService::documentHighlights(
         return {};
     }
 
+    const auto declaration = query->snapshot->declaration(query->symbol);
+    const bool concreteWildcardValue = declaration
+        && declaration->category == sema::SymbolCategory::ExternEnumPattern;
     std::vector<NavigationRange> result;
     for (const auto& occurrence : query->snapshot->references(query->symbol)) {
         if (occurrence.span.file != query->documentPath) {
+            continue;
+        }
+        if (concreteWildcardValue
+            && !occurrenceHasText(*query->snapshot, occurrence, query->occurrenceText)) {
             continue;
         }
         if (const auto occurrenceRange = rangeFor(*query->snapshot, occurrence.span)) {
