@@ -37,7 +37,10 @@ void indexExpr(SourceIndex& index, const ast::Expr& expr);
 
 void indexParam(SourceIndex& index, const ast::Param& param) {
 	index.addName(SourceNameKind::Parameter, param.name);
-	if (param.type) index.addName(SourceNameKind::Type, param.type->name);
+	if (param.type) {
+		index.addName(SourceNameKind::Type, param.type->name);
+		index.addTypePosition({param.type->name.span});
+	}
 	if (param.defaultValue) indexExpr(index, *param.defaultValue);
 }
 
@@ -157,95 +160,6 @@ std::optional<ast::Span> spanFromOffsets(
 
 size_t tokenStart(const RecoveryToken& token) {
 	return token.end - token.text.size();
-}
-
-void addRecoveredTypePositions(
-	SourceIndex& index, const ast::File& file, const ast::SourceText& source) {
-	const auto tokens = recoveryTokens(source.content());
-	for (size_t declarationIndex = 0; declarationIndex < tokens.size(); ++declarationIndex) {
-		bool isExtern = false;
-		size_t defineIndex = declarationIndex;
-		if (tokens[declarationIndex].text == "extern") {
-			isExtern = true;
-			if (++defineIndex >= tokens.size() || tokens[defineIndex].text != "define") continue;
-		} else if (tokens[declarationIndex].text != "define") {
-			continue;
-		}
-		if (defineIndex + 2 >= tokens.size()
-			|| tokens[defineIndex + 1].punctuation != 0
-			|| tokens[defineIndex + 2].punctuation != '(') {
-			continue;
-		}
-
-		const size_t openIndex = defineIndex + 2;
-		size_t closeIndex = tokens.size();
-		size_t depth = 1;
-		for (size_t cursor = openIndex + 1; cursor < tokens.size(); ++cursor) {
-			if (tokens[cursor].punctuation == '(') ++depth;
-			if (tokens[cursor].punctuation == ')' && --depth == 0) {
-				closeIndex = cursor;
-				break;
-			}
-		}
-
-		depth = 1;
-		size_t segmentStart = openIndex + 1;
-		bool segmentHasDefault = false;
-		bool segmentHasType = false;
-		for (size_t cursor = openIndex + 1;
-			 cursor < closeIndex && cursor < tokens.size(); ++cursor) {
-			if (tokens[cursor].punctuation == '(') {
-				++depth;
-				continue;
-			}
-			if (tokens[cursor].punctuation == ')') {
-				if (depth > 1) --depth;
-				continue;
-			}
-			if (depth != 1) continue;
-			if (tokens[cursor].punctuation == ',') {
-				segmentStart = cursor + 1;
-				segmentHasDefault = false;
-				segmentHasType = false;
-				continue;
-			}
-			if (tokens[cursor].punctuation == '=') {
-				segmentHasDefault = true;
-				continue;
-			}
-			if (tokens[cursor].punctuation != ':' || segmentHasDefault || segmentHasType
-				|| segmentStart >= cursor || tokens[segmentStart].punctuation != 0) {
-				continue;
-			}
-			const size_t candidateIndex = cursor + 1;
-			const bool hasType = candidateIndex < closeIndex
-				&& candidateIndex < tokens.size()
-				&& tokens[candidateIndex].punctuation == 0;
-			const size_t start = tokens[cursor].end;
-			const size_t end = hasType
-				? tokens[candidateIndex].end
-				: candidateIndex < tokens.size()
-					? tokenStart(tokens[candidateIndex])
-					: source.content().size();
-			if (const auto span = spanFromOffsets(source, file.path, start, end)) {
-				index.addTypePosition({*span});
-			}
-			segmentHasType = true;
-		}
-
-		if (isExtern && closeIndex + 2 < tokens.size()
-			&& tokens[closeIndex + 1].punctuation == '-'
-			&& tokens[closeIndex + 2].punctuation == '>') {
-			const size_t typeIndex = closeIndex + 3;
-			const bool hasType = typeIndex < tokens.size()
-				&& tokens[typeIndex].punctuation == 0;
-			const size_t start = tokens[closeIndex + 2].end;
-			const size_t end = hasType ? tokens[typeIndex].end : source.content().size();
-			if (const auto span = spanFromOffsets(source, file.path, start, end)) {
-				index.addTypePosition({*span});
-			}
-		}
-	}
 }
 
 void addRecoveredNamedArguments(
@@ -726,7 +640,6 @@ SourceIndex BuildSourceIndex(const ast::File& file, const ast::SourceText* sourc
 	if (source) {
 		addRecoveredRegionContexts(index, file, *source);
 		addRecoveredNamedArguments(index, file, *source);
-		addRecoveredTypePositions(index, file, *source);
 	}
 	for (const auto& declaration : file.declarations) {
 		std::visit([&](const auto& node) {
@@ -784,7 +697,10 @@ SourceIndex BuildSourceIndex(const ast::File& file, const ast::SourceText* sourc
 			} else if constexpr (std::is_same_v<T, ast::ExternDefineDecl>) {
 				index.addName(SourceNameKind::Declaration, node.name);
 				for (const auto& parameter : node.params) indexParam(index, parameter);
-				if (node.returnType) index.addName(SourceNameKind::Type, node.returnType->name);
+				if (node.returnType) {
+					index.addName(SourceNameKind::Type, node.returnType->name);
+					index.addTypePosition({node.returnType->name.span});
+				}
 			} else if constexpr (std::is_same_v<T, ast::EnumDecl>) {
 				index.addEnumName(node.name.text);
 				index.addName(SourceNameKind::Declaration, node.name);

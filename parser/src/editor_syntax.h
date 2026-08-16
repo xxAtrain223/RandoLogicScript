@@ -25,9 +25,21 @@ struct EditorMemberAccess {
 	SyntaxRecoveryStatus status = SyntaxRecoveryStatus::Recovered;
 };
 
+enum class EditorTypePositionKind {
+	Parameter,
+	Return,
+};
+
+struct EditorTypePosition {
+	EditorTypePositionKind kind;
+	ast::Span span;
+	SyntaxRecoveryStatus status = SyntaxRecoveryStatus::Recovered;
+};
+
 struct EditorSyntax {
 	std::vector<EditorEnumDeclaration> enumDeclarations;
 	std::vector<EditorMemberAccess> memberAccesses;
+	std::vector<EditorTypePosition> typePositions;
 };
 
 EditorSyntax ParseEditorSyntax(

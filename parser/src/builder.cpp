@@ -155,7 +155,7 @@ ast::ExprPtr buildExpr(const Node& n, Diags& diags) {
 	}
 
 	if (n.is_type<grammar::member_access>()) {
-		// children: [ident(enumName), ident(memberName)]
+		// children: [member_object(enumName), member_name(memberName)]
 		return ast::makeExpr(
 			ast::MemberExpr(makeName(*n.children[0]), makeName(*n.children[1])),
 			makeSpan(n));
@@ -334,7 +334,7 @@ ast::Param buildParam(const Node& n, Diags& diags) {
 	ast::ExprPtr defaultValue;
 
 	for (size_t i = 1; i < n.children.size(); ++i) {
-		if (n.children[i]->is_type<grammar::type>()) {
+		if (n.children[i]->is_type<grammar::parameter_type_name>()) {
 			type = ast::TypeRef(makeName(*n.children[i]));
 		} else {
 			defaultValue = buildExpr(*n.children[i], diags);
@@ -446,7 +446,7 @@ ast::ExternDefineDecl buildExternDefineDecl(const Node& n, Diags& diags) {
 	for (size_t i = 1; i < n.children.size(); ++i) {
 		if (n.children[i]->is_type<grammar::param>()) {
 			params.push_back(buildParam(*n.children[i], diags));
-		} else if (n.children[i]->is_type<grammar::type>()) {
+		} else if (n.children[i]->is_type<grammar::return_type_name>()) {
 			returnType = ast::TypeRef(makeName(*n.children[i]));
 		}
 	}

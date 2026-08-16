@@ -59,6 +59,14 @@ TEST(ParserTests, InvalidSourceReportsDiagnostic) {
 	EXPECT_EQ(file.diagnostics[0].span.start.column, 1u);
 }
 
+TEST(ParserTests, StrictModeDoesNotSkipTopLevelStrings) {
+	const auto file = rls::parser::ParseString("\"enum Fake { VALUE }\"");
+
+	EXPECT_TRUE(file.declarations.empty());
+	ASSERT_FALSE(file.diagnostics.empty());
+	EXPECT_EQ(file.diagnostics[0].message, "expected declaration or end of file");
+}
+
 TEST(ParserTests, MissingIdentifierAfterDefine) {
 	const auto file = rls::parser::ParseString("define 123");
 
@@ -250,21 +258,47 @@ TEST(ParserTests, EditorSyntaxClassifiesCompleteAndRecoveredEnums) {
 
 TEST(ParserTests, EditorSyntaxRecoversMemberAccesses) {
 	const auto source = SourceText::FromUtf8(
-		"Color.RED Color.\n"
-		"\"Quoted.FAKE\" # Commented.FAKE\n");
+		"define first(): Color.RED\n"
+		"define second(): Color.\n"
+		"define ignored(): \"Quoted.FAKE\" # Commented.FAKE\n");
 	ASSERT_TRUE(source);
 	const auto syntax = rls::parser::ParseEditorSyntax(
 		*source, "members.rls", File{});
 	ASSERT_EQ(syntax.memberAccesses.size(), 2u);
 	EXPECT_EQ(syntax.memberAccesses[0].object.text, "Color");
-	EXPECT_EQ(syntax.memberAccesses[0].memberSpan.start.column, 7u);
-	EXPECT_EQ(syntax.memberAccesses[0].memberSpan.end.column, 10u);
+	EXPECT_EQ(syntax.memberAccesses[0].memberSpan.start.column, 23u);
+	EXPECT_EQ(syntax.memberAccesses[0].memberSpan.end.column, 26u);
 	EXPECT_EQ(syntax.memberAccesses[0].status,
 		rls::parser::SyntaxRecoveryStatus::Complete);
 	EXPECT_EQ(syntax.memberAccesses[1].object.text, "Color");
-	EXPECT_EQ(syntax.memberAccesses[1].memberSpan.start.column, 17u);
-	EXPECT_EQ(syntax.memberAccesses[1].memberSpan.end.column, 17u);
+	EXPECT_EQ(syntax.memberAccesses[1].memberSpan.start.column, 24u);
+	EXPECT_EQ(syntax.memberAccesses[1].memberSpan.end.column, 24u);
 	EXPECT_EQ(syntax.memberAccesses[1].status,
+		rls::parser::SyntaxRecoveryStatus::Recovered);
+}
+
+TEST(ParserTests, EditorSyntaxRecoversFunctionTypePositions) {
+	const auto source = SourceText::FromUtf8(
+		"# define hidden(value: Fake)\n"
+		"\"extern define hidden() -> Fake\"\n"
+		"define choose(first = nested(a, b), second: Col\n"
+		"extern define convert(value: Bool) -> \n"
+		"define ignored(value = true ? false : true\n");
+	ASSERT_TRUE(source);
+	const auto syntax = rls::parser::ParseEditorSyntax(
+		*source, "types.rls", File{});
+	ASSERT_EQ(syntax.typePositions.size(), 3u);
+	EXPECT_EQ(syntax.typePositions[0].kind,
+		rls::parser::EditorTypePositionKind::Parameter);
+	EXPECT_EQ(syntax.typePositions[0].status,
+		rls::parser::SyntaxRecoveryStatus::Complete);
+	EXPECT_EQ(syntax.typePositions[1].kind,
+		rls::parser::EditorTypePositionKind::Parameter);
+	EXPECT_EQ(syntax.typePositions[1].status,
+		rls::parser::SyntaxRecoveryStatus::Complete);
+	EXPECT_EQ(syntax.typePositions[2].kind,
+		rls::parser::EditorTypePositionKind::Return);
+	EXPECT_EQ(syntax.typePositions[2].status,
 		rls::parser::SyntaxRecoveryStatus::Recovered);
 }
 
@@ -839,9 +873,13 @@ TEST(SourceIndexTests, ReportsRecoveredFunctionTypePositions) {
 
 	const std::string blankParameterSource = "define choose(value: ";
 	const auto blankParameter = rls::parser::ParseStringWithIndex(
-		blankParameterSource, "blank-parameter-type.rls");
-	EXPECT_TRUE(blankParameter.sourceIndex.typePositionAt(
-		positionAtEnd(blankParameterSource)));
+		blankParameterSource, "blank-parameter-type.rls",
+		rls::parser::ParseMode::Editor);
+	const auto blankParameterType = blankParameter.sourceIndex.typePositionAt(
+		positionAtEnd(blankParameterSource));
+	ASSERT_TRUE(blankParameterType);
+	EXPECT_EQ(blankParameterType->typeSpan.start.column, 21u);
+	EXPECT_EQ(blankParameterType->typeSpan.end.column, 22u);
 
 	const std::string returnSource =
 		"extern define choose(value: Bool) -> Col";
@@ -852,16 +890,23 @@ TEST(SourceIndexTests, ReportsRecoveredFunctionTypePositions) {
 
 	const std::string blankReturnSource = "extern define choose() -> ";
 	const auto blankReturn = rls::parser::ParseStringWithIndex(
-		blankReturnSource, "blank-return-type.rls");
+		blankReturnSource, "blank-return-type.rls",
+		rls::parser::ParseMode::Editor);
 	EXPECT_TRUE(blankReturn.sourceIndex.typePositionAt(
 		positionAtEnd(blankReturnSource)));
 
 	const std::string defaultSource =
 		"define choose(value = true ? false : tru";
 	const auto defaultExpression = rls::parser::ParseStringWithIndex(
-		defaultSource, "default-expression.rls");
+		defaultSource, "default-expression.rls", rls::parser::ParseMode::Editor);
 	EXPECT_FALSE(defaultExpression.sourceIndex.typePositionAt(
 		positionAtEnd(defaultSource)));
+
+	const auto strictBlank = rls::parser::ParseStringWithIndex(
+		blankParameterSource, "strict-blank-type.rls",
+		rls::parser::ParseMode::Strict);
+	EXPECT_FALSE(strictBlank.sourceIndex.typePositionAt(
+		positionAtEnd(blankParameterSource)));
 }
 
 TEST(ParseExpr, NestedCalls) {

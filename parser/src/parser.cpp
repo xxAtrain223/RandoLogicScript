@@ -32,6 +32,7 @@ template<> constexpr const char* parse_errors::message<grammar::colon>       = "
 
 // -- Tokens -------------------------------------------------------------------
 template<> constexpr const char* parse_errors::message<grammar::ident>          = "expected identifier";
+template<> constexpr const char* parse_errors::message<grammar::enum_name>      = "expected identifier";
 template<> constexpr const char* parse_errors::message<grammar::expr>           = "expected expression";
 template<> constexpr const char* parse_errors::message<grammar::ternary>        = "expected expression";
 template<> constexpr const char* parse_errors::message<grammar::match_ternary>  = "expected expression";
@@ -135,6 +136,9 @@ IndexedFile ParseStringWithIndex(
 		for (const auto& memberAccess : editorSyntax.memberAccesses) {
 			sourceIndex.addMemberAccess({
 				memberAccess.object.text, memberAccess.memberSpan});
+		}
+		for (const auto& typePosition : editorSyntax.typePositions) {
+			sourceIndex.addTypePosition({typePosition.span});
 		}
 	}
 	return {std::move(file), std::move(sourceIndex)};

@@ -20,6 +20,7 @@ Produce trustworthy partial syntax indexes for incomplete editor text from the c
 
 ### 2. Recovery Representation
 
+- [x] Use one mode-aware grammar for strict parsing and editor recovery.
 - [x] Define parser-owned missing/error syntax records with spans and recovery status.
 - [x] Distinguish complete AST declarations from recovered syntax contexts.
 - [ ] Preserve comments, strings, and delimiters sufficiently to synchronize without lexical false positives.
@@ -36,7 +37,7 @@ Produce trustworthy partial syntax indexes for incomplete editor text from the c
 
 - [x] Recover incomplete member access qualifiers and member spans.
 - [ ] Recover call boundaries, nested argument slots, labels, and active value spans.
-- [ ] Recover parameter and extern return type positions.
+- [x] Recover parameter and extern return type positions.
 - [x] Recover enum declaration names needed by incomplete same-file type completion.
 - [ ] Move member/call/type contexts out of the recovery scanner.
 
