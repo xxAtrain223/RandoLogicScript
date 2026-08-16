@@ -48,7 +48,7 @@ TEST(DocumentUriTests, RoundTripsFilesystemPathsThroughFileUris) {
     ASSERT_TRUE(uri.has_value());
     const auto roundTrip = FileUriToPath(*uri);
     ASSERT_TRUE(roundTrip.has_value());
-    EXPECT_EQ(roundTrip->lexically_normal(), fs::absolute(path).lexically_normal());
+    EXPECT_EQ(*roundTrip, fs::weakly_canonical(path));
 }
 
 TEST(DocumentStoreTests, StoresDocumentsUnderNormalizedUris) {

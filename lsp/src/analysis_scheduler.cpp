@@ -289,16 +289,19 @@ void AnalysisScheduler::worker(std::stop_token shutdown) {
                     acceptedHandler = acceptedHandler_;
                 }
             }
-            --activeBuilds_;
             snapshotReady_.notify_all();
-            if (isIdle()) {
-                idle_.notify_all();
-            }
         }
         if (acceptedHandler && acceptedSnapshot) {
             try {
                 acceptedHandler(request.projectId, std::move(acceptedSnapshot));
             } catch (...) {
+            }
+        }
+        {
+            std::lock_guard lock(mutex_);
+            --activeBuilds_;
+            if (isIdle()) {
+                idle_.notify_all();
             }
         }
         wake_.notify_all();
