@@ -100,6 +100,9 @@ std::optional<AbsoluteToken> makeToken(
         && occurrence.kind != sema::OccurrenceKind::Declaration) {
         type = TokenType::EnumMember;
     }
+    const bool concreteRegionValue = symbol.category == sema::SymbolCategory::Region
+        && occurrence.kind != sema::OccurrenceKind::Declaration;
+    if (concreteRegionValue) type = TokenType::EnumMember;
     if (!type || occurrence.span.start.line == 0
         || occurrence.span.start.line != occurrence.span.end.line) {
         return std::nullopt;
@@ -120,7 +123,7 @@ std::optional<AbsoluteToken> makeToken(
                 ? TokenModifier::Definition
                 : TokenModifier::Declaration);
     }
-    if (isReadonly(symbol.category) || concretePatternValue) {
+    if (isReadonly(symbol.category) || concretePatternValue || concreteRegionValue) {
         modifiers |= modifier(TokenModifier::Readonly);
     }
     if (isDefaultLibrary(snapshot.semanticIndex(), symbol)) {
