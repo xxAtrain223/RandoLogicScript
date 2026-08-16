@@ -181,7 +181,8 @@ TEST(ProjectManifest, ReportsMissingAndEmptySourceSets) {
     auto manifest = rls::project::LoadManifest(directory.path() / "rls.json");
     ASSERT_TRUE(manifest.config.has_value()) << manifest.error;
     EXPECT_EQ(rls::project::CollectManifestSources(*manifest.config).error,
-        "manifest source does not exist: " + (directory.path() / "missing").string());
+        "manifest source does not exist: "
+            + fs::weakly_canonical(directory.path() / "missing").string());
 
     writeFile(directory.path() / "rls.json", R"({ "version": 1, "sources": ["empty"] })");
     fs::create_directories(directory.path() / "empty");

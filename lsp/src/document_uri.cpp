@@ -79,6 +79,20 @@ bool isValidUtf8(std::string_view value) {
     return true;
 }
 
+std::optional<std::filesystem::path> canonicalPath(const std::filesystem::path& path) {
+    std::error_code error;
+    const auto resolved = std::filesystem::weakly_canonical(path, error);
+    if (!error) {
+        return resolved;
+    }
+
+    const auto absolute = std::filesystem::absolute(path, error);
+    if (error) {
+        return std::nullopt;
+    }
+    return absolute.lexically_normal();
+}
+
 } // namespace
 
 std::optional<std::string> NormalizeDocumentUri(std::string_view uri) {
@@ -224,17 +238,19 @@ std::optional<std::filesystem::path> FileUriToPath(std::string_view uri) {
     for (const unsigned char byte : path) {
         utf8Path.push_back(static_cast<char8_t>(byte));
     }
-    return std::filesystem::path(utf8Path);
+    const std::filesystem::path filesystemPath(utf8Path);
+    return authority.empty()
+        ? canonicalPath(filesystemPath)
+        : std::optional<std::filesystem::path>(filesystemPath);
 }
 
 std::optional<std::string> PathToFileUri(const std::filesystem::path& path) {
-    std::error_code error;
-    const auto absolute = std::filesystem::absolute(path, error);
-    if (error) {
+    const auto canonical = canonicalPath(path);
+    if (!canonical) {
         return std::nullopt;
     }
 
-    const auto generic = absolute.lexically_normal().generic_u8string();
+    const auto generic = canonical->generic_u8string();
     const std::string_view genericBytes(
         reinterpret_cast<const char*>(generic.data()), generic.size());
     if (!isValidUtf8(genericBytes)) {
