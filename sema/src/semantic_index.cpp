@@ -621,9 +621,15 @@ SemanticIndex buildSemanticIndex(const ast::Project& project,
 		for (const auto& declaration : file.declarations) {
 			std::visit([&](const auto& node) {
 				using T = std::decay_t<decltype(node)>;
-				if constexpr (std::is_same_v<T, ast::DefineDecl>) {
-					const auto defineId = findSymbol(SymbolCategory::Define, node.name.text);
-					if (node.body) indexExpression(*node.body, defineId);
+				if constexpr (std::is_same_v<T, ast::DefineDecl> || std::is_same_v<T, ast::ExternDefineDecl>) {
+					const auto defineId = findSymbol(
+						std::is_same_v<T, ast::DefineDecl>
+							? SymbolCategory::Define
+							: SymbolCategory::ExternDefine,
+						node.name.text);
+					if constexpr (std::is_same_v<T, ast::DefineDecl>) {
+						if (node.body) indexExpression(*node.body, defineId);
+					}
 					for (const auto& parameter : node.params) {
 						if (parameter.defaultValue) {
 							if (const auto type = project.getType(&parameter)) {

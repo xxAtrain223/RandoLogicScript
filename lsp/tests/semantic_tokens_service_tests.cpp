@@ -174,6 +174,19 @@ TEST(SemanticTokensServiceTests, HighlightsConcreteValuesResolvedThroughUniquePa
     EXPECT_EQ(qualified->modifiers, 12u);
 }
 
+TEST(SemanticTokensServiceTests, HighlightsWildcardValuesInExternParameterDefaults) {
+    SemanticTokensFixture fixture(
+        "extern enum Region { RR_* }\n"
+        "extern define spirit_shared(value: Region = RR_NONE) -> Bool\n");
+
+    const auto tokens = fixture.tokens();
+    const auto* regionDefault = tokenAt(tokens, 1, 44);
+
+    ASSERT_NE(regionDefault, nullptr);
+    EXPECT_EQ(regionDefault->type, 3u);
+    EXPECT_EQ(regionDefault->modifiers, 12u);
+}
+
 TEST(SemanticTokensServiceTests, HighlightsBuiltinExternReturnTypes) {
     SemanticTokensFixture fixture(
         "extern define test1(item: Item) -> Item\n"
