@@ -46,6 +46,10 @@ struct SourceNameContext {
 	ast::Span span;
 };
 
+struct LogicalOperatorContext {
+	ast::Span span;
+};
+
 struct CallContext {
 	std::string calleeName;
 	ast::Span span;
@@ -118,6 +122,7 @@ public:
 		std::optional<std::string_view> regionName = std::nullopt) const;
 	std::vector<std::string> regionNames() const;
 	const std::vector<std::string>& enumNames() const { return enumNames_; }
+	const std::vector<LogicalOperatorContext>& logicalOperators() const { return logicalOperators_; }
 	const std::vector<SyntaxContext>& declarations() const { return declarations_; }
 	std::vector<SyntaxContext> declarationsIn(std::string_view file) const;
 
@@ -125,6 +130,7 @@ public:
 	void addSyntax(SyntaxKind kind, const ast::Span& span);
 	void addName(SourceNameKind kind, const ast::Name& name);
 	void addExpression(const ast::Span& span);
+	void addLogicalOperator(LogicalOperatorContext context);
 	void addCall(CallContext call);
 	void addDeclaration(const ast::Span& span);
 	void addRegionContext(RegionContext context, std::vector<RegionSectionContext> sections);
@@ -139,6 +145,7 @@ private:
 	std::vector<SyntaxContext> syntax_;
 	std::vector<SourceNameContext> names_;
 	std::vector<SyntaxContext> expressions_;
+	std::vector<LogicalOperatorContext> logicalOperators_;
 	std::vector<CallContext> calls_;
 	std::vector<SyntaxContext> declarations_;
 	struct IndexedRegionContext {

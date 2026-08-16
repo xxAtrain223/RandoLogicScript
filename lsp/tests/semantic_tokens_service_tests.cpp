@@ -166,6 +166,25 @@ TEST(SemanticTokensServiceTests, UsesUtf16ColumnsAndOmitsUnresolvedNames) {
     EXPECT_EQ(tokenAt(ambiguousTokens, 2, 14), nullptr);
 }
 
+TEST(SemanticTokensServiceTests, EmitsLogicalOperatorsWithTheSameType) {
+    const std::string source = "define check(): true or (true and true)\n";
+    SemanticTokensFixture fixture(source);
+
+    const auto tokens = fixture.tokens();
+    const auto orPosition = static_cast<uint32_t>(source.find("or"));
+    const auto andPosition = static_cast<uint32_t>(source.find("and"));
+
+    const auto* orToken = tokenAt(tokens, 0, orPosition);
+    const auto* andToken = tokenAt(tokens, 0, andPosition);
+
+    ASSERT_NE(orToken, nullptr);
+    ASSERT_NE(andToken, nullptr);
+    EXPECT_EQ(orToken->type, andToken->type);
+    EXPECT_EQ(orToken->type, 6u);
+    EXPECT_EQ(orToken->length, 2u);
+    EXPECT_EQ(andToken->length, 3u);
+}
+
 TEST(SemanticTokensServiceTests, HighlightsConcreteValuesResolvedThroughUniquePatterns) {
     SemanticTokensFixture fixture(
         "extern enum Item { RG_* }\n"

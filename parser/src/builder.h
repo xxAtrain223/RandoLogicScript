@@ -40,6 +40,8 @@ using selector = tao::pegtl::parse_tree::selector<
 		grammar::string_literal,
 		grammar::atom_keyword,
 		grammar::invoke_suffix,
+		grammar::kw_and,
+		grammar::kw_or,
 		grammar::parameter_type_name,
 		grammar::return_type_name,
 		grammar::enum_name,

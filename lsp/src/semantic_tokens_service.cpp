@@ -17,6 +17,7 @@ enum class TokenType : uint32_t {
     EnumMember,
     Property,
     Variable,
+    Operator,
 };
 
 enum class TokenModifier : uint32_t {
@@ -142,7 +143,7 @@ SemanticTokensService::SemanticTokensService(
 
 const std::vector<std::string>& SemanticTokensService::tokenTypes() {
     static const std::vector<std::string> result = {
-        "function", "parameter", "enum", "enumMember", "property", "variable",
+        "function", "parameter", "enum", "enumMember", "property", "variable", "operator",
     };
     return result;
 }
@@ -170,6 +171,23 @@ std::vector<uint32_t> SemanticTokensService::full(std::string_view uri) const {
     if (!source) return {};
 
     std::vector<AbsoluteToken> tokens;
+    if (const auto* sourceIndex = snapshot->sourceIndex(documentPath)) {
+        for (const auto& logicalOperator : sourceIndex->logicalOperators()) {
+            const auto startOffset = source->byteOffsetFromUtf8Position(logicalOperator.span.start);
+            const auto endOffset = source->byteOffsetFromUtf8Position(logicalOperator.span.end);
+            if (!startOffset || !endOffset || *startOffset >= *endOffset) continue;
+            const auto start = source->utf16PositionAtByteOffset(*startOffset);
+            const auto end = source->utf16PositionAtByteOffset(*endOffset);
+            if (!start || !end || start->line != end->line || start->column >= end->column) continue;
+            tokens.push_back({
+                start->line - 1,
+                start->column - 1,
+                end->column - start->column,
+                TokenType::Operator,
+                0,
+            });
+        }
+    }
     for (const auto& occurrence : snapshot->semanticIndex().occurrences()) {
         if (occurrence.span.file != documentPath) continue;
         if (!occurrence.symbol && occurrence.kind == sema::OccurrenceKind::TypeReference) {

@@ -59,7 +59,7 @@ TEST(ServerCompositionRootTests, AdvertisesImplementedTextDocumentFeatures) {
         Json::array({"(", ","}));
     EXPECT_EQ(result["capabilities"]["hoverProvider"], true);
     EXPECT_EQ(result["capabilities"]["semanticTokensProvider"]["legend"]["tokenTypes"],
-        Json::array({"function", "parameter", "enum", "enumMember", "property", "variable"}));
+        Json::array({"function", "parameter", "enum", "enumMember", "property", "variable", "operator"}));
     EXPECT_EQ(result["capabilities"]["semanticTokensProvider"]["legend"]["tokenModifiers"],
         Json::array({"declaration", "definition", "readonly", "defaultLibrary", "deprecated"}));
     EXPECT_EQ(result["capabilities"]["semanticTokensProvider"]["range"], false);

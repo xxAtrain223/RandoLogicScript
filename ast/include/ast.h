@@ -326,9 +326,11 @@ struct BinaryExpr {
 	BinaryOp op;
 	ExprPtr left;
 	ExprPtr right;
+	Span operatorSpan;
 
-	BinaryExpr(BinaryOp op, ExprPtr left, ExprPtr right)
-		: op(op), left(std::move(left)), right(std::move(right)) {}
+	BinaryExpr(BinaryOp op, ExprPtr left, ExprPtr right, Span operatorSpan = {})
+		: op(op), left(std::move(left)), right(std::move(right)),
+		  operatorSpan(std::move(operatorSpan)) {}
 };
 
 /// Ternary expression: `<condition> ? <thenBranch> : <elseBranch>`.

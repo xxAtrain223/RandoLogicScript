@@ -61,6 +61,10 @@ void indexExpr(SourceIndex& index, const ast::Expr& expr) {
 		} else if constexpr (std::is_same_v<T, ast::UnaryExpr>) {
 			indexExpr(index, *node.operand);
 		} else if constexpr (std::is_same_v<T, ast::BinaryExpr>) {
+			if ((node.op == ast::BinaryOp::And || node.op == ast::BinaryOp::Or)
+				&& node.operatorSpan.start.line != 0) {
+				index.addLogicalOperator({node.operatorSpan});
+			}
 			indexExpr(index, *node.left);
 			indexExpr(index, *node.right);
 		} else if constexpr (std::is_same_v<T, ast::TernaryExpr>) {
@@ -124,6 +128,10 @@ void SourceIndex::addName(SourceNameKind kind, const ast::Name& name) {
 void SourceIndex::addExpression(const ast::Span& span) {
 	if (span.start.line != 0) expressions_.push_back({SyntaxKind::Expression, span});
 	addSyntax(SyntaxKind::Expression, span);
+}
+
+void SourceIndex::addLogicalOperator(LogicalOperatorContext context) {
+	if (context.span.start.line != 0) logicalOperators_.push_back(std::move(context));
 }
 
 void SourceIndex::addCall(CallContext call) {

@@ -82,6 +82,9 @@
           "property.declaration": [
             "variable.parameter.rls"
           ],
+          "operator": [
+            "keyword.operator.word.rls"
+          ],
           "variable.readonly": [
             "variable.other.constant.rls"
           ],

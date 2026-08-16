@@ -38,6 +38,7 @@ export async function runLanguageClientTest(): Promise<void> {
   assert.deepEqual(semanticScopeMap.scopes['property.declaration'], [
     'variable.parameter.rls',
   ]);
+  assert.deepEqual(semanticScopeMap.scopes.operator, ['keyword.operator.word.rls']);
   assert.deepEqual(semanticScopeMap.scopes['variable.readonly.definition'], [
     'variable.other.constant.rls',
   ]);

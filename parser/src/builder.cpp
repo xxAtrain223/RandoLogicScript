@@ -114,20 +114,19 @@ ast::ExprPtr buildBinaryChain(const Node& n, OpMapper mapOp, Diags& diags) {
 		auto right = buildExpr(*n.children[i + 1], diags);
 		const auto span = spanFrom(result->span, right->span);
 		result = ast::makeExpr(ast::BinaryExpr(
-			op, std::move(result), std::move(right)), span);
+			op, std::move(result), std::move(right), makeSpan(*n.children[i])), span);
 	}
 	return result;
 }
 
-/// Left-fold for and/or chains whose children are just operands
-/// (no explicit operator token nodes).
+/// Left-fold for and/or chains whose children alternate operands and operators.
 ast::ExprPtr buildLogicalChain(const Node& n, ast::BinaryOp op, Diags& diags) {
 	auto result = buildExpr(*n.children[0], diags);
-	for (size_t i = 1; i < n.children.size(); ++i) {
-		auto right = buildExpr(*n.children[i], diags);
+	for (size_t i = 1; i + 1 < n.children.size(); i += 2) {
+		auto right = buildExpr(*n.children[i + 1], diags);
 		const auto span = spanFrom(result->span, right->span);
 		result = ast::makeExpr(ast::BinaryExpr(
-			op, std::move(result), std::move(right)), span);
+			op, std::move(result), std::move(right), makeSpan(*n.children[i])), span);
 	}
 	return result;
 }
