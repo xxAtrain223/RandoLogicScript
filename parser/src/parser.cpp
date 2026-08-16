@@ -29,11 +29,18 @@ template<> constexpr const char* parse_errors::message<grammar::close_paren> = "
 template<> constexpr const char* parse_errors::message<grammar::call_close_paren> = "expected ')'";
 template<> constexpr const char* parse_errors::message<grammar::open_brace>  = "expected '{'";
 template<> constexpr const char* parse_errors::message<grammar::close_brace> = "expected '}'";
+template<> constexpr const char* parse_errors::message<grammar::section_open_brace> = "expected '{'";
+template<> constexpr const char* parse_errors::message<grammar::section_close_brace> = "expected '}'";
+template<> constexpr const char* parse_errors::message<grammar::region_open_brace> = "expected '{'";
+template<> constexpr const char* parse_errors::message<grammar::region_close_brace> = "expected '}'";
 template<> constexpr const char* parse_errors::message<grammar::colon>       = "expected ':'";
+template<> constexpr const char* parse_errors::message<grammar::entry_delimiter> = "expected ':'";
+template<> constexpr const char* parse_errors::message<grammar::region_data_delimiter> = "expected ':'";
 
 // -- Tokens -------------------------------------------------------------------
 template<> constexpr const char* parse_errors::message<grammar::ident>          = "expected identifier";
 template<> constexpr const char* parse_errors::message<grammar::enum_name>      = "expected identifier";
+template<> constexpr const char* parse_errors::message<grammar::region_name>    = "expected identifier";
 template<> constexpr const char* parse_errors::message<grammar::expr>           = "expected expression";
 template<> constexpr const char* parse_errors::message<grammar::ternary>        = "expected expression";
 template<> constexpr const char* parse_errors::message<grammar::match_ternary>  = "expected expression";
@@ -168,6 +175,34 @@ IndexedFile ParseStringWithIndex(
 						call.callee.text, labels, index, argument.labelSpan});
 				}
 			}
+		}
+		for (const auto& region : editorSyntax.regions) {
+			for (const auto& section : region.sections) {
+				for (const auto& entry : section.entries) {
+					sourceIndex.addSectionEntry({section.kind, entry.labelSpan});
+				}
+			}
+			if (region.status == SyntaxRecoveryStatus::Complete) continue;
+			RegionContext context{
+				.span = region.span,
+				.name = region.name.text,
+				.extension = region.extension,
+				.dataKeys = region.dataKeys,
+			};
+			std::vector<RegionSectionContext> sections;
+			for (const auto& section : region.sections) {
+				context.sectionKinds.push_back(section.kind);
+				RegionSectionContext sectionContext{
+					section.kind, section.span, {}};
+				for (const auto& entry : section.entries) {
+					if (entry.name) {
+						sectionContext.entryNames.push_back(entry.name->text);
+					}
+				}
+				sections.push_back(std::move(sectionContext));
+			}
+			sourceIndex.addRegionContext(
+				std::move(context), std::move(sections));
 		}
 	}
 	return {std::move(file), std::move(sourceIndex)};

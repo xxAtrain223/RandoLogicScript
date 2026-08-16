@@ -518,33 +518,63 @@ struct params : list<param, seq<_, comma, _>> {};
 // -- Sections (events / locations / exits) ------------------------------------
 
 /// entry = IDENT ":" expr
-struct entry : seq<ident, required<_, colon, _, expr>> {};
+struct entry_label : ident {};
+struct entry_delimiter : colon {};
+struct entry : seq<
+	entry_label, required<_, entry_delimiter, _, expr>
+> {};
 
 /// section_kind = "events" | "locations" | "exits"
 struct section_kind : sor<kw<kw_events>, kw<kw_locations>, kw<kw_exits>> {};
 
 /// section = section_kind "{" entry* "}"
-struct section : seq<section_kind, required<_, open_brace, _, star<seq<entry, _>>, close_brace>> {};
+struct section_open_brace : open_brace {};
+struct section_close_brace : close_brace {};
+struct section : seq<
+	section_kind,
+	required<_, section_open_brace, _, star<seq<entry, _>>, section_close_brace>
+> {};
 
 // -- Region -------------------------------------------------------------------
 
 /// region_data_entry = IDENT ":" expr
-struct region_data_entry : seq<ident, required<_, colon, _, expr>> {};
+struct region_data_key : ident {};
+struct region_data_delimiter : colon {};
+struct region_data_entry : seq<
+	region_data_key, required<_, region_data_delimiter, _, expr>
+> {};
 
 /// region_body = region_data_entry* section*
 struct region_body : seq<star<seq<region_data_entry, _>>, star<seq<section, _>>> {};
 
+struct declaration_keyword : sor<
+	kw<kw_region>, kw<kw_extend>, kw<kw_extern>, kw<kw_define>, kw<kw_enum>
+> {};
+struct region_recovery_character : seq<
+	tolerant_mode,
+	not_at<sor<close_brace, declaration_keyword>>,
+	any
+> {};
+struct region_recovery : star<region_recovery_character> {};
+
 /// region = "region" IDENT "{" region_body "}"
-struct region_decl : seq<kw<kw_region>, required<_, ident, _, open_brace, _, region_body, _, close_brace>> {};
+struct region_name : ident {};
+struct region_open_brace : open_brace {};
+struct region_close_brace : close_brace {};
+struct region_decl : seq<
+	kw<kw_region>, required<_, region_name, _, region_open_brace, _,
+	region_body, region_recovery, _, region_close_brace>
+> {};
 
 // -- Extend region ------------------------------------------------------------
 
 /// extend = "extend" "region" IDENT "{" section* "}"
 struct extend_decl : seq<
-	kw<kw_extend>, required<_, kw<kw_region>, _, ident, _,
-	open_brace, _,
+	kw<kw_extend>, required<_, kw<kw_region>, _, region_name, _,
+	region_open_brace, _,
 	star<seq<section, _>>,
-	close_brace>
+	region_recovery,
+	region_close_brace>
 > {};
 
 // -- Define -------------------------------------------------------------------

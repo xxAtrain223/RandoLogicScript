@@ -709,12 +709,29 @@ TEST(SourceIndexTests, ReportsCompleteAndRecoveredRegionContexts) {
 		"region RR_BROKEN {\n"
 		"  name: \"Broken\"\n"
 		"  loc\n",
-		"broken-region.rls");
+		"broken-region.rls", rls::parser::ParseMode::Editor);
 	ASSERT_FALSE(recovered.file.diagnostics.empty());
 	const auto recoveredRegion = recovered.sourceIndex.regionContextAt({3, 5});
 	ASSERT_TRUE(recoveredRegion);
 	EXPECT_FALSE(recoveredRegion->extension);
 	EXPECT_EQ(recoveredRegion->dataKeys, std::vector<std::string>{"name"});
+
+	const auto recoveredExtension = rls::parser::ParseStringWithIndex(
+		"extend region RR_BROKEN { events { EVENT_PARTIAL\n"
+		"region RR_NEXT {\n",
+		"broken-extension.rls", rls::parser::ParseMode::Editor);
+	const auto extensionContext =
+		recoveredExtension.sourceIndex.regionContextAt({1, 49});
+	ASSERT_TRUE(extensionContext);
+	EXPECT_TRUE(extensionContext->extension);
+	EXPECT_EQ(extensionContext->activeSection, SectionKind::Events);
+	EXPECT_EQ(recoveredExtension.sourceIndex.regionNames(),
+		std::vector<std::string>{"RR_NEXT"});
+
+	const auto strict = rls::parser::ParseStringWithIndex(
+		"region RR_BROKEN {", "strict-region.rls",
+		rls::parser::ParseMode::Strict);
+	EXPECT_FALSE(strict.sourceIndex.regionContextAt({1, 19}));
 }
 
 TEST(SourceIndexTests, ReportsRecoveredSectionEntryLabelContexts) {
@@ -728,7 +745,7 @@ TEST(SourceIndexTests, ReportsRecoveredSectionEntryLabelContexts) {
 		"    \n"
 		"  }\n"
 		"}\n",
-		"section-entries.rls");
+		"section-entries.rls", rls::parser::ParseMode::Editor);
 	ASSERT_FALSE(parsed.file.diagnostics.empty());
 
 	const auto event = parsed.sourceIndex.sectionEntryAt({4, 14});
@@ -756,6 +773,11 @@ TEST(SourceIndexTests, ReportsRecoveredSectionEntryLabelContexts) {
 	EXPECT_EQ(location->labelSpan.start.column, 5u);
 	EXPECT_EQ(location->labelSpan.end.column, 5u);
 	EXPECT_FALSE(parsed.sourceIndex.sectionEntryAt({3, 21}));
+
+	const auto strict = rls::parser::ParseStringWithIndex(
+		"region RR_TEST { events { EVENT_PARTIAL",
+		"strict-section.rls", rls::parser::ParseMode::Strict);
+	EXPECT_FALSE(strict.sourceIndex.sectionEntryAt({1, 46}));
 }
 
 TEST(SourceIndexTests, ReportsCompleteAndRecoveredMemberAccessContexts) {

@@ -23,6 +23,23 @@ struct EditorSyntaxBuilder {
 		std::vector<EditorCallArgument> arguments;
 		bool closed = false;
 	};
+	struct SectionFrame {
+		ast::SectionKind kind;
+		size_t bodyStart = 0;
+		std::vector<EditorSectionEntry> entries;
+		std::optional<ast::Name> pendingEntry;
+		bool entryHasDelimiter = false;
+		std::optional<size_t> closeStart;
+	};
+	struct RegionFrame {
+		ast::Name name;
+		bool extension = false;
+		size_t bodyStart = 0;
+		std::vector<std::string> dataKeys;
+		std::vector<EditorRegionSection> sections;
+		std::optional<ast::Name> pendingDataKey;
+		std::optional<size_t> closeEnd;
+	};
 
 	const ast::SourceText& source;
 	std::string_view filename;
@@ -32,6 +49,15 @@ struct EditorSyntaxBuilder {
 	std::optional<size_t> typePositionIndex;
 	std::optional<ast::Name> callCallee;
 	std::vector<CallFrame> callFrames;
+	bool nextRegionExtension = false;
+	std::optional<ast::Name> regionName;
+	std::vector<RegionFrame> regionFrames;
+	std::optional<ast::SectionKind> sectionKind;
+	std::vector<SectionFrame> sectionFrames;
+
+	EditorSyntaxBuilder(
+		const ast::SourceText& source, std::string_view filename)
+		: source(source), filename(filename) {}
 
 	template<typename Input>
 	std::optional<ast::Span> spanFor(const Input& input) const {
@@ -158,6 +184,65 @@ struct EditorSyntaxBuilder {
 			frame.closed
 				? SyntaxRecoveryStatus::Complete
 				: SyntaxRecoveryStatus::Recovered});
+	}
+
+	void addBlankSectionEntries(SectionFrame& frame, size_t bodyEnd) {
+		size_t lineStart = frame.bodyStart;
+		while (lineStart <= bodyEnd) {
+			size_t lineEnd = source.content().find('\n', lineStart);
+			if (lineEnd == std::string::npos || lineEnd > bodyEnd) lineEnd = bodyEnd;
+			if (lineEnd > lineStart && source.content()[lineEnd - 1] == '\r') {
+				--lineEnd;
+			}
+			size_t contentStart = lineStart;
+			while (contentStart < lineEnd
+				&& (source.content()[contentStart] == ' '
+					|| source.content()[contentStart] == '\t')) {
+				++contentStart;
+			}
+			if (contentStart == lineEnd) {
+				if (const auto span = spanFromOffsets(contentStart, contentStart)) {
+					const bool duplicate = std::any_of(
+						frame.entries.begin(), frame.entries.end(),
+						[&](const EditorSectionEntry& entry) {
+							return entry.labelSpan.start.line == span->start.line
+								&& entry.labelSpan.start.column == span->start.column;
+						});
+					if (!duplicate) frame.entries.push_back({std::nullopt, *span});
+				}
+			}
+			if (lineEnd >= bodyEnd) break;
+			lineStart = lineEnd + 1;
+		}
+	}
+
+	void finishSection(const ast::Span& span) {
+		if (sectionFrames.empty() || regionFrames.empty()) return;
+		auto frame = std::move(sectionFrames.back());
+		sectionFrames.pop_back();
+		const size_t bodyEnd = frame.closeStart.value_or(
+			offsetFor(span.end).value_or(source.content().size()));
+		addBlankSectionEntries(frame, bodyEnd);
+		const auto bodySpan = spanFromOffsets(frame.bodyStart, bodyEnd);
+		if (!bodySpan) return;
+		regionFrames.back().sections.push_back({
+			frame.kind, *bodySpan, std::move(frame.entries)});
+	}
+
+	void finishRegion(const ast::Span& span) {
+		if (regionFrames.empty()) return;
+		auto frame = std::move(regionFrames.back());
+		regionFrames.pop_back();
+		const size_t bodyEnd = frame.closeEnd.value_or(
+			offsetFor(span.end).value_or(source.content().size()));
+		const auto bodySpan = spanFromOffsets(frame.bodyStart, bodyEnd);
+		if (!bodySpan) return;
+		result.regions.push_back({
+			std::move(frame.name), *bodySpan, frame.extension,
+			std::move(frame.dataKeys), std::move(frame.sections),
+			SyntaxRecoveryStatus::Recovered});
+		nextRegionExtension = false;
+		regionName.reset();
 	}
 };
 
@@ -396,6 +481,207 @@ struct editor_action<grammar::call> {
 	}
 };
 
+template<>
+struct editor_action<grammar::kw_extend> {
+	template<typename Input>
+	static void apply(
+		const Input&, EditorSyntaxBuilder& builder,
+		grammar::ParseState&) {
+		builder.nextRegionExtension = true;
+	}
+};
+
+template<>
+struct editor_action<grammar::region_name> {
+	template<typename Input>
+	static void apply(
+		const Input& input, EditorSyntaxBuilder& builder,
+		grammar::ParseState&) {
+		if (const auto span = builder.spanFor(input)) {
+			builder.regionName = ast::Name(input.string(), *span);
+		}
+	}
+};
+
+template<>
+struct editor_action<grammar::region_open_brace> {
+	template<typename Input>
+	static void apply(
+		const Input& input, EditorSyntaxBuilder& builder,
+		grammar::ParseState&) {
+		const auto span = builder.spanFor(input);
+		if (!span || !builder.regionName) return;
+		const auto start = builder.offsetFor(span->end);
+		if (!start) return;
+		builder.regionFrames.push_back({
+			std::move(*builder.regionName), builder.nextRegionExtension, *start});
+		builder.regionName.reset();
+	}
+};
+
+template<>
+struct editor_action<grammar::region_data_key> {
+	template<typename Input>
+	static void apply(
+		const Input& input, EditorSyntaxBuilder& builder,
+		grammar::ParseState&) {
+		if (builder.regionFrames.empty()) return;
+		if (const auto span = builder.spanFor(input)) {
+			builder.regionFrames.back().pendingDataKey =
+				ast::Name(input.string(), *span);
+		}
+	}
+};
+
+template<>
+struct editor_action<grammar::region_data_delimiter> {
+	template<typename Input>
+	static void apply(
+		const Input&, EditorSyntaxBuilder& builder,
+		grammar::ParseState&) {
+		if (builder.regionFrames.empty()) return;
+		auto& frame = builder.regionFrames.back();
+		if (frame.pendingDataKey && !frame.extension) {
+			frame.dataKeys.push_back(frame.pendingDataKey->text);
+		}
+		frame.pendingDataKey.reset();
+	}
+};
+
+template<>
+struct editor_action<grammar::section_kind> {
+	template<typename Input>
+	static void apply(
+		const Input& input, EditorSyntaxBuilder& builder,
+		grammar::ParseState&) {
+		const auto text = input.string_view();
+		if (text == "events") builder.sectionKind = ast::SectionKind::Events;
+		else if (text == "locations") builder.sectionKind = ast::SectionKind::Locations;
+		else if (text == "exits") builder.sectionKind = ast::SectionKind::Exits;
+	}
+};
+
+template<>
+struct editor_action<grammar::section_open_brace> {
+	template<typename Input>
+	static void apply(
+		const Input& input, EditorSyntaxBuilder& builder,
+		grammar::ParseState&) {
+		const auto span = builder.spanFor(input);
+		if (!span || !builder.sectionKind) return;
+		const auto start = builder.offsetFor(span->end);
+		if (!start) return;
+		builder.sectionFrames.push_back({*builder.sectionKind, *start});
+		builder.sectionKind.reset();
+	}
+};
+
+template<>
+struct editor_action<grammar::entry_label> {
+	template<typename Input>
+	static void apply(
+		const Input& input, EditorSyntaxBuilder& builder,
+		grammar::ParseState&) {
+		if (builder.sectionFrames.empty()) return;
+		if (const auto span = builder.spanFor(input)) {
+			auto& frame = builder.sectionFrames.back();
+			frame.pendingEntry = ast::Name(input.string(), *span);
+			frame.entryHasDelimiter = false;
+		}
+	}
+};
+
+template<>
+struct editor_action<grammar::entry_delimiter> {
+	template<typename Input>
+	static void apply(
+		const Input&, EditorSyntaxBuilder& builder,
+		grammar::ParseState&) {
+		if (!builder.sectionFrames.empty()) {
+			builder.sectionFrames.back().entryHasDelimiter = true;
+		}
+	}
+};
+
+template<>
+struct editor_action<grammar::entry> {
+	template<typename Input>
+	static void apply(
+		const Input&, EditorSyntaxBuilder& builder,
+		grammar::ParseState&) {
+		if (builder.sectionFrames.empty()) return;
+		auto& frame = builder.sectionFrames.back();
+		if (!frame.pendingEntry) return;
+		frame.entries.push_back({
+			frame.entryHasDelimiter
+				? frame.pendingEntry
+				: std::nullopt,
+			frame.pendingEntry->span});
+		frame.pendingEntry.reset();
+		frame.entryHasDelimiter = false;
+	}
+};
+
+template<>
+struct editor_action<grammar::section_close_brace> {
+	template<typename Input>
+	static void apply(
+		const Input& input, EditorSyntaxBuilder& builder,
+		grammar::ParseState&) {
+		if (builder.sectionFrames.empty()) return;
+		if (const auto span = builder.spanFor(input)) {
+			builder.sectionFrames.back().closeStart =
+				builder.offsetFor(span->start);
+		}
+	}
+};
+
+template<>
+struct editor_action<grammar::section> {
+	template<typename Input>
+	static void apply(
+		const Input& input, EditorSyntaxBuilder& builder,
+		grammar::ParseState&) {
+		if (const auto span = builder.spanFor(input)) {
+			builder.finishSection(*span);
+		}
+	}
+};
+
+template<>
+struct editor_action<grammar::region_close_brace> {
+	template<typename Input>
+	static void apply(
+		const Input& input, EditorSyntaxBuilder& builder,
+		grammar::ParseState&) {
+		if (builder.regionFrames.empty()) return;
+		if (const auto span = builder.spanFor(input)) {
+			builder.regionFrames.back().closeEnd =
+				builder.offsetFor(span->end);
+		}
+	}
+};
+
+template<>
+struct editor_action<grammar::region_decl> {
+	template<typename Input>
+	static void apply(
+		const Input& input, EditorSyntaxBuilder& builder,
+		grammar::ParseState&) {
+		if (const auto span = builder.spanFor(input)) builder.finishRegion(*span);
+	}
+};
+
+template<>
+struct editor_action<grammar::extend_decl> {
+	template<typename Input>
+	static void apply(
+		const Input& input, EditorSyntaxBuilder& builder,
+		grammar::ParseState&) {
+		if (const auto span = builder.spanFor(input)) builder.finishRegion(*span);
+	}
+};
+
 bool sameSpan(const ast::Span& left, const ast::Span& right) {
 	return left.file == right.file
 		&& left.start.line == right.start.line
@@ -422,6 +708,27 @@ void classifyCompleteDeclarations(EditorSyntax& syntax, const ast::File& file) {
 			}
 		}
 	}
+	for (auto& candidate : syntax.regions) {
+		for (const auto& declaration : file.declarations) {
+			const bool complete = std::visit([&](const auto& node) {
+				using T = std::decay_t<decltype(node)>;
+				if constexpr (std::is_same_v<T, ast::RegionDecl>) {
+					return !candidate.extension
+						&& candidate.name.text == node.key.text
+						&& sameSpan(candidate.name.span, node.key.span);
+				} else if constexpr (std::is_same_v<T, ast::ExtendRegionDecl>) {
+					return candidate.extension
+						&& candidate.name.text == node.name.text
+						&& sameSpan(candidate.name.span, node.name.span);
+				}
+				return false;
+			}, declaration);
+			if (complete) {
+				candidate.status = SyntaxRecoveryStatus::Complete;
+				break;
+			}
+		}
+	}
 }
 
 } // namespace
@@ -429,9 +736,7 @@ void classifyCompleteDeclarations(EditorSyntax& syntax, const ast::File& file) {
 EditorSyntax ParseEditorSyntax(
 	const ast::SourceText& source, std::string_view filename,
 	const ast::File& parsedFile) {
-	EditorSyntaxBuilder builder{
-		source, filename, {}, std::nullopt, std::nullopt, std::nullopt,
-		std::nullopt, {}};
+	EditorSyntaxBuilder builder(source, filename);
 	tao::pegtl::memory_input input(source.content(), filename);
 	grammar::ParseState state{true};
 	tao::pegtl::parse<grammar::rls_file, editor_action>(

@@ -51,11 +51,32 @@ struct EditorCall {
 	SyntaxRecoveryStatus status = SyntaxRecoveryStatus::Recovered;
 };
 
+struct EditorSectionEntry {
+	std::optional<ast::Name> name;
+	ast::Span labelSpan;
+};
+
+struct EditorRegionSection {
+	ast::SectionKind kind;
+	ast::Span span;
+	std::vector<EditorSectionEntry> entries;
+};
+
+struct EditorRegion {
+	ast::Name name;
+	ast::Span span;
+	bool extension = false;
+	std::vector<std::string> dataKeys;
+	std::vector<EditorRegionSection> sections;
+	SyntaxRecoveryStatus status = SyntaxRecoveryStatus::Recovered;
+};
+
 struct EditorSyntax {
 	std::vector<EditorEnumDeclaration> enumDeclarations;
 	std::vector<EditorMemberAccess> memberAccesses;
 	std::vector<EditorTypePosition> typePositions;
 	std::vector<EditorCall> calls;
+	std::vector<EditorRegion> regions;
 };
 
 EditorSyntax ParseEditorSyntax(
