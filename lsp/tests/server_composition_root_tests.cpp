@@ -405,7 +405,8 @@ TEST(ServerCompositionRootTests, RoutesFullSemanticTokensAsDeltaEncodedData) {
     EXPECT_EQ(Json::parse(responses.front())["result"]["data"], Json::array({
         0, 7, 5, 0, 2,
         0, 6, 4, 1, 1,
-        0, 13, 4, 1, 0,
+        0, 6, 4, 2, 8,
+        0, 7, 4, 1, 0,
     }));
 }
 

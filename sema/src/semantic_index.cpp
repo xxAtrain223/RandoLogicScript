@@ -315,7 +315,11 @@ SemanticIndex buildSemanticIndex(const ast::Project& project,
 		return std::nullopt;
 	};
 	auto addTypeReference = [&](const ast::TypeRef& typeReference) {
-		if (typeFromAnnotation(typeReference.name.text)) return;
+		if (typeFromAnnotation(typeReference.name.text)) {
+			index.occurrences_.push_back({std::nullopt, typeReference.name.span,
+				OccurrenceKind::TypeReference});
+			return;
+		}
 		const auto target = findSymbol(SymbolCategory::Enum, typeReference.name.text);
 		index.occurrences_.push_back({target, typeReference.name.span, OccurrenceKind::TypeReference});
 	};

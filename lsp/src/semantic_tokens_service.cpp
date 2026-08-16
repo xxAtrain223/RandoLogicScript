@@ -166,7 +166,24 @@ std::vector<uint32_t> SemanticTokensService::full(std::string_view uri) const {
 
     std::vector<AbsoluteToken> tokens;
     for (const auto& occurrence : snapshot->semanticIndex().occurrences()) {
-        if (occurrence.span.file != documentPath || !occurrence.symbol) continue;
+        if (occurrence.span.file != documentPath) continue;
+        if (!occurrence.symbol && occurrence.kind == sema::OccurrenceKind::TypeReference) {
+            const auto startOffset = source->byteOffsetFromUtf8Position(occurrence.span.start);
+            const auto endOffset = source->byteOffsetFromUtf8Position(occurrence.span.end);
+            if (!startOffset || !endOffset || *startOffset >= *endOffset) continue;
+            const auto start = source->utf16PositionAtByteOffset(*startOffset);
+            const auto end = source->utf16PositionAtByteOffset(*endOffset);
+            if (!start || !end || start->line != end->line || start->column >= end->column) continue;
+            tokens.push_back({
+                start->line - 1,
+                start->column - 1,
+                end->column - start->column,
+                TokenType::Enum,
+                modifier(TokenModifier::DefaultLibrary),
+            });
+            continue;
+        }
+        if (!occurrence.symbol) continue;
         const auto symbol = snapshot->declaration(*occurrence.symbol);
         if (!symbol) continue;
         if (const auto token = makeToken(*snapshot, *source, occurrence, *symbol)) {

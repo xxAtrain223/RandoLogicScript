@@ -174,6 +174,23 @@ TEST(SemanticTokensServiceTests, HighlightsConcreteValuesResolvedThroughUniquePa
     EXPECT_EQ(qualified->modifiers, 12u);
 }
 
+TEST(SemanticTokensServiceTests, HighlightsBuiltinExternReturnTypes) {
+    SemanticTokensFixture fixture(
+        "extern define test1(item: Item) -> Item\n"
+        "extern define test2(bool: Bool) -> Bool\n");
+
+    const auto tokens = fixture.tokens();
+    const auto* item = tokenAt(tokens, 0, 35);
+    const auto* boolean = tokenAt(tokens, 1, 35);
+
+    ASSERT_NE(item, nullptr);
+    EXPECT_EQ(item->type, 2u);
+    EXPECT_EQ(item->modifiers, 8u);
+    ASSERT_NE(boolean, nullptr);
+    EXPECT_EQ(boolean->type, 2u);
+    EXPECT_EQ(boolean->modifiers, 8u);
+}
+
 TEST(SemanticTokensServiceTests, ReturnsEmptyForMalformedOrStaleDocument) {
     SemanticTokensFixture malformed("define broken(");
     EXPECT_TRUE(malformed.tokens().empty());

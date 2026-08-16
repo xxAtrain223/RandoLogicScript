@@ -408,7 +408,7 @@ TEST(NavigationServiceTests, CoversDefinitionAndReferenceCategoriesAcrossProject
     }
 }
 
-TEST(NavigationServiceTests, ResolvesCanonicalRegionAndRejectsNamesWithoutConcreteTargets) {
+TEST(NavigationServiceTests, ResolvesCanonicalRegionAndRejectsUnresolvedOrAmbiguousNames) {
     const fs::path sourcePath = fs::temp_directory_path() / "rls-navigation-targets.rls";
     const std::string uri = *rls::lsp::PathToFileUri(sourcePath);
     const std::string content =
@@ -454,11 +454,16 @@ TEST(NavigationServiceTests, ResolvesCanonicalRegionAndRejectsNamesWithoutConcre
     EXPECT_EQ(region->targetSelectionRange.start.character, 7u);
     EXPECT_EQ(region->targetSelectionRange.end.character, 14u);
     EXPECT_FALSE(navigation.definition(uri, {2, 15}));
-    EXPECT_FALSE(navigation.definition(uri, {4, 16}));
+    const auto wildcard = navigation.definition(uri, {4, 16});
+    ASSERT_TRUE(wildcard);
+    EXPECT_EQ(wildcard->targetUri, uri);
+    EXPECT_EQ(wildcard->targetSelectionRange.start.line, 3u);
+    EXPECT_EQ(wildcard->targetSelectionRange.start.character, 19u);
+    EXPECT_EQ(wildcard->targetSelectionRange.end.character, 23u);
     EXPECT_TRUE(navigation.references(uri, {2, 15}, true).empty());
     EXPECT_TRUE(navigation.documentHighlights(uri, {2, 15}).empty());
-    EXPECT_TRUE(navigation.references(uri, {4, 16}, true).empty());
-    EXPECT_TRUE(navigation.documentHighlights(uri, {4, 16}).empty());
+    ASSERT_EQ(navigation.references(uri, {4, 16}, true).size(), 1u);
+    ASSERT_EQ(navigation.documentHighlights(uri, {4, 16}).size(), 1u);
     EXPECT_FALSE(navigation.definition(uri, {7, 20}));
     EXPECT_TRUE(navigation.references(uri, {7, 20}, true).empty());
     EXPECT_TRUE(navigation.documentHighlights(uri, {7, 20}).empty());
