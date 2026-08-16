@@ -135,6 +135,8 @@ def run_smoke(server: Path) -> None:
                 "triggerCharacters"
             ) != ["(", ","]:
                 raise ProtocolError("server did not advertise signature help triggers")
+            if capabilities.get("hoverProvider") is not True:
+                raise ProtocolError("server did not advertise hover support")
             semantic_tokens = capabilities.get("semanticTokensProvider", {})
             if semantic_tokens.get("legend", {}).get("tokenTypes") != [
                 "function",
@@ -243,20 +245,41 @@ def run_smoke(server: Path) -> None:
                 {
                     "jsonrpc": "2.0",
                     "id": 3,
+                    "method": "textDocument/hover",
+                    "params": {
+                        "textDocument": {"uri": source_uri},
+                        "position": {"line": 1, "character": len("define use(): tar")},
+                    },
+                },
+            )
+            hover = receive_matching(
+                messages, lambda message: message.get("id") == 3,
+                "hover response",
+            )["result"]
+            if "extern target(value: Bool = true) -> Bool" not in hover[
+                "contents"
+            ]["value"]:
+                raise ProtocolError("hover response omitted callable presentation")
+
+            send(
+                process,
+                {
+                    "jsonrpc": "2.0",
+                    "id": 4,
                     "method": "textDocument/semanticTokens/full",
                     "params": {"textDocument": {"uri": source_uri}},
                 },
             )
             token_data = receive_matching(
-                messages, lambda message: message.get("id") == 3,
+                messages, lambda message: message.get("id") == 4,
                 "semantic token response",
             )["result"]["data"]
             if not token_data or len(token_data) % 5 != 0:
                 raise ProtocolError("semantic token response was not delta encoded")
 
-            send(process, {"jsonrpc": "2.0", "id": 4, "method": "shutdown"})
+            send(process, {"jsonrpc": "2.0", "id": 5, "method": "shutdown"})
             receive_matching(
-                messages, lambda message: message.get("id") == 4, "shutdown response"
+                messages, lambda message: message.get("id") == 5, "shutdown response"
             )
             send(process, {"jsonrpc": "2.0", "method": "exit"})
             assert process.stdin is not None

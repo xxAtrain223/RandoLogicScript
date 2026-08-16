@@ -8,6 +8,7 @@
 #include "rls/lsp/diagnostic_publisher.h"
 #include "rls/lsp/document_synchronization_service.h"
 #include "rls/lsp/document_store.h"
+#include "rls/lsp/hover_service.h"
 #include "rls/lsp/json_rpc_router.h"
 #include "rls/lsp/lifecycle_service.h"
 #include "rls/lsp/navigation_service.h"
@@ -46,6 +47,7 @@ private:
     NavigationService navigation_;
     CompletionService completion_;
     SignatureHelpService signatureHelp_;
+    HoverService hover_;
     SemanticTokensService semanticTokens_;
     WorkspaceService workspace_;
     DocumentSynchronizationService synchronization_;

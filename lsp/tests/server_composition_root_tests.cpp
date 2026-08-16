@@ -35,6 +35,7 @@ TEST(ServerCompositionRootTests, RegistersOnlyImplementedRoutes) {
     EXPECT_TRUE(server.router().contains("textDocument/documentSymbol"));
     EXPECT_TRUE(server.router().contains("textDocument/completion"));
     EXPECT_TRUE(server.router().contains("textDocument/signatureHelp"));
+    EXPECT_TRUE(server.router().contains("textDocument/hover"));
     EXPECT_TRUE(server.router().contains("textDocument/semanticTokens/full"));
     EXPECT_TRUE(server.router().contains("workspace/symbol"));
     EXPECT_FALSE(server.router().contains("textDocument/publishDiagnostics"));
@@ -56,6 +57,7 @@ TEST(ServerCompositionRootTests, AdvertisesImplementedTextDocumentFeatures) {
     EXPECT_EQ(result["capabilities"]["completionProvider"]["resolveProvider"], false);
     EXPECT_EQ(result["capabilities"]["signatureHelpProvider"]["triggerCharacters"],
         Json::array({"(", ","}));
+    EXPECT_EQ(result["capabilities"]["hoverProvider"], true);
     EXPECT_EQ(result["capabilities"]["semanticTokensProvider"]["legend"]["tokenTypes"],
         Json::array({"function", "parameter", "enum", "enumMember", "property", "variable"}));
     EXPECT_EQ(result["capabilities"]["semanticTokensProvider"]["legend"]["tokenModifiers"],
@@ -286,6 +288,84 @@ TEST(ServerCompositionRootTests, ReturnsNullSignatureHelpForUnresolvedCall) {
         {"params", {
             {"textDocument", {{"uri", uri}}},
             {"position", {{"line", 0}, {"character", source.size()}}},
+        }},
+    }.dump());
+
+    ASSERT_EQ(responses.size(), 1u);
+    EXPECT_TRUE(Json::parse(responses.front())["result"].is_null());
+}
+
+TEST(ServerCompositionRootTests, RoutesHoverWithMarkdownAndRange) {
+    const fs::path sourcePath = fs::temp_directory_path() / "rls-hover-route.rls";
+    const std::string uri = *rls::lsp::PathToFileUri(sourcePath);
+    const std::string source =
+        "extern define target(value: Bool = true) -> Bool\n"
+        "define use(): target(false)\n";
+    ServerCompositionRoot server(standaloneProject);
+    server.handlePayload(
+        R"({"jsonrpc":"2.0","id":1,"method":"initialize","params":{}})");
+    server.handlePayload(
+        R"({"jsonrpc":"2.0","method":"initialized","params":{}})");
+    server.handlePayload(Json{
+        {"jsonrpc", "2.0"},
+        {"method", "textDocument/didOpen"},
+        {"params", {{"textDocument", {
+            {"uri", uri},
+            {"languageId", "rls"},
+            {"version", 1},
+            {"text", source},
+        }}}},
+    }.dump());
+    server.scheduler().waitForIdle();
+
+    const auto responses = server.handlePayload(Json{
+        {"jsonrpc", "2.0"},
+        {"id", 2},
+        {"method", "textDocument/hover"},
+        {"params", {
+            {"textDocument", {{"uri", uri}}},
+            {"position", {{"line", 1}, {"character", 16}}},
+        }},
+    }.dump());
+
+    ASSERT_EQ(responses.size(), 1u);
+    const auto result = Json::parse(responses.front())["result"];
+    EXPECT_EQ(result["contents"]["kind"], "markdown");
+    EXPECT_NE(result["contents"]["value"].get<std::string>().find(
+        "extern target(value: Bool = true) -> Bool"), std::string::npos);
+    EXPECT_EQ(result["range"]["start"]["line"], 1);
+    EXPECT_EQ(result["range"]["start"]["character"], 14);
+    EXPECT_EQ(result["range"]["end"]["character"], 20);
+}
+
+TEST(ServerCompositionRootTests, ReturnsNullHoverForUnresolvedName) {
+    const fs::path sourcePath = fs::temp_directory_path() /
+        "rls-unresolved-hover-route.rls";
+    const std::string uri = *rls::lsp::PathToFileUri(sourcePath);
+    ServerCompositionRoot server(standaloneProject);
+    server.handlePayload(
+        R"({"jsonrpc":"2.0","id":1,"method":"initialize","params":{}})");
+    server.handlePayload(
+        R"({"jsonrpc":"2.0","method":"initialized","params":{}})");
+    server.handlePayload(Json{
+        {"jsonrpc", "2.0"},
+        {"method", "textDocument/didOpen"},
+        {"params", {{"textDocument", {
+            {"uri", uri},
+            {"languageId", "rls"},
+            {"version", 1},
+            {"text", "define use(): missing\n"},
+        }}}},
+    }.dump());
+    server.scheduler().waitForIdle();
+
+    const auto responses = server.handlePayload(Json{
+        {"jsonrpc", "2.0"},
+        {"id", 2},
+        {"method", "textDocument/hover"},
+        {"params", {
+            {"textDocument", {{"uri", uri}}},
+            {"position", {{"line", 0}, {"character", 16}}},
         }},
     }.dump());
 

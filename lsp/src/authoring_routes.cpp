@@ -6,6 +6,7 @@
 #include <nlohmann/json.hpp>
 
 #include "rls/lsp/completion_service.h"
+#include "rls/lsp/hover_service.h"
 #include "rls/lsp/json_rpc_router.h"
 #include "rls/lsp/lifecycle_service.h"
 #include "rls/lsp/signature_help_service.h"
@@ -67,7 +68,7 @@ int completionKind(CompletionItemKind kind) {
 
 void RegisterAuthoringRoutes(
     JsonRpcRouter& router, LifecycleService& lifecycle, CompletionService& completion,
-    SignatureHelpService& signatureHelp) {
+    SignatureHelpService& signatureHelp, HoverService& hover) {
     router.registerRequest("textDocument/completion", [&lifecycle, &completion](const Json& params) {
         const auto& object = requireObject(params);
         const auto& document = requireObject(object.at("textDocument"));
@@ -151,6 +152,26 @@ void RegisterAuthoringRoutes(
             response["activeParameter"] = *result->activeParameter;
         }
         return response;
+    });
+
+    router.registerRequest("textDocument/hover", [&hover](const Json& params) {
+        const auto& object = requireObject(params);
+        const auto& document = requireObject(object.at("textDocument"));
+        const auto& requestPosition = requireObject(object.at("position"));
+        const auto result = hover.hover(
+            document.at("uri").get<std::string>(),
+            {
+                requirePositionComponent(requestPosition.at("line")),
+                requirePositionComponent(requestPosition.at("character")),
+            });
+        if (!result) return Json(nullptr);
+        return Json{
+            {"contents", {
+                {"kind", "markdown"},
+                {"value", result->markdown},
+            }},
+            {"range", range(result->range)},
+        };
     });
 }
 

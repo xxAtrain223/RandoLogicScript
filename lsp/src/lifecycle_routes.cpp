@@ -135,6 +135,7 @@ void RegisterLifecycleRoutes(
                     {"triggerCharacters", {"(", ","}},
                     {"retriggerCharacters", {","}},
                 }},
+                {"hoverProvider", true},
                 {"semanticTokensProvider", {
                     {"legend", {
                         {"tokenTypes", SemanticTokensService::tokenTypes()},

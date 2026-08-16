@@ -43,12 +43,12 @@ Consume parser context, semantic scope/type/call queries from [plan-compilerQuer
 
 ### 4. Hover
 
-- [ ] Implement `textDocument/hover` from symbol/type/occurrence queries.
-- [ ] Support declarations, parameter uses, and calls.
-- [ ] Support enum types/members and member expressions.
-- [ ] Support modeled region/section entries and typed expressions.
-- [ ] Show signature/type, enum identity, defaults, declaration provenance/location, and synthesized explanatory text.
-- [ ] Never show stale snapshot data for a current unsaved version.
+- [x] Implement `textDocument/hover` from symbol/type/occurrence queries.
+- [x] Support declarations, parameter uses, and calls.
+- [x] Support enum types/members and member expressions.
+- [x] Support modeled region/section entries and typed expressions.
+- [x] Show signature/type, enum identity, defaults, declaration provenance/location, and synthesized explanatory text.
+- [x] Never show stale snapshot data for a current unsaved version.
 
 ### 5. Documentation Model
 
@@ -77,12 +77,12 @@ Consume parser context, semantic scope/type/call queries from [plan-compilerQuer
 - [x] Named argument binding and nested-call isolation.
 - [x] Defaults in completion/signature presentation from compiler query metadata.
 - [x] Signature rendering for user and extern declarations.
-- [ ] Hover rendering for user and extern declarations.
+- [x] Hover rendering for user and extern declarations.
 - [x] Malformed top-level/region-body/member-access/call source and stale snapshot completion behavior.
 - [x] Supported and unsupported completion snippet capability behavior.
 
 ### Definition of Done
 
-- [ ] Suggestions and information are context-aware and semantically resolved.
-- [ ] Authoring features are safe under incomplete source.
-- [ ] Hover, completion, and signature help share one renderer instead of endpoint-specific formatting logic.
+- [x] Suggestions and information are context-aware and semantically resolved.
+- [x] Authoring features are safe under incomplete source.
+- [x] Hover, completion, and signature help share one renderer instead of endpoint-specific formatting logic.

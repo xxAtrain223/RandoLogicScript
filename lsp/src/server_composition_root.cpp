@@ -12,6 +12,7 @@ ServerCompositionRoot::ServerCompositionRoot(ProjectManager::Resolver resolver)
     navigation_(projects_, scheduler_),
     completion_(projects_, scheduler_),
     signatureHelp_(projects_, scheduler_),
+    hover_(projects_, scheduler_),
     semanticTokens_(projects_, scheduler_),
       workspace_(projects_, scheduler_, diagnostics_),
       synchronization_(lifecycle_, documents_, projects_, scheduler_, diagnostics_) {
@@ -21,7 +22,7 @@ ServerCompositionRoot::ServerCompositionRoot(ProjectManager::Resolver resolver)
         });
     RegisterLifecycleRoutes(router_, lifecycle_, workspace_);
     RegisterDocumentSynchronizationRoutes(router_, synchronization_);
-    RegisterAuthoringRoutes(router_, lifecycle_, completion_, signatureHelp_);
+    RegisterAuthoringRoutes(router_, lifecycle_, completion_, signatureHelp_, hover_);
     RegisterNavigationRoutes(router_, lifecycle_, navigation_, workspace_);
     RegisterSemanticTokenRoutes(router_, semanticTokens_);
     RegisterWorkspaceRoutes(router_, lifecycle_, workspace_);
@@ -35,6 +36,7 @@ ServerCompositionRoot::ServerCompositionRoot(ProjectManager::Resolver resolver)
         "textDocument/didClose",
         "textDocument/completion",
         "textDocument/signatureHelp",
+        "textDocument/hover",
         "textDocument/semanticTokens/full",
         "textDocument/definition",
         "textDocument/references",
