@@ -53,7 +53,7 @@ using rls_control = tao::pegtl::must_if<parse_errors, tao::pegtl::normal, false>
 // =============================================================================
 
 template <typename T>
-rls::ast::File Parse(T&& in) {
+rls::ast::File Parse(T&& in, [[maybe_unused]] ParseMode mode) {
 	rls::ast::File file;
 	file.path = std::string(in.source());
 
@@ -91,19 +91,21 @@ rls::ast::File Parse(T&& in) {
 	return file;
 }
 
-rls::ast::File ParseString(const std::string& source, const std::string& filename) {
-	return Parse(tao::pegtl::memory_input(source, filename));
+rls::ast::File ParseString(
+	const std::string& source, const std::string& filename, ParseMode mode) {
+	return Parse(tao::pegtl::memory_input(source, filename), mode);
 }
 
-rls::ast::File ParseFile(const std::filesystem::path& filepath) {
+rls::ast::File ParseFile(const std::filesystem::path& filepath, ParseMode mode) {
 	if (!std::filesystem::is_regular_file(filepath)) {
 		throw std::runtime_error("Not a regular file: " + filepath.string());
 	}
 
-	return Parse(tao::pegtl::file_input(filepath));
+	return Parse(tao::pegtl::file_input(filepath), mode);
 }
 
-rls::ast::Project ParseProject(const std::filesystem::path& directory) {
+rls::ast::Project ParseProject(
+	const std::filesystem::path& directory, ParseMode mode) {
 	if (!std::filesystem::is_directory(directory)) {
 		throw std::runtime_error("Not a directory: " + directory.string());
 	}
@@ -112,22 +114,24 @@ rls::ast::Project ParseProject(const std::filesystem::path& directory) {
 
 	for (const auto& entry : std::filesystem::recursive_directory_iterator(directory)) {
 		if (entry.is_regular_file() && entry.path().extension() == ".rls") {
-			project.files.emplace_back(ParseFile(entry.path()));
+			project.files.emplace_back(ParseFile(entry.path(), mode));
 		}
 	}
 
 	return project;
 }
 
-IndexedFile ParseStringWithIndex(const std::string& source, const std::string& filename) {
-	auto file = ParseString(source, filename);
+IndexedFile ParseStringWithIndex(
+	const std::string& source, const std::string& filename, ParseMode mode) {
+	auto file = ParseString(source, filename, mode);
 	const auto sourceText = ast::SourceText::FromUtf8(source);
 	auto sourceIndex = BuildSourceIndex(file, sourceText ? &*sourceText : nullptr);
 	return {std::move(file), std::move(sourceIndex)};
 }
 
-IndexedFile ParseFileWithIndex(const std::filesystem::path& filepath) {
-	auto file = ParseFile(filepath);
+IndexedFile ParseFileWithIndex(
+	const std::filesystem::path& filepath, ParseMode mode) {
+	auto file = ParseFile(filepath, mode);
 	auto sourceIndex = BuildSourceIndex(file);
 	return {std::move(file), std::move(sourceIndex)};
 }

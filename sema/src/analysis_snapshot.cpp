@@ -20,7 +20,8 @@ std::optional<std::shared_ptr<const AnalysisSnapshot>> AnalysisSnapshot::Create(
 		if (cancellation.stop_requested()) return std::nullopt;
 		const auto sourceText = ast::SourceText::FromUtf8(content);
 		if (!sourceText) return std::nullopt;
-		auto parsed = rls::parser::ParseStringWithIndex(content, path);
+		auto parsed = rls::parser::ParseStringWithIndex(
+			content, path, rls::parser::ParseMode::Editor);
 		if (cancellation.stop_requested()) return std::nullopt;
 		snapshot->documents_.push_back({path, *sourceText, std::move(parsed.sourceIndex)});
 		snapshot->project_.files.push_back(std::move(parsed.file));

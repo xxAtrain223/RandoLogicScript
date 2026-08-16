@@ -30,6 +30,14 @@ static const Expr& parseExpr(const std::string& exprSrc) {
 	return *def.body;
 }
 
+static void expectSameSpan(const Span& strict, const Span& editor) {
+	EXPECT_EQ(strict.file, editor.file);
+	EXPECT_EQ(strict.start.line, editor.start.line);
+	EXPECT_EQ(strict.start.column, editor.start.column);
+	EXPECT_EQ(strict.end.line, editor.end.line);
+	EXPECT_EQ(strict.end.column, editor.end.column);
+}
+
 // == Basic parsing ============================================================
 
 TEST(ParserTests, ReturnsEmptyFileForEmptySource) {
@@ -145,6 +153,69 @@ TEST(ParserTests, ValidSourceReturnsFile) {
 	const auto* scene = region->body.findData("scene");
 	ASSERT_NE(scene, nullptr);
 	EXPECT_EQ(std::get<rls::ast::Identifier>(scene->value->node).name, "SCENE_TEST");
+}
+
+TEST(ParserTests, EditorModeMatchesStrictModeForValidSource) {
+	const std::string source =
+		"define check(target: Item): can_kill(quantity: target, 2)\n"
+		"region RR_TEST { events { EVENT_TEST: true } }";
+	const auto strict = rls::parser::ParseStringWithIndex(
+		source, "parity.rls", rls::parser::ParseMode::Strict);
+	const auto editor = rls::parser::ParseStringWithIndex(
+		source, "parity.rls", rls::parser::ParseMode::Editor);
+
+	EXPECT_TRUE(strict.file.diagnostics.empty());
+	EXPECT_TRUE(editor.file.diagnostics.empty());
+	ASSERT_EQ(strict.file.declarations.size(), editor.file.declarations.size());
+	ASSERT_EQ(strict.file.declarations.size(), 2u);
+
+	const auto& strictDefine = std::get<DefineDecl>(strict.file.declarations[0]);
+	const auto& editorDefine = std::get<DefineDecl>(editor.file.declarations[0]);
+	EXPECT_EQ(strictDefine.name.text, editorDefine.name.text);
+	expectSameSpan(strictDefine.name.span, editorDefine.name.span);
+	ASSERT_EQ(strictDefine.params.size(), editorDefine.params.size());
+	EXPECT_EQ(strictDefine.params[0].name.text, editorDefine.params[0].name.text);
+	expectSameSpan(strictDefine.params[0].name.span, editorDefine.params[0].name.span);
+
+	const auto& strictRegion = std::get<RegionDecl>(strict.file.declarations[1]);
+	const auto& editorRegion = std::get<RegionDecl>(editor.file.declarations[1]);
+	EXPECT_EQ(strictRegion.key.text, editorRegion.key.text);
+	expectSameSpan(strictRegion.key.span, editorRegion.key.span);
+
+	ASSERT_EQ(strict.sourceIndex.declarations().size(), editor.sourceIndex.declarations().size());
+	for (size_t index = 0; index < strict.sourceIndex.declarations().size(); ++index) {
+		EXPECT_EQ(strict.sourceIndex.declarations()[index].kind,
+			editor.sourceIndex.declarations()[index].kind);
+		expectSameSpan(strict.sourceIndex.declarations()[index].span,
+			editor.sourceIndex.declarations()[index].span);
+	}
+
+	const auto strictName = strict.sourceIndex.nameAt({1, 30});
+	const auto editorName = editor.sourceIndex.nameAt({1, 30});
+	ASSERT_TRUE(strictName);
+	ASSERT_TRUE(editorName);
+	EXPECT_EQ(strictName->kind, editorName->kind);
+	EXPECT_EQ(strictName->text, editorName->text);
+	expectSameSpan(strictName->span, editorName->span);
+
+	const auto strictCall = strict.sourceIndex.enclosingCall({1, 49});
+	const auto editorCall = editor.sourceIndex.enclosingCall({1, 49});
+	ASSERT_TRUE(strictCall);
+	ASSERT_TRUE(editorCall);
+	EXPECT_EQ(strictCall->activeArgument, editorCall->activeArgument);
+	ASSERT_EQ(strictCall->argumentRanges.size(), editorCall->argumentRanges.size());
+	for (size_t index = 0; index < strictCall->argumentRanges.size(); ++index) {
+		expectSameSpan(strictCall->argumentRanges[index], editorCall->argumentRanges[index]);
+	}
+
+	const auto strictRegionContext = strict.sourceIndex.regionContextAt({2, 32});
+	const auto editorRegionContext = editor.sourceIndex.regionContextAt({2, 32});
+	ASSERT_TRUE(strictRegionContext);
+	ASSERT_TRUE(editorRegionContext);
+	EXPECT_EQ(strictRegionContext->name, editorRegionContext->name);
+	EXPECT_EQ(strictRegionContext->activeSection, editorRegionContext->activeSection);
+	EXPECT_EQ(strictRegionContext->activeSectionEntries,
+		editorRegionContext->activeSectionEntries);
 }
 
 TEST(ParserTests, WhitespaceOnlyReturnsEmpty) {
