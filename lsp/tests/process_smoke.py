@@ -145,6 +145,7 @@ def run_smoke(server: Path) -> None:
                 "enumMember",
                 "property",
                 "variable",
+                "operator",
             ] or semantic_tokens.get("full") is not True:
                 raise ProtocolError("server did not advertise semantic token support")
 

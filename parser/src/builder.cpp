@@ -297,6 +297,8 @@ ast::ExprPtr buildExpr(const Node& n, Diags& diags) {
 			for (const auto& p : patNode.children) {
 				if (p->is_type<grammar::match_default>()) {
 					isDefault = true;
+				} else if (p->is_type<grammar::kw_or>()) {
+					continue;
 				} else {
 					patterns.emplace_back(buildExpr(*p, diags));
 				}
