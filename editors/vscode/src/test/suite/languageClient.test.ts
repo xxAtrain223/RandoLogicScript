@@ -34,6 +34,10 @@ export async function runLanguageClientTest(): Promise<void> {
   assert.deepEqual(semanticScopeMap.scopes['enumMember.readonly.declaration'], [
     'variable.other.enummember.rls',
   ]);
+  assert.deepEqual(semanticScopeMap.scopes.property, ['variable.parameter.rls']);
+  assert.deepEqual(semanticScopeMap.scopes['property.declaration'], [
+    'variable.parameter.rls',
+  ]);
   assert.deepEqual(semanticScopeMap.scopes['variable.readonly.definition'], [
     'variable.other.constant.rls',
   ]);

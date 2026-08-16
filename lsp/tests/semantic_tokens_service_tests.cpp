@@ -91,8 +91,9 @@ TEST(SemanticTokensServiceTests, EncodesResolvedCategoriesAndModifiers) {
         "extern enum Color { RED }\n"
         "extern define paint(color: Color) -> Bool\n"
         "define use(input: Color): paint(input == RED)\n"
-        "region RR_TEST { name: \"Test\" events { EVENT_TEST: true } }\n"
-        "extend region RR_TEST {}\n");
+        "region RR_TEST { name: \"Test\" events { EVENT_TEST: true } exits { RR_EXIT: true } }\n"
+        "extend region RR_TEST {}\n"
+        "define event_value(): EVENT_TEST\n");
 
     const auto tokens = fixture.tokens();
     const auto* externEnum = tokenAt(tokens, 0, 12);
@@ -106,7 +107,9 @@ TEST(SemanticTokensServiceTests, EncodesResolvedCategoriesAndModifiers) {
     const auto* region = tokenAt(tokens, 3, 7);
     const auto* property = tokenAt(tokens, 3, 17);
     const auto* entry = tokenAt(tokens, 3, 39);
+    const auto* exit = tokenAt(tokens, 3, 66);
     const auto* extensionTarget = tokenAt(tokens, 4, 14);
+    const auto* entryUse = tokenAt(tokens, 5, 22);
 
     ASSERT_NE(externEnum, nullptr);
     EXPECT_EQ(externEnum->type, 2u);
@@ -134,7 +137,15 @@ TEST(SemanticTokensServiceTests, EncodesResolvedCategoriesAndModifiers) {
     EXPECT_EQ(memberUse->modifiers, 12u);
     EXPECT_EQ(region, nullptr);
     EXPECT_EQ(property, nullptr);
-    EXPECT_EQ(entry, nullptr);
+    ASSERT_NE(entry, nullptr);
+    EXPECT_EQ(entry->type, 4u);
+    EXPECT_EQ(entry->modifiers, 1u);
+    ASSERT_NE(exit, nullptr);
+    EXPECT_EQ(exit->type, 4u);
+    EXPECT_EQ(exit->modifiers, 1u);
+    ASSERT_NE(entryUse, nullptr);
+    EXPECT_EQ(entryUse->type, 3u);
+    EXPECT_EQ(entryUse->modifiers, 0u);
     EXPECT_EQ(extensionTarget, nullptr);
 }
 

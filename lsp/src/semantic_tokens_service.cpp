@@ -60,9 +60,10 @@ std::optional<TokenType> tokenType(sema::SymbolCategory category) {
         return TokenType::Enum;
     case sema::SymbolCategory::EnumMember:
         return TokenType::EnumMember;
+    case sema::SymbolCategory::SectionEntry:
+        return TokenType::Property;
     case sema::SymbolCategory::RegionDataEntry:
     case sema::SymbolCategory::Region:
-    case sema::SymbolCategory::SectionEntry:
     case sema::SymbolCategory::RegionExtension:
     case sema::SymbolCategory::ExternEnumPattern:
         return std::nullopt;
@@ -94,6 +95,10 @@ std::optional<AbsoluteToken> makeToken(
     const bool concretePatternValue = symbol.category == sema::SymbolCategory::ExternEnumPattern
         && occurrence.kind != sema::OccurrenceKind::Declaration;
     if (concretePatternValue) type = TokenType::EnumMember;
+    if (symbol.category == sema::SymbolCategory::SectionEntry
+        && occurrence.kind != sema::OccurrenceKind::Declaration) {
+        type = TokenType::EnumMember;
+    }
     if (!type || occurrence.span.start.line == 0
         || occurrence.span.start.line != occurrence.span.end.line) {
         return std::nullopt;

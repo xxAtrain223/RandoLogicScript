@@ -77,10 +77,10 @@
             "variable.other.enummember.rls"
           ],
           "property": [
-            "variable.other.property.rls"
+            "variable.parameter.rls"
           ],
           "property.declaration": [
-            "variable.other.property.rls"
+            "variable.parameter.rls"
           ],
           "variable.readonly": [
             "variable.other.constant.rls"
