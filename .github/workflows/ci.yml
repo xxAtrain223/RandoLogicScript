@@ -28,7 +28,7 @@ jobs:
       - name: Set up Node for VS Code client tests
         uses: actions/setup-node@v5
         with:
-          node-version: 20
+          node-version: 22
 
       - name: Configure
         run: cmake -S . -B build -DBUILD_TESTING=ON -DCMAKE_BUILD_TYPE=Release
@@ -64,7 +64,7 @@ jobs:
       - name: Set up Node
         uses: actions/setup-node@v5
         with:
-          node-version: 20
+          node-version: 22
 
       - name: Test TextMate grammar
         working-directory: tooling/textmate
