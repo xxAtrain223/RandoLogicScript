@@ -21,6 +21,8 @@ struct EditorSyntaxBuilder {
 		std::optional<ast::Name> label;
 		std::optional<size_t> labelDelimiterEnd;
 		std::vector<EditorCallArgument> arguments;
+		bool expectsArgument = false;
+		bool recovered = false;
 		bool closed = false;
 	};
 	struct SectionFrame {
@@ -136,6 +138,9 @@ struct EditorSyntaxBuilder {
 		}
 		const auto valueSpan = spanFromOffsets(valueStart, contentEnd);
 		if (!valueSpan) return;
+		if (frame.labelDelimiterEnd && valueStart == contentEnd) {
+			frame.recovered = true;
+		}
 
 		ast::Span labelSpan;
 		bool labelCandidate = false;
@@ -181,7 +186,7 @@ struct EditorSyntaxBuilder {
 		}
 		result.calls.push_back({
 			std::move(frame.callee), span, std::move(frame.arguments),
-			frame.closed
+			frame.closed && !frame.recovered
 				? SyntaxRecoveryStatus::Complete
 				: SyntaxRecoveryStatus::Recovered});
 	}
@@ -449,6 +454,7 @@ struct editor_action<grammar::call_argument_separator> {
 		auto& frame = builder.callFrames.back();
 		builder.finishArgument(frame, *end, true);
 		frame.argumentStart = *next;
+		frame.expectsArgument = true;
 	}
 };
 
@@ -464,7 +470,18 @@ struct editor_action<grammar::call_close_paren> {
 		const auto end = builder.offsetFor(span->start);
 		if (!end) return;
 		auto& frame = builder.callFrames.back();
-		builder.finishArgument(frame, *end, false);
+		size_t contentStart = frame.argumentStart;
+		while (contentStart < *end
+			&& std::isspace(static_cast<unsigned char>(
+				builder.source.content()[contentStart]))) {
+			++contentStart;
+		}
+		if (contentStart < *end || frame.label) {
+			builder.finishArgument(frame, *end, false);
+		} else if (frame.expectsArgument) {
+			builder.finishArgument(frame, *end, true);
+			frame.recovered = true;
+		}
 		frame.closed = true;
 	}
 };

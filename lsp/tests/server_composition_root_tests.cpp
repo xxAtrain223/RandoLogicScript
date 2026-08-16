@@ -200,6 +200,63 @@ TEST(ServerCompositionRootTests, RoutesSignatureHelpWithActiveNamedParameter) {
     EXPECT_EQ(result["signatures"][0]["documentation"]["kind"], "markdown");
 }
 
+TEST(ServerCompositionRootTests, AdvancesSignatureImmediatelyAfterCommaEdit) {
+    const fs::path sourcePath = fs::temp_directory_path() /
+        "rls-signature-comma-route.rls";
+    const std::string uri = *rls::lsp::PathToFileUri(sourcePath);
+    const std::string before =
+        "extern define target(first: Bool, second: Bool) -> Bool\n"
+        "define use(): target(true)\n";
+    const std::string after =
+        "extern define target(first: Bool, second: Bool) -> Bool\n"
+        "define use(): target(true,)\n";
+    ServerCompositionRoot server(standaloneProject);
+    server.handlePayload(
+        R"({"jsonrpc":"2.0","id":1,"method":"initialize","params":{}})");
+    server.handlePayload(
+        R"({"jsonrpc":"2.0","method":"initialized","params":{}})");
+    server.handlePayload(Json{
+        {"jsonrpc", "2.0"},
+        {"method", "textDocument/didOpen"},
+        {"params", {{"textDocument", {
+            {"uri", uri},
+            {"languageId", "rls"},
+            {"version", 1},
+            {"text", before},
+        }}}},
+    }.dump());
+    server.scheduler().waitForIdle();
+
+    server.handlePayload(Json{
+        {"jsonrpc", "2.0"},
+        {"method", "textDocument/didChange"},
+        {"params", {
+            {"textDocument", {{"uri", uri}, {"version", 2}}},
+            {"contentChanges", Json::array({{{"text", after}}})},
+        }},
+    }.dump());
+    const auto responses = server.handlePayload(Json{
+        {"jsonrpc", "2.0"},
+        {"id", 2},
+        {"method", "textDocument/signatureHelp"},
+        {"params", {
+            {"textDocument", {{"uri", uri}}},
+            {"position", {{"line", 1}, {"character", 26}}},
+            {"context", {
+                {"triggerKind", 2},
+                {"triggerCharacter", ","},
+                {"isRetrigger", true},
+            }},
+        }},
+    }.dump());
+
+    ASSERT_EQ(responses.size(), 1u);
+    const auto result = Json::parse(responses.front())["result"];
+    ASSERT_FALSE(result.is_null());
+    EXPECT_EQ(result["activeParameter"], 1);
+    EXPECT_EQ(result["signatures"][0]["activeParameter"], 1);
+}
+
 TEST(ServerCompositionRootTests, ReturnsNullSignatureHelpForUnresolvedCall) {
     const fs::path sourcePath = fs::temp_directory_path() /
         "rls-unresolved-signature-route.rls";

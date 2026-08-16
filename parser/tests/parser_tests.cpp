@@ -1012,6 +1012,16 @@ TEST(SourceIndexTests, ReportsRecoveredNamedArgumentContexts) {
 		rls::parser::ParseMode::Strict);
 	EXPECT_FALSE(strict.sourceIndex.namedArgumentAt({1, 25}));
 	EXPECT_FALSE(strict.sourceIndex.callArgumentAt({1, 25}));
+
+	const auto closedTrailingSlot = rls::parser::ParseStringWithIndex(
+		"define sixth(): target(true,)", "closed-trailing-slot.rls",
+		rls::parser::ParseMode::Editor);
+	const auto closedCall = closedTrailingSlot.sourceIndex.enclosingCall({1, 29});
+	ASSERT_TRUE(closedCall);
+	EXPECT_EQ(closedCall->activeArgument, 1u);
+	ASSERT_EQ(closedCall->argumentRanges.size(), 2u);
+	EXPECT_EQ(closedCall->argumentRanges[1].start.column, 29u);
+	EXPECT_EQ(closedCall->argumentRanges[1].end.column, 29u);
 }
 
 TEST(SourceIndexTests, ReportsRecoveredFunctionTypePositions) {

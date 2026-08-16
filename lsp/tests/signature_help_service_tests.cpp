@@ -96,6 +96,19 @@ TEST(SignatureHelpServiceTests, SupportsKnownRecoveredIncompleteCall) {
     EXPECT_EQ(result->activeParameter, 0u);
 }
 
+TEST(SignatureHelpServiceTests, AdvancesAfterTrailingComma) {
+    const std::string declarations =
+        "extern define target(first: Bool, second: Bool) -> Bool\n";
+    const std::string usage = "define use(): target(true,)";
+    SignatureFixture fixture(declarations, usage);
+
+    const auto result = fixture.at({
+        0, static_cast<uint32_t>(usage.find(',') + 1)});
+
+    ASSERT_TRUE(result);
+    EXPECT_EQ(result->activeParameter, 1u);
+}
+
 TEST(SignatureHelpServiceTests, RendersUserDefineInferredReturnType) {
     const std::string declarations =
         "enum Color { RED }\n"
