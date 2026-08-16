@@ -2,6 +2,32 @@
   "version": "2.0.0",
   "tasks": [
     {
+      "label": "Bundle RLS Language Server",
+      "type": "shell",
+      "command": "npm",
+      "args": [
+        "run",
+        "bundle:lsp"
+      ],
+      "options": {
+        "cwd": "${workspaceFolder}/editors/vscode"
+      }
+    },
+    {
+      "label": "Package RLS VS Code Extension",
+      "type": "shell",
+      "command": "vsce",
+      "args": [
+        "package"
+      ],
+      "options": {
+        "cwd": "${workspaceFolder}/editors/vscode"
+      },
+      "problemMatcher": [
+        "$msCompile"
+      ]
+    },
+    {
       "label": "Compile RLS VS Code Extension",
       "type": "shell",
       "command": "npm",
