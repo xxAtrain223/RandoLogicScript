@@ -1,4 +1,5 @@
 #include <gtest/gtest.h>
+#include <fstream>
 #include <stdexcept>
 
 #include "ast.h"
@@ -230,6 +231,66 @@ TEST(ParserTests, EditorModeMatchesStrictModeForValidSource) {
 	EXPECT_EQ(strict.sourceIndex.enumNames(), std::vector<std::string>{"Color"});
 }
 
+TEST(ParserTests, EditorModeMatchesStrictModeAcrossExamples) {
+	const auto examples = std::filesystem::path(RLS_REPO_ROOT) / "examples";
+	ASSERT_TRUE(std::filesystem::is_directory(examples));
+	size_t fileCount = 0;
+	for (const auto& entry : std::filesystem::recursive_directory_iterator(examples)) {
+		if (!entry.is_regular_file() || entry.path().extension() != ".rls") continue;
+		++fileCount;
+		std::ifstream stream(entry.path(), std::ios::binary);
+		ASSERT_TRUE(stream) << entry.path();
+		const std::string source{
+			std::istreambuf_iterator<char>(stream),
+			std::istreambuf_iterator<char>()};
+		const auto filename = entry.path().generic_string();
+		const auto strict = rls::parser::ParseStringWithIndex(
+			source, filename, rls::parser::ParseMode::Strict);
+		const auto editor = rls::parser::ParseStringWithIndex(
+			source, filename, rls::parser::ParseMode::Editor);
+
+		EXPECT_TRUE(strict.file.diagnostics.empty()) << entry.path();
+		EXPECT_TRUE(editor.file.diagnostics.empty()) << entry.path();
+		EXPECT_EQ(strict.file.declarations.size(), editor.file.declarations.size())
+			<< entry.path();
+		ASSERT_EQ(strict.sourceIndex.declarations().size(),
+			editor.sourceIndex.declarations().size()) << entry.path();
+		for (size_t index = 0; index < strict.sourceIndex.declarations().size(); ++index) {
+			expectSameSpan(strict.sourceIndex.declarations()[index].span,
+				editor.sourceIndex.declarations()[index].span);
+		}
+		EXPECT_EQ(strict.sourceIndex.regionNames(), editor.sourceIndex.regionNames())
+			<< entry.path();
+		EXPECT_EQ(strict.sourceIndex.enumNames(), editor.sourceIndex.enumNames())
+			<< entry.path();
+
+		const auto sourceText = SourceText::FromUtf8(source);
+		ASSERT_TRUE(sourceText) << entry.path();
+		for (size_t offset = 0; offset <= source.size(); ++offset) {
+			const auto position = sourceText->utf8PositionAtByteOffset(offset);
+			ASSERT_TRUE(position) << entry.path() << " at byte " << offset;
+			const auto strictName = strict.sourceIndex.nameAt(*position);
+			const auto editorName = editor.sourceIndex.nameAt(*position);
+			ASSERT_EQ(strictName.has_value(), editorName.has_value())
+				<< entry.path() << " at byte " << offset;
+			if (strictName && editorName) {
+				EXPECT_EQ(strictName->kind, editorName->kind);
+				EXPECT_EQ(strictName->text, editorName->text);
+				expectSameSpan(strictName->span, editorName->span);
+			}
+			const auto strictSyntax = strict.sourceIndex.syntaxAt(*position);
+			const auto editorSyntax = editor.sourceIndex.syntaxAt(*position);
+			ASSERT_EQ(strictSyntax.has_value(), editorSyntax.has_value())
+				<< entry.path() << " at byte " << offset;
+			if (strictSyntax && editorSyntax) {
+				EXPECT_EQ(strictSyntax->kind, editorSyntax->kind);
+				expectSameSpan(strictSyntax->span, editorSyntax->span);
+			}
+		}
+	}
+	EXPECT_GT(fileCount, 0u);
+}
+
 TEST(ParserTests, EditorModeKeepsCompleteDeclarationsAroundMalformedSyntax) {
 	const std::string source =
 		"define before(): true\n"
@@ -251,6 +312,28 @@ TEST(ParserTests, EditorModeKeepsCompleteDeclarationsAroundMalformedSyntax) {
 
 	EXPECT_FALSE(strict.file.diagnostics.empty());
 	EXPECT_TRUE(strict.file.declarations.empty());
+}
+
+TEST(ParserTests, EditorModeSynchronizesAfterMalformedConstructs) {
+	const std::vector<std::string> sources = {
+		"define broken(\ndefine after(): true\n",
+		"enum Broken {\ndefine after(): true\n",
+		"region RR_BROKEN { events { EVENT_PARTIAL\ndefine after(): true\n",
+		"define broken(): target(\ndefine after(): true\n",
+		"define broken(): true ?\ndefine after(): true\n",
+	};
+
+	for (const auto& source : sources) {
+		SCOPED_TRACE(source);
+		const auto parsed = rls::parser::ParseStringWithIndex(
+			source, "synchronization.rls", rls::parser::ParseMode::Editor);
+		ASSERT_FALSE(parsed.file.diagnostics.empty());
+		ASSERT_EQ(parsed.file.declarations.size(), 1u);
+		const auto* define = std::get_if<DefineDecl>(&parsed.file.declarations[0]);
+		ASSERT_NE(define, nullptr);
+		EXPECT_EQ(define->name, "after");
+		EXPECT_EQ(define->name.span.start.line, 2u);
+	}
 }
 
 TEST(ParserTests, EditorSyntaxClassifiesCompleteAndRecoveredEnums) {

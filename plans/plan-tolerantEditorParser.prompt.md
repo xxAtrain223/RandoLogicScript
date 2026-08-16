@@ -24,7 +24,7 @@ Produce trustworthy partial syntax indexes for incomplete editor text from the c
 - [x] Define parser-owned missing/error syntax records with spans and recovery status.
 - [x] Distinguish complete AST declarations from recovered syntax contexts.
 - [x] Preserve comments, strings, and delimiters sufficiently to synchronize without lexical false positives.
-- [ ] Define synchronization points for declarations, regions, sections, parameter lists, calls, and expressions.
+- [x] Define synchronization points for declarations, regions, sections, parameter lists, calls, and expressions.
 
 ### 3. Region And Section Recovery
 
@@ -56,14 +56,14 @@ Produce trustworthy partial syntax indexes for incomplete editor text from the c
 
 ### Tests
 
-- [ ] Valid-source strict/editor parity across representative syntax and all examples.
-- [ ] Recovery tests at every synchronization boundary and nested malformed construct.
+- [x] Valid-source strict/editor parity across representative syntax and all examples.
+- [x] Recovery tests at every synchronization boundary and nested malformed construct.
 - [x] Comment/string false-positive tests.
 - [x] Existing completion, navigation, diagnostics, and stale-generation tests remain green during migration.
-- [ ] Full build and cross-platform process smoke tests.
+- [x] Full build and cross-platform process smoke tests.
 
 ### Definition Of Done
 
 - [x] The compiler owns strict and tolerant syntax parsing through one grammar.
 - [x] `SourceIndex` contains no second parser or grammar-shaped token scanner.
-- [ ] Editor features remain responsive under incomplete source without fabricated or stale semantics.
+- [x] Editor features remain responsive under incomplete source without fabricated or stale semantics.
