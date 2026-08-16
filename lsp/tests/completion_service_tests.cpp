@@ -793,6 +793,34 @@ TEST(CompletionServiceTests, DoesNotInventExpectedTypeForUnknownCall) {
     EXPECT_EQ(findItem(items, "RED"), nullptr);
 }
 
+TEST(CompletionServiceTests, DoesNotResolveAmbiguousRecoveredCall) {
+    const std::string declarations =
+        "enum Color { RED }\n"
+        "enum Size { SMALL }\n"
+        "extern define paint(value: Color) -> Bool\n"
+        "extern define paint(value: Size) -> Bool\n";
+    const std::string usage = "define use(): paint(R";
+    CrossFileCompletionFixture fixture(declarations, usage);
+
+    const auto items = fixture.completeAtEnd(usage);
+
+    EXPECT_EQ(findItem(items, "RED"), nullptr);
+    EXPECT_EQ(findItem(items, "SMALL"), nullptr);
+}
+
+TEST(CompletionServiceTests, DoesNotResolveInvalidRecoveredArgumentBinding) {
+    const std::string declarations =
+        "enum Color { RED }\n"
+        "extern define paint(color: Color) -> Bool\n";
+    const std::string usage = "define use(): paint(missing: R";
+    CrossFileCompletionFixture fixture(declarations, usage);
+
+    const auto items = fixture.completeAtEnd(usage);
+
+    EXPECT_EQ(findItem(items, "RED"), nullptr);
+    EXPECT_EQ(findItem(items, "color"), nullptr);
+}
+
 TEST(CompletionServiceTests, FiltersCrossFileDeclaredDomainValuesByExpectedType) {
     const std::string declarations =
         "region RR_FIRST {\n"

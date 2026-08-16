@@ -5,8 +5,84 @@
 
 #include <algorithm>
 #include <map>
+#include <tuple>
 
 namespace rls::sema {
+
+namespace {
+
+std::vector<const SymbolRecord*> parametersFor(
+	const SemanticIndex& index, SymbolId callable) {
+	std::vector<const SymbolRecord*> result;
+	for (const auto& symbol : index.symbols()) {
+		if (symbol.category == SymbolCategory::Parameter
+			&& symbol.container == callable) {
+			result.push_back(&symbol);
+		}
+	}
+	std::sort(result.begin(), result.end(), [](const auto* left, const auto* right) {
+		return std::tie(left->selection.start.line, left->selection.start.column)
+			< std::tie(right->selection.start.line, right->selection.start.column);
+	});
+	return result;
+}
+
+std::optional<SymbolId> uniqueCallable(
+	const SemanticIndex& index, std::string_view name) {
+	std::optional<SymbolId> result;
+	for (const auto& symbol : index.symbols()) {
+		const bool callable = symbol.category == SymbolCategory::Define
+			|| symbol.category == SymbolCategory::ExternDefine;
+		if (!callable || symbol.displayName != name) continue;
+		if (result) return std::nullopt;
+		result = symbol.id;
+	}
+	return result;
+}
+
+std::optional<CallRecord> resolveRecoveredCall(
+	const SemanticIndex& semanticIndex,
+	const parser::CallContext& call) {
+	if (call.argumentRanges.size() != call.argumentLabels.size()
+		|| call.argumentRanges.size() != call.argumentLabelNames.size()) {
+		return std::nullopt;
+	}
+	const auto target = uniqueCallable(semanticIndex, call.calleeName);
+	if (!target) return std::nullopt;
+	const auto parameters = parametersFor(semanticIndex, *target);
+	std::vector<bool> bound(parameters.size(), false);
+	std::vector<std::optional<size_t>> bindings;
+	bindings.reserve(call.argumentRanges.size());
+	size_t nextPositional = 0;
+
+	for (const auto& label : call.argumentLabelNames) {
+		size_t parameterIndex = parameters.size();
+		if (label) {
+			for (size_t index = 0; index < parameters.size(); ++index) {
+				if (parameters[index]->displayName == *label) {
+					parameterIndex = index;
+					break;
+				}
+			}
+			if (parameterIndex == parameters.size() || bound[parameterIndex]) {
+				return std::nullopt;
+			}
+		} else {
+			while (nextPositional < bound.size() && bound[nextPositional]) {
+				++nextPositional;
+			}
+			if (nextPositional == parameters.size()) return std::nullopt;
+			parameterIndex = nextPositional++;
+		}
+		bound[parameterIndex] = true;
+		bindings.push_back(parameterIndex);
+	}
+
+	return CallRecord{
+		call.span, *target, call.argumentRanges, std::move(bindings)};
+}
+
+} // namespace
 
 std::optional<std::shared_ptr<const AnalysisSnapshot>> AnalysisSnapshot::Create(
 	std::vector<SourceInput> sources, uint64_t generation, std::stop_token cancellation) {
@@ -94,11 +170,34 @@ std::optional<TypeRecord> AnalysisSnapshot::typeAt(std::string_view path, ast::P
 }
 
 std::optional<ExpectedTypeRecord> AnalysisSnapshot::expectedTypeAt(std::string_view path, ast::Position position) const {
-	return semanticIndex_.expectedTypeAt(path, position);
+	if (const auto expected = semanticIndex_.expectedTypeAt(path, position)) {
+		return expected;
+	}
+	const auto* index = sourceIndex(path);
+	if (!index) return std::nullopt;
+	const auto argument = index->callArgumentAt(position);
+	const auto call = callAt(path, position);
+	if (!argument || !call || !call->target
+		|| argument->activeArgument >= call->normalizedBindings.size()) {
+		return std::nullopt;
+	}
+	const auto binding = call->normalizedBindings[argument->activeArgument];
+	if (!binding) return std::nullopt;
+	const auto parameters = parametersFor(semanticIndex_, *call->target);
+	if (*binding >= parameters.size() || !parameters[*binding]->type) {
+		return std::nullopt;
+	}
+	return ExpectedTypeRecord{
+		argument->valueSpan, *parameters[*binding]->type,
+		parameters[*binding]->enumName};
 }
 
 std::optional<CallRecord> AnalysisSnapshot::callAt(std::string_view path, ast::Position position) const {
-	return semanticIndex_.callAt(path, position);
+	if (const auto call = semanticIndex_.callAt(path, position)) return call;
+	const auto* index = sourceIndex(path);
+	if (!index) return std::nullopt;
+	const auto call = index->enclosingCall(position);
+	return call ? resolveRecoveredCall(semanticIndex_, *call) : std::nullopt;
 }
 
 std::optional<SymbolRecord> AnalysisSnapshot::declaration(SymbolId symbol) const {

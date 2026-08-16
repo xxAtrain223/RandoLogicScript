@@ -45,8 +45,8 @@ Produce trustworthy partial syntax indexes for incomplete editor text from the c
 
 - [x] Analyze unaffected complete declarations when neighboring syntax is malformed.
 - [x] Exclude recovered declarations from public semantic symbols until complete.
-- [ ] Resolve recovered calls only when callee and argument structure are trustworthy.
-- [ ] Never reuse stale semantic meaning or derive candidate identity from partial text.
+- [x] Resolve recovered calls only when callee and argument structure are trustworthy.
+- [x] Never reuse stale semantic meaning or derive candidate identity from partial text.
 
 ### 6. Scanner Removal
 
@@ -59,7 +59,7 @@ Produce trustworthy partial syntax indexes for incomplete editor text from the c
 - [ ] Valid-source strict/editor parity across representative syntax and all examples.
 - [ ] Recovery tests at every synchronization boundary and nested malformed construct.
 - [x] Comment/string false-positive tests.
-- [ ] Existing completion, navigation, diagnostics, and stale-generation tests remain green during migration.
+- [x] Existing completion, navigation, diagnostics, and stale-generation tests remain green during migration.
 - [ ] Full build and cross-platform process smoke tests.
 
 ### Definition Of Done

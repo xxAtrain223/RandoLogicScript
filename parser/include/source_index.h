@@ -47,10 +47,12 @@ struct SourceNameContext {
 };
 
 struct CallContext {
+	std::string calleeName;
 	ast::Span span;
 	ast::Span callee;
 	std::vector<ast::Span> argumentRanges;
 	std::vector<std::optional<ast::Span>> argumentLabels;
+	std::vector<std::optional<std::string>> argumentLabelNames;
 	std::optional<size_t> activeArgument;
 };
 

@@ -69,10 +69,15 @@ void indexExpr(SourceIndex& index, const ast::Expr& expr) {
 			indexExpr(index, *node.elseBranch);
 		} else if constexpr (std::is_same_v<T, ast::CallExpr>) {
 			index.addName(SourceNameKind::CallCallee, node.callee);
-			CallContext call{expr.span, node.callee.span, {}, {}, std::nullopt};
+			CallContext call{
+				node.callee.text, expr.span, node.callee.span,
+				{}, {}, {}, std::nullopt};
 			for (const auto& argument : node.args) {
 				call.argumentRanges.push_back(argument.value->span);
 				call.argumentLabels.push_back(argument.name ? std::optional<ast::Span>(argument.name->span) : std::nullopt);
+				call.argumentLabelNames.push_back(argument.name
+					? std::optional<std::string>(argument.name->text)
+					: std::nullopt);
 				if (argument.name) index.addName(SourceNameKind::ArgumentLabel, *argument.name);
 				index.addSyntax(SyntaxKind::Argument, argument.value->span);
 				indexExpr(index, *argument.value);

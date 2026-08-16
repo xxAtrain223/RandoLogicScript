@@ -205,11 +205,16 @@ IndexedFile ParseStringWithIndex(
 					: std::nullopt);
 			}
 			if (call.status == SyntaxRecoveryStatus::Recovered) {
-				CallContext context{call.span, call.callee.span, {}, {}, std::nullopt};
+				CallContext context{
+					call.callee.text, call.span, call.callee.span,
+					{}, {}, {}, std::nullopt};
 				for (const auto& argument : call.arguments) {
 					context.argumentRanges.push_back(argument.valueSpan);
 					context.argumentLabels.push_back(argument.label
 						? std::optional<ast::Span>(argument.label->span)
+						: std::nullopt);
+					context.argumentLabelNames.push_back(argument.label
+						? std::optional<std::string>(argument.label->text)
 						: std::nullopt);
 				}
 				sourceIndex.addCall(std::move(context));

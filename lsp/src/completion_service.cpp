@@ -366,14 +366,6 @@ std::vector<CompletionItem> CompletionService::complete(
     const auto context = completionContextAt(
         *document->sourceIndex, contextPosition, region, typePosition,
         sectionEntry, memberAccess, namedArgument, callArgument);
-    const auto findCallable = [&](std::string_view callee) -> const sema::SymbolRecord* {
-        for (const auto& symbol : document->snapshot->semanticIndex().symbols()) {
-            const bool isCallable = symbol.category == sema::SymbolCategory::Define
-                || symbol.category == sema::SymbolCategory::ExternDefine;
-            if (isCallable && symbol.displayName == callee) return &symbol;
-        }
-        return nullptr;
-    };
     const auto parametersFor = [&](const sema::SymbolRecord& callable) {
         std::vector<const sema::SymbolRecord*> parameters;
         for (const auto& symbol : document->snapshot->semanticIndex().symbols()) {
@@ -390,54 +382,6 @@ std::vector<CompletionItem> CompletionService::complete(
     };
 
     auto expected = document->snapshot->expectedTypeAt(document->path, contextPosition);
-    if (!expected && callArgument
-        && callArgument->activeArgument < callArgument->argumentLabels.size()) {
-        if (const auto* callable = findCallable(callArgument->callee)) {
-            const auto parameters = parametersFor(*callable);
-            std::vector<bool> bound(parameters.size(), false);
-            size_t nextPositional = 0;
-            for (size_t argumentIndex = 0;
-                 argumentIndex < callArgument->activeArgument; ++argumentIndex) {
-                const auto& label = callArgument->argumentLabels[argumentIndex];
-                if (label) {
-                    const auto parameter = std::find_if(
-                        parameters.begin(), parameters.end(), [&](const auto* candidate) {
-                            return candidate->displayName == *label;
-                        });
-                    if (parameter != parameters.end()) {
-                        bound[static_cast<size_t>(parameter - parameters.begin())] = true;
-                    }
-                    continue;
-                }
-                while (nextPositional < bound.size() && bound[nextPositional]) {
-                    ++nextPositional;
-                }
-                if (nextPositional < bound.size()) bound[nextPositional++] = true;
-            }
-
-            const sema::SymbolRecord* activeParameter = nullptr;
-            const auto& activeLabel = callArgument->argumentLabels[callArgument->activeArgument];
-            if (activeLabel) {
-                const auto parameter = std::find_if(
-                    parameters.begin(), parameters.end(), [&](const auto* candidate) {
-                        return candidate->displayName == *activeLabel;
-                    });
-                if (parameter != parameters.end()) activeParameter = *parameter;
-            } else {
-                while (nextPositional < bound.size() && bound[nextPositional]) {
-                    ++nextPositional;
-                }
-                if (nextPositional < parameters.size()) activeParameter = parameters[nextPositional];
-            }
-            if (activeParameter && activeParameter->type) {
-                expected = sema::ExpectedTypeRecord{
-                    callArgument->valueSpan,
-                    *activeParameter->type,
-                    activeParameter->enumName,
-                };
-            }
-        }
-    }
     std::vector<Candidate> candidates;
     std::set<std::string> labels;
     const auto makeItem = [&](std::string label, CompletionItemKind kind,
@@ -645,7 +589,11 @@ std::vector<CompletionItem> CompletionService::complete(
         }
     } else if (context == CompletionContext::Expression) {
         if (namedArgument) {
-            const sema::SymbolRecord* callable = findCallable(namedArgument->callee);
+            const auto resolvedCall = document->snapshot->callAt(
+                document->path, *cursorPosition);
+            const auto callable = resolvedCall && resolvedCall->target
+                ? document->snapshot->declaration(*resolvedCall->target)
+                : std::nullopt;
             if (callable) {
                 const auto parameters = parametersFor(*callable);
 

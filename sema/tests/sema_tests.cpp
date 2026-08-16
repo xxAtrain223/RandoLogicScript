@@ -216,6 +216,72 @@ TEST(AnalysisSnapshotTests, AnalyzesCompleteNeighborsInMalformedDocument) {
 	EXPECT_FALSE((*snapshot)->symbolAt("partial.rls", {2, 8}));
 }
 
+TEST(AnalysisSnapshotTests, ResolvesOnlyTrustworthyRecoveredCalls) {
+	const std::string declarations =
+		"enum Color { RED, BLUE }\n"
+		"extern define paint(color: Color, enabled: Bool) -> Bool\n";
+	const auto endPosition = [](std::string_view source) {
+		const auto text = SourceText::FromUtf8(std::string(source));
+		EXPECT_TRUE(text);
+		return *text->utf8PositionAtByteOffset(source.size());
+	};
+
+	const std::string validUsage = "define use(): paint(R";
+	const auto valid = AnalysisSnapshot::Create({
+		{"declarations.rls", declarations},
+		{"valid-usage.rls", validUsage},
+	}, 103);
+	ASSERT_TRUE(valid);
+	const auto validPosition = endPosition(validUsage);
+	const auto call = (*valid)->callAt("valid-usage.rls", validPosition);
+	ASSERT_TRUE(call);
+	ASSERT_TRUE(call->target);
+	ASSERT_EQ(call->normalizedBindings.size(), 1u);
+	EXPECT_EQ(call->normalizedBindings[0], 0u);
+	const auto expected = (*valid)->expectedTypeAt(
+		"valid-usage.rls", validPosition);
+	ASSERT_TRUE(expected);
+	EXPECT_EQ(expected->type, Type::Enum);
+	EXPECT_EQ(expected->enumName, "Color");
+
+	const std::string unknownLabelUsage =
+		"define use(): paint(missing: R";
+	const auto unknownLabel = AnalysisSnapshot::Create({
+		{"declarations.rls", declarations},
+		{"unknown-label.rls", unknownLabelUsage},
+	}, 104);
+	ASSERT_TRUE(unknownLabel);
+	const auto unknownPosition = endPosition(unknownLabelUsage);
+	EXPECT_FALSE((*unknownLabel)->callAt("unknown-label.rls", unknownPosition));
+	EXPECT_FALSE((*unknownLabel)->expectedTypeAt(
+		"unknown-label.rls", unknownPosition));
+
+	const std::string duplicateLabelUsage =
+		"define use(): paint(color: RED, color: R";
+	const auto duplicateLabel = AnalysisSnapshot::Create({
+		{"declarations.rls", declarations},
+		{"duplicate-label.rls", duplicateLabelUsage},
+	}, 105);
+	ASSERT_TRUE(duplicateLabel);
+	const auto duplicatePosition = endPosition(duplicateLabelUsage);
+	EXPECT_FALSE((*duplicateLabel)->callAt(
+		"duplicate-label.rls", duplicatePosition));
+	EXPECT_FALSE((*duplicateLabel)->expectedTypeAt(
+		"duplicate-label.rls", duplicatePosition));
+
+	const std::string ambiguousUsage = "define use(): paint(R";
+	const auto ambiguous = AnalysisSnapshot::Create({
+		{"first.rls", "extern define paint(color: Color) -> Bool\n"},
+		{"second.rls", "extern define paint(color: Color) -> Bool\n"},
+		{"ambiguous.rls", ambiguousUsage},
+	}, 106);
+	ASSERT_TRUE(ambiguous);
+	const auto ambiguousPosition = endPosition(ambiguousUsage);
+	EXPECT_FALSE((*ambiguous)->callAt("ambiguous.rls", ambiguousPosition));
+	EXPECT_FALSE((*ambiguous)->expectedTypeAt(
+		"ambiguous.rls", ambiguousPosition));
+}
+
 TEST(AnalysisSnapshotTests, ExposesStructuredValidationDiagnostics) {
 	const auto snapshot = AnalysisSnapshot::Create({
 		{"validation.rls", "region RR_TEST { events { EVENT_TEST: \"invalid\" } }\n"},
