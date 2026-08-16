@@ -35,7 +35,7 @@ Consume compiler occurrence/symbol records from [plan-compilerQueryModelAndDiagn
 - [x] Enum/member, parameter, call, extern, unresolved, and ambiguous cases.
 - [x] Multi-byte/UTF-16 source positions.
 - [x] Empty/malformed files and stale snapshot suppression.
-- [ ] Manual inspection with at least one light and dark standard theme in a semantic-token-capable client.
+- [x] Manual inspection with at least one light and dark standard theme in a semantic-token-capable client.
 
 ### Definition of Done
 
