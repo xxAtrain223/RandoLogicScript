@@ -131,6 +131,20 @@ def run_smoke(server: Path) -> None:
                 raise ProtocolError("server did not advertise full document synchronization")
             if not capabilities["workspace"]["workspaceFolders"]["supported"]:
                 raise ProtocolError("server did not advertise workspace folder support")
+            if capabilities.get("signatureHelpProvider", {}).get(
+                "triggerCharacters"
+            ) != ["(", ","]:
+                raise ProtocolError("server did not advertise signature help triggers")
+            semantic_tokens = capabilities.get("semanticTokensProvider", {})
+            if semantic_tokens.get("legend", {}).get("tokenTypes") != [
+                "function",
+                "parameter",
+                "enum",
+                "enumMember",
+                "property",
+                "variable",
+            ] or semantic_tokens.get("full") is not True:
+                raise ProtocolError("server did not advertise semantic token support")
 
             send(process, {"jsonrpc": "2.0", "method": "initialized", "params": {}})
             send(
@@ -188,9 +202,61 @@ def run_smoke(server: Path) -> None:
                 "diagnostic clear notification",
             )
 
-            send(process, {"jsonrpc": "2.0", "id": 2, "method": "shutdown"})
+            signature_source = (
+                "extern define target(value: Bool = true) -> Bool\n"
+                "define use(): target(f"
+            )
+            send(
+                process,
+                {
+                    "jsonrpc": "2.0",
+                    "method": "textDocument/didChange",
+                    "params": {
+                        "textDocument": {"uri": source_uri, "version": 3},
+                        "contentChanges": [{"text": signature_source}],
+                    },
+                },
+            )
+            send(
+                process,
+                {
+                    "jsonrpc": "2.0",
+                    "id": 2,
+                    "method": "textDocument/signatureHelp",
+                    "params": {
+                        "textDocument": {"uri": source_uri},
+                        "position": {"line": 1, "character": len("define use(): target(f")},
+                    },
+                },
+            )
+            signature = receive_matching(
+                messages, lambda message: message.get("id") == 2,
+                "signature help response",
+            )["result"]
+            if signature["activeParameter"] != 0 or signature["signatures"][0][
+                "label"
+            ] != "extern target(value: Bool = true) -> Bool":
+                raise ProtocolError("signature help response was incomplete")
+
+            send(
+                process,
+                {
+                    "jsonrpc": "2.0",
+                    "id": 3,
+                    "method": "textDocument/semanticTokens/full",
+                    "params": {"textDocument": {"uri": source_uri}},
+                },
+            )
+            token_data = receive_matching(
+                messages, lambda message: message.get("id") == 3,
+                "semantic token response",
+            )["result"]["data"]
+            if not token_data or len(token_data) % 5 != 0:
+                raise ProtocolError("semantic token response was not delta encoded")
+
+            send(process, {"jsonrpc": "2.0", "id": 4, "method": "shutdown"})
             receive_matching(
-                messages, lambda message: message.get("id") == 2, "shutdown response"
+                messages, lambda message: message.get("id") == 4, "shutdown response"
             )
             send(process, {"jsonrpc": "2.0", "method": "exit"})
             assert process.stdin is not None

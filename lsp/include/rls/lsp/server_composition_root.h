@@ -13,6 +13,8 @@
 #include "rls/lsp/navigation_service.h"
 #include "rls/lsp/outbound_message_queue.h"
 #include "rls/lsp/project_manager.h"
+#include "rls/lsp/semantic_tokens_service.h"
+#include "rls/lsp/signature_help_service.h"
 #include "rls/lsp/workspace_service.h"
 
 namespace rls::lsp {
@@ -43,6 +45,8 @@ private:
     AnalysisScheduler scheduler_;
     NavigationService navigation_;
     CompletionService completion_;
+    SignatureHelpService signatureHelp_;
+    SemanticTokensService semanticTokens_;
     WorkspaceService workspace_;
     DocumentSynchronizationService synchronization_;
 };

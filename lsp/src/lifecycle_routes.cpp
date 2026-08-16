@@ -4,6 +4,7 @@
 
 #include "rls/lsp/json_rpc_router.h"
 #include "rls/lsp/lifecycle_service.h"
+#include "rls/lsp/semantic_tokens_service.h"
 #include "rls/lsp/workspace_service.h"
 
 namespace rls::lsp {
@@ -129,6 +130,18 @@ void RegisterLifecycleRoutes(
                 {"documentSymbolProvider", true},
                 {"completionProvider", {
                     {"resolveProvider", false},
+                }},
+                {"signatureHelpProvider", {
+                    {"triggerCharacters", {"(", ","}},
+                    {"retriggerCharacters", {","}},
+                }},
+                {"semanticTokensProvider", {
+                    {"legend", {
+                        {"tokenTypes", SemanticTokensService::tokenTypes()},
+                        {"tokenModifiers", SemanticTokensService::tokenModifiers()},
+                    }},
+                    {"range", false},
+                    {"full", true},
                 }},
                 {"workspaceSymbolProvider", true},
                 {"workspace", {

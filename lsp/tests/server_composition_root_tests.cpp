@@ -34,6 +34,8 @@ TEST(ServerCompositionRootTests, RegistersOnlyImplementedRoutes) {
     EXPECT_TRUE(server.router().contains("textDocument/documentHighlight"));
     EXPECT_TRUE(server.router().contains("textDocument/documentSymbol"));
     EXPECT_TRUE(server.router().contains("textDocument/completion"));
+    EXPECT_TRUE(server.router().contains("textDocument/signatureHelp"));
+    EXPECT_TRUE(server.router().contains("textDocument/semanticTokens/full"));
     EXPECT_TRUE(server.router().contains("workspace/symbol"));
     EXPECT_FALSE(server.router().contains("textDocument/publishDiagnostics"));
 }
@@ -52,6 +54,14 @@ TEST(ServerCompositionRootTests, AdvertisesImplementedTextDocumentFeatures) {
     EXPECT_EQ(result["capabilities"]["documentHighlightProvider"], true);
     EXPECT_EQ(result["capabilities"]["documentSymbolProvider"], true);
     EXPECT_EQ(result["capabilities"]["completionProvider"]["resolveProvider"], false);
+    EXPECT_EQ(result["capabilities"]["signatureHelpProvider"]["triggerCharacters"],
+        Json::array({"(", ","}));
+    EXPECT_EQ(result["capabilities"]["semanticTokensProvider"]["legend"]["tokenTypes"],
+        Json::array({"function", "parameter", "enum", "enumMember", "property", "variable"}));
+    EXPECT_EQ(result["capabilities"]["semanticTokensProvider"]["legend"]["tokenModifiers"],
+        Json::array({"declaration", "definition", "readonly", "defaultLibrary", "deprecated"}));
+    EXPECT_EQ(result["capabilities"]["semanticTokensProvider"]["range"], false);
+    EXPECT_EQ(result["capabilities"]["semanticTokensProvider"]["full"], true);
     EXPECT_EQ(result["capabilities"]["workspaceSymbolProvider"], true);
 }
 
@@ -139,6 +149,127 @@ TEST(ServerCompositionRootTests, RoutesCompletionImmediatelyAfterDocumentChange)
     const auto result = Json::parse(responses.front())["result"];
     ASSERT_FALSE(result.empty());
     EXPECT_EQ(result[0]["label"], "region");
+}
+
+TEST(ServerCompositionRootTests, RoutesSignatureHelpWithActiveNamedParameter) {
+    const fs::path sourcePath = fs::temp_directory_path() / "rls-signature-route.rls";
+    const std::string uri = *rls::lsp::PathToFileUri(sourcePath);
+    const std::string usage = "define use(): paint(enabled: false, true)\n";
+    ServerCompositionRoot server(standaloneProject);
+    server.handlePayload(
+        R"({"jsonrpc":"2.0","id":1,"method":"initialize","params":{}})");
+    server.handlePayload(
+        R"({"jsonrpc":"2.0","method":"initialized","params":{}})");
+    server.handlePayload(Json{
+        {"jsonrpc", "2.0"},
+        {"method", "textDocument/didOpen"},
+        {"params", {{"textDocument", {
+            {"uri", uri},
+            {"languageId", "rls"},
+            {"version", 1},
+            {"text",
+                "extern define paint(color: Bool, enabled: Bool = true) -> Bool\n"
+                + usage},
+        }}}},
+    }.dump());
+    server.scheduler().waitForIdle();
+
+    const auto responses = server.handlePayload(Json{
+        {"jsonrpc", "2.0"},
+        {"id", 2},
+        {"method", "textDocument/signatureHelp"},
+        {"params", {
+            {"textDocument", {{"uri", uri}}},
+            {"position", {
+                {"line", 1},
+                {"character", usage.find("false") + 2},
+            }},
+        }},
+    }.dump());
+
+    ASSERT_EQ(responses.size(), 1u);
+    const auto result = Json::parse(responses.front())["result"];
+    ASSERT_EQ(result["signatures"].size(), 1u);
+    EXPECT_EQ(result["activeSignature"], 0);
+    EXPECT_EQ(result["activeParameter"], 1);
+    EXPECT_EQ(result["signatures"][0]["activeParameter"], 1);
+    EXPECT_EQ(result["signatures"][0]["label"],
+        "extern paint(color: Bool, enabled: Bool = true) -> Bool");
+    EXPECT_EQ(result["signatures"][0]["parameters"][1]["label"],
+        "enabled: Bool = true");
+    EXPECT_EQ(result["signatures"][0]["documentation"]["kind"], "markdown");
+}
+
+TEST(ServerCompositionRootTests, ReturnsNullSignatureHelpForUnresolvedCall) {
+    const fs::path sourcePath = fs::temp_directory_path() /
+        "rls-unresolved-signature-route.rls";
+    const std::string uri = *rls::lsp::PathToFileUri(sourcePath);
+    const std::string source = "define use(): missing(R";
+    ServerCompositionRoot server(standaloneProject);
+    server.handlePayload(
+        R"({"jsonrpc":"2.0","id":1,"method":"initialize","params":{}})");
+    server.handlePayload(
+        R"({"jsonrpc":"2.0","method":"initialized","params":{}})");
+    server.handlePayload(Json{
+        {"jsonrpc", "2.0"},
+        {"method", "textDocument/didOpen"},
+        {"params", {{"textDocument", {
+            {"uri", uri},
+            {"languageId", "rls"},
+            {"version", 1},
+            {"text", source},
+        }}}},
+    }.dump());
+    server.scheduler().waitForIdle();
+
+    const auto responses = server.handlePayload(Json{
+        {"jsonrpc", "2.0"},
+        {"id", 2},
+        {"method", "textDocument/signatureHelp"},
+        {"params", {
+            {"textDocument", {{"uri", uri}}},
+            {"position", {{"line", 0}, {"character", source.size()}}},
+        }},
+    }.dump());
+
+    ASSERT_EQ(responses.size(), 1u);
+    EXPECT_TRUE(Json::parse(responses.front())["result"].is_null());
+}
+
+TEST(ServerCompositionRootTests, RoutesFullSemanticTokensAsDeltaEncodedData) {
+    const fs::path sourcePath = fs::temp_directory_path() /
+        "rls-semantic-token-route.rls";
+    const std::string uri = *rls::lsp::PathToFileUri(sourcePath);
+    ServerCompositionRoot server(standaloneProject);
+    server.handlePayload(
+        R"({"jsonrpc":"2.0","id":1,"method":"initialize","params":{}})");
+    server.handlePayload(
+        R"({"jsonrpc":"2.0","method":"initialized","params":{}})");
+    server.handlePayload(Json{
+        {"jsonrpc", "2.0"},
+        {"method", "textDocument/didOpen"},
+        {"params", {{"textDocument", {
+            {"uri", uri},
+            {"languageId", "rls"},
+            {"version", 1},
+            {"text", "define check(flag: Bool): flag\n"},
+        }}}},
+    }.dump());
+    server.scheduler().waitForIdle();
+
+    const auto responses = server.handlePayload(Json{
+        {"jsonrpc", "2.0"},
+        {"id", 2},
+        {"method", "textDocument/semanticTokens/full"},
+        {"params", {{"textDocument", {{"uri", uri}}}}},
+    }.dump());
+
+    ASSERT_EQ(responses.size(), 1u);
+    EXPECT_EQ(Json::parse(responses.front())["result"]["data"], Json::array({
+        0, 7, 5, 0, 2,
+        0, 6, 4, 1, 1,
+        0, 13, 4, 1, 0,
+    }));
 }
 
 TEST(ServerCompositionRootTests, NegotiatesCompletionSnippetsWithPlainFallback) {

@@ -1,6 +1,6 @@
 # Rando Logic Script for VS Code
 
-This extension contributes RLS syntax support and launches the native RLS language server over stdio for live project diagnostics.
+This extension contributes RLS syntax support and launches the native RLS language server over stdio for live diagnostics, completion, signature help, navigation, and semantic highlighting.
 
 ## Development
 
