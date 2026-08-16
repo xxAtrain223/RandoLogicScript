@@ -17,6 +17,11 @@ bool contains(const ast::Span& span, ast::Position position) {
 		isBeforeOrEqual(position, span.end) && !(position.line == span.end.line && position.column == span.end.column);
 }
 
+bool containsInclusive(const ast::Span& span, ast::Position position) {
+	return span.start.line != 0 && isBeforeOrEqual(span.start, position)
+		&& isBeforeOrEqual(position, span.end);
+}
+
 size_t spanSize(const ast::Span& span) {
 	return (static_cast<size_t>(span.end.line - span.start.line) << 32) +
 		span.end.column - span.start.column;
@@ -160,110 +165,6 @@ std::optional<ast::Span> spanFromOffsets(
 
 size_t tokenStart(const RecoveryToken& token) {
 	return token.end - token.text.size();
-}
-
-void addRecoveredNamedArguments(
-	SourceIndex& index, const ast::File& file, const ast::SourceText& source) {
-	const auto tokens = recoveryTokens(source.content());
-	for (size_t calleeIndex = 0; calleeIndex + 1 < tokens.size(); ++calleeIndex) {
-		const auto& callee = tokens[calleeIndex];
-		if (callee.punctuation != 0 || tokens[calleeIndex + 1].punctuation != '(') continue;
-
-		const size_t openIndex = calleeIndex + 1;
-		size_t closeIndex = tokens.size();
-		size_t parenDepth = 1;
-		for (size_t cursor = openIndex + 1; cursor < tokens.size(); ++cursor) {
-			if (tokens[cursor].punctuation == '(') ++parenDepth;
-			if (tokens[cursor].punctuation == ')' && --parenDepth == 0) {
-				closeIndex = cursor;
-				break;
-			}
-		}
-
-		std::vector<std::pair<size_t, size_t>> segments;
-		size_t segmentStart = tokens[openIndex].end;
-		parenDepth = 0;
-		size_t bracketDepth = 0;
-		size_t braceDepth = 0;
-		for (size_t cursor = openIndex + 1; cursor <= closeIndex && cursor < tokens.size(); ++cursor) {
-			const auto punctuation = tokens[cursor].punctuation;
-			if (punctuation == '(') ++parenDepth;
-			if (punctuation == '[') ++bracketDepth;
-			if (punctuation == '{') ++braceDepth;
-			const bool boundary = (punctuation == ',' && parenDepth == 0
-				&& bracketDepth == 0 && braceDepth == 0)
-				|| (cursor == closeIndex && punctuation == ')');
-			if (boundary) {
-				segments.push_back({segmentStart, tokenStart(tokens[cursor])});
-				segmentStart = tokens[cursor].end;
-			}
-			if (punctuation == ')' && parenDepth > 0) --parenDepth;
-			if (punctuation == ']' && bracketDepth > 0) --bracketDepth;
-			if (punctuation == '}' && braceDepth > 0) --braceDepth;
-		}
-		if (closeIndex == tokens.size()) {
-			segments.push_back({segmentStart, source.content().size()});
-		}
-
-		std::vector<std::optional<std::string>> labels;
-		std::vector<std::optional<size_t>> labelColonEnds;
-		labels.reserve(segments.size());
-		labelColonEnds.reserve(segments.size());
-		for (const auto& [start, end] : segments) {
-			std::optional<std::string> label;
-			std::optional<size_t> colonEnd;
-			for (size_t cursor = openIndex + 1; cursor + 1 < tokens.size(); ++cursor) {
-				if (tokenStart(tokens[cursor]) < start || tokens[cursor].end > end) continue;
-				if (tokens[cursor].punctuation == 0
-					&& tokens[cursor + 1].punctuation == ':'
-					&& tokenStart(tokens[cursor + 1]) <= end) {
-					label = std::string(tokens[cursor].text);
-					colonEnd = tokens[cursor + 1].end;
-				}
-				break;
-			}
-			labels.push_back(std::move(label));
-			labelColonEnds.push_back(colonEnd);
-		}
-
-		for (size_t argumentIndex = 0; argumentIndex < segments.size(); ++argumentIndex) {
-			const auto [start, end] = segments[argumentIndex];
-			size_t valueStart = labelColonEnds[argumentIndex].value_or(start);
-			while (valueStart < end
-				&& std::isspace(static_cast<unsigned char>(source.content()[valueStart]))) {
-				++valueStart;
-			}
-			if (const auto valueSpan = spanFromOffsets(source, file.path, valueStart, end)) {
-				index.addCallArgument({
-					std::string(callee.text), labels, argumentIndex, *valueSpan});
-			}
-
-			size_t labelStart = start;
-			while (labelStart < end
-				&& std::isspace(static_cast<unsigned char>(source.content()[labelStart]))) {
-				++labelStart;
-			}
-			size_t labelEnd = labelStart;
-			while (labelEnd < end
-				&& (std::isalnum(static_cast<unsigned char>(source.content()[labelEnd]))
-					|| source.content()[labelEnd] == '_')) {
-				++labelEnd;
-			}
-			const size_t trailing = labelEnd;
-			while (labelEnd < end
-				&& std::isspace(static_cast<unsigned char>(source.content()[labelEnd]))) {
-				++labelEnd;
-			}
-			const bool named = labelEnd < end && source.content()[labelEnd] == ':';
-			const bool partial = trailing == end;
-			if (!named && !partial) continue;
-			const auto labelSpan = spanFromOffsets(source, file.path, labelStart, trailing);
-			if (labelSpan) {
-				index.addNamedArgument({
-					std::string(callee.text), labels, argumentIndex, *labelSpan});
-			}
-		}
-	}
 }
 
 std::optional<ast::Span> spanFromOffsets(
@@ -493,13 +394,15 @@ std::optional<CallContext> SourceIndex::enclosingCall(ast::Position position) co
 	auto result = narrowestAt(calls_, position);
 	if (!result) {
 		for (const auto& call : calls_) {
-			if (contains(call.callee, position)) {
+			if (containsInclusive(call.span, position)
+				|| containsInclusive(call.callee, position)) {
 				result = call;
 				break;
 			}
 			for (size_t index = 0; !result && index < call.argumentRanges.size(); ++index) {
-				if (contains(call.argumentRanges[index], position) ||
-					(call.argumentLabels[index] && contains(*call.argumentLabels[index], position))) {
+				if (containsInclusive(call.argumentRanges[index], position) ||
+					(call.argumentLabels[index]
+						&& containsInclusive(*call.argumentLabels[index], position))) {
 					result = call;
 					break;
 				}
@@ -508,8 +411,9 @@ std::optional<CallContext> SourceIndex::enclosingCall(ast::Position position) co
 	}
 	if (!result) return std::nullopt;
 	for (size_t index = 0; index < result->argumentRanges.size(); ++index) {
-		if (contains(result->argumentRanges[index], position) ||
-			(result->argumentLabels[index] && contains(*result->argumentLabels[index], position))) {
+		if (containsInclusive(result->argumentRanges[index], position) ||
+			(result->argumentLabels[index]
+				&& containsInclusive(*result->argumentLabels[index], position))) {
 			result->activeArgument = index;
 			break;
 		}
@@ -639,7 +543,6 @@ SourceIndex BuildSourceIndex(const ast::File& file, const ast::SourceText* sourc
 	SourceIndex index;
 	if (source) {
 		addRecoveredRegionContexts(index, file, *source);
-		addRecoveredNamedArguments(index, file, *source);
 	}
 	for (const auto& declaration : file.declarations) {
 		std::visit([&](const auto& node) {

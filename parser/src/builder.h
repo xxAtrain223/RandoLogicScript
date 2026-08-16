@@ -45,6 +45,8 @@ using selector = tao::pegtl::parse_tree::selector<
 		grammar::enum_name,
 		grammar::member_object,
 		grammar::member_name,
+		grammar::call_callee,
+		grammar::named_argument_label,
 		grammar::comp_op,
 		grammar::mul_div_op,
 		grammar::add_sub_op,

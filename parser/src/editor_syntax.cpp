@@ -4,6 +4,8 @@
 
 #include <tao/pegtl.hpp>
 
+#include <algorithm>
+#include <cctype>
 #include <optional>
 #include <type_traits>
 
@@ -12,12 +14,24 @@ namespace rls::parser {
 namespace {
 
 struct EditorSyntaxBuilder {
+	struct CallFrame {
+		ast::Name callee;
+		size_t argumentStart = 0;
+		std::optional<ast::Name> pendingLabel;
+		std::optional<ast::Name> label;
+		std::optional<size_t> labelDelimiterEnd;
+		std::vector<EditorCallArgument> arguments;
+		bool closed = false;
+	};
+
 	const ast::SourceText& source;
 	std::string_view filename;
 	EditorSyntax result;
 	std::optional<ast::Name> memberObject;
 	std::optional<size_t> memberAccessIndex;
 	std::optional<size_t> typePositionIndex;
+	std::optional<ast::Name> callCallee;
+	std::vector<CallFrame> callFrames;
 
 	template<typename Input>
 	std::optional<ast::Span> spanFor(const Input& input) const {
@@ -59,6 +73,91 @@ struct EditorSyntaxBuilder {
 		position.span.end = name.end;
 		position.status = SyntaxRecoveryStatus::Complete;
 		typePositionIndex.reset();
+	}
+
+	std::optional<size_t> offsetFor(ast::Position position) const {
+		return source.byteOffsetFromUtf8Position(position);
+	}
+
+	std::optional<ast::Span> spanFromOffsets(size_t start, size_t end) const {
+		const auto startPosition = source.utf8PositionAtByteOffset(start);
+		const auto endPosition = source.utf8PositionAtByteOffset(end);
+		if (!startPosition || !endPosition) return std::nullopt;
+		return ast::Span{std::string(filename), *startPosition, *endPosition};
+	}
+
+	void finishArgument(CallFrame& frame, size_t end, bool allowEmpty) {
+		if (end < frame.argumentStart) return;
+		size_t contentStart = frame.argumentStart;
+		while (contentStart < end
+			&& std::isspace(static_cast<unsigned char>(
+				source.content()[contentStart]))) {
+			++contentStart;
+		}
+		size_t contentEnd = end;
+		while (contentEnd > contentStart
+			&& std::isspace(static_cast<unsigned char>(
+				source.content()[contentEnd - 1]))) {
+			--contentEnd;
+		}
+		if (!allowEmpty && contentStart == contentEnd && !frame.label) return;
+
+		size_t valueStart = frame.labelDelimiterEnd.value_or(contentStart);
+		while (valueStart < contentEnd
+			&& std::isspace(static_cast<unsigned char>(
+				source.content()[valueStart]))) {
+			++valueStart;
+		}
+		const auto valueSpan = spanFromOffsets(valueStart, contentEnd);
+		if (!valueSpan) return;
+
+		ast::Span labelSpan;
+		bool labelCandidate = false;
+		if (frame.label) {
+			labelSpan = frame.label->span;
+		} else {
+			size_t candidateEnd = contentStart;
+			if (candidateEnd < contentEnd
+				&& (std::isalpha(static_cast<unsigned char>(
+					source.content()[candidateEnd]))
+					|| source.content()[candidateEnd] == '_')) {
+				++candidateEnd;
+				while (candidateEnd < contentEnd
+					&& (std::isalnum(static_cast<unsigned char>(
+						source.content()[candidateEnd]))
+						|| source.content()[candidateEnd] == '_')) {
+					++candidateEnd;
+				}
+			}
+			labelCandidate = candidateEnd == contentEnd;
+			if (labelCandidate) {
+				if (const auto candidate = spanFromOffsets(contentStart, candidateEnd)) {
+					labelSpan = *candidate;
+				}
+			}
+		}
+
+		frame.arguments.push_back({
+			frame.label, labelSpan, *valueSpan, labelCandidate});
+		frame.pendingLabel.reset();
+		frame.label.reset();
+		frame.labelDelimiterEnd.reset();
+	}
+
+	void finishCall(const ast::Span& span) {
+		if (callFrames.empty()) return;
+		auto frame = std::move(callFrames.back());
+		callFrames.pop_back();
+		if (!frame.closed) {
+			if (const auto end = offsetFor(span.end)) {
+				finishArgument(frame, *end, true);
+			}
+		}
+		result.calls.push_back({
+			std::move(frame.callee), span, std::move(frame.arguments),
+			frame.closed
+				? SyntaxRecoveryStatus::Complete
+				: SyntaxRecoveryStatus::Recovered});
 	}
 };
 
@@ -193,6 +292,110 @@ struct editor_action<grammar::return_type_name> {
 	}
 };
 
+template<>
+struct editor_action<grammar::call_callee> {
+	template<typename Input>
+	static void apply(
+		const Input& input, EditorSyntaxBuilder& builder,
+		grammar::ParseState&) {
+		if (const auto span = builder.spanFor(input)) {
+			builder.callCallee = ast::Name(input.string(), *span);
+		}
+	}
+};
+
+template<>
+struct editor_action<grammar::call_open_paren> {
+	template<typename Input>
+	static void apply(
+		const Input& input, EditorSyntaxBuilder& builder,
+		grammar::ParseState&) {
+		const auto span = builder.spanFor(input);
+		if (!span || !builder.callCallee) return;
+		const auto start = builder.offsetFor(span->end);
+		if (!start) return;
+		builder.callFrames.push_back({
+			std::move(*builder.callCallee), *start});
+		builder.callCallee.reset();
+	}
+};
+
+template<>
+struct editor_action<grammar::named_argument_label> {
+	template<typename Input>
+	static void apply(
+		const Input& input, EditorSyntaxBuilder& builder,
+		grammar::ParseState&) {
+		if (builder.callFrames.empty()) return;
+		if (const auto span = builder.spanFor(input)) {
+			builder.callFrames.back().pendingLabel = ast::Name(input.string(), *span);
+		}
+	}
+};
+
+template<>
+struct editor_action<grammar::named_argument_delimiter> {
+	template<typename Input>
+	static void apply(
+		const Input& input, EditorSyntaxBuilder& builder,
+		grammar::ParseState&) {
+		if (builder.callFrames.empty()) return;
+		if (const auto span = builder.spanFor(input)) {
+			auto& frame = builder.callFrames.back();
+			frame.label = std::move(frame.pendingLabel);
+			frame.pendingLabel.reset();
+			frame.labelDelimiterEnd = builder.offsetFor(span->end);
+		}
+	}
+};
+
+template<>
+struct editor_action<grammar::call_argument_separator> {
+	template<typename Input>
+	static void apply(
+		const Input& input, EditorSyntaxBuilder& builder,
+		grammar::ParseState&) {
+		if (builder.callFrames.empty()) return;
+		const auto span = builder.spanFor(input);
+		if (!span) return;
+		const auto end = builder.offsetFor(span->start);
+		const auto next = builder.offsetFor(span->end);
+		if (!end || !next) return;
+		auto& frame = builder.callFrames.back();
+		builder.finishArgument(frame, *end, true);
+		frame.argumentStart = *next;
+	}
+};
+
+template<>
+struct editor_action<grammar::call_close_paren> {
+	template<typename Input>
+	static void apply(
+		const Input& input, EditorSyntaxBuilder& builder,
+		grammar::ParseState&) {
+		if (builder.callFrames.empty()) return;
+		const auto span = builder.spanFor(input);
+		if (!span) return;
+		const auto end = builder.offsetFor(span->start);
+		if (!end) return;
+		auto& frame = builder.callFrames.back();
+		builder.finishArgument(frame, *end, false);
+		frame.closed = true;
+	}
+};
+
+template<>
+struct editor_action<grammar::call> {
+	template<typename Input>
+	static void apply(
+		const Input& input, EditorSyntaxBuilder& builder,
+		grammar::ParseState&) {
+		if (const auto span = builder.spanFor(input)) {
+			builder.finishCall(*span);
+		}
+	}
+};
+
 bool sameSpan(const ast::Span& left, const ast::Span& right) {
 	return left.file == right.file
 		&& left.start.line == right.start.line
@@ -227,12 +430,32 @@ EditorSyntax ParseEditorSyntax(
 	const ast::SourceText& source, std::string_view filename,
 	const ast::File& parsedFile) {
 	EditorSyntaxBuilder builder{
-		source, filename, {}, std::nullopt, std::nullopt, std::nullopt};
+		source, filename, {}, std::nullopt, std::nullopt, std::nullopt,
+		std::nullopt, {}};
 	tao::pegtl::memory_input input(source.content(), filename);
 	grammar::ParseState state{true};
 	tao::pegtl::parse<grammar::rls_file, editor_action>(
 		input, builder, state);
 	classifyCompleteDeclarations(builder.result, parsedFile);
+	std::sort(builder.result.calls.begin(), builder.result.calls.end(),
+		[](const EditorCall& left, const EditorCall& right) {
+			if (left.span.start.line != right.span.start.line) {
+				return left.span.start.line < right.span.start.line;
+			}
+			if (left.span.start.column != right.span.start.column) {
+				return left.span.start.column < right.span.start.column;
+			}
+			if (left.span.end.line != right.span.end.line) {
+				return left.span.end.line < right.span.end.line;
+			}
+			return left.span.end.column < right.span.end.column;
+		});
+	builder.result.calls.erase(std::unique(
+		builder.result.calls.begin(), builder.result.calls.end(),
+		[](const EditorCall& left, const EditorCall& right) {
+			return sameSpan(left.span, right.span)
+				&& sameSpan(left.callee.span, right.callee.span);
+		}), builder.result.calls.end());
 	return std::move(builder.result);
 }
 

@@ -26,6 +26,7 @@ struct parse_errors {
 // -- Punctuation --------------------------------------------------------------
 template<> constexpr const char* parse_errors::message<grammar::open_paren>  = "expected '('";
 template<> constexpr const char* parse_errors::message<grammar::close_paren> = "expected ')'";
+template<> constexpr const char* parse_errors::message<grammar::call_close_paren> = "expected ')'";
 template<> constexpr const char* parse_errors::message<grammar::open_brace>  = "expected '{'";
 template<> constexpr const char* parse_errors::message<grammar::close_brace> = "expected '}'";
 template<> constexpr const char* parse_errors::message<grammar::colon>       = "expected ':'";
@@ -139,6 +140,34 @@ IndexedFile ParseStringWithIndex(
 		}
 		for (const auto& typePosition : editorSyntax.typePositions) {
 			sourceIndex.addTypePosition({typePosition.span});
+		}
+		for (const auto& call : editorSyntax.calls) {
+			std::vector<std::optional<std::string>> labels;
+			labels.reserve(call.arguments.size());
+			for (const auto& argument : call.arguments) {
+				labels.push_back(argument.label
+					? std::optional<std::string>(argument.label->text)
+					: std::nullopt);
+			}
+			if (call.status == SyntaxRecoveryStatus::Recovered) {
+				CallContext context{call.span, call.callee.span, {}, {}, std::nullopt};
+				for (const auto& argument : call.arguments) {
+					context.argumentRanges.push_back(argument.valueSpan);
+					context.argumentLabels.push_back(argument.label
+						? std::optional<ast::Span>(argument.label->span)
+						: std::nullopt);
+				}
+				sourceIndex.addCall(std::move(context));
+			}
+			for (size_t index = 0; index < call.arguments.size(); ++index) {
+				const auto& argument = call.arguments[index];
+				sourceIndex.addCallArgument({
+					call.callee.text, labels, index, argument.valueSpan});
+				if (argument.label || argument.labelCandidate) {
+					sourceIndex.addNamedArgument({
+						call.callee.text, labels, index, argument.labelSpan});
+				}
+			}
 		}
 	}
 	return {std::move(file), std::move(sourceIndex)};

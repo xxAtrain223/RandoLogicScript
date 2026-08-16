@@ -2,6 +2,7 @@
 
 #include "ast.h"
 
+#include <optional>
 #include <string_view>
 #include <vector>
 
@@ -36,10 +37,25 @@ struct EditorTypePosition {
 	SyntaxRecoveryStatus status = SyntaxRecoveryStatus::Recovered;
 };
 
+struct EditorCallArgument {
+	std::optional<ast::Name> label;
+	ast::Span labelSpan;
+	ast::Span valueSpan;
+	bool labelCandidate = false;
+};
+
+struct EditorCall {
+	ast::Name callee;
+	ast::Span span;
+	std::vector<EditorCallArgument> arguments;
+	SyntaxRecoveryStatus status = SyntaxRecoveryStatus::Recovered;
+};
+
 struct EditorSyntax {
 	std::vector<EditorEnumDeclaration> enumDeclarations;
 	std::vector<EditorMemberAccess> memberAccesses;
 	std::vector<EditorTypePosition> typePositions;
+	std::vector<EditorCall> calls;
 };
 
 EditorSyntax ParseEditorSyntax(

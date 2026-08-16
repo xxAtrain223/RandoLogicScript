@@ -36,10 +36,10 @@ Produce trustworthy partial syntax indexes for incomplete editor text from the c
 ### 4. Expression Recovery
 
 - [x] Recover incomplete member access qualifiers and member spans.
-- [ ] Recover call boundaries, nested argument slots, labels, and active value spans.
+- [x] Recover call boundaries, nested argument slots, labels, and active value spans.
 - [x] Recover parameter and extern return type positions.
 - [x] Recover enum declaration names needed by incomplete same-file type completion.
-- [ ] Move member/call/type contexts out of the recovery scanner.
+- [x] Move member/call/type contexts out of the recovery scanner.
 
 ### 5. Semantic Degradation
 

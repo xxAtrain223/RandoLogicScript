@@ -336,7 +336,11 @@ struct atom_keyword : sor<
 struct atom : sor<atom_keyword, string_literal, ident, integer> {};
 
 /// Named argument:  IDENT ":" expr
-struct named_arg : seq<ident, _, colon, _, expr> {};
+struct named_argument_label : ident {};
+struct named_argument_delimiter : colon {};
+struct named_arg : seq<
+	named_argument_label, _, named_argument_delimiter, _, recoverable<expr>
+> {};
 
 /// A single call argument — named (IDENT ":" expr) or positional (expr).
 /// We try `named_arg` first because it starts with `ident` which would also
@@ -344,10 +348,20 @@ struct named_arg : seq<ident, _, colon, _, expr> {};
 struct arg : sor<named_arg, expr> {};
 
 /// Argument list (possibly empty) between parentheses.
-struct arg_list : opt<list<arg, seq<_, comma, _>>> {};
+struct call_argument_separator : comma {};
+struct arg_list : opt<seq<
+	arg,
+	star<seq<_, call_argument_separator, _, recoverable<arg>>>
+>> {};
 
 /// Function call:  IDENT "(" arg_list ")"
-struct call : seq<ident, _, open_paren, required<_, arg_list, _, close_paren>> {};
+struct call_callee : ident {};
+struct call_open_paren : open_paren {};
+struct call_close_paren : close_paren {};
+struct call : seq<
+	call_callee, _, call_open_paren,
+	required<_, arg_list, _, call_close_paren>
+> {};
 
 /// Member access: IDENT "." IDENT  (enum type disambiguation)
 /// Example: Item.RG_HOOKSHOT

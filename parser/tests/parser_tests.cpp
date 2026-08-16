@@ -792,7 +792,8 @@ TEST(SourceIndexTests, ReportsCompleteAndRecoveredMemberAccessContexts) {
 
 TEST(SourceIndexTests, ReportsRecoveredNamedArgumentContexts) {
 	const auto emptySource = rls::parser::ParseStringWithIndex(
-		"define first(): target(", "empty-argument.rls");
+		"define first(): target(", "empty-argument.rls",
+		rls::parser::ParseMode::Editor);
 	ASSERT_FALSE(emptySource.file.diagnostics.empty());
 	const auto empty = emptySource.sourceIndex.namedArgumentAt({1, 24});
 	ASSERT_TRUE(empty);
@@ -806,9 +807,13 @@ TEST(SourceIndexTests, ReportsRecoveredNamedArgumentContexts) {
 	ASSERT_TRUE(emptyValue);
 	EXPECT_EQ(emptyValue->callee, "target");
 	EXPECT_EQ(emptyValue->activeArgument, 0u);
+	const auto emptyCall = emptySource.sourceIndex.enclosingCall({1, 24});
+	ASSERT_TRUE(emptyCall);
+	EXPECT_EQ(emptyCall->activeArgument, 0u);
 
 	const auto partialSource = rls::parser::ParseStringWithIndex(
-		"define second(): target(first: true, se", "partial-argument.rls");
+		"define second(): target(first: true, se", "partial-argument.rls",
+		rls::parser::ParseMode::Editor);
 	ASSERT_FALSE(partialSource.file.diagnostics.empty());
 	const auto partial = partialSource.sourceIndex.namedArgumentAt({1, 40});
 	ASSERT_TRUE(partial);
@@ -826,7 +831,8 @@ TEST(SourceIndexTests, ReportsRecoveredNamedArgumentContexts) {
 	EXPECT_EQ(partialValue->activeArgument, 1u);
 
 	const auto nestedSource = rls::parser::ParseStringWithIndex(
-		"define third(): target(true, nested(value), th", "nested-argument.rls");
+		"define third(): target(true, nested(value), th", "nested-argument.rls",
+		rls::parser::ParseMode::Editor);
 	ASSERT_FALSE(nestedSource.file.diagnostics.empty());
 	const auto nested = nestedSource.sourceIndex.namedArgumentAt({1, 47});
 	ASSERT_TRUE(nested);
@@ -840,6 +846,44 @@ TEST(SourceIndexTests, ReportsRecoveredNamedArgumentContexts) {
 	ASSERT_TRUE(nestedValue);
 	EXPECT_EQ(nestedValue->callee, "nested");
 	EXPECT_EQ(nestedValue->activeArgument, 0u);
+
+	const std::string blankNamedSource =
+		"define fourth(): target(first:";
+	const auto blankNamed = rls::parser::ParseStringWithIndex(
+		blankNamedSource, "blank-named-argument.rls",
+		rls::parser::ParseMode::Editor);
+	const auto blankNamedValue = blankNamed.sourceIndex.callArgumentAt({1, 31});
+	ASSERT_TRUE(blankNamedValue);
+	EXPECT_EQ(blankNamedValue->argumentLabels[0], "first");
+	EXPECT_EQ(blankNamedValue->valueSpan.start.line,
+		blankNamedValue->valueSpan.end.line);
+	EXPECT_EQ(blankNamedValue->valueSpan.start.column,
+		blankNamedValue->valueSpan.end.column);
+
+	const std::string trailingSlotSource =
+		"define fifth(): target(first: true, ";
+	const auto trailingSlot = rls::parser::ParseStringWithIndex(
+		trailingSlotSource, "trailing-call-slot.rls",
+		rls::parser::ParseMode::Editor);
+	const auto trailingValue = trailingSlot.sourceIndex.callArgumentAt({1, 37});
+	ASSERT_TRUE(trailingValue);
+	EXPECT_EQ(trailingValue->activeArgument, 1u);
+	ASSERT_EQ(trailingValue->argumentLabels.size(), 2u);
+	EXPECT_EQ(trailingValue->argumentLabels[0], "first");
+	EXPECT_FALSE(trailingValue->argumentLabels[1]);
+
+	const auto ignored = rls::parser::ParseStringWithIndex(
+		"define text(): \"target(fake:)\" # target(comment:)\n"
+		"define broken(",
+		"ignored-calls.rls", rls::parser::ParseMode::Editor);
+	EXPECT_FALSE(ignored.sourceIndex.callArgumentAt({1, 28}));
+	EXPECT_FALSE(ignored.sourceIndex.namedArgumentAt({1, 46}));
+
+	const auto strict = rls::parser::ParseStringWithIndex(
+		"define strict(): target(", "strict-argument.rls",
+		rls::parser::ParseMode::Strict);
+	EXPECT_FALSE(strict.sourceIndex.namedArgumentAt({1, 25}));
+	EXPECT_FALSE(strict.sourceIndex.callArgumentAt({1, 25}));
 }
 
 TEST(SourceIndexTests, ReportsRecoveredFunctionTypePositions) {
