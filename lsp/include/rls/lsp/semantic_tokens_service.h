@@ -12,7 +12,7 @@ namespace rls::lsp {
 
 class SemanticTokensService {
 public:
-    SemanticTokensService(const ProjectManager& projects, const AnalysisScheduler& scheduler);
+    SemanticTokensService(const ProjectManager& projects, AnalysisScheduler& scheduler);
 
     std::vector<uint32_t> full(std::string_view uri) const;
 
@@ -21,7 +21,7 @@ public:
 
 private:
     const ProjectManager& projects_;
-    const AnalysisScheduler& scheduler_;
+    AnalysisScheduler& scheduler_;
 };
 
 } // namespace rls::lsp

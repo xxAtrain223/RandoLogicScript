@@ -132,7 +132,7 @@ std::optional<AbsoluteToken> makeToken(
 } // namespace
 
 SemanticTokensService::SemanticTokensService(
-    const ProjectManager& projects, const AnalysisScheduler& scheduler)
+    const ProjectManager& projects, AnalysisScheduler& scheduler)
     : projects_(projects), scheduler_(scheduler) {}
 
 const std::vector<std::string>& SemanticTokensService::tokenTypes() {
@@ -153,8 +153,13 @@ std::vector<uint32_t> SemanticTokensService::full(std::string_view uri) const {
     const auto* project = projects_.projectForDocument(uri);
     const auto path = FileUriToPath(uri);
     if (!project || !path) return {};
-    const auto snapshot = scheduler_.acceptedSnapshot(project->id);
-    if (!snapshot || snapshot->generation() != project->generation) return {};
+    const std::string projectId = project->id;
+    const uint64_t generation = project->generation;
+    auto snapshot = scheduler_.acceptedSnapshot(projectId);
+    if (!snapshot || snapshot->generation() != generation) {
+        snapshot = scheduler_.awaitSnapshot(projectId, generation);
+    }
+    if (!snapshot || snapshot->generation() != generation) return {};
     const std::string documentPath = pathString(*path);
     const auto* source = snapshot->sourceText(documentPath);
     if (!source) return {};

@@ -81,7 +81,7 @@ struct SemanticTokensFixture {
         scheduler.waitForIdle();
     }
 
-    std::vector<DecodedToken> tokens() const {
+    std::vector<DecodedToken> tokens() {
         return decode(SemanticTokensService(projects, scheduler).full(uri));
     }
 };
@@ -171,6 +171,61 @@ TEST(SemanticTokensServiceTests, ReturnsEmptyForMalformedOrStaleDocument) {
     ASSERT_EQ(stale.projects.documentChanged(stale.uri),
         rls::lsp::ProjectAssignmentResult::Assigned);
     EXPECT_TRUE(stale.tokens().empty());
+}
+
+TEST(SemanticTokensServiceTests, ExpeditesLatestScheduledGeneration) {
+    const fs::path path = fs::temp_directory_path() /
+        "rls-immediate-semantic-tokens.rls";
+    const std::string uri = *rls::lsp::PathToFileUri(path);
+    const std::string initial = "define check(flag: Bool): flag\n";
+    DocumentStore documents;
+    ASSERT_EQ(documents.open(uri, "rls", 1, initial),
+        rls::lsp::DocumentUpdateResult::Applied);
+    ProjectManager projects(documents, [&](const fs::path&) {
+        rls::project::FileProject project;
+        project.sourceFiles = {path};
+        project.isStandalone = true;
+        return project;
+    });
+    ASSERT_EQ(projects.documentOpened(uri),
+        rls::lsp::ProjectAssignmentResult::Assigned);
+    auto* project = projects.projectForDocument(uri);
+    ASSERT_NE(project, nullptr);
+    AnalysisScheduler scheduler({
+        .debounce = std::chrono::seconds(5),
+        .maximumConcurrency = 1,
+    });
+    ASSERT_TRUE(scheduler.schedule({
+        project->id,
+        project->generation,
+        {{path, initial}},
+        project->documentGeneration,
+        project->manifestGeneration,
+    }));
+    ASSERT_NE(scheduler.awaitSnapshot(
+        project->id, project->generation, std::chrono::seconds(1)), nullptr);
+
+    const std::string changed = "define renamed(flag: Bool): flag\n";
+    ASSERT_EQ(documents.applyFullChange(uri, 2, changed),
+        rls::lsp::DocumentUpdateResult::Applied);
+    ASSERT_EQ(projects.documentChanged(uri),
+        rls::lsp::ProjectAssignmentResult::Assigned);
+    project = projects.projectForDocument(uri);
+    ASSERT_NE(project, nullptr);
+    ASSERT_TRUE(scheduler.schedule({
+        project->id,
+        project->generation,
+        {{path, changed}},
+        project->documentGeneration,
+        project->manifestGeneration,
+    }));
+
+    const auto tokens = decode(SemanticTokensService(projects, scheduler).full(uri));
+
+    const auto* renamed = tokenAt(tokens, 0, 7);
+    ASSERT_NE(renamed, nullptr);
+    EXPECT_EQ(renamed->length, 7u);
+    EXPECT_EQ(renamed->type, 0u);
 }
 
 } // namespace
