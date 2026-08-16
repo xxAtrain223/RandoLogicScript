@@ -155,6 +155,25 @@ TEST(SemanticTokensServiceTests, UsesUtf16ColumnsAndOmitsUnresolvedNames) {
     EXPECT_EQ(tokenAt(ambiguousTokens, 2, 14), nullptr);
 }
 
+TEST(SemanticTokensServiceTests, HighlightsConcreteValuesResolvedThroughUniquePatterns) {
+    SemanticTokensFixture fixture(
+        "extern enum Item { RG_* }\n"
+        "define use(): RG_HOOKSHOT == Item.RG_BOW\n");
+
+    const auto tokens = fixture.tokens();
+    const auto* pattern = tokenAt(tokens, 0, 19);
+    const auto* bare = tokenAt(tokens, 1, 14);
+    const auto* qualified = tokenAt(tokens, 1, 34);
+
+    EXPECT_EQ(pattern, nullptr);
+    ASSERT_NE(bare, nullptr);
+    EXPECT_EQ(bare->type, 3u);
+    EXPECT_EQ(bare->modifiers, 12u);
+    ASSERT_NE(qualified, nullptr);
+    EXPECT_EQ(qualified->type, 3u);
+    EXPECT_EQ(qualified->modifiers, 12u);
+}
+
 TEST(SemanticTokensServiceTests, ReturnsEmptyForMalformedOrStaleDocument) {
     SemanticTokensFixture malformed("define broken(");
     EXPECT_TRUE(malformed.tokens().empty());

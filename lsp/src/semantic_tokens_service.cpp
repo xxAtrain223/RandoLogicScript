@@ -90,7 +90,10 @@ bool isDefaultLibrary(
 std::optional<AbsoluteToken> makeToken(
     const sema::AnalysisSnapshot& snapshot, const ast::SourceText& source,
     const sema::OccurrenceRecord& occurrence, const sema::SymbolRecord& symbol) {
-    const auto type = tokenType(symbol.category);
+    auto type = tokenType(symbol.category);
+    const bool concretePatternValue = symbol.category == sema::SymbolCategory::ExternEnumPattern
+        && occurrence.kind != sema::OccurrenceKind::Declaration;
+    if (concretePatternValue) type = TokenType::EnumMember;
     if (!type || occurrence.span.start.line == 0
         || occurrence.span.start.line != occurrence.span.end.line) {
         return std::nullopt;
@@ -111,7 +114,9 @@ std::optional<AbsoluteToken> makeToken(
                 ? TokenModifier::Definition
                 : TokenModifier::Declaration);
     }
-    if (isReadonly(symbol.category)) modifiers |= modifier(TokenModifier::Readonly);
+    if (isReadonly(symbol.category) || concretePatternValue) {
+        modifiers |= modifier(TokenModifier::Readonly);
+    }
     if (isDefaultLibrary(snapshot.semanticIndex(), symbol)) {
         modifiers |= modifier(TokenModifier::DefaultLibrary);
     }
