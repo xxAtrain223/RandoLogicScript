@@ -187,6 +187,35 @@ TEST(AnalysisSnapshotTests, IsolatesParseFailuresAcrossExplicitSources) {
 	EXPECT_EQ((*second)->sourceText("valid.rls")->content(), "define valid(): false\n");
 }
 
+TEST(AnalysisSnapshotTests, AnalyzesCompleteNeighborsInMalformedDocument) {
+	const auto snapshot = AnalysisSnapshot::Create({{
+		"partial.rls",
+		"define before(): true\n"
+		"define broken(\n"
+		"define after(): before()\n",
+	}}, 102);
+	ASSERT_TRUE(snapshot);
+	EXPECT_FALSE((*snapshot)->diagnosticsFor("partial.rls").empty());
+
+	const auto& symbols = (*snapshot)->semanticIndex().symbols();
+	const auto hasDefine = [&](std::string_view name) {
+		return std::any_of(symbols.begin(), symbols.end(), [&](const SymbolRecord& symbol) {
+			return symbol.category == SymbolCategory::Define
+				&& symbol.displayName == name;
+		});
+	};
+	EXPECT_TRUE(hasDefine("before"));
+	EXPECT_TRUE(hasDefine("after"));
+	EXPECT_FALSE(hasDefine("broken"));
+
+	const auto before = (*snapshot)->symbolAt("partial.rls", {1, 8});
+	const auto reference = (*snapshot)->symbolAt("partial.rls", {3, 18});
+	ASSERT_TRUE(before);
+	ASSERT_TRUE(reference);
+	EXPECT_EQ(*reference, *before);
+	EXPECT_FALSE((*snapshot)->symbolAt("partial.rls", {2, 8}));
+}
+
 TEST(AnalysisSnapshotTests, ExposesStructuredValidationDiagnostics) {
 	const auto snapshot = AnalysisSnapshot::Create({
 		{"validation.rls", "region RR_TEST { events { EVENT_TEST: \"invalid\" } }\n"},

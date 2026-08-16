@@ -8,6 +8,8 @@
 #include <tao/pegtl/contrib/parse_tree.hpp>
 #include <tao/pegtl/must_if.hpp>
 
+#include <algorithm>
+#include <optional>
 #include <stdexcept>
 
 namespace rls::parser {
@@ -131,24 +133,70 @@ rls::ast::Project ParseProject(
 	return project;
 }
 
+void RecoverCompleteDeclarations(
+	ast::File& file, const std::string& source,
+	const ast::SourceText& sourceText, const EditorSyntax& syntax) {
+	if (file.diagnostics.empty()) return;
+
+	for (const auto& candidate : syntax.declarations) {
+		const auto start = sourceText.byteOffsetFromUtf8Position(candidate.span.start);
+		const auto end = sourceText.byteOffsetFromUtf8Position(candidate.span.end);
+		if (!start || !end || *start >= *end) continue;
+
+		try {
+			tao::pegtl::memory_input input(
+				source.data() + *start, source.data() + *end, file.path,
+				*start, candidate.span.start.line, candidate.span.start.column);
+			auto root = tao::pegtl::parse_tree::parse<
+				grammar::rls_file, selector, tao::pegtl::nothing, rls_control
+			>(input);
+			if (!root) continue;
+
+			std::vector<ast::Diagnostic> diagnostics;
+			auto candidateFile = buildFile(*root, diagnostics);
+			if (!diagnostics.empty() || candidateFile.declarations.size() != 1) continue;
+			file.declarations.push_back(std::move(candidateFile.declarations.front()));
+		} catch (const tao::pegtl::parse_error&) {
+			// Recovered syntax is not semantic syntax unless strict parsing succeeds.
+		}
+	}
+
+	std::sort(file.declarations.begin(), file.declarations.end(),
+		[](const ast::Decl& left, const ast::Decl& right) {
+			const auto leftSpan = std::visit(
+				[](const auto& node) { return node.span; }, left);
+			const auto rightSpan = std::visit(
+				[](const auto& node) { return node.span; }, right);
+			if (leftSpan.start.line != rightSpan.start.line) {
+				return leftSpan.start.line < rightSpan.start.line;
+			}
+			return leftSpan.start.column < rightSpan.start.column;
+		});
+}
+
 IndexedFile ParseStringWithIndex(
 	const std::string& source, const std::string& filename, ParseMode mode) {
 	auto file = ParseString(source, filename, mode);
 	const auto sourceText = ast::SourceText::FromUtf8(source);
-	auto sourceIndex = BuildSourceIndex(file, sourceText ? &*sourceText : nullptr);
+	std::optional<EditorSyntax> editorSyntax;
 	if (mode == ParseMode::Editor && sourceText) {
-		const auto editorSyntax = ParseEditorSyntax(*sourceText, filename, file);
-		for (const auto& declaration : editorSyntax.enumDeclarations) {
+		editorSyntax = ParseEditorSyntax(*sourceText, filename, file);
+		RecoverCompleteDeclarations(file, source, *sourceText, *editorSyntax);
+		ClassifyEditorSyntax(*editorSyntax, file);
+	}
+	auto sourceIndex = BuildSourceIndex(file, sourceText ? &*sourceText : nullptr);
+	if (editorSyntax) {
+		for (const auto& declaration : editorSyntax->enumDeclarations) {
 			sourceIndex.addEnumName(declaration.name.text);
 		}
-		for (const auto& memberAccess : editorSyntax.memberAccesses) {
+		for (const auto& memberAccess : editorSyntax->memberAccesses) {
 			sourceIndex.addMemberAccess({
 				memberAccess.object.text, memberAccess.memberSpan});
 		}
-		for (const auto& typePosition : editorSyntax.typePositions) {
+		for (const auto& typePosition : editorSyntax->typePositions) {
 			sourceIndex.addTypePosition({typePosition.span});
 		}
-		for (const auto& call : editorSyntax.calls) {
+		for (const auto& call : editorSyntax->calls) {
 			std::vector<std::optional<std::string>> labels;
 			labels.reserve(call.arguments.size());
 			for (const auto& argument : call.arguments) {
@@ -176,7 +224,7 @@ IndexedFile ParseStringWithIndex(
 				}
 			}
 		}
-		for (const auto& region : editorSyntax.regions) {
+		for (const auto& region : editorSyntax->regions) {
 			for (const auto& section : region.sections) {
 				for (const auto& entry : section.entries) {
 					sourceIndex.addSectionEntry({section.kind, entry.labelSpan});

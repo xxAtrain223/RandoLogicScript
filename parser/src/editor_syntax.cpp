@@ -682,6 +682,18 @@ struct editor_action<grammar::extend_decl> {
 	}
 };
 
+template<>
+struct editor_action<grammar::declaration> {
+	template<typename Input>
+	static void apply(
+		const Input& input, EditorSyntaxBuilder& builder,
+		grammar::ParseState&) {
+		if (const auto span = builder.spanFor(input)) {
+			builder.result.declarations.push_back({*span});
+		}
+	}
+};
+
 bool sameSpan(const ast::Span& left, const ast::Span& right) {
 	return left.file == right.file
 		&& left.start.line == right.start.line
@@ -690,7 +702,7 @@ bool sameSpan(const ast::Span& left, const ast::Span& right) {
 		&& left.end.column == right.end.column;
 }
 
-void classifyCompleteDeclarations(EditorSyntax& syntax, const ast::File& file) {
+void classifyCompleteDeclarationsImpl(EditorSyntax& syntax, const ast::File& file) {
 	for (auto& candidate : syntax.enumDeclarations) {
 		for (const auto& declaration : file.declarations) {
 			const bool complete = std::visit([&](const auto& node) {
@@ -741,7 +753,7 @@ EditorSyntax ParseEditorSyntax(
 	grammar::ParseState state{true};
 	tao::pegtl::parse<grammar::rls_file, editor_action>(
 		input, builder, state);
-	classifyCompleteDeclarations(builder.result, parsedFile);
+	ClassifyEditorSyntax(builder.result, parsedFile);
 	std::sort(builder.result.calls.begin(), builder.result.calls.end(),
 		[](const EditorCall& left, const EditorCall& right) {
 			if (left.span.start.line != right.span.start.line) {
@@ -762,6 +774,10 @@ EditorSyntax ParseEditorSyntax(
 				&& sameSpan(left.callee.span, right.callee.span);
 		}), builder.result.calls.end());
 	return std::move(builder.result);
+}
+
+void ClassifyEditorSyntax(EditorSyntax& syntax, const ast::File& parsedFile) {
+	classifyCompleteDeclarationsImpl(syntax, parsedFile);
 }
 
 } // namespace rls::parser

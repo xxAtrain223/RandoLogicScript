@@ -71,7 +71,12 @@ struct EditorRegion {
 	SyntaxRecoveryStatus status = SyntaxRecoveryStatus::Recovered;
 };
 
+struct EditorDeclaration {
+	ast::Span span;
+};
+
 struct EditorSyntax {
+	std::vector<EditorDeclaration> declarations;
 	std::vector<EditorEnumDeclaration> enumDeclarations;
 	std::vector<EditorMemberAccess> memberAccesses;
 	std::vector<EditorTypePosition> typePositions;
@@ -82,5 +87,7 @@ struct EditorSyntax {
 EditorSyntax ParseEditorSyntax(
 	const ast::SourceText& source, std::string_view filename,
 	const ast::File& parsedFile);
+
+void ClassifyEditorSyntax(EditorSyntax& syntax, const ast::File& parsedFile);
 
 } // namespace rls::parser

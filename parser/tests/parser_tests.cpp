@@ -230,6 +230,29 @@ TEST(ParserTests, EditorModeMatchesStrictModeForValidSource) {
 	EXPECT_EQ(strict.sourceIndex.enumNames(), std::vector<std::string>{"Color"});
 }
 
+TEST(ParserTests, EditorModeKeepsCompleteDeclarationsAroundMalformedSyntax) {
+	const std::string source =
+		"define before(): true\n"
+		"define broken(\n"
+		"define after(): before()\n";
+	const auto editor = rls::parser::ParseStringWithIndex(
+		source, "partial.rls", rls::parser::ParseMode::Editor);
+	const auto strict = rls::parser::ParseStringWithIndex(
+		source, "partial.rls", rls::parser::ParseMode::Strict);
+
+	ASSERT_FALSE(editor.file.diagnostics.empty());
+	ASSERT_EQ(editor.file.declarations.size(), 2u);
+	EXPECT_EQ(std::get<DefineDecl>(editor.file.declarations[0]).name, "before");
+	EXPECT_EQ(std::get<DefineDecl>(editor.file.declarations[1]).name, "after");
+	EXPECT_EQ(std::get<DefineDecl>(editor.file.declarations[1]).name.span.start.line, 3u);
+	EXPECT_TRUE(editor.sourceIndex.nameAt({1, 8}));
+	EXPECT_TRUE(editor.sourceIndex.nameAt({3, 8}));
+	EXPECT_FALSE(editor.sourceIndex.nameAt({2, 8}));
+
+	EXPECT_FALSE(strict.file.diagnostics.empty());
+	EXPECT_TRUE(strict.file.declarations.empty());
+}
+
 TEST(ParserTests, EditorSyntaxClassifiesCompleteAndRecoveredEnums) {
 	const auto completeSource = SourceText::FromUtf8("enum Color { RED }");
 	ASSERT_TRUE(completeSource);

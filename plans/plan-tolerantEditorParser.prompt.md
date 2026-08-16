@@ -43,8 +43,8 @@ Produce trustworthy partial syntax indexes for incomplete editor text from the c
 
 ### 5. Semantic Degradation
 
-- [ ] Analyze unaffected complete declarations when neighboring syntax is malformed.
-- [ ] Exclude recovered declarations from public semantic symbols until complete.
+- [x] Analyze unaffected complete declarations when neighboring syntax is malformed.
+- [x] Exclude recovered declarations from public semantic symbols until complete.
 - [ ] Resolve recovered calls only when callee and argument structure are trustworthy.
 - [ ] Never reuse stale semantic meaning or derive candidate identity from partial text.
 
