@@ -61,10 +61,8 @@ std::optional<TokenType> tokenType(sema::SymbolCategory category) {
     case sema::SymbolCategory::EnumMember:
         return TokenType::EnumMember;
     case sema::SymbolCategory::RegionDataEntry:
-        return TokenType::Property;
     case sema::SymbolCategory::Region:
     case sema::SymbolCategory::SectionEntry:
-        return TokenType::Variable;
     case sema::SymbolCategory::RegionExtension:
     case sema::SymbolCategory::ExternEnumPattern:
         return std::nullopt;
@@ -73,15 +71,12 @@ std::optional<TokenType> tokenType(sema::SymbolCategory category) {
 }
 
 bool isReadonly(sema::SymbolCategory category) {
-    return category == sema::SymbolCategory::EnumMember
-        || category == sema::SymbolCategory::Region
-        || category == sema::SymbolCategory::SectionEntry;
+    return category == sema::SymbolCategory::EnumMember;
 }
 
 bool isDefinition(sema::SymbolCategory category) {
     return category == sema::SymbolCategory::Define
-        || category == sema::SymbolCategory::Enum
-        || category == sema::SymbolCategory::Region;
+        || category == sema::SymbolCategory::Enum;
 }
 
 bool isDefaultLibrary(

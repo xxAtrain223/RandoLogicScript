@@ -24,6 +24,22 @@ export async function runLanguageClientTest(): Promise<void> {
     'xxAtrain223.rando-logic-script',
   );
   assert.ok(extension, 'extension is available in the development host');
+  const semanticScopeMap = extension.packageJSON.contributes.semanticTokenScopes[0];
+  assert.equal(semanticScopeMap.language, 'rls');
+  assert.deepEqual(semanticScopeMap.scopes.function, ['entity.name.function.rls']);
+  assert.deepEqual(semanticScopeMap.scopes['function.defaultLibrary'], [
+    'entity.name.function.rls',
+  ]);
+  assert.deepEqual(semanticScopeMap.scopes.enum, ['entity.name.type.enum.rls']);
+  assert.deepEqual(semanticScopeMap.scopes['enumMember.readonly.declaration'], [
+    'variable.other.enummember.rls',
+  ]);
+  assert.deepEqual(semanticScopeMap.scopes['variable.readonly.definition'], [
+    'variable.other.constant.rls',
+  ]);
+  assert.deepEqual(semanticScopeMap.scopes['variable.readonly.declaration'], [
+    'variable.other.constant.rls',
+  ]);
 
   const workspace = vscode.workspace.workspaceFolders?.[0];
   assert.ok(workspace, 'test fixture opened as a workspace folder');

@@ -6,6 +6,7 @@
     { "include": "#strings" },
     { "include": "#enum-declarations" },
     { "include": "#declarations" },
+    { "include": "#function-calls" },
     { "include": "#sections" },
     { "include": "#parameters" },
     { "include": "#named-arguments" },
@@ -48,7 +49,7 @@
           "beginCaptures": {
             "1": { "name": "storage.modifier.rls" },
             "2": { "name": "storage.type.rls" },
-            "4": { "name": "entity.name.type.rls" },
+            "4": { "name": "entity.name.type.enum.rls" },
             "6": { "name": "punctuation.section.group.begin.rls" }
           },
           "end": "\\}",
@@ -57,7 +58,7 @@
           },
           "patterns": [
             {
-              "name": "constant.other.enum.rls",
+              "name": "variable.other.enummember.rls",
               "match": "\\b[A-Za-z_][A-Za-z0-9_]*\\b"
             },
             {
@@ -99,6 +100,14 @@
         {
           "name": "keyword.control.rls",
           "match": "\\b(?:extend|extern|events|locations|exits|match)\\b"
+        }
+      ]
+    },
+    "function-calls": {
+      "patterns": [
+        {
+          "name": "entity.name.function.rls",
+          "match": "\\b[A-Za-z_][A-Za-z0-9_]*(?=\\s*\\()"
         }
       ]
     },
@@ -190,9 +199,9 @@
         {
           "match": "\\b([A-Za-z_][A-Za-z0-9_]*)(\\.)([A-Za-z_][A-Za-z0-9_]*)\\b",
           "captures": {
-            "1": { "name": "entity.name.type.rls" },
+            "1": { "name": "entity.name.type.enum.rls" },
             "2": { "name": "punctuation.accessor.rls" },
-            "3": { "name": "variable.other.member.rls" }
+            "3": { "name": "variable.other.enummember.rls" }
           }
         }
       ]

@@ -16,8 +16,8 @@ Consume compiler occurrence/symbol records from [plan-compilerQueryModelAndDiagn
    - Enum and enumMember for enum types/members.
    - Property/variable only where an RLS source category maps honestly.
 - [x] Define modifiers only when semantically true: declaration, definition, readonly, defaultLibrary, deprecated.
-- [x] Map every semantic token to existing TextMate fallback behavior and avoid custom token types that common clients/themes will ignore.
-- [x] Treat resolved regions, extension targets, and section entries as readonly variables; region data keys as properties; and unresolved, ambiguous, extension-declaration, and wildcard-pattern occurrences as omitted.
+- [x] Map every semantic token selector, including modifier-specific cases, to the existing RLS TextMate scopes and avoid custom token types that common clients/themes will ignore.
+- [x] Emit functions, parameters, enums, and enum members where lexical fallback scopes are unambiguous; omit regions, extension targets, section entries, region data keys, unresolved/ambiguous names, and wildcard patterns rather than applying unstable or misleading classifications.
 
 ### Implementation
 

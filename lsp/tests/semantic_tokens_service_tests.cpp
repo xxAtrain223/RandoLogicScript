@@ -132,18 +132,10 @@ TEST(SemanticTokensServiceTests, EncodesResolvedCategoriesAndModifiers) {
     ASSERT_NE(memberUse, nullptr);
     EXPECT_EQ(memberUse->type, 3u);
     EXPECT_EQ(memberUse->modifiers, 12u);
-    ASSERT_NE(region, nullptr);
-    EXPECT_EQ(region->type, 5u);
-    EXPECT_EQ(region->modifiers, 6u);
-    ASSERT_NE(property, nullptr);
-    EXPECT_EQ(property->type, 4u);
-    EXPECT_EQ(property->modifiers, 1u);
-    ASSERT_NE(entry, nullptr);
-    EXPECT_EQ(entry->type, 5u);
-    EXPECT_EQ(entry->modifiers, 5u);
-    ASSERT_NE(extensionTarget, nullptr);
-    EXPECT_EQ(extensionTarget->type, 5u);
-    EXPECT_EQ(extensionTarget->modifiers, 4u);
+    EXPECT_EQ(region, nullptr);
+    EXPECT_EQ(property, nullptr);
+    EXPECT_EQ(entry, nullptr);
+    EXPECT_EQ(extensionTarget, nullptr);
 }
 
 TEST(SemanticTokensServiceTests, UsesUtf16ColumnsAndOmitsUnresolvedNames) {

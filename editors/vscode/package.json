@@ -42,6 +42,58 @@
         "path": "./syntaxes/rls.tmLanguage.json"
       }
     ],
+    "semanticTokenScopes": [
+      {
+        "language": "rls",
+        "scopes": {
+          "function": [
+            "entity.name.function.rls"
+          ],
+          "function.defaultLibrary": [
+            "entity.name.function.rls"
+          ],
+          "parameter": [
+            "variable.parameter.rls"
+          ],
+          "parameter.defaultLibrary": [
+            "variable.parameter.rls"
+          ],
+          "enum": [
+            "entity.name.type.enum.rls"
+          ],
+          "enum.defaultLibrary": [
+            "entity.name.type.enum.rls"
+          ],
+          "enumMember": [
+            "variable.other.enummember.rls"
+          ],
+          "enumMember.readonly.declaration": [
+            "variable.other.enummember.rls"
+          ],
+          "enumMember.readonly.declaration.defaultLibrary": [
+            "variable.other.enummember.rls"
+          ],
+          "enumMember.readonly.defaultLibrary": [
+            "variable.other.enummember.rls"
+          ],
+          "property": [
+            "variable.other.property.rls"
+          ],
+          "property.declaration": [
+            "variable.other.property.rls"
+          ],
+          "variable.readonly": [
+            "variable.other.constant.rls"
+          ],
+          "variable.readonly.declaration": [
+            "variable.other.constant.rls"
+          ],
+          "variable.readonly.definition": [
+            "variable.other.constant.rls"
+          ]
+        }
+      }
+    ],
     "commands": [
       {
         "command": "randoLogicScript.restartServer",
