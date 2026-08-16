@@ -155,33 +155,6 @@ std::vector<RecoveryToken> recoveryTokens(std::string_view source) {
 std::optional<ast::Span> spanFromOffsets(
 	const ast::SourceText& source, std::string_view file, size_t start, size_t end);
 
-void addRecoveredMemberAccesses(
-	SourceIndex& index, const ast::File& file, const ast::SourceText& source) {
-	const auto tokens = recoveryTokens(source.content());
-	for (size_t tokenIndex = 0; tokenIndex + 1 < tokens.size(); ++tokenIndex) {
-		const auto& object = tokens[tokenIndex];
-		const auto& dot = tokens[tokenIndex + 1];
-		if (object.punctuation != 0 || dot.punctuation != '.'
-			|| object.end != dot.end - 1) {
-			continue;
-		}
-
-		size_t memberEnd = dot.end;
-		if (tokenIndex + 2 < tokens.size()) {
-			const auto& member = tokens[tokenIndex + 2];
-			const size_t memberStart = member.end - member.text.size();
-			if (member.punctuation == 0 && memberStart == dot.end) {
-				memberEnd = member.end;
-			}
-		}
-		const auto memberSpan = spanFromOffsets(
-			source, file.path, dot.end, memberEnd);
-		if (memberSpan) {
-			index.addMemberAccess({std::string(object.text), *memberSpan});
-		}
-	}
-}
-
 size_t tokenStart(const RecoveryToken& token) {
 	return token.end - token.text.size();
 }
@@ -271,15 +244,6 @@ void addRecoveredTypePositions(
 			if (const auto span = spanFromOffsets(source, file.path, start, end)) {
 				index.addTypePosition({*span});
 			}
-		}
-	}
-}
-
-void addRecoveredEnumNames(SourceIndex& index, const ast::SourceText& source) {
-	const auto tokens = recoveryTokens(source.content());
-	for (size_t cursor = 0; cursor + 1 < tokens.size(); ++cursor) {
-		if (tokens[cursor].text == "enum" && tokens[cursor + 1].punctuation == 0) {
-			index.addEnumName(std::string(tokens[cursor + 1].text));
 		}
 	}
 }
@@ -761,10 +725,8 @@ SourceIndex BuildSourceIndex(const ast::File& file, const ast::SourceText* sourc
 	SourceIndex index;
 	if (source) {
 		addRecoveredRegionContexts(index, file, *source);
-		addRecoveredMemberAccesses(index, file, *source);
 		addRecoveredNamedArguments(index, file, *source);
 		addRecoveredTypePositions(index, file, *source);
-		addRecoveredEnumNames(index, *source);
 	}
 	for (const auto& declaration : file.declarations) {
 		std::visit([&](const auto& node) {
@@ -824,9 +786,11 @@ SourceIndex BuildSourceIndex(const ast::File& file, const ast::SourceText* sourc
 				for (const auto& parameter : node.params) indexParam(index, parameter);
 				if (node.returnType) index.addName(SourceNameKind::Type, node.returnType->name);
 			} else if constexpr (std::is_same_v<T, ast::EnumDecl>) {
+				index.addEnumName(node.name.text);
 				index.addName(SourceNameKind::Declaration, node.name);
 				for (const auto& member : node.members) index.addName(SourceNameKind::EnumMember, member.name);
 			} else if constexpr (std::is_same_v<T, ast::ExternEnumDecl>) {
+				index.addEnumName(node.name.text);
 				index.addName(SourceNameKind::Declaration, node.name);
 				for (const auto& entry : node.entries) {
 					if (const auto* member = std::get_if<ast::EnumMemberDecl>(&entry)) {

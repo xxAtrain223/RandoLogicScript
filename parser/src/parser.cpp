@@ -1,6 +1,7 @@
 #include "parser.h"
 
 #include "builder.h"
+#include "editor_syntax.h"
 #include "grammar.h"
 
 #include <tao/pegtl.hpp>
@@ -126,6 +127,16 @@ IndexedFile ParseStringWithIndex(
 	auto file = ParseString(source, filename, mode);
 	const auto sourceText = ast::SourceText::FromUtf8(source);
 	auto sourceIndex = BuildSourceIndex(file, sourceText ? &*sourceText : nullptr);
+	if (mode == ParseMode::Editor && sourceText) {
+		const auto editorSyntax = ParseEditorSyntax(*sourceText, filename, file);
+		for (const auto& declaration : editorSyntax.enumDeclarations) {
+			sourceIndex.addEnumName(declaration.name.text);
+		}
+		for (const auto& memberAccess : editorSyntax.memberAccesses) {
+			sourceIndex.addMemberAccess({
+				memberAccess.object.text, memberAccess.memberSpan});
+		}
+	}
 	return {std::move(file), std::move(sourceIndex)};
 }
 

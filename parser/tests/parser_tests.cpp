@@ -2,6 +2,7 @@
 #include <stdexcept>
 
 #include "ast.h"
+#include "editor_syntax.h"
 #include "parser.h"
 
 using namespace rls::ast;
@@ -158,7 +159,8 @@ TEST(ParserTests, ValidSourceReturnsFile) {
 TEST(ParserTests, EditorModeMatchesStrictModeForValidSource) {
 	const std::string source =
 		"define check(target: Item): can_kill(quantity: target, 2)\n"
-		"region RR_TEST { events { EVENT_TEST: true } }";
+		"region RR_TEST { events { EVENT_TEST: true } }\n"
+		"enum Color { RED, BLUE }";
 	const auto strict = rls::parser::ParseStringWithIndex(
 		source, "parity.rls", rls::parser::ParseMode::Strict);
 	const auto editor = rls::parser::ParseStringWithIndex(
@@ -167,7 +169,7 @@ TEST(ParserTests, EditorModeMatchesStrictModeForValidSource) {
 	EXPECT_TRUE(strict.file.diagnostics.empty());
 	EXPECT_TRUE(editor.file.diagnostics.empty());
 	ASSERT_EQ(strict.file.declarations.size(), editor.file.declarations.size());
-	ASSERT_EQ(strict.file.declarations.size(), 2u);
+	ASSERT_EQ(strict.file.declarations.size(), 3u);
 
 	const auto& strictDefine = std::get<DefineDecl>(strict.file.declarations[0]);
 	const auto& editorDefine = std::get<DefineDecl>(editor.file.declarations[0]);
@@ -216,6 +218,54 @@ TEST(ParserTests, EditorModeMatchesStrictModeForValidSource) {
 	EXPECT_EQ(strictRegionContext->activeSection, editorRegionContext->activeSection);
 	EXPECT_EQ(strictRegionContext->activeSectionEntries,
 		editorRegionContext->activeSectionEntries);
+	EXPECT_EQ(strict.sourceIndex.enumNames(), editor.sourceIndex.enumNames());
+	EXPECT_EQ(strict.sourceIndex.enumNames(), std::vector<std::string>{"Color"});
+}
+
+TEST(ParserTests, EditorSyntaxClassifiesCompleteAndRecoveredEnums) {
+	const auto completeSource = SourceText::FromUtf8("enum Color { RED }");
+	ASSERT_TRUE(completeSource);
+	const auto completeFile = rls::parser::ParseString(
+		completeSource->content(), "complete.rls");
+	const auto complete = rls::parser::ParseEditorSyntax(
+		*completeSource, "complete.rls", completeFile);
+	ASSERT_EQ(complete.enumDeclarations.size(), 1u);
+	EXPECT_EQ(complete.enumDeclarations[0].name.text, "Color");
+	EXPECT_EQ(complete.enumDeclarations[0].status,
+		rls::parser::SyntaxRecoveryStatus::Complete);
+
+	const auto recoveredSource = SourceText::FromUtf8("enum Color {");
+	ASSERT_TRUE(recoveredSource);
+	const auto recoveredFile = rls::parser::ParseString(
+		recoveredSource->content(), "recovered.rls");
+	const auto recovered = rls::parser::ParseEditorSyntax(
+		*recoveredSource, "recovered.rls", recoveredFile);
+	ASSERT_EQ(recovered.enumDeclarations.size(), 1u);
+	EXPECT_EQ(recovered.enumDeclarations[0].name.text, "Color");
+	EXPECT_EQ(recovered.enumDeclarations[0].status,
+		rls::parser::SyntaxRecoveryStatus::Recovered);
+	EXPECT_EQ(recovered.enumDeclarations[0].span.start.column, 1u);
+	EXPECT_EQ(recovered.enumDeclarations[0].span.end.column, 11u);
+}
+
+TEST(ParserTests, EditorSyntaxRecoversMemberAccesses) {
+	const auto source = SourceText::FromUtf8(
+		"Color.RED Color.\n"
+		"\"Quoted.FAKE\" # Commented.FAKE\n");
+	ASSERT_TRUE(source);
+	const auto syntax = rls::parser::ParseEditorSyntax(
+		*source, "members.rls", File{});
+	ASSERT_EQ(syntax.memberAccesses.size(), 2u);
+	EXPECT_EQ(syntax.memberAccesses[0].object.text, "Color");
+	EXPECT_EQ(syntax.memberAccesses[0].memberSpan.start.column, 7u);
+	EXPECT_EQ(syntax.memberAccesses[0].memberSpan.end.column, 10u);
+	EXPECT_EQ(syntax.memberAccesses[0].status,
+		rls::parser::SyntaxRecoveryStatus::Complete);
+	EXPECT_EQ(syntax.memberAccesses[1].object.text, "Color");
+	EXPECT_EQ(syntax.memberAccesses[1].memberSpan.start.column, 17u);
+	EXPECT_EQ(syntax.memberAccesses[1].memberSpan.end.column, 17u);
+	EXPECT_EQ(syntax.memberAccesses[1].status,
+		rls::parser::SyntaxRecoveryStatus::Recovered);
 }
 
 TEST(ParserTests, WhitespaceOnlyReturnsEmpty) {
@@ -688,7 +738,7 @@ TEST(SourceIndexTests, ReportsCompleteAndRecoveredMemberAccessContexts) {
 		"define first(): Color.\n"
 		"define second(): Color.R\n"
 		"define ignored(): \"Color.FAKE\" # Color.COMMENT\n",
-		"recovered-member.rls");
+		"recovered-member.rls", rls::parser::ParseMode::Editor);
 	ASSERT_FALSE(recovered.file.diagnostics.empty());
 	const auto emptyMember = recovered.sourceIndex.memberAccessAt({1, 23});
 	ASSERT_TRUE(emptyMember);
@@ -699,6 +749,11 @@ TEST(SourceIndexTests, ReportsCompleteAndRecoveredMemberAccessContexts) {
 	ASSERT_TRUE(partialMember);
 	EXPECT_EQ(partialMember->object, "Color");
 	EXPECT_FALSE(recovered.sourceIndex.memberAccessAt({3, 31}));
+
+	const auto strict = rls::parser::ParseStringWithIndex(
+		"define first(): Color.",
+		"strict-member.rls", rls::parser::ParseMode::Strict);
+	EXPECT_FALSE(strict.sourceIndex.memberAccessAt({1, 23}));
 }
 
 TEST(SourceIndexTests, ReportsRecoveredNamedArgumentContexts) {
@@ -763,12 +818,24 @@ TEST(SourceIndexTests, ReportsRecoveredFunctionTypePositions) {
 	const std::string parameterSource =
 		"enum Color { RED }\ndefine choose(value: Col";
 	const auto parameter = rls::parser::ParseStringWithIndex(
-		parameterSource, "parameter-type.rls");
+		parameterSource, "parameter-type.rls", rls::parser::ParseMode::Editor);
 	ASSERT_FALSE(parameter.file.diagnostics.empty());
 	const auto parameterType = parameter.sourceIndex.typePositionAt(
 		positionAtEnd(parameterSource));
 	ASSERT_TRUE(parameterType);
 	EXPECT_EQ(parameter.sourceIndex.enumNames(), std::vector<std::string>{"Color"});
+	const auto strictParameter = rls::parser::ParseStringWithIndex(
+		parameterSource, "parameter-type.rls", rls::parser::ParseMode::Strict);
+	EXPECT_TRUE(strictParameter.sourceIndex.enumNames().empty());
+
+	const auto filteredEnums = rls::parser::ParseStringWithIndex(
+		"# enum Commented { VALUE }\n"
+		"define text(): \"enum Quoted { VALUE }\"\n"
+		"enum Real { VALUE }\n"
+		"define broken(",
+		"filtered-enums.rls", rls::parser::ParseMode::Editor);
+	EXPECT_EQ(filteredEnums.sourceIndex.enumNames(),
+		std::vector<std::string>{"Real"});
 
 	const std::string blankParameterSource = "define choose(value: ";
 	const auto blankParameter = rls::parser::ParseStringWithIndex(
