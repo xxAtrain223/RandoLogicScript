@@ -14,11 +14,12 @@ namespace rls::sema {
 SymbolId SemanticIndex::addSymbol(SymbolCategory category, SymbolProvenance provenance,
 	std::string displayName, ast::Span declaration, ast::Span selection,
 		std::optional<SymbolId> container, std::optional<std::string> signature,
-		std::optional<ast::Type> type, std::optional<std::string> enumName) {
+		std::optional<ast::Type> type, std::optional<std::string> enumName,
+		std::optional<std::string> defaultValue, bool optional) {
 	const SymbolId id{symbols_.size() + 1};
 	symbols_.push_back({id, category, provenance, std::move(displayName),
 		std::move(declaration), std::move(selection), std::move(signature), type,
-		std::move(enumName), container});
+		std::move(enumName), container, std::move(defaultValue), optional});
 	occurrences_.push_back({id, symbols_.back().selection, OccurrenceKind::Declaration});
 	return id;
 }
@@ -45,6 +46,87 @@ std::vector<OccurrenceRecord> SemanticIndex::occurrencesFor(SymbolId id) const {
 }
 
 namespace {
+
+std::string renderDefaultExpression(const ast::Expr& expression);
+
+std::string escapeString(std::string_view value) {
+	std::string result = "\"";
+	for (const char character : value) {
+		if (character == '\\' || character == '"') result += '\\';
+		result += character;
+	}
+	result += '"';
+	return result;
+}
+
+std::string_view binaryOperator(ast::BinaryOp op) {
+	switch (op) {
+	case ast::BinaryOp::And: return "and";
+	case ast::BinaryOp::Or: return "or";
+	case ast::BinaryOp::Eq: return "==";
+	case ast::BinaryOp::NotEq: return "!=";
+	case ast::BinaryOp::Lt: return "<";
+	case ast::BinaryOp::LtEq: return "<=";
+	case ast::BinaryOp::Gt: return ">";
+	case ast::BinaryOp::GtEq: return ">=";
+	case ast::BinaryOp::Add: return "+";
+	case ast::BinaryOp::Sub: return "-";
+	case ast::BinaryOp::Mul: return "*";
+	case ast::BinaryOp::Div: return "/";
+	}
+	return "?";
+}
+
+std::string renderDefaultExpression(const ast::Expr& expression) {
+	return std::visit([&](const auto& node) -> std::string {
+		using T = std::decay_t<decltype(node)>;
+		if constexpr (std::is_same_v<T, ast::BoolLiteral>) {
+			return node.value ? "true" : "false";
+		} else if constexpr (std::is_same_v<T, ast::IntLiteral>) {
+			return std::to_string(node.value);
+		} else if constexpr (std::is_same_v<T, ast::StringLiteral>) {
+			return escapeString(node.value);
+		} else if constexpr (std::is_same_v<T, ast::Identifier>) {
+			return node.name.text;
+		} else if constexpr (std::is_same_v<T, ast::MemberExpr>) {
+			return node.object.text + "." + node.member.text;
+		} else if constexpr (std::is_same_v<T, ast::UnaryExpr>) {
+			return "not " + renderDefaultExpression(*node.operand);
+		} else if constexpr (std::is_same_v<T, ast::BinaryExpr>) {
+			return "(" + renderDefaultExpression(*node.left) + " "
+				+ std::string(binaryOperator(node.op)) + " "
+				+ renderDefaultExpression(*node.right) + ")";
+		} else if constexpr (std::is_same_v<T, ast::TernaryExpr>) {
+			return "(" + renderDefaultExpression(*node.condition) + " ? "
+				+ renderDefaultExpression(*node.thenBranch) + " : "
+				+ renderDefaultExpression(*node.elseBranch) + ")";
+		} else if constexpr (std::is_same_v<T, ast::CallExpr>) {
+			std::string result = node.callee.text + "(";
+			for (size_t index = 0; index < node.args.size(); ++index) {
+				if (index != 0) result += ", ";
+				if (node.args[index].name) {
+					result += node.args[index].name->text + ": ";
+				}
+				result += renderDefaultExpression(*node.args[index].value);
+			}
+			return result + ")";
+		} else if constexpr (std::is_same_v<T, ast::InvokeExpr>) {
+			return renderDefaultExpression(*node.callee) + "()";
+		} else if constexpr (std::is_same_v<T, ast::HereRef>) {
+			return "here";
+		} else if constexpr (std::is_same_v<T, ast::ListExpr>) {
+			std::string result = "[";
+			for (size_t index = 0; index < node.elements.size(); ++index) {
+				if (index != 0) result += ", ";
+				result += renderDefaultExpression(*node.elements[index]);
+			}
+			return result + "]";
+		} else if constexpr (std::is_same_v<T, ast::MatchExpr>) {
+			return "match " + renderDefaultExpression(*node.discriminant) + " { ... }";
+		}
+		return "<expression>";
+	}, expression.node);
+}
 
 bool isBeforeOrEqual(ast::Position left, ast::Position right) {
 	return left.line < right.line || (left.line == right.line && left.column <= right.column);
@@ -137,7 +219,11 @@ SemanticIndex buildSemanticIndex(const ast::Project& project,
 				parameter.name.text, declaration, parameter.name.span,
 				container, std::nullopt, type,
 				enumName ? std::optional<std::string>(*enumName) :
-					(parameter.type ? std::optional<std::string>(parameter.type->name.text) : std::nullopt));
+					(parameter.type ? std::optional<std::string>(parameter.type->name.text) : std::nullopt),
+				parameter.defaultValue
+					? std::optional<std::string>(renderDefaultExpression(*parameter.defaultValue))
+					: std::nullopt,
+				parameter.defaultValue != nullptr);
 		}
 	};
 	auto addSections = [&](const std::vector<ast::Section>& sections, SymbolId container) {
@@ -173,14 +259,24 @@ SemanticIndex buildSemanticIndex(const ast::Project& project,
 						node.name.text, node.span, node.name.span);
 					addSections(node.sections, id);
 				} else if constexpr (std::is_same_v<T, ast::DefineDecl>) {
+					const auto returnType = project.getType(node.body.get());
+					const auto returnEnum = project.getEnumType(node.body.get());
 					const auto id = index.addSymbol(SymbolCategory::Define, SymbolProvenance::Source,
 						node.name.text, node.span, node.name.span, std::nullopt,
-						"define " + node.name.text);
+						"define " + node.name.text, returnType,
+						returnEnum ? std::optional<std::string>(*returnEnum) : std::nullopt);
 					addParameters(node.params, id);
 				} else if constexpr (std::is_same_v<T, ast::ExternDefineDecl>) {
+					const auto returnType = node.returnType
+						? resolveTypeAnnotation(project, node.returnType->name.text)
+						: std::nullopt;
 					const auto id = index.addSymbol(SymbolCategory::ExternDefine, SymbolProvenance::Extern,
 						node.name.text, node.span, node.name.span, std::nullopt,
-						"extern define " + node.name.text);
+						"extern define " + node.name.text,
+						returnType ? std::optional(returnType->type) : std::nullopt,
+						returnType && returnType->enumName
+							? std::optional<std::string>(*returnType->enumName)
+							: std::nullopt);
 					addParameters(node.params, id);
 				} else if constexpr (std::is_same_v<T, ast::EnumDecl>) {
 					const auto id = index.addSymbol(SymbolCategory::Enum, SymbolProvenance::Source,

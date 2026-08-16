@@ -244,11 +244,16 @@ PresentationSymbol presentationSymbol(
         });
         for (const auto* parameter : parameters) {
             callable.parameters.push_back({
-                parameter->displayName,
-                parameter->type
+                .name = parameter->displayName,
+                .type = parameter->type
                     ? presentationType(*parameter->type, parameter->enumName)
                     : PresentationType{"<unknown>"},
+                .defaultValue = parameter->defaultValue,
+                .optional = parameter->optional,
             });
+        }
+        if (record.type) {
+            callable.returnType = presentationType(*record.type, record.enumName);
         }
         result.callable = std::move(callable);
         break;

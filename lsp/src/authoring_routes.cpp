@@ -8,6 +8,7 @@
 #include "rls/lsp/completion_service.h"
 #include "rls/lsp/json_rpc_router.h"
 #include "rls/lsp/lifecycle_service.h"
+#include "rls/lsp/signature_help_service.h"
 
 namespace rls::lsp {
 namespace {
@@ -65,7 +66,8 @@ int completionKind(CompletionItemKind kind) {
 } // namespace
 
 void RegisterAuthoringRoutes(
-    JsonRpcRouter& router, LifecycleService& lifecycle, CompletionService& completion) {
+    JsonRpcRouter& router, LifecycleService& lifecycle, CompletionService& completion,
+    SignatureHelpService& signatureHelp) {
     router.registerRequest("textDocument/completion", [&lifecycle, &completion](const Json& params) {
         const auto& object = requireObject(params);
         const auto& document = requireObject(object.at("textDocument"));
@@ -110,6 +112,45 @@ void RegisterAuthoringRoutes(
             result.push_back(std::move(completionItem));
         }
         return result;
+    });
+
+    router.registerRequest("textDocument/signatureHelp", [&signatureHelp](const Json& params) {
+        const auto& object = requireObject(params);
+        const auto& document = requireObject(object.at("textDocument"));
+        const auto& requestPosition = requireObject(object.at("position"));
+        const auto result = signatureHelp.signatureHelp(
+            document.at("uri").get<std::string>(),
+            {
+                requirePositionComponent(requestPosition.at("line")),
+                requirePositionComponent(requestPosition.at("character")),
+            });
+        if (!result) return Json(nullptr);
+
+        Json parameters = Json::array();
+        for (const auto& label : result->parameterLabels) {
+            parameters.push_back({{"label", label}});
+        }
+        Json signature = {
+            {"label", result->label},
+            {"parameters", std::move(parameters)},
+        };
+        if (!result->documentation.empty()) {
+            signature["documentation"] = {
+                {"kind", "markdown"},
+                {"value", result->documentation},
+            };
+        }
+        if (result->activeParameter) {
+            signature["activeParameter"] = *result->activeParameter;
+        }
+        Json response = {
+            {"signatures", Json::array({std::move(signature)})},
+            {"activeSignature", 0},
+        };
+        if (result->activeParameter) {
+            response["activeParameter"] = *result->activeParameter;
+        }
+        return response;
     });
 }
 

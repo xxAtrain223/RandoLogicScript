@@ -61,6 +61,8 @@ struct SymbolRecord {
 	std::optional<ast::Type> type;
 	std::optional<std::string> enumName;
 	std::optional<SymbolId> container;
+	std::optional<std::string> defaultValue;
+	bool optional = false;
 };
 
 struct OccurrenceRecord {
@@ -139,7 +141,9 @@ private:
 		std::optional<SymbolId> container = std::nullopt,
 		std::optional<std::string> signature = std::nullopt,
 		std::optional<ast::Type> type = std::nullopt,
-		std::optional<std::string> enumName = std::nullopt);
+		std::optional<std::string> enumName = std::nullopt,
+		std::optional<std::string> defaultValue = std::nullopt,
+		bool optional = false);
 
 	friend SemanticIndex buildSemanticIndex(const ast::Project& project,
 		const std::vector<ast::Diagnostic>& diagnostics);

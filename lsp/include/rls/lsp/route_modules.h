@@ -7,6 +7,7 @@ class DocumentSynchronizationService;
 class JsonRpcRouter;
 class LifecycleService;
 class NavigationService;
+class SignatureHelpService;
 class WorkspaceService;
 
 void RegisterLifecycleRoutes(
@@ -14,7 +15,8 @@ void RegisterLifecycleRoutes(
 void RegisterDocumentSynchronizationRoutes(
     JsonRpcRouter& router, DocumentSynchronizationService& synchronization);
 void RegisterAuthoringRoutes(
-    JsonRpcRouter& router, LifecycleService& lifecycle, CompletionService& completion);
+    JsonRpcRouter& router, LifecycleService& lifecycle, CompletionService& completion,
+    SignatureHelpService& signatureHelp);
 void RegisterNavigationRoutes(
     JsonRpcRouter& router, LifecycleService& lifecycle, NavigationService& navigation,
     WorkspaceService& workspace);

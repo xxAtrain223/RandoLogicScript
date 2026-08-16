@@ -35,11 +35,11 @@ Consume parser context, semantic scope/type/call queries from [plan-compilerQuer
 
 ### 3. Signature Help
 
-- [ ] Implement `textDocument/signatureHelp` from `callAt` query results.
-- [ ] Calculate active parameter from parsed argument ranges, supporting positional and named arguments.
-- [ ] Display parameter types, enum identities, defaults, optionality, and return types.
-- [ ] Show no fabricated signature for unresolved calls.
-- [ ] Provide known signatures with conservative active-argument behavior for recoverable incomplete calls.
+- [x] Implement `textDocument/signatureHelp` from `callAt` query results.
+- [x] Calculate active parameter from parsed argument ranges, supporting positional and named arguments.
+- [x] Display parameter types, enum identities, defaults, optionality, and return types.
+- [x] Show no fabricated signature for unresolved calls.
+- [x] Provide known signatures with conservative active-argument behavior for recoverable incomplete calls.
 
 ### 4. Hover
 
@@ -75,8 +75,9 @@ Consume parser context, semantic scope/type/call queries from [plan-compilerQuer
 - [x] Incomplete and parsed call completion for named argument labels.
 - [x] Expected-value completion for incomplete positional and named calls using resolved parameter type and enum identity.
 - [x] Named argument binding and nested-call isolation.
-- [ ] Defaults in completion/signature presentation from compiler query metadata.
-- [ ] Hover/signature rendering for user and extern declarations.
+- [x] Defaults in completion/signature presentation from compiler query metadata.
+- [x] Signature rendering for user and extern declarations.
+- [ ] Hover rendering for user and extern declarations.
 - [x] Malformed top-level/region-body/member-access/call source and stale snapshot completion behavior.
 - [x] Supported and unsupported completion snippet capability behavior.
 

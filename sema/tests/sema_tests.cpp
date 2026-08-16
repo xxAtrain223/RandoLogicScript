@@ -386,6 +386,50 @@ TEST(SemanticIndexTests, RecordsStableValueOnlyDeclarationIdentity) {
 	EXPECT_EQ(occurrences[2].span.end.column, declaration->selection.end.column);
 }
 
+TEST(SemanticIndexTests, RecordsCallableSignatureMetadata) {
+	Project project;
+	project.files.push_back(rls::parser::ParseString(
+		"enum Color { RED }\n"
+		"define choose(color: Color = RED, enabled: Bool = true): color\n"
+		"extern define external(count: Int = 2) -> Color\n",
+		"signatures.rls"));
+	analyze(project);
+	const auto index = buildSemanticIndex(project);
+
+	const auto findCallable = [&](std::string_view name) {
+		return std::find_if(index.symbols().begin(), index.symbols().end(),
+			[&](const SymbolRecord& symbol) {
+				return (symbol.category == SymbolCategory::Define
+					|| symbol.category == SymbolCategory::ExternDefine)
+					&& symbol.displayName == name;
+			});
+	};
+	const auto choose = findCallable("choose");
+	const auto external = findCallable("external");
+	ASSERT_NE(choose, index.symbols().end());
+	ASSERT_NE(external, index.symbols().end());
+	EXPECT_EQ(choose->type, Type::Enum);
+	EXPECT_EQ(choose->enumName, "Color");
+	EXPECT_EQ(external->type, Type::Enum);
+	EXPECT_EQ(external->enumName, "Color");
+
+	std::vector<const SymbolRecord*> chooseParameters;
+	std::vector<const SymbolRecord*> externalParameters;
+	for (const auto& symbol : index.symbols()) {
+		if (symbol.category != SymbolCategory::Parameter || !symbol.container) continue;
+		if (symbol.container == choose->id) chooseParameters.push_back(&symbol);
+		if (symbol.container == external->id) externalParameters.push_back(&symbol);
+	}
+	ASSERT_EQ(chooseParameters.size(), 2u);
+	EXPECT_EQ(chooseParameters[0]->defaultValue, "RED");
+	EXPECT_TRUE(chooseParameters[0]->optional);
+	EXPECT_EQ(chooseParameters[1]->defaultValue, "true");
+	EXPECT_TRUE(chooseParameters[1]->optional);
+	ASSERT_EQ(externalParameters.size(), 1u);
+	EXPECT_EQ(externalParameters[0]->defaultValue, "2");
+	EXPECT_TRUE(externalParameters[0]->optional);
+}
+
 TEST(SemanticIndexTests, RecordsRegionExtensionTargetRelations) {
 	Project project;
 	project.files.push_back(rls::parser::ParseString(

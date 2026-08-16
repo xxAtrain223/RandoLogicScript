@@ -80,9 +80,8 @@ struct RenderedPresentation {
 class PresentationRenderer {
 public:
     RenderedPresentation render(const PresentationSymbol& symbol) const;
-
-private:
     static std::string renderType(const PresentationType& type);
+    static std::string renderParameter(const PresentationParameter& parameter);
     static std::string renderCallable(const PresentationCallable& callable);
 };
 

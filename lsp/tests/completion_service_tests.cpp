@@ -191,7 +191,24 @@ TEST(CompletionServiceTests, UsesScopeAndExpectedEnumForExpressionCandidates) {
     EXPECT_EQ(items.front().label, "RED");
     EXPECT_EQ(items.front().replacementRange.start.character, 33u);
     EXPECT_EQ(items.front().replacementRange.end.character, 34u);
-    EXPECT_EQ(findItem(items, "choose")->detail, "choose(value: Color)");
+    EXPECT_EQ(findItem(items, "choose")->detail,
+        "choose(value: Color) -> Color");
+}
+
+TEST(CompletionServiceTests, RendersCallableDefaultsAndReturnType) {
+    const std::string usage = "define use(): tar";
+    CompletionFixture fixture(
+        "extern define target(first: Bool, second: Int = 2) -> Bool\n"
+        + usage);
+
+    const auto items = CompletionService(fixture.projects, fixture.scheduler)
+        .complete(fixture.uri, {1, static_cast<uint32_t>(usage.size())});
+
+    const auto* target = findItem(items, "target");
+    ASSERT_NE(target, nullptr);
+    EXPECT_EQ(target->detail,
+        "extern target(first: Bool, second: Int = 2) -> Bool");
+    EXPECT_EQ(target->documentation, "*External declaration.*");
 }
 
 TEST(CompletionServiceTests, RejectsAStaleAcceptedSnapshot) {

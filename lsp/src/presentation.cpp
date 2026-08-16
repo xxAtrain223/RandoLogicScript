@@ -56,20 +56,23 @@ std::string PresentationRenderer::renderType(const PresentationType& type) {
     return type.enumIdentity.value_or(type.name);
 }
 
+std::string PresentationRenderer::renderParameter(
+    const PresentationParameter& parameter) {
+    std::string result = parameter.name + ": " + renderType(parameter.type);
+    if (parameter.defaultValue) {
+        result += " = ";
+        result += *parameter.defaultValue;
+    } else if (parameter.optional) {
+        result += " (optional)";
+    }
+    return result;
+}
+
 std::string PresentationRenderer::renderCallable(const PresentationCallable& callable) {
     std::string result = callable.name + "(";
     for (size_t index = 0; index < callable.parameters.size(); ++index) {
         if (index != 0) result += ", ";
-        const auto& parameter = callable.parameters[index];
-        result += parameter.name;
-        result += ": ";
-        result += renderType(parameter.type);
-        if (parameter.defaultValue) {
-            result += " = ";
-            result += *parameter.defaultValue;
-        } else if (parameter.optional) {
-            result += " (optional)";
-        }
+        result += renderParameter(callable.parameters[index]);
     }
     result += ')';
     if (callable.returnType) {
