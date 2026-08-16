@@ -80,6 +80,61 @@ TEST(NavigationServiceTests, FindsCrossFileDefinitionInCurrentSnapshot) {
     EXPECT_TRUE(navigation.documentHighlights(usageUri, {0, 18}).empty());
 }
 
+TEST(NavigationServiceTests, NavigatesWildcardEnumValuesToPatternDeclaration) {
+    const fs::path root = fs::temp_directory_path() / "rls-navigation-pattern";
+    const fs::path declarationPath = root / "declaration.rls";
+    const fs::path usagePath = root / "usage.rls";
+    const std::string usageUri = *rls::lsp::PathToFileUri(usagePath);
+    const std::string usage =
+        "define bare(): RG_HOOKSHOT\n"
+        "define qualified(): Item.RG_BOW\n";
+    DocumentStore documents;
+    ASSERT_EQ(documents.open(usageUri, "rls", 1, usage),
+        rls::lsp::DocumentUpdateResult::Applied);
+    ProjectManager projects(documents, [&](const fs::path&) {
+        rls::project::FileProject project;
+        project.sourceFiles = {declarationPath, usagePath};
+        return project;
+    });
+    ASSERT_EQ(projects.documentOpened(usageUri),
+        rls::lsp::ProjectAssignmentResult::Assigned);
+    const auto* project = projects.projectForDocument(usageUri);
+    ASSERT_NE(project, nullptr);
+    AnalysisScheduler scheduler({
+        .debounce = std::chrono::milliseconds(0),
+        .maximumConcurrency = 1,
+    });
+    ASSERT_TRUE(scheduler.schedule({
+        project->id,
+        project->generation,
+        {
+            {declarationPath, "extern enum Item { RG_* }\n"},
+            {usagePath, usage},
+        },
+        project->documentGeneration,
+        project->manifestGeneration,
+    }));
+    scheduler.waitForIdle();
+
+    NavigationService navigation(projects, scheduler);
+    const auto bare = navigation.definition(usageUri, {0, 17});
+    ASSERT_TRUE(bare);
+    EXPECT_EQ(bare->targetUri, *rls::lsp::PathToFileUri(declarationPath));
+    EXPECT_EQ(bare->targetSelectionRange.start.character, 19u);
+    EXPECT_EQ(bare->targetSelectionRange.end.character, 23u);
+
+    const auto qualified = navigation.definition(usageUri, {1, 27});
+    ASSERT_TRUE(qualified);
+    EXPECT_EQ(qualified->targetUri, bare->targetUri);
+    EXPECT_EQ(qualified->targetSelectionRange.start.character, 19u);
+
+    const auto references = navigation.references(usageUri, {0, 17}, true);
+    ASSERT_EQ(references.size(), 3u);
+    EXPECT_EQ(references[0].uri, *rls::lsp::PathToFileUri(declarationPath));
+    EXPECT_EQ(references[1].uri, usageUri);
+    EXPECT_EQ(references[2].uri, usageUri);
+}
+
 TEST(NavigationServiceTests, KeepsSameNameParametersInSeparateScopes) {
     const fs::path sourcePath = fs::temp_directory_path() / "rls-navigation-parameters.rls";
     const std::string uri = *rls::lsp::PathToFileUri(sourcePath);

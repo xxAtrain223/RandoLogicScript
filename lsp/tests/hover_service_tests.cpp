@@ -106,6 +106,31 @@ TEST(HoverServiceTests, SupportsParameterUsesAndEnumMemberExpressions) {
     EXPECT_NE(member->markdown.find("Member of enum `Color`."), std::string::npos);
 }
 
+TEST(HoverServiceTests, DescribesWildcardMatchedEnumValuesAndPatternDeclaration) {
+    const std::string declarations = "extern enum Item { RG_* }\n";
+    const std::string usage =
+        "define bare(): RG_HOOKSHOT\n"
+        "define qualified(): Item.RG_BOW\n";
+    HoverFixture fixture(declarations, usage);
+
+    const auto bare = fixture.at({0, 17});
+    ASSERT_TRUE(bare);
+    EXPECT_NE(bare->markdown.find("extern pattern RG_HOOKSHOT: Item"),
+        std::string::npos);
+    EXPECT_NE(bare->markdown.find(
+        "Concrete value matched by extern enum pattern `RG_*` in `Item`."),
+        std::string::npos);
+    EXPECT_NE(bare->markdown.find("External wildcard pattern declaration."),
+        std::string::npos);
+    EXPECT_NE(bare->markdown.find("[Open declaration](file:"), std::string::npos);
+
+    const auto qualified = fixture.at({1, 27});
+    ASSERT_TRUE(qualified);
+    EXPECT_NE(qualified->markdown.find("extern pattern RG_BOW: Item"),
+        std::string::npos);
+    EXPECT_NE(qualified->markdown.find("`RG_*`"), std::string::npos);
+}
+
 TEST(HoverServiceTests, SupportsRegionsSectionEntriesAndTypedExpressions) {
     const std::string usage =
         "region RR_TEST {\n"

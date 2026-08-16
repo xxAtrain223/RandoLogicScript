@@ -196,7 +196,7 @@ std::optional<DefinitionResult> NavigationService::definition(
         return std::nullopt;
     }
     const auto declaration = query->snapshot->declaration(query->symbol);
-    if (!declaration || declaration->provenance == sema::SymbolProvenance::Pattern) {
+    if (!declaration) {
         return std::nullopt;
     }
 
