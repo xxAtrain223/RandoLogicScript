@@ -1,4 +1,5 @@
 import * as fs from 'node:fs';
+import * as os from 'node:os';
 import * as path from 'node:path';
 
 import { runTests } from '@vscode/test-electron';
@@ -29,16 +30,25 @@ async function main(): Promise<void> {
   const repositoryRoot = path.resolve(extensionDevelopmentPath, '..', '..');
   const extensionTestsPath = path.resolve(__dirname, 'suite', 'index');
   const fixturePath = path.join(extensionDevelopmentPath, 'test-fixture');
+  const userDataDirectory = fs.mkdtempSync(path.join(os.tmpdir(), 'rls-vscode-'));
   process.env.RLS_LANGUAGE_SERVER_PATH = discoverServer(repositoryRoot);
 
-  await runTests({
-    extensionDevelopmentPath,
-    extensionTestsPath,
-    launchArgs: [fixturePath, '--disable-extensions'],
-    extensionTestsEnv: {
-      RLS_LANGUAGE_SERVER_PATH: process.env.RLS_LANGUAGE_SERVER_PATH,
-    },
-  });
+  try {
+    await runTests({
+      extensionDevelopmentPath,
+      extensionTestsPath,
+      launchArgs: [
+        fixturePath,
+        '--disable-extensions',
+        `--user-data-dir=${userDataDirectory}`,
+      ],
+      extensionTestsEnv: {
+        RLS_LANGUAGE_SERVER_PATH: process.env.RLS_LANGUAGE_SERVER_PATH,
+      },
+    });
+  } finally {
+    fs.rmSync(userDataDirectory, { recursive: true, force: true });
+  }
 }
 
 main().catch((error: unknown) => {
