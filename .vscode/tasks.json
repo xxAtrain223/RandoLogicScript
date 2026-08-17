@@ -39,6 +39,14 @@
         "cwd": "${workspaceFolder}/editors/vscode"
       },
       "problemMatcher": "$tsc"
+    },
+    {
+      "label": "Prepare RLS Language Extension",
+      "dependsOrder": "sequence",
+      "dependsOn": [
+        "Bundle RLS Language Server",
+        "Compile RLS VS Code Extension"
+      ]
     }
   ]
 }
