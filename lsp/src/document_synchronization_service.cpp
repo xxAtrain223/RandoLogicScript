@@ -86,6 +86,9 @@ DocumentSynchronizationResult DocumentSynchronizationService::close(std::string_
         return DocumentSynchronizationResult::ProjectResolutionFailed;
     }
     diagnostics_.documentClosed(uri, standalone);
+    if (!projects_.projectForDocument(uri)) {
+        return DocumentSynchronizationResult::Applied;
+    }
     return schedule(uri) ? DocumentSynchronizationResult::Applied
         : DocumentSynchronizationResult::ProjectResolutionFailed;
 }

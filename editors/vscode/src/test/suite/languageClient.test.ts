@@ -55,6 +55,15 @@ export async function runLanguageClientTest(): Promise<void> {
   assert.equal(diagnostic.severity, vscode.DiagnosticSeverity.Error);
   assert.match(diagnostic.message, /unknown identifier 'missing'/);
 
+  const untitledDocument = await vscode.workspace.openTextDocument({
+    language: 'rls',
+    content: 'define untitled(): missing\n',
+  });
+  assert.equal(untitledDocument.uri.scheme, 'untitled');
+  const untitledDiagnostic = await waitForDiagnostic(untitledDocument.uri, 'RLS-T006');
+  assert.equal(untitledDiagnostic.severity, vscode.DiagnosticSeverity.Error);
+  assert.match(untitledDiagnostic.message, /unknown identifier 'missing'/);
+
   await vscode.commands.executeCommand('randoLogicScript.restartServer');
   const restartedDiagnostic = await waitForDiagnostic(documentUri, 'RLS-T006');
   assert.equal(restartedDiagnostic.source, 'rls');

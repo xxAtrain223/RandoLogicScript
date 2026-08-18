@@ -74,7 +74,7 @@ struct SemanticTokensFixture {
         EXPECT_TRUE(scheduler.schedule({
             project->id,
             project->generation,
-            {{path, std::move(source)}},
+            {{path.generic_string(), std::move(source)}},
             project->documentGeneration,
             project->manifestGeneration,
         }));
@@ -276,7 +276,7 @@ TEST(SemanticTokensServiceTests, ExpeditesLatestScheduledGeneration) {
     ASSERT_TRUE(scheduler.schedule({
         project->id,
         project->generation,
-        {{path, initial}},
+        {{path.generic_string(), initial}},
         project->documentGeneration,
         project->manifestGeneration,
     }));
@@ -293,7 +293,7 @@ TEST(SemanticTokensServiceTests, ExpeditesLatestScheduledGeneration) {
     ASSERT_TRUE(scheduler.schedule({
         project->id,
         project->generation,
-        {{path, changed}},
+        {{path.generic_string(), changed}},
         project->documentGeneration,
         project->manifestGeneration,
     }));

@@ -31,6 +31,16 @@ std::string pathKey(const std::filesystem::path& path) {
     return key;
 }
 
+std::string pathIdentity(const std::filesystem::path& path) {
+    const auto generic = canonicalPath(path).generic_u8string();
+    std::string identity;
+    identity.reserve(generic.size());
+    for (const char8_t byte : generic) {
+        identity.push_back(static_cast<char>(byte));
+    }
+    return identity;
+}
+
 bool isWithin(const std::filesystem::path& path, const std::filesystem::path& root) {
     const std::string candidate = pathKey(path);
     std::string prefix = pathKey(root);
@@ -46,7 +56,7 @@ ProjectManager::ProjectManager(DocumentStore& documents, Resolver resolver)
 ProjectAssignmentResult ProjectManager::documentOpened(std::string_view uri) {
     const auto key = DocumentUriKey(uri);
     const auto path = FileUriToPath(uri);
-    if (!key || !path) {
+    if (!key) {
         return ProjectAssignmentResult::InvalidUri;
     }
     const TextDocument* document = documents_.find(uri);
@@ -54,20 +64,27 @@ ProjectAssignmentResult ProjectManager::documentOpened(std::string_view uri) {
         return ProjectAssignmentResult::NotAssigned;
     }
 
-    project::FileProject resolved = resolver_(*path);
-    if (!resolved.error.empty()) {
-        recordConfigurationDiagnostics(*path, resolved.diagnostics);
-        resolved = {};
-        resolved.sourceFiles.push_back(canonicalPath(*path));
-        resolved.isStandalone = true;
+    const bool fileBacked = path.has_value();
+    const auto sourcePath = fileBacked ? canonicalPath(*path) : std::filesystem::path{};
+    project::FileProject resolved;
+    if (fileBacked) {
+        resolved = resolver_(*path);
+        if (!resolved.error.empty()) {
+            recordConfigurationDiagnostics(*path, resolved.diagnostics);
+            resolved = {};
+            resolved.sourceFiles.push_back(sourcePath);
+            resolved.isStandalone = true;
+        } else {
+            clearConfigurationDiagnostics(*path);
+        }
     } else {
-        clearConfigurationDiagnostics(*path);
+        resolved.isStandalone = true;
     }
-    if (resolved.sourceFiles.empty()) {
+    if (fileBacked && resolved.sourceFiles.empty()) {
         return ProjectAssignmentResult::ResolutionFailed;
     }
 
-    const std::string id = projectId(resolved);
+    const std::string id = fileBacked ? projectId(resolved) : *key;
     auto [projectIt, inserted] = projects_.try_emplace(id);
     ManagedProject& managed = projectIt->second;
     if (inserted) {
@@ -81,12 +98,13 @@ ProjectAssignmentResult ProjectManager::documentOpened(std::string_view uri) {
     managed.documentGeneration = ++documentGeneration_;
     managed.generation = ++generation_;
 
-    const auto canonicalDocumentPath = canonicalPath(*path);
     assignments_.insert_or_assign(*key, Assignment{
         document->uri,
-        canonicalDocumentPath,
-        pathKey(canonicalDocumentPath),
+        sourcePath,
+        pathKey(sourcePath),
+        fileBacked ? pathIdentity(sourcePath) : *key,
         id,
+        fileBacked,
     });
     return ProjectAssignmentResult::Assigned;
 }
@@ -107,7 +125,20 @@ ProjectAssignmentResult ProjectManager::documentChanged(std::string_view uri) {
 }
 
 ProjectAssignmentResult ProjectManager::documentClosed(std::string_view uri) {
-    return documentChanged(uri);
+    const auto key = DocumentUriKey(uri);
+    if (!key) {
+        return ProjectAssignmentResult::InvalidUri;
+    }
+    const auto assignment = assignments_.find(*key);
+    if (assignment == assignments_.end()) {
+        return ProjectAssignmentResult::NotAssigned;
+    }
+    if (assignment->second.fileBacked) {
+        return documentChanged(uri);
+    }
+    projects_.erase(assignment->second.projectId);
+    assignments_.erase(assignment);
+    return ProjectAssignmentResult::Assigned;
 }
 
 ProjectRefreshResult ProjectManager::refreshOpenDocuments(
@@ -125,33 +156,33 @@ ProjectRefreshResult ProjectManager::refreshOpenDocuments(
     }
 
     for (auto& [key, assignment] : assignments_) {
-        const bool inWorkspace = std::any_of(
+        const bool inWorkspace = !assignment.fileBacked || std::any_of(
             workspaceRoots.begin(), workspaceRoots.end(), [&](const auto& root) {
                 return isWithin(assignment.path, root);
             });
         project::FileProject resolved;
-        if (restrictToWorkspaceRoots && !inWorkspace) {
+        if (!assignment.fileBacked) {
+            resolved.isStandalone = true;
+        } else if (restrictToWorkspaceRoots && !inWorkspace) {
             resolved.sourceFiles.push_back(canonicalPath(assignment.path));
             resolved.isStandalone = true;
         } else {
             resolved = resolver_(assignment.path);
         }
-        if (!resolved.error.empty() || resolved.sourceFiles.empty()) {
+        if (!resolved.error.empty() || (assignment.fileBacked && resolved.sourceFiles.empty())) {
             result.errors.push_back(resolved.error.empty()
                 ? "project resolves to no source files" : std::move(resolved.error));
             recordConfigurationDiagnostics(assignment.path, resolved.diagnostics);
             resolved = {};
-            resolved.sourceFiles.push_back(canonicalPath(assignment.path));
+            if (assignment.fileBacked) {
+                resolved.sourceFiles.push_back(canonicalPath(assignment.path));
+            }
             resolved.isStandalone = true;
         } else {
             clearConfigurationDiagnostics(assignment.path);
         }
 
-        if (resolved.sourceFiles.empty()) {
-            continue;
-        }
-
-        const std::string id = projectId(resolved);
+        const std::string id = assignment.fileBacked ? projectId(resolved) : key;
         ManagedProject& managed = projects_[id];
         managed.id = id;
         managed.manifestPath = resolved.manifest
@@ -209,6 +240,15 @@ const ManagedProject* ProjectManager::project(std::string_view projectId) const 
     return project == projects_.end() ? nullptr : &project->second;
 }
 
+std::optional<std::string> ProjectManager::sourceIdentityForDocument(
+    std::string_view uri) const {
+    const auto key = DocumentUriKey(uri);
+    if (!key) return std::nullopt;
+    const auto assignment = assignments_.find(*key);
+    return assignment == assignments_.end() ? std::nullopt
+        : std::optional<std::string>(assignment->second.sourceIdentity);
+}
+
 std::vector<std::string> ProjectManager::projectIds() const {
     std::vector<std::string> result;
     result.reserve(projects_.size());
@@ -252,11 +292,20 @@ ProjectSourceSet ProjectManager::sourceSetForProject(std::string_view projectId)
         }
 
         if (overlay) {
-            result.sources.push_back({sourcePath, overlay->text});
+            result.sources.push_back({pathIdentity(sourcePath), overlay->text, sourcePath});
             continue;
         }
 
-        result.sources.push_back({sourcePath, std::nullopt});
+        result.sources.push_back({pathIdentity(sourcePath), std::nullopt, sourcePath});
+    }
+    for (const auto& [key, assignment] : assignments_) {
+        if (assignment.projectId != project->id || assignment.fileBacked) {
+            continue;
+        }
+        const auto* overlay = documents_.find(assignment.uri);
+        if (overlay) {
+            result.sources.push_back({assignment.sourceIdentity, overlay->text, std::nullopt});
+        }
     }
     return result;
 }

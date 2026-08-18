@@ -47,8 +47,8 @@ struct SignatureFixture {
             project->id,
             project->generation,
             {
-                {declarationPath, std::move(declarations)},
-                {usagePath, std::move(usage)},
+                {declarationPath.generic_string(), std::move(declarations)},
+                {usagePath.generic_string(), std::move(usage)},
             },
             project->documentGeneration,
             project->manifestGeneration,

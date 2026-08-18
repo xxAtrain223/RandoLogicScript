@@ -82,25 +82,16 @@ Json rangeFor(const project::ConfigurationDiagnostic& diagnostic) {
     };
 }
 
-std::optional<std::string> uriForPath(std::string_view path) {
-    return PathToFileUri(std::filesystem::path(path));
-}
-
-std::string pathKey(const std::filesystem::path& path) {
-    std::error_code error;
-    const auto canonical = std::filesystem::weakly_canonical(path, error);
-    const auto generic = (error ? path.lexically_normal() : canonical).generic_u8string();
-    std::string key;
-    key.reserve(generic.size());
-    for (const char8_t byte : generic) {
-        key.push_back(static_cast<char>(byte));
+std::optional<std::string> uriForSource(std::string_view identity) {
+    const bool windowsDrivePath = identity.size() >= 3
+        && std::isalpha(static_cast<unsigned char>(identity[0]))
+        && identity[1] == ':' && identity[2] == '/';
+    if (!windowsDrivePath) {
+        if (const auto normalized = NormalizeDocumentUri(identity)) {
+            return normalized;
+        }
     }
-#ifdef _WIN32
-    std::transform(key.begin(), key.end(), key.begin(), [](char character) {
-        return static_cast<char>(std::tolower(static_cast<unsigned char>(character)));
-    });
-#endif
-    return key;
+    return PathToFileUri(std::filesystem::path(identity));
 }
 
 Json actionData(const ast::DiagnosticActionData& data) {
@@ -131,7 +122,7 @@ Json diagnosticsFor(const sema::AnalysisSnapshot& snapshot, std::string_view pat
         };
         Json relatedInformation = Json::array();
         for (const auto& related : diagnostic.related) {
-            const auto relatedUri = uriForPath(related.span.file);
+            const auto relatedUri = uriForSource(related.span.file);
             if (!relatedUri) {
                 continue;
             }
@@ -170,13 +161,11 @@ DiagnosticPublisher::DiagnosticPublisher(OutboundMessageQueue& outbound)
 void DiagnosticPublisher::documentOpened(std::string_view uri) {
     const auto key = DocumentUriKey(uri);
     const auto normalized = NormalizeDocumentUri(uri);
-    const auto path = FileUriToPath(uri);
-    if (!key || !normalized || !path) {
+    if (!key || !normalized) {
         return;
     }
     std::lock_guard lock(mutex_);
     suppressed_.erase(*key);
-    openDocumentUris_.insert_or_assign(pathKey(*path), std::move(*normalized));
 }
 
 void DiagnosticPublisher::documentClosed(std::string_view uri, bool standalone) {
@@ -192,9 +181,6 @@ void DiagnosticPublisher::documentClosed(std::string_view uri, bool standalone) 
     {
         std::lock_guard lock(mutex_);
         suppressed_.insert(*key);
-        if (const auto path = FileUriToPath(uri)) {
-            openDocumentUris_.erase(pathKey(*path));
-        }
         for (auto& [projectId, documents] : published_) {
             documents.erase(*key);
         }
@@ -286,7 +272,7 @@ void DiagnosticPublisher::acceptedSnapshot(
 
     DocumentPayloads current;
     for (const auto& path : snapshot->documentPaths()) {
-        const auto uri = uriForPath(path);
+        const auto uri = uriForSource(path);
         if (!uri) {
             continue;
         }
@@ -294,15 +280,7 @@ void DiagnosticPublisher::acceptedSnapshot(
         if (!key) {
             continue;
         }
-        std::string documentUri = *uri;
-        {
-            std::lock_guard lock(mutex_);
-            if (const auto openDocument = openDocumentUris_.find(pathKey(path));
-                openDocument != openDocumentUris_.end()) {
-                documentUri = openDocument->second;
-            }
-        }
-        current[*key] = PublishedDocument{std::move(documentUri), diagnosticsFor(*snapshot, path).dump()};
+        current[*key] = PublishedDocument{*uri, diagnosticsFor(*snapshot, path).dump()};
     }
 
     std::vector<std::string> messages;

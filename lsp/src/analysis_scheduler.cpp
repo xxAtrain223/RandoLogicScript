@@ -259,13 +259,17 @@ void AnalysisScheduler::worker(std::stop_token shutdown) {
                 }
                 std::optional<std::string> content = std::move(source.content);
                 if (!content) {
-                    content = sourceReader_(source.path, cancellation->get_token());
+                    if (!source.diskPath) {
+                        sources.clear();
+                        break;
+                    }
+                    content = sourceReader_(*source.diskPath, cancellation->get_token());
                 }
                 if (!content || cancellation->stop_requested()) {
                     sources.clear();
                     break;
                 }
-                sources.push_back({pathString(source.path), std::move(*content)});
+                sources.push_back({std::move(source.identity), std::move(*content)});
             }
             if (!sources.empty()) {
                 snapshot = builder_(

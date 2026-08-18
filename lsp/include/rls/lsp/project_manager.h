@@ -15,10 +15,13 @@
 namespace rls::lsp {
 
 struct ProjectSource {
-    std::filesystem::path path;
+    // Canonical LSP URI used by the parser, snapshots, and protocol features.
+    std::string identity;
     // Present for an open editor overlay, including a valid empty overlay.
     // Absent when the scheduler must materialize the source from disk.
     std::optional<std::string> content;
+    // Present only when the scheduler may materialize this source from disk.
+    std::optional<std::filesystem::path> diskPath;
 };
 
 struct ManagedProject {
@@ -68,6 +71,7 @@ public:
 
     const ManagedProject* projectForDocument(std::string_view uri) const;
     const ManagedProject* project(std::string_view projectId) const;
+    std::optional<std::string> sourceIdentityForDocument(std::string_view uri) const;
     std::vector<std::string> projectIds() const;
     ProjectSourceSet sourceSetForDocument(std::string_view uri) const;
     ProjectSourceSet sourceSetForProject(std::string_view projectId) const;
@@ -78,7 +82,9 @@ private:
         std::string uri;
         std::filesystem::path path;
         std::string pathKey;
+        std::string sourceIdentity;
         std::string projectId;
+        bool fileBacked = false;
     };
 
     static std::string projectId(const project::FileProject& project);

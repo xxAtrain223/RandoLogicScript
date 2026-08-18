@@ -49,7 +49,7 @@ struct CompletionFixture {
         EXPECT_TRUE(scheduler.schedule({
             project->id,
             project->generation,
-            {{path, content}},
+            {{path.generic_string(), content}},
             project->documentGeneration,
             project->manifestGeneration,
         }));
@@ -95,8 +95,8 @@ struct CrossFileCompletionFixture {
             project->id,
             project->generation,
             {
-                {declarationPath, std::move(declarations)},
-                {usagePath, std::move(usage)},
+                {declarationPath.generic_string(), std::move(declarations)},
+                {usagePath.generic_string(), std::move(usage)},
             },
             project->documentGeneration,
             project->manifestGeneration,
@@ -246,7 +246,7 @@ TEST(CompletionServiceTests, ExpeditesLatestScheduledDocumentGeneration) {
     ASSERT_TRUE(scheduler.schedule({
         project->id,
         project->generation,
-        {{sourcePath, "def\n"}},
+        {{sourcePath.generic_string(), "def\n"}},
         project->documentGeneration,
         project->manifestGeneration,
     }));
@@ -263,7 +263,7 @@ TEST(CompletionServiceTests, ExpeditesLatestScheduledDocumentGeneration) {
     ASSERT_TRUE(scheduler.schedule({
         project->id,
         project->generation,
-        {{sourcePath, changed}},
+        {{sourcePath.generic_string(), changed}},
         project->documentGeneration,
         project->manifestGeneration,
     }));
@@ -573,8 +573,8 @@ TEST(CompletionServiceTests, RecoversEmptyMemberAcrossFiles) {
         project->id,
         project->generation,
         {
-            {declarationPath, "enum Color { RED, BLUE }\n"},
-            {usagePath, usage},
+            {declarationPath.generic_string(), "enum Color { RED, BLUE }\n"},
+            {usagePath.generic_string(), usage},
         },
         project->documentGeneration,
         project->manifestGeneration,
@@ -617,9 +617,9 @@ TEST(CompletionServiceTests, CompletesOnlyUnboundNamedArgumentsAcrossFiles) {
         project->id,
         project->generation,
         {
-            {declarationPath,
+            {declarationPath.generic_string(),
                 "extern define target(first: Bool, second: Bool, third: Bool) -> Bool\n"},
-            {usagePath, usage},
+            {usagePath.generic_string(), usage},
         },
         project->documentGeneration,
         project->manifestGeneration,
@@ -667,10 +667,10 @@ TEST(CompletionServiceTests, KeepsNestedCallsOutOfOuterArgumentBinding) {
         project->id,
         project->generation,
         {
-            {declarationPath,
+            {declarationPath.generic_string(),
                 "extern define nested(value: Bool) -> Bool\n"
                 "extern define outer(first: Bool, second: Bool) -> Bool\n"},
-            {usagePath, usage},
+            {usagePath.generic_string(), usage},
         },
         project->documentGeneration,
         project->manifestGeneration,

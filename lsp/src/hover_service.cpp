@@ -31,8 +31,8 @@ std::optional<CurrentDocument> currentDocument(
     const ProjectManager& projects, AnalysisScheduler& scheduler,
     std::string_view uri) {
     const auto* project = projects.projectForDocument(uri);
-    const auto path = FileUriToPath(uri);
-    if (!project || !path) return std::nullopt;
+    const auto identity = projects.sourceIdentityForDocument(uri);
+    if (!project || !identity) return std::nullopt;
     const std::string projectId = project->id;
     const uint64_t generation = project->generation;
     auto snapshot = scheduler.acceptedSnapshot(projectId);
@@ -40,7 +40,7 @@ std::optional<CurrentDocument> currentDocument(
         snapshot = scheduler.awaitSnapshot(projectId, generation);
     }
     if (!snapshot || snapshot->generation() != generation) return std::nullopt;
-    const std::string documentPath = pathString(*path);
+    const std::string& documentPath = *identity;
     const auto* source = snapshot->sourceText(documentPath);
     const auto* sourceIndex = snapshot->sourceIndex(documentPath);
     if (!source || !sourceIndex) return std::nullopt;

@@ -250,7 +250,7 @@ TEST(AnalysisSchedulerTests, CancelsSupersededDiskReadBeforeSnapshotBuild) {
         });
 
     ASSERT_TRUE(scheduler.schedule({
-        "project", 1, {{"slow.rls", std::nullopt}}, 1, 1,
+        "project", 1, {{"slow.rls", std::nullopt, "slow.rls"}}, 1, 1,
     }));
     {
         std::unique_lock lock(mutex);
@@ -277,7 +277,7 @@ TEST(AnalysisSchedulerTests, DefaultReaderAnalyzesEmptyDiskFile) {
         {.debounce = std::chrono::milliseconds(0), .maximumConcurrency = 1});
 
     ASSERT_TRUE(scheduler.schedule({
-        "project", 1, {{path, std::nullopt}}, 1, 1,
+        "project", 1, {{path.generic_string(), std::nullopt, path}}, 1, 1,
     }));
     scheduler.waitForIdle();
 
@@ -304,7 +304,7 @@ TEST(AnalysisSchedulerTests, DiskReadFailureDoesNotInvokeSnapshotBuilder) {
             -> std::optional<std::string> { return std::nullopt; });
 
     ASSERT_TRUE(scheduler.schedule({
-        "project", 1, {{"missing.rls", std::nullopt}}, 1, 1,
+        "project", 1, {{"missing.rls", std::nullopt, "missing.rls"}}, 1, 1,
     }));
     scheduler.waitForIdle();
 

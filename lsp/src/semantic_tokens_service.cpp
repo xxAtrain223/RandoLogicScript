@@ -160,8 +160,8 @@ const std::vector<std::string>& SemanticTokensService::tokenModifiers() {
 
 std::vector<uint32_t> SemanticTokensService::full(std::string_view uri) const {
     const auto* project = projects_.projectForDocument(uri);
-    const auto path = FileUriToPath(uri);
-    if (!project || !path) return {};
+    const auto identity = projects_.sourceIdentityForDocument(uri);
+    if (!project || !identity) return {};
     const std::string projectId = project->id;
     const uint64_t generation = project->generation;
     auto snapshot = scheduler_.acceptedSnapshot(projectId);
@@ -169,7 +169,7 @@ std::vector<uint32_t> SemanticTokensService::full(std::string_view uri) const {
         snapshot = scheduler_.awaitSnapshot(projectId, generation);
     }
     if (!snapshot || snapshot->generation() != generation) return {};
-    const std::string documentPath = pathString(*path);
+    const std::string& documentPath = *identity;
     const auto* source = snapshot->sourceText(documentPath);
     if (!source) return {};
 

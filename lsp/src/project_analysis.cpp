@@ -15,7 +15,11 @@ bool ScheduleProjectAnalysis(
     std::vector<AnalysisSource> sources;
     sources.reserve(sourceSet.sources.size());
     for (auto& source : sourceSet.sources) {
-        sources.push_back({std::move(source.path), std::move(source.content)});
+        sources.push_back({
+            std::move(source.identity),
+            std::move(source.content),
+            std::move(source.diskPath),
+        });
     }
 
     return scheduler.schedule({

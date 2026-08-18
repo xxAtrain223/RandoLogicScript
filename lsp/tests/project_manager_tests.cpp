@@ -146,6 +146,34 @@ TEST(ProjectManagerTests, RequiresAnOpenDocumentBeforeAssignment) {
     EXPECT_EQ(projects.projectForDocument(uri), nullptr);
 }
 
+TEST(ProjectManagerTests, AssignsUntitledDocumentsAsOverlayOnlyStandaloneProjects) {
+    DocumentStore documents;
+    ProjectManager projects(documents);
+    const std::string uri = "untitled:Untitled-1";
+
+    ASSERT_EQ(documents.open(uri, "rls", 1, "define untitled(): missing\n"),
+        DocumentUpdateResult::Applied);
+    ASSERT_EQ(projects.documentOpened(uri), ProjectAssignmentResult::Assigned);
+
+    const auto* project = projects.projectForDocument(uri);
+    ASSERT_NE(project, nullptr);
+    EXPECT_TRUE(project->isStandalone);
+    EXPECT_TRUE(project->sourceFiles.empty());
+
+    const auto sourceSet = projects.sourceSetForDocument(uri);
+    ASSERT_TRUE(sourceSet.error.empty()) << sourceSet.error;
+    ASSERT_EQ(sourceSet.sources.size(), 1);
+    ASSERT_TRUE(sourceSet.sources.front().content.has_value());
+    EXPECT_EQ(*sourceSet.sources.front().content, "define untitled(): missing\n");
+    EXPECT_EQ(sourceSet.sources.front().identity, uri);
+    EXPECT_FALSE(sourceSet.sources.front().diskPath.has_value());
+    EXPECT_EQ(projects.sourceIdentityForDocument(uri), uri);
+
+    ASSERT_TRUE(documents.close(uri));
+    EXPECT_EQ(projects.documentClosed(uri), ProjectAssignmentResult::Assigned);
+    EXPECT_EQ(projects.projectForDocument(uri), nullptr);
+}
+
 TEST(ProjectManagerTests, RefreshReassignsOpenDocumentAcrossNestedManifestChanges) {
     TemporaryDirectory directory;
     writeFile(directory.path() / "rls.json", R"({"version":1,"sources":["nested"]})");

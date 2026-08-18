@@ -43,8 +43,8 @@ TEST(NavigationServiceTests, FindsCrossFileDefinitionInCurrentSnapshot) {
         project->id,
         project->generation,
         {
-            {declarationPath, "extern define target() -> Bool\n"},
-            {usagePath, "define caller(): target()\n"},
+            {declarationPath.generic_string(), "extern define target() -> Bool\n"},
+            {usagePath.generic_string(), "define caller(): target()\n"},
         },
         project->documentGeneration,
         project->manifestGeneration,
@@ -109,8 +109,8 @@ TEST(NavigationServiceTests, NavigatesWildcardEnumValuesToPatternDeclaration) {
         project->id,
         project->generation,
         {
-            {declarationPath, "extern enum Item { RG_* }\n"},
-            {usagePath, usage},
+            {declarationPath.generic_string(), "extern enum Item { RG_* }\n"},
+            {usagePath.generic_string(), usage},
         },
         project->documentGeneration,
         project->manifestGeneration,
@@ -169,7 +169,7 @@ TEST(NavigationServiceTests, KeepsSameNameParametersInSeparateScopes) {
     ASSERT_TRUE(scheduler.schedule({
         project->id,
         project->generation,
-        {{sourcePath, content}},
+        {{sourcePath.generic_string(), content}},
         project->documentGeneration,
         project->manifestGeneration,
     }));
@@ -219,7 +219,7 @@ TEST(NavigationServiceTests, BuildsStableSourceOrderedDocumentSymbolHierarchy) {
     ASSERT_TRUE(scheduler.schedule({
         project->id,
         project->generation,
-        {{sourcePath, content}},
+        {{sourcePath.generic_string(), content}},
         project->documentGeneration,
         project->manifestGeneration,
     }));
@@ -295,7 +295,7 @@ TEST(NavigationServiceTests, FiltersAndOrdersWorkspaceProjectDeclarations) {
     ASSERT_TRUE(scheduler.schedule({
         firstProjectId,
         firstProject->generation,
-        {{firstPath,
+        {{firstPath.generic_string(),
             "enum Holder { ALPHA_MEMBER }\n"
             "extern define alpha_host() -> Bool\n"
             "define alpha_define(): true\n"
@@ -306,7 +306,7 @@ TEST(NavigationServiceTests, FiltersAndOrdersWorkspaceProjectDeclarations) {
     ASSERT_TRUE(scheduler.schedule({
         secondProjectId,
         secondProject->generation,
-        {{secondPath, "define alpha_other(): true\n"}},
+        {{secondPath.generic_string(), "define alpha_other(): true\n"}},
         secondProject->documentGeneration,
         secondProject->manifestGeneration,
     }));
@@ -368,8 +368,8 @@ TEST(NavigationServiceTests, CoversDefinitionAndReferenceCategoriesAcrossProject
         project->id,
         project->generation,
         {
-            {declarationPath, declarations},
-            {usagePath, usages},
+            {declarationPath.generic_string(), declarations},
+            {usagePath.generic_string(), usages},
         },
         project->documentGeneration,
         project->manifestGeneration,
@@ -441,7 +441,7 @@ TEST(NavigationServiceTests, ResolvesCanonicalRegionAndRejectsUnresolvedOrAmbigu
     ASSERT_TRUE(scheduler.schedule({
         project->id,
         project->generation,
-        {{sourcePath, content}},
+        {{sourcePath.generic_string(), content}},
         project->documentGeneration,
         project->manifestGeneration,
     }));
@@ -496,8 +496,8 @@ TEST(NavigationServiceTests, RejectsNavigationFromCurrentMalformedOverlay) {
         project->id,
         project->generation,
         {
-            {declarationPath, "define target(): true\n"},
-            {usagePath, "define caller(): target()\n"},
+            {declarationPath.generic_string(), "define target(): true\n"},
+            {usagePath.generic_string(), "define caller(): target()\n"},
         },
         project->documentGeneration,
         project->manifestGeneration,
@@ -517,8 +517,8 @@ TEST(NavigationServiceTests, RejectsNavigationFromCurrentMalformedOverlay) {
         project->id,
         project->generation,
         {
-            {declarationPath, "define target(): true\n"},
-            {usagePath, "define caller(): target(\n"},
+            {declarationPath.generic_string(), "define target(): true\n"},
+            {usagePath.generic_string(), "define caller(): target(\n"},
         },
         project->documentGeneration,
         project->manifestGeneration,

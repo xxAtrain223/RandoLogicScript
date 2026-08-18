@@ -63,15 +63,15 @@ std::optional<CurrentDocument> currentDocument(
     const ProjectManager& projects, const AnalysisScheduler& scheduler,
     std::string_view uri) {
     const auto* project = projects.projectForDocument(uri);
-    const auto path = FileUriToPath(uri);
-    if (!project || !path) {
+    const auto identity = projects.sourceIdentityForDocument(uri);
+    if (!project || !identity) {
         return std::nullopt;
     }
     const auto snapshot = scheduler.acceptedSnapshot(project->id);
     if (!snapshot || snapshot->generation() != project->generation) {
         return std::nullopt;
     }
-    const std::string documentPath = pathString(*path);
+    const std::string& documentPath = *identity;
     if (!snapshot->sourceText(documentPath) || !snapshot->sourceIndex(documentPath)) {
         return std::nullopt;
     }

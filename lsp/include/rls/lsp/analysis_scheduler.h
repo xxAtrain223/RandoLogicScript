@@ -21,9 +21,12 @@
 namespace rls::lsp {
 
 struct AnalysisSource {
-    std::filesystem::path path;
+    // Stable source identifier passed through parser, sema, and LSP results.
+    std::string identity;
     // Present content bypasses disk I/O; absence delegates to SourceReader.
     std::optional<std::string> content;
+    // Disk location is deliberately separate from the source identity.
+    std::optional<std::filesystem::path> diskPath;
 };
 
 struct AnalysisRequest {

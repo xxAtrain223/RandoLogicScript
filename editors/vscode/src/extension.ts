@@ -102,7 +102,10 @@ async function startClient(context: vscode.ExtensionContext): Promise<void> {
   };
   const serverOptions: ServerOptions = executable;
   const clientOptions: LanguageClientOptions = {
-    documentSelector: [{ scheme: 'file', language: 'rls' }],
+    documentSelector: [
+      { scheme: 'file', language: 'rls' },
+      { scheme: 'untitled', language: 'rls' },
+    ],
     initializationOptions: {
       completion: {
         sectionSnippetIndentation: configuredSectionSnippetIndentation(),
