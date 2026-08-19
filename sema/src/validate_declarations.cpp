@@ -208,7 +208,33 @@ static void checkEntryConditionTypes(
 	}
 }
 
-/// Check 4: Every region must be reachable from RR_ROOT via exits.
+/// Check 4: Every exit must target a declared region.
+static void checkExitTargets(
+	ast::Project& project, std::vector<ast::Diagnostic>& diags)
+{
+	auto check = [&](const std::vector<ast::Section>& sections) {
+		for (const auto& section : sections) {
+			if (section.kind != ast::SectionKind::Exits) continue;
+			for (const auto& entry : section.entries) {
+				if (!project.RegionDecls.contains(entry.name.text)) {
+					diags.push_back(diagnostics::ExitTargetMissingRegion(
+						entry.name.span, entry.name.text));
+				}
+			}
+		}
+	};
+
+	for (const auto& [_, decl] : project.RegionDecls) {
+		check(decl->body.sections);
+	}
+	for (const auto& [_, decls] : project.ExtendRegionDecls) {
+		for (const auto* decl : decls) {
+			check(decl->sections);
+		}
+	}
+}
+
+/// Check 5: Every region must be reachable from RR_ROOT via exits.
 static void checkRegionReachability(
 	ast::Project& project, std::vector<ast::Diagnostic>& diags)
 {
@@ -416,6 +442,7 @@ std::vector<ast::Diagnostic> validateDeclarations(ast::Project& project) {
 	checkDuplicateRegionData(project, diags);
 	checkDuplicateEntries(project, diags);
 	checkEntryConditionTypes(project, diags);
+	checkExitTargets(project, diags);
 	checkRegionReachability(project, diags);
 	checkUnusedDefines(project, diags);
 	checkFunctionSignatures(project, diags);

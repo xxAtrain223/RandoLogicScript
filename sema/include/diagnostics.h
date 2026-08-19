@@ -196,6 +196,11 @@ inline ast::Diagnostic ExternEnumWildcardOverlap(ast::Span span, std::string_vie
 inline ast::Diagnostic EnumValueNameCollision(ast::Span span, std::string_view value, std::string_view enumNames) {
 	return {"RLS-V019", std::move(span), ast::DiagnosticLevel::Warning, std::format("enum value '{}' appears in multiple enums ({}) and may require dotted disambiguation", value, enumNames)};
 }
+inline ast::Diagnostic ExitTargetMissingRegion(ast::Span span, std::string_view regionName) {
+	return {"RLS-V020", std::move(span), ast::DiagnosticLevel::Warning,
+		std::format("exit targets region '{}' without a region declaration", regionName),
+		ast::DiagnosticActionData{1, "rls.createRegion", {std::string(regionName)}}};
+}
 
 inline bool IsDuplicateRegionData(const ast::Diagnostic& diagnostic) {
 	return diagnostic.code == "RLS-V002";

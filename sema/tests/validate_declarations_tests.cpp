@@ -129,6 +129,9 @@ TEST(ValidateDeclarations, ExtendRegionMultipleExtendsOnSameValidRegion) {
 		"    name: \"Foyer\"\n"
 		"    scene: SCENE_SPIRIT_TEMPLE\n"
 		"}\n"
+		"region RR_OTHER {\n"
+		"    name: \"Other\"\n"
+		"}\n"
 		"extend region RR_FOYER {\n"
 		"    locations { RC_POT: always }\n"
 		"}\n"
@@ -334,6 +337,42 @@ TEST(ValidateDeclarations, EntryConditionBool_Ok) {
 		"    }\n"
 		"}\n");
 	EXPECT_EQ(countErrors(diags), 0u);
+}
+
+// == Exit targets have region declarations ===================================
+
+TEST(ValidateDeclarations, ExitTargetMissingRegionWarnsAtExitKey) {
+	auto [project, diags] = validateFromSource(
+		"region RR_ROOT {\n"
+		"    exits {\n"
+		"        RR_MISSING: always\n"
+		"    }\n"
+		"}\n");
+
+	ASSERT_EQ(countWarnings(diags), 1u);
+	const auto& diagnostic = diags[0];
+	EXPECT_EQ(diagnostic.code, "RLS-V020");
+	EXPECT_EQ(diagnostic.level, DiagnosticLevel::Warning);
+	EXPECT_EQ(diagnostic.message,
+		"exit targets region 'RR_MISSING' without a region declaration");
+	const auto& exit = project.RegionDecls.at("RR_ROOT")->body.sections[0].entries[0];
+	EXPECT_EQ(diagnostic.span.file, exit.name.span.file);
+	EXPECT_EQ(diagnostic.span.start.line, exit.name.span.start.line);
+	EXPECT_EQ(diagnostic.span.start.column, exit.name.span.start.column);
+	EXPECT_EQ(diagnostic.span.end.line, exit.name.span.end.line);
+	EXPECT_EQ(diagnostic.span.end.column, exit.name.span.end.column);
+}
+
+TEST(ValidateDeclarations, ExitTargetMissingRegionInExtensionWarns) {
+	auto [project, diags] = validateFromSource(
+		"region RR_ROOT {}\n"
+		"extend region RR_ROOT {\n"
+		"    exits { RR_MISSING: always }\n"
+		"}\n");
+
+	ASSERT_EQ(countWarnings(diags), 1u);
+	EXPECT_EQ(diags[0].code, "RLS-V020");
+	EXPECT_NE(diags[0].message.find("RR_MISSING"), std::string::npos);
 }
 
 TEST(ValidateDeclarations, EntryConditionInt_Ok) {
