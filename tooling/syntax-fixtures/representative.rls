@@ -20,7 +20,8 @@ region RR_SAMPLE {
     }
 
     exits {
-        RR_NEXT: always
+        RR_NEXT:
+            always
     }
 }
 

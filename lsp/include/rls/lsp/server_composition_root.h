@@ -14,6 +14,7 @@
 #include "rls/lsp/navigation_service.h"
 #include "rls/lsp/outbound_message_queue.h"
 #include "rls/lsp/project_manager.h"
+#include "rls/lsp/rename_service.h"
 #include "rls/lsp/semantic_tokens_service.h"
 #include "rls/lsp/signature_help_service.h"
 #include "rls/lsp/workspace_service.h"
@@ -45,6 +46,7 @@ private:
     DiagnosticPublisher diagnostics_;
     AnalysisScheduler scheduler_;
     NavigationService navigation_;
+    RenameService rename_;
     CompletionService completion_;
     SignatureHelpService signatureHelp_;
     HoverService hover_;

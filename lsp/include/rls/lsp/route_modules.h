@@ -8,6 +8,7 @@ class HoverService;
 class JsonRpcRouter;
 class LifecycleService;
 class NavigationService;
+class RenameService;
 class SemanticTokensService;
 class SignatureHelpService;
 class WorkspaceService;
@@ -22,6 +23,8 @@ void RegisterAuthoringRoutes(
 void RegisterNavigationRoutes(
     JsonRpcRouter& router, LifecycleService& lifecycle, NavigationService& navigation,
     WorkspaceService& workspace);
+void RegisterRenameRoutes(
+    JsonRpcRouter& router, LifecycleService& lifecycle, RenameService& rename);
 void RegisterSemanticTokenRoutes(
     JsonRpcRouter& router, SemanticTokensService& semanticTokens);
 void RegisterWorkspaceRoutes(

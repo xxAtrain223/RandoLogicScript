@@ -10,6 +10,7 @@ ServerCompositionRoot::ServerCompositionRoot(ProjectManager::Resolver resolver)
     : projects_(documents_, std::move(resolver)),
       diagnostics_(outbound_),
     navigation_(projects_, scheduler_),
+    rename_(documents_, projects_, scheduler_),
     completion_(projects_, scheduler_),
     signatureHelp_(projects_, scheduler_),
     hover_(projects_, scheduler_),
@@ -24,6 +25,7 @@ ServerCompositionRoot::ServerCompositionRoot(ProjectManager::Resolver resolver)
     RegisterDocumentSynchronizationRoutes(router_, synchronization_);
     RegisterAuthoringRoutes(router_, lifecycle_, completion_, signatureHelp_, hover_);
     RegisterNavigationRoutes(router_, lifecycle_, navigation_, workspace_);
+    RegisterRenameRoutes(router_, lifecycle_, rename_);
     RegisterSemanticTokenRoutes(router_, semanticTokens_);
     RegisterWorkspaceRoutes(router_, lifecycle_, workspace_);
     router_.requireRoutes({
@@ -40,6 +42,8 @@ ServerCompositionRoot::ServerCompositionRoot(ProjectManager::Resolver resolver)
         "textDocument/semanticTokens/full",
         "textDocument/definition",
         "textDocument/references",
+        "textDocument/prepareRename",
+        "textDocument/rename",
         "textDocument/documentHighlight",
         "textDocument/documentSymbol",
         "workspace/symbol",

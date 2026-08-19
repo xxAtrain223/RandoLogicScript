@@ -206,6 +206,12 @@ std::vector<SymbolId> SemanticIndex::visibleSymbolsAt(std::string_view file,
 	return result;
 }
 
+bool SemanticIndex::patternMatches(SymbolId id, std::string_view value) const {
+	const auto symbol = declaration(id);
+	return symbol && symbol->category == SymbolCategory::ExternEnumPattern
+		&& globMatches(symbol->displayName, value);
+}
+
 SemanticIndex buildSemanticIndex(const ast::Project& project,
 	const std::vector<ast::Diagnostic>& diagnostics) {
 	SemanticIndex index;
@@ -226,17 +232,25 @@ SemanticIndex buildSemanticIndex(const ast::Project& project,
 				parameter.defaultValue != nullptr);
 		}
 	};
+	std::unordered_map<std::string, SymbolId> regionDataSymbols;
+	std::unordered_map<std::string, SymbolId> eventSymbols;
+	std::unordered_map<std::string, SymbolId> locationSymbols;
 	auto addSections = [&](const std::vector<ast::Section>& sections, SymbolId container) {
 		for (const auto& section : sections) {
+			if (section.kind == ast::SectionKind::Exits) continue;
 			const auto type = section.kind == ast::SectionKind::Events
 				? std::optional(ast::Type::Event)
-				: section.kind == ast::SectionKind::Locations
-					? std::optional(ast::Type::Location)
-					: std::nullopt;
+				: std::optional(ast::Type::Location);
 			for (const auto& entry : section.entries) {
-				index.addSymbol(SymbolCategory::SectionEntry, SymbolProvenance::Source,
+				const auto id = index.addSymbol(
+					SymbolCategory::SectionEntry, SymbolProvenance::Source,
 					entry.name.text, entry.span, entry.name.span, container,
 					std::nullopt, type);
+				auto& canonicalSymbols = *type == ast::Type::Event
+					? eventSymbols : locationSymbols;
+				const auto [canonical, inserted] = canonicalSymbols.try_emplace(
+					entry.name.text, id);
+				if (!inserted) index.occurrences_.back().symbol = canonical->second;
 			}
 		}
 	};
@@ -250,8 +264,12 @@ SemanticIndex buildSemanticIndex(const ast::Project& project,
 						node.key.text, node.span, node.key.span, std::nullopt,
 						std::nullopt, ast::Type::Region);
 					for (const auto& data : node.body.data) {
-						index.addSymbol(SymbolCategory::RegionDataEntry, SymbolProvenance::Source,
+						const auto dataId = index.addSymbol(
+							SymbolCategory::RegionDataEntry, SymbolProvenance::Source,
 							data.key.text, data.span, data.key.span, id);
+						const auto [canonical, inserted] = regionDataSymbols.try_emplace(
+							data.key.text, dataId);
+						if (!inserted) index.occurrences_.back().symbol = canonical->second;
 					}
 					addSections(node.body.sections, id);
 				} else if constexpr (std::is_same_v<T, ast::ExtendRegionDecl>) {
@@ -314,6 +332,45 @@ SemanticIndex buildSemanticIndex(const ast::Project& project,
 		}
 		return std::nullopt;
 	};
+	auto findUniquePattern = [&](SymbolId enumId, std::string_view valueName) {
+		std::optional<SymbolId> result;
+		for (const auto& symbol : index.symbols_) {
+			if (symbol.category != SymbolCategory::ExternEnumPattern
+				|| symbol.container != enumId
+				|| !globMatches(symbol.displayName, valueName)) {
+				continue;
+			}
+			if (result) return std::optional<SymbolId>{};
+			result = symbol.id;
+		}
+		return result;
+	};
+	auto addExitReferences = [&](const std::vector<ast::Section>& sections) {
+		for (const auto& section : sections) {
+			if (section.kind != ast::SectionKind::Exits) continue;
+			for (const auto& entry : section.entries) {
+				auto target = findSymbol(SymbolCategory::Region, entry.name.text);
+				if (!target) {
+					const auto regionEnum = findSymbol(SymbolCategory::Enum, "Region");
+					if (regionEnum) target = findUniquePattern(*regionEnum, entry.name.text);
+				}
+				index.occurrences_.push_back({target, entry.name.span,
+					target ? OccurrenceKind::ExitTarget : OccurrenceKind::Unresolved});
+			}
+		}
+	};
+	for (const auto& file : project.files) {
+		for (const auto& declaration : file.declarations) {
+			std::visit([&](const auto& node) {
+				using T = std::decay_t<decltype(node)>;
+				if constexpr (std::is_same_v<T, ast::RegionDecl>) {
+					addExitReferences(node.body.sections);
+				} else if constexpr (std::is_same_v<T, ast::ExtendRegionDecl>) {
+					addExitReferences(node.sections);
+				}
+			}, declaration);
+		}
+	}
 	auto addTypeReference = [&](const ast::TypeRef& typeReference) {
 		if (typeFromAnnotation(typeReference.name.text)) {
 			index.occurrences_.push_back({std::nullopt, typeReference.name.span,
@@ -414,19 +471,6 @@ SemanticIndex buildSemanticIndex(const ast::Project& project,
 			index.observedEnumValues_.push_back({
 				std::string(displayName), std::string(enumName)});
 		}
-	};
-	auto findUniquePattern = [&](SymbolId enumId, std::string_view valueName) {
-		std::optional<SymbolId> result;
-		for (const auto& symbol : index.symbols_) {
-			if (symbol.category != SymbolCategory::ExternEnumPattern
-				|| symbol.container != enumId
-				|| !globMatches(symbol.displayName, valueName)) {
-				continue;
-			}
-			if (result) return std::optional<SymbolId>{};
-			result = symbol.id;
-		}
-		return result;
 	};
 	auto isPatternSymbol = [&](std::optional<SymbolId> symbolId) {
 		if (!symbolId) return false;
@@ -586,8 +630,15 @@ SemanticIndex buildSemanticIndex(const ast::Project& project,
 						size_t parameterIndex = 0;
 						for (const auto& symbol : index.symbols_) {
 							if (symbol.category != SymbolCategory::Parameter || symbol.container != target) continue;
-							if (parameterIndex++ != *binding || !symbol.type) continue;
-							index.expectedTypes_.push_back({argument.value->span, *symbol.type, symbol.enumName});
+							if (parameterIndex++ != *binding) continue;
+							if (argument.name) {
+								index.occurrences_.push_back({
+									symbol.id, argument.name->span, OccurrenceKind::Reference});
+							}
+							if (symbol.type) {
+								index.expectedTypes_.push_back({
+									argument.value->span, *symbol.type, symbol.enumName});
+							}
 							break;
 						}
 					}

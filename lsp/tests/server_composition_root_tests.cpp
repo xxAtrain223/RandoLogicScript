@@ -31,6 +31,8 @@ TEST(ServerCompositionRootTests, RegistersOnlyImplementedRoutes) {
     EXPECT_TRUE(server.router().contains("workspace/didChangeWatchedFiles"));
     EXPECT_TRUE(server.router().contains("textDocument/definition"));
     EXPECT_TRUE(server.router().contains("textDocument/references"));
+    EXPECT_TRUE(server.router().contains("textDocument/prepareRename"));
+    EXPECT_TRUE(server.router().contains("textDocument/rename"));
     EXPECT_TRUE(server.router().contains("textDocument/documentHighlight"));
     EXPECT_TRUE(server.router().contains("textDocument/documentSymbol"));
     EXPECT_TRUE(server.router().contains("textDocument/completion"));
@@ -52,6 +54,7 @@ TEST(ServerCompositionRootTests, AdvertisesImplementedTextDocumentFeatures) {
     EXPECT_TRUE(result["capabilities"]["workspace"]["workspaceFolders"]["supported"]);
     EXPECT_EQ(result["capabilities"]["definitionProvider"], true);
     EXPECT_EQ(result["capabilities"]["referencesProvider"], true);
+    EXPECT_EQ(result["capabilities"]["renameProvider"]["prepareProvider"], true);
     EXPECT_EQ(result["capabilities"]["documentHighlightProvider"], true);
     EXPECT_EQ(result["capabilities"]["documentSymbolProvider"], true);
     EXPECT_EQ(result["capabilities"]["completionProvider"]["resolveProvider"], false);
@@ -635,6 +638,56 @@ TEST(ServerCompositionRootTests, RoutesReferencesAndDocumentHighlights) {
     ASSERT_EQ(highlights.size(), 3u);
     EXPECT_EQ(highlights[0]["kind"], 1);
     EXPECT_EQ(highlights[0]["range"]["start"]["line"], 0);
+}
+
+TEST(ServerCompositionRootTests, RoutesPrepareRenameAndVersionedRename) {
+    const fs::path sourcePath = fs::temp_directory_path() / "rls-rename-route.rls";
+    const std::string uri = *rls::lsp::PathToFileUri(sourcePath);
+    ServerCompositionRoot server(standaloneProject);
+    server.handlePayload(R"({
+        "jsonrpc":"2.0","id":1,"method":"initialize","params":{
+            "capabilities":{"workspace":{"workspaceEdit":{"documentChanges":true}}}
+        }
+    })");
+    server.handlePayload(
+        R"({"jsonrpc":"2.0","method":"initialized","params":{}})");
+    server.handlePayload(Json{
+        {"jsonrpc", "2.0"},
+        {"method", "textDocument/didOpen"},
+        {"params", {{"textDocument", {
+            {"uri", uri},
+            {"languageId", "rls"},
+            {"version", 4},
+            {"text", "define target(): true\ndefine caller(): target()\n"},
+        }}}},
+    }.dump());
+    server.scheduler().waitForIdle();
+
+    const auto request = [&](std::string method, Json extra) {
+        Json params = {
+            {"textDocument", {{"uri", uri}}},
+            {"position", {{"line", 1}, {"character", 18}}},
+        };
+        if (!extra.is_null()) {
+            params.update(std::move(extra));
+        }
+        return Json::parse(server.handlePayload(Json{
+            {"jsonrpc", "2.0"}, {"id", 2}, {"method", std::move(method)},
+            {"params", std::move(params)},
+        }.dump()).front());
+    };
+
+    const auto prepared = request("textDocument/prepareRename", {});
+    EXPECT_EQ(prepared["result"]["start"]["character"], 17);
+    EXPECT_EQ(prepared["result"]["end"]["character"], 23);
+
+    const auto renamed = request("textDocument/rename", {{"newName", "replacement"}});
+    const auto& changes = renamed["result"]["documentChanges"];
+    ASSERT_EQ(changes.size(), 1u);
+    EXPECT_EQ(changes[0]["textDocument"]["uri"], uri);
+    EXPECT_EQ(changes[0]["textDocument"]["version"], 4);
+    ASSERT_EQ(changes[0]["edits"].size(), 2u);
+    EXPECT_EQ(changes[0]["edits"][0]["newText"], "replacement");
 }
 
 TEST(ServerCompositionRootTests, RoutesHierarchicalDocumentSymbols) {

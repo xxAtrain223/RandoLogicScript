@@ -1393,7 +1393,7 @@
   },
   {
     "line": 23,
-    "text": "        RR_NEXT: always",
+    "text": "        RR_NEXT:",
     "tokens": [
       {
         "start": 0,
@@ -1417,17 +1417,23 @@
           "source.rls",
           "punctuation.separator.rls"
         ]
-      },
+      }
+    ]
+  },
+  {
+    "line": 24,
+    "text": "            always",
+    "tokens": [
       {
-        "start": 16,
-        "end": 17,
+        "start": 0,
+        "end": 12,
         "scopes": [
           "source.rls"
         ]
       },
       {
-        "start": 17,
-        "end": 23,
+        "start": 12,
+        "end": 18,
         "scopes": [
           "source.rls",
           "constant.language.boolean.rls"
@@ -1436,7 +1442,7 @@
     ]
   },
   {
-    "line": 24,
+    "line": 25,
     "text": "    }",
     "tokens": [
       {
@@ -1457,7 +1463,7 @@
     ]
   },
   {
-    "line": 25,
+    "line": 26,
     "text": "}",
     "tokens": [
       {
@@ -1471,7 +1477,7 @@
     ]
   },
   {
-    "line": 26,
+    "line": 27,
     "text": "",
     "tokens": [
       {
@@ -1484,7 +1490,7 @@
     ]
   },
   {
-    "line": 27,
+    "line": 28,
     "text": "extend region RR_SAMPLE {",
     "tokens": [
       {
@@ -1543,7 +1549,7 @@
     ]
   },
   {
-    "line": 28,
+    "line": 29,
     "text": "    locations {",
     "tokens": [
       {
@@ -1579,7 +1585,7 @@
     ]
   },
   {
-    "line": 29,
+    "line": 30,
     "text": "        RC_SAMPLE: can_enter(RG_HOOKSHOT)",
     "tokens": [
       {
@@ -1647,7 +1653,7 @@
     ]
   },
   {
-    "line": 30,
+    "line": 31,
     "text": "    }",
     "tokens": [
       {
@@ -1668,7 +1674,7 @@
     ]
   },
   {
-    "line": 31,
+    "line": 32,
     "text": "}",
     "tokens": [
       {
@@ -1682,7 +1688,7 @@
     ]
   },
   {
-    "line": 32,
+    "line": 33,
     "text": "",
     "tokens": [
       {
@@ -1695,7 +1701,7 @@
     ]
   },
   {
-    "line": 33,
+    "line": 34,
     "text": "# Keep this incomplete source editable while typing.",
     "tokens": [
       {
@@ -1709,7 +1715,7 @@
     ]
   },
   {
-    "line": 34,
+    "line": 35,
     "text": "define unfinished(value: int): match value {",
     "tokens": [
       {

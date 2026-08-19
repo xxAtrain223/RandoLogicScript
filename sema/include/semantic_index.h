@@ -47,6 +47,7 @@ enum class OccurrenceKind {
 	TypeReference,
 	MemberAccess,
 	ExtensionTarget,
+	ExitTarget,
 	Unresolved,
 };
 
@@ -126,6 +127,7 @@ public:
 	std::optional<ExpectedTypeRecord> expectedTypeAt(std::string_view file, ast::Position position) const;
 	std::optional<CallRecord> callAt(std::string_view file, ast::Position position) const;
 	std::vector<SymbolId> visibleSymbolsAt(std::string_view file, ast::Position position) const;
+	bool patternMatches(SymbolId id, std::string_view value) const;
 
 private:
 	std::vector<SymbolRecord> symbols_;

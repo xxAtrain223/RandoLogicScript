@@ -8,6 +8,10 @@ Apply safe, semantic multi-file edits for supported symbol renames and provide d
 
 Consume stable symbols/references/diagnostic metadata from [plan-compilerQueryModelAndDiagnosticLsp.prompt.md](plan-compilerQueryModelAndDiagnosticLsp.prompt.md), navigation semantics from [plan-symbolNavigationAndDiscovery.prompt.md](plan-symbolNavigationAndDiscovery.prompt.md), authoring data from [plan-authoringAssistanceAndDocumentation.prompt.md](plan-authoringAssistanceAndDocumentation.prompt.md), and workspace-edit routing from [plan-explicitFeatureOrientedLsp.prompt.md](plan-explicitFeatureOrientedLsp.prompt.md). This plan does not add textual search-and-replace fallback.
 
+### Implementation Status
+
+Rename eligibility and execution are implemented. Diagnostic code actions remain deferred.
+
 ### 1. Rename Eligibility
 
 1. Implement `prepareRename` from `symbolAt` and symbol-category policy.

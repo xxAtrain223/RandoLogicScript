@@ -106,6 +106,8 @@ std::vector<std::string> JsonRpcRouter::handlePayload(std::string_view payload) 
                 };
             } catch (const InvalidParams&) {
                 return errorResponse(message["id"], -32602, "Invalid params");
+            } catch (const RequestFailed& error) {
+                return errorResponse(message["id"], -32803, error.what());
             } catch (const Json::exception&) {
                 return errorResponse(message["id"], -32602, "Invalid params");
             } catch (const std::exception&) {

@@ -95,6 +95,7 @@ std::optional<AbsoluteToken> makeToken(
     auto type = tokenType(symbol.category);
     const bool concretePatternValue = symbol.category == sema::SymbolCategory::ExternEnumPattern
         && occurrence.kind != sema::OccurrenceKind::Declaration;
+    const bool exitTarget = occurrence.kind == sema::OccurrenceKind::ExitTarget;
     if (concretePatternValue) type = TokenType::EnumMember;
     if (symbol.category == sema::SymbolCategory::SectionEntry
         && occurrence.kind != sema::OccurrenceKind::Declaration) {
@@ -103,6 +104,9 @@ std::optional<AbsoluteToken> makeToken(
     const bool concreteRegionValue = symbol.category == sema::SymbolCategory::Region
         && occurrence.kind != sema::OccurrenceKind::Declaration;
     if (concreteRegionValue) type = TokenType::EnumMember;
+    if (exitTarget) {
+        type = TokenType::Property;
+    }
     if (!type || occurrence.span.start.line == 0
         || occurrence.span.start.line != occurrence.span.end.line) {
         return std::nullopt;
@@ -123,10 +127,11 @@ std::optional<AbsoluteToken> makeToken(
                 ? TokenModifier::Definition
                 : TokenModifier::Declaration);
     }
-    if (isReadonly(symbol.category) || concretePatternValue || concreteRegionValue) {
+    if (isReadonly(symbol.category) || (concretePatternValue && !exitTarget)
+        || (concreteRegionValue && !exitTarget)) {
         modifiers |= modifier(TokenModifier::Readonly);
     }
-    if (isDefaultLibrary(snapshot.semanticIndex(), symbol)) {
+    if (!exitTarget && isDefaultLibrary(snapshot.semanticIndex(), symbol)) {
         modifiers |= modifier(TokenModifier::DefaultLibrary);
     }
     return AbsoluteToken{

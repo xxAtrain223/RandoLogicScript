@@ -130,7 +130,7 @@
     "named-arguments": {
       "patterns": [
         {
-          "match": "\\b([A-Za-z_][A-Za-z0-9_]*)(?=\\s*:\\s*(?!$))",
+          "match": "\\b([A-Za-z_][A-Za-z0-9_]*)(?=\\s*:)",
           "captures": {
             "1": { "name": "variable.parameter.rls" }
           }

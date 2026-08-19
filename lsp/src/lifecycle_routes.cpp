@@ -84,6 +84,16 @@ bool completionSnippetSupport(const Json& params) {
     return completionItem.value("snippetSupport", false);
 }
 
+bool workspaceDocumentChangesSupport(const Json& params) {
+    if (!params.contains("capabilities")) return false;
+    const auto& capabilities = requireObject(params.at("capabilities"));
+    if (!capabilities.contains("workspace")) return false;
+    const auto& workspace = requireObject(capabilities.at("workspace"));
+    if (!workspace.contains("workspaceEdit")) return false;
+    const auto& workspaceEdit = requireObject(workspace.at("workspaceEdit"));
+    return workspaceEdit.value("documentChanges", false);
+}
+
 SectionSnippetIndentation sectionSnippetIndentation(const Json& params) {
     if (!params.contains("initializationOptions")
         || !params.at("initializationOptions").is_object()) {
@@ -117,7 +127,8 @@ void RegisterLifecycleRoutes(
         }
         lifecycle.initialize(
             definitionLinkSupport(params), documentSymbolHierarchySupport(params),
-            completionSnippetSupport(params), sectionSnippetIndentation(params));
+            completionSnippetSupport(params), sectionSnippetIndentation(params),
+            workspaceDocumentChangesSupport(params));
         return Json{
             {"capabilities", {
                 {"textDocumentSync", {
@@ -126,6 +137,7 @@ void RegisterLifecycleRoutes(
                 }},
                 {"definitionProvider", true},
                 {"referencesProvider", true},
+                {"renameProvider", {{"prepareProvider", true}}},
                 {"documentHighlightProvider", true},
                 {"documentSymbolProvider", true},
                 {"completionProvider", {

@@ -6,8 +6,8 @@ namespace rls::lsp {
 
 void LifecycleService::initialize(
     bool definitionLinkSupport, bool documentSymbolHierarchySupport,
-    bool completionSnippetSupport,
-    SectionSnippetIndentation sectionSnippetIndentation) {
+    bool completionSnippetSupport, SectionSnippetIndentation sectionSnippetIndentation,
+    bool workspaceDocumentChangesSupport) {
     if (initializeRequested_) {
         throw std::logic_error("initialize was already requested");
     }
@@ -15,6 +15,7 @@ void LifecycleService::initialize(
     definitionLinkSupport_ = definitionLinkSupport;
     documentSymbolHierarchySupport_ = documentSymbolHierarchySupport;
     completionSnippetSupport_ = completionSnippetSupport;
+    workspaceDocumentChangesSupport_ = workspaceDocumentChangesSupport;
     sectionSnippetIndentation_ = sectionSnippetIndentation;
 }
 
@@ -50,6 +51,10 @@ bool LifecycleService::supportsDocumentSymbolHierarchy() const {
 
 bool LifecycleService::supportsCompletionSnippets() const {
     return completionSnippetSupport_;
+}
+
+bool LifecycleService::supportsWorkspaceDocumentChanges() const {
+    return workspaceDocumentChangesSupport_;
 }
 
 SectionSnippetIndentation LifecycleService::sectionSnippetIndentation() const {

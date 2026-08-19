@@ -17,6 +17,11 @@ public:
     using std::runtime_error::runtime_error;
 };
 
+class RequestFailed : public std::runtime_error {
+public:
+    using std::runtime_error::runtime_error;
+};
+
 class JsonRpcRouter {
 public:
     using Json = nlohmann::json;

@@ -91,7 +91,7 @@ TEST(SemanticTokensServiceTests, EncodesResolvedCategoriesAndModifiers) {
         "extern enum Color { RED }\n"
         "extern define paint(color: Color) -> Bool\n"
         "define use(input: Color): paint(input == RED)\n"
-        "region RR_TEST { name: \"Test\" events { EVENT_TEST: true } exits { RR_EXIT: true } }\n"
+        "region RR_TEST { name: \"Test\" events { EVENT_TEST: true } exits { RR_TEST: true RR_UNKNOWN: true } }\n"
         "extend region RR_TEST {}\n"
         "define event_value(): EVENT_TEST\n"
         "define region_value(): RR_TEST\n");
@@ -109,6 +109,7 @@ TEST(SemanticTokensServiceTests, EncodesResolvedCategoriesAndModifiers) {
     const auto* property = tokenAt(tokens, 3, 17);
     const auto* entry = tokenAt(tokens, 3, 39);
     const auto* exit = tokenAt(tokens, 3, 66);
+    const auto* unresolvedExit = tokenAt(tokens, 3, 80);
     const auto* extensionTarget = tokenAt(tokens, 4, 14);
     const auto* entryUse = tokenAt(tokens, 5, 22);
     const auto* regionUse = tokenAt(tokens, 6, 23);
@@ -144,7 +145,8 @@ TEST(SemanticTokensServiceTests, EncodesResolvedCategoriesAndModifiers) {
     EXPECT_EQ(entry->modifiers, 1u);
     ASSERT_NE(exit, nullptr);
     EXPECT_EQ(exit->type, 4u);
-    EXPECT_EQ(exit->modifiers, 1u);
+    EXPECT_EQ(exit->modifiers, 0u);
+    EXPECT_EQ(unresolvedExit, nullptr);
     ASSERT_NE(entryUse, nullptr);
     EXPECT_EQ(entryUse->type, 3u);
     EXPECT_EQ(entryUse->modifiers, 0u);
@@ -171,6 +173,18 @@ TEST(SemanticTokensServiceTests, UsesUtf16ColumnsAndOmitsUnresolvedNames) {
         "define use(): SHARED\n");
     const auto ambiguousTokens = ambiguous.tokens();
     EXPECT_EQ(tokenAt(ambiguousTokens, 2, 14), nullptr);
+}
+
+TEST(SemanticTokensServiceTests, HighlightsPatternBackedExitAsPlainProperty) {
+    SemanticTokensFixture fixture(
+        "extern enum Region { RR_* }\n"
+        "region RR_LOCAL { exits { RR_EXTERNAL: true } }\n");
+
+    const auto tokens = fixture.tokens();
+    const auto* exit = tokenAt(tokens, 1, 26);
+    ASSERT_NE(exit, nullptr);
+    EXPECT_EQ(exit->type, 4u);
+    EXPECT_EQ(exit->modifiers, 0u);
 }
 
 TEST(SemanticTokensServiceTests, EmitsLogicalOperatorsWithTheSameType) {

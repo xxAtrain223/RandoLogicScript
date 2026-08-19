@@ -14,7 +14,8 @@ public:
         bool documentSymbolHierarchySupport = false,
         bool completionSnippetSupport = false,
         SectionSnippetIndentation sectionSnippetIndentation =
-            SectionSnippetIndentation::Server);
+            SectionSnippetIndentation::Server,
+        bool workspaceDocumentChangesSupport = false);
     void initialized();
     void shutdown();
     void exit();
@@ -23,6 +24,7 @@ public:
     bool supportsDefinitionLinks() const;
     bool supportsDocumentSymbolHierarchy() const;
     bool supportsCompletionSnippets() const;
+    bool supportsWorkspaceDocumentChanges() const;
     SectionSnippetIndentation sectionSnippetIndentation() const;
     bool shouldExit() const;
     int exitCode() const;
@@ -32,6 +34,7 @@ private:
     bool definitionLinkSupport_ = false;
     bool documentSymbolHierarchySupport_ = false;
     bool completionSnippetSupport_ = false;
+    bool workspaceDocumentChangesSupport_ = false;
     SectionSnippetIndentation sectionSnippetIndentation_ =
         SectionSnippetIndentation::Server;
     bool initialized_ = false;
