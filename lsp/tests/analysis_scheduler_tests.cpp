@@ -291,6 +291,23 @@ TEST(AnalysisSchedulerTests, DefaultReaderAnalyzesEmptyDiskFile) {
     std::filesystem::remove(path, error);
 }
 
+TEST(AnalysisSchedulerTests, CanonicalizesFilesystemOverlayIdentity) {
+    const auto path = std::filesystem::temp_directory_path() /
+        "rls-overlay-parent" / ".." / "rls-overlay-source.rls";
+    AnalysisScheduler scheduler(
+        {.debounce = std::chrono::milliseconds(0), .maximumConcurrency = 1});
+
+    ASSERT_TRUE(scheduler.schedule({
+        "project", 1, {{path.generic_string(), "define ready(): true\n"}}, 1, 1,
+    }));
+    scheduler.waitForIdle();
+
+    const auto snapshot = scheduler.acceptedSnapshot("project");
+    ASSERT_NE(snapshot, nullptr);
+    const std::string canonicalPath = std::filesystem::weakly_canonical(path).generic_string();
+    ASSERT_NE(snapshot->sourceText(canonicalPath), nullptr);
+}
+
 TEST(AnalysisSchedulerTests, DiskReadFailureDoesNotInvokeSnapshotBuilder) {
     size_t buildCount = 0;
     AnalysisScheduler scheduler(

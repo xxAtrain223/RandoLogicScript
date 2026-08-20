@@ -56,6 +56,13 @@ std::string pathString(const std::filesystem::path& path) {
     return value;
 }
 
+std::string sourceIdentity(std::string identity) {
+    if (identity.starts_with("untitled:")) {
+        return identity;
+    }
+    return pathString(std::filesystem::path(std::move(identity)));
+}
+
 } // namespace
 
 AnalysisScheduler::AnalysisScheduler()
@@ -269,7 +276,7 @@ void AnalysisScheduler::worker(std::stop_token shutdown) {
                     sources.clear();
                     break;
                 }
-                sources.push_back({std::move(source.identity), std::move(*content)});
+                sources.push_back({sourceIdentity(std::move(source.identity)), std::move(*content)});
             }
             if (!sources.empty()) {
                 snapshot = builder_(
