@@ -38,6 +38,7 @@ private:
     std::unordered_map<std::string, DocumentPayloads> published_;
     DocumentPayloads configurationPublished_;
     std::unordered_set<std::string> suppressed_;
+    std::unordered_map<std::string, std::string> openedUris_;
 };
 
 } // namespace rls::lsp

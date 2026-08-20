@@ -99,6 +99,30 @@ TEST(DiagnosticPublisherTests, PublishesUtf16RangesCodesSeverityAndRelatedInform
         duplicate->span.start.column - 1);
 }
 
+TEST(DiagnosticPublisherTests, PreservesOpenedUriForCanonicalSnapshotPath) {
+    TemporaryDirectory directory;
+    const fs::path path = directory.path() / "main.rls";
+    fs::create_directory(directory.path() / "alias");
+    std::ofstream(path) << "placeholder";
+    const std::string canonicalUri = *rls::lsp::PathToFileUri(path);
+    const size_t filename = canonicalUri.rfind("main.rls");
+    ASSERT_NE(filename, std::string::npos);
+    const std::string openedUri = canonicalUri.substr(0, filename)
+        + "alias/../main.rls";
+
+    OutboundMessageQueue outbound;
+    DiagnosticPublisher publisher(outbound);
+    publisher.documentOpened(openedUri);
+    publisher.acceptedSnapshot(
+        "project", snapshot(path, "define broken(): missing\n", 1));
+
+    const auto payload = outbound.tryPop();
+    ASSERT_TRUE(payload.has_value());
+    const Json notification = Json::parse(*payload);
+    EXPECT_EQ(notification["params"]["uri"], openedUri);
+    EXPECT_NE(findDiagnostic(notification, "RLS-T006"), nullptr);
+}
+
 TEST(DiagnosticPublisherTests, PublishesOnlyChangesAndClearsResolvedDiagnostics) {
     TemporaryDirectory directory;
     const fs::path path = directory.path() / "main.rls";

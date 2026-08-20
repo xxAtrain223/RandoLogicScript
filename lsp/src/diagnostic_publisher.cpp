@@ -94,6 +94,15 @@ std::optional<std::string> uriForSource(std::string_view identity) {
     return PathToFileUri(std::filesystem::path(identity));
 }
 
+std::optional<std::string> canonicalUriKey(std::string_view uri) {
+    const auto path = FileUriToPath(uri);
+    if (!path) {
+        return DocumentUriKey(uri);
+    }
+    const auto canonicalUri = PathToFileUri(*path);
+    return canonicalUri ? DocumentUriKey(*canonicalUri) : std::nullopt;
+}
+
 Json actionData(const ast::DiagnosticActionData& data) {
     return {
         {"version", data.version},
@@ -159,27 +168,29 @@ DiagnosticPublisher::DiagnosticPublisher(OutboundMessageQueue& outbound)
     : outbound_(outbound) {}
 
 void DiagnosticPublisher::documentOpened(std::string_view uri) {
-    const auto key = DocumentUriKey(uri);
+    const auto key = canonicalUriKey(uri);
     const auto normalized = NormalizeDocumentUri(uri);
     if (!key || !normalized) {
         return;
     }
     std::lock_guard lock(mutex_);
     suppressed_.erase(*key);
+    openedUris_[*key] = *normalized;
 }
 
 void DiagnosticPublisher::documentClosed(std::string_view uri, bool standalone) {
-    if (!standalone) {
-        return;
-    }
     const auto normalized = NormalizeDocumentUri(uri);
-    const auto key = DocumentUriKey(uri);
+    const auto key = canonicalUriKey(uri);
     if (!normalized || !key) {
         return;
     }
 
     {
         std::lock_guard lock(mutex_);
+        openedUris_.erase(*key);
+        if (!standalone) {
+            return;
+        }
         suppressed_.insert(*key);
         for (auto& [projectId, documents] : published_) {
             documents.erase(*key);
@@ -276,11 +287,22 @@ void DiagnosticPublisher::acceptedSnapshot(
         if (!uri) {
             continue;
         }
-        const auto key = DocumentUriKey(*uri);
+        const auto key = canonicalUriKey(*uri);
         if (!key) {
             continue;
         }
-        current[*key] = PublishedDocument{*uri, diagnosticsFor(*snapshot, path).dump()};
+        std::string publishedUri = *uri;
+        {
+            std::lock_guard lock(mutex_);
+            const auto opened = openedUris_.find(*key);
+            if (opened != openedUris_.end()) {
+                publishedUri = opened->second;
+            }
+        }
+        current[*key] = PublishedDocument{
+            std::move(publishedUri),
+            diagnosticsFor(*snapshot, path).dump(),
+        };
     }
 
     std::vector<std::string> messages;
