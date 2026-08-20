@@ -35,6 +35,7 @@ async function main(): Promise<void> {
 
   try {
     await runTests({
+      version: process.env.RLS_VSCODE_TEST_VERSION ?? '1.82.0',
       extensionDevelopmentPath,
       extensionTestsPath,
       launchArgs: [
