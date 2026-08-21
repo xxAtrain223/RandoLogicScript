@@ -19,7 +19,7 @@ stdio. Analysis remains local to the VS Code extension host.
 
 - VS Code 1.82 or later.
 - A supported x64 extension host: Windows, a glibc-based Linux distribution, or
-	macOS 12 or later on Intel hardware.
+	macOS 15 or later on Intel hardware.
 
 When using Remote SSH, WSL, or a Dev Container, install the extension in the remote
 environment. The native server runs where the VS Code workspace extension host runs.
