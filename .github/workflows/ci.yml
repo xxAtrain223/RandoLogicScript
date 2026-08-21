@@ -39,6 +39,10 @@ jobs:
         with:
           node-version: 22
 
+      - name: Select Xcode with complete C++20 support
+        if: runner.os == 'macOS'
+        run: sudo xcode-select --switch /Applications/Xcode_26.3.app
+
       - name: Configure
         run: >-
           cmake -S . -B build

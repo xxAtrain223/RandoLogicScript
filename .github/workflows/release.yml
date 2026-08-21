@@ -47,6 +47,10 @@ jobs:
         with:
           node-version: 22
 
+      - name: Select Xcode with complete C++20 support
+        if: runner.os == 'macOS'
+        run: sudo xcode-select --switch /Applications/Xcode_26.3.app
+
       - name: Verify tag matches extension version
         run: node -e "const actual=require('./editors/vscode/package.json').version; const tag=process.env.GITHUB_REF_NAME; if (tag !== 'v' + actual) throw new Error('Tag ' + tag + ' does not match extension v' + actual);"
 

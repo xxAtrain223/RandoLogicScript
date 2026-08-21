@@ -6,7 +6,7 @@ The extension is released as separate VSIX files for these targets:
 | --- | --- | --- |
 | `win32-x64` | `windows-latest` | Statically linked Release executable |
 | `linux-x64` | `ubuntu-22.04` | Release executable |
-| `darwin-x64` | `macos-15-intel` | Release executable targeting macOS 15 or later |
+| `darwin-x64` | `macos-15-intel`, Xcode 26.3 | Release executable targeting macOS 15 or later |
 
 Native executables are build artifacts. Do not commit them to Git. CI stores validated
 VSIX files for seven days, and tagged releases store them permanently as GitHub Release
