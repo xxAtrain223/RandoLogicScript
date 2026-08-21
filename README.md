@@ -74,3 +74,4 @@ Manifest transpiler outputs are used by default. Each command-line `-t <name> -o
 - [Language Design Doc](docs/RandoLogicScript-Full.md)
 - [Building Guide](docs/BUILDING.md)
 - [Editor Configuration](docs/EDITOR-CONFIGURATION.md)
+- [VS Code Extension Release Guide](docs/RELEASING.md)

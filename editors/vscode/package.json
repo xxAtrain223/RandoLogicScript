@@ -154,6 +154,7 @@
     "vscode:prepublish": "npm run bundle:lsp && npm run compile",
     "bundle:lsp": "node ./scripts/bundle-language-server.mjs",
     "package": "vsce package",
+    "validate:vsix": "node ./scripts/validate-vsix.mjs",
     "compile": "tsc -p ./",
     "watch": "tsc -watch -p ./",
     "test": "npm run compile && node ./out/test/runTest.js"
@@ -165,6 +166,8 @@
     "@types/node": "^20.17.30",
     "@types/vscode": "1.82.0",
     "@vscode/test-electron": "^3.1.0",
+    "@vscode/vsce": "^3.6.2",
+    "jszip": "^3.10.1",
     "typescript": "^5.8.2"
   }
 }

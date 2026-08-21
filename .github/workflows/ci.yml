@@ -9,12 +9,21 @@ permissions:
 
 jobs:
   build-and-test:
-    name: ${{ matrix.os }} build and test
+    name: ${{ matrix.target }} build, test, and package
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, windows-latest, macos-latest]
+        include:
+          - os: ubuntu-22.04
+            target: linux-x64
+            cmake_arguments: ''
+          - os: windows-latest
+            target: win32-x64
+            cmake_arguments: -A x64
+          - os: macos-15
+            target: darwin-x64
+            cmake_arguments: -DCMAKE_OSX_DEPLOYMENT_TARGET=12.0
 
     steps:
       - name: Check out repository
@@ -31,7 +40,11 @@ jobs:
           node-version: 22
 
       - name: Configure
-        run: cmake -S . -B build -DBUILD_TESTING=ON -DCMAKE_BUILD_TYPE=Release
+        run: >-
+          cmake -S . -B build
+          -DBUILD_TESTING=ON
+          -DCMAKE_BUILD_TYPE=Release
+          ${{ matrix.cmake_arguments }}
 
       - name: Build
         run: cmake --build build --config Release --parallel
@@ -52,6 +65,24 @@ jobs:
         if: runner.os != 'Linux'
         working-directory: editors/vscode
         run: npm test
+
+      - name: Package targeted VSIX
+        working-directory: editors/vscode
+        env:
+          RLS_VSCODE_RELEASE_BUILD_DIRECTORY: build
+        run: npx --no-install vsce package --target ${{ matrix.target }} --out rando-logic-script-${{ matrix.target }}.vsix
+
+      - name: Validate targeted VSIX
+        working-directory: editors/vscode
+        run: npm run validate:vsix -- rando-logic-script-${{ matrix.target }}.vsix ${{ matrix.target }}
+
+      - name: Store validated VSIX
+        uses: actions/upload-artifact@v4
+        with:
+          name: rando-logic-script-${{ matrix.target }}
+          path: editors/vscode/rando-logic-script-${{ matrix.target }}.vsix
+          if-no-files-found: error
+          retention-days: 7
 
   editor-grammar-tests:
     name: Editor grammar tests

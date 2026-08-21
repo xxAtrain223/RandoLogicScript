@@ -1,7 +1,16 @@
 cmake_minimum_required(VERSION 3.14)
 
+if(POLICY CMP0091)
+	cmake_policy(SET CMP0091 NEW)
+endif()
+
 project(RandoLogicScript)
 set(CMAKE_CXX_STANDARD 20)
+
+option(RLS_STATIC_MSVC_RUNTIME "Link the MSVC runtime statically" OFF)
+if(MSVC AND RLS_STATIC_MSVC_RUNTIME)
+	set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
+endif()
 
 include(CTest)
 include(FetchContent)

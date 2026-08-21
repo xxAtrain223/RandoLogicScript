@@ -14,4 +14,11 @@ Use **Rando Logic Script: Restart Language Server** after changing the configure
 
 ## Packaging
 
-The extension first checks `server/<platform>-<architecture>/rls_language_server[.exe]` for a bundled binary. Release automation must build and place one server binary per supported platform/architecture before publishing a VSIX.
+The extension is published as targeted VSIX packages for Windows x64, Linux x64, and
+Intel macOS. Each package contains a native Release server under
+`server/<platform>-<architecture>/rls_language_server[.exe]`. VS Code selects the
+package matching the extension host platform.
+
+Native servers and VSIX files are generated artifacts and are not committed. See the
+[release guide](../../docs/RELEASING.md) for the CI/CD and Marketplace publication
+process.

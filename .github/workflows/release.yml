@@ -1,0 +1,166 @@
+name: Release VS Code extension
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: read
+
+jobs:
+  package:
+    name: Package ${{ matrix.target }}
+    runs-on: ${{ matrix.os }}
+    permissions:
+      contents: read
+      id-token: write
+      attestations: write
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-22.04
+            target: linux-x64
+            cmake_arguments: ''
+            server: build-vscode-release/lsp/rls_language_server
+          - os: windows-latest
+            target: win32-x64
+            cmake_arguments: -A x64
+            server: build-vscode-release/lsp/Release/rls_language_server.exe
+          - os: macos-15
+            target: darwin-x64
+            cmake_arguments: -DCMAKE_OSX_DEPLOYMENT_TARGET=12.0
+            server: build-vscode-release/lsp/rls_language_server
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+
+      - name: Set up Python for process smoke test
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+
+      - name: Set up Node for VSIX packaging
+        uses: actions/setup-node@v5
+        with:
+          node-version: 22
+
+      - name: Verify tag matches extension version
+        run: node -e "const actual=require('./editors/vscode/package.json').version; const tag=process.env.GITHUB_REF_NAME; if (tag !== 'v' + actual) throw new Error('Tag ' + tag + ' does not match extension v' + actual);"
+
+      - name: Configure release server
+        run: >-
+          cmake -S . -B build-vscode-release
+          -DCMAKE_BUILD_TYPE=Release
+          -DBUILD_TESTING=OFF
+          -DRLS_STATIC_MSVC_RUNTIME=ON
+          ${{ matrix.cmake_arguments }}
+
+      - name: Build release server
+        run: cmake --build build-vscode-release --config Release --target rls_language_server --parallel
+
+      - name: Smoke test release server
+        run: python lsp/tests/process_smoke.py --server "${{ matrix.server }}"
+
+      - name: Install extension dependencies
+        working-directory: editors/vscode
+        run: npm ci
+
+      - name: Package targeted VSIX
+        working-directory: editors/vscode
+        env:
+          RLS_VSCODE_RELEASE_BUILD_DIRECTORY: build-vscode-release
+        run: npx --no-install vsce package --target ${{ matrix.target }} --out rando-logic-script-${{ github.ref_name }}-${{ matrix.target }}.vsix
+
+      - name: Validate targeted VSIX
+        working-directory: editors/vscode
+        run: npm run validate:vsix -- rando-logic-script-${{ github.ref_name }}-${{ matrix.target }}.vsix ${{ matrix.target }}
+
+      - name: Attest VSIX build provenance
+        uses: actions/attest@v4
+        with:
+          subject-path: editors/vscode/rando-logic-script-${{ github.ref_name }}-${{ matrix.target }}.vsix
+
+      - name: Store targeted VSIX
+        uses: actions/upload-artifact@v4
+        with:
+          name: rando-logic-script-${{ matrix.target }}
+          path: editors/vscode/rando-logic-script-${{ github.ref_name }}-${{ matrix.target }}.vsix
+          if-no-files-found: error
+          retention-days: 7
+
+  release:
+    name: Create GitHub release
+    needs: package
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Download validated VSIX files
+        uses: actions/download-artifact@v4
+        with:
+          pattern: rando-logic-script-*
+          path: artifacts
+          merge-multiple: true
+
+      - name: Verify release artifact set
+        shell: bash
+        run: |
+          mapfile -t artifacts < <(find artifacts -maxdepth 1 -name '*.vsix' -type f | sort)
+          test "${#artifacts[@]}" -eq 3
+          printf '%s\n' "${artifacts[@]}"
+
+      - name: Create GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: gh release create "$GITHUB_REF_NAME" artifacts/*.vsix --verify-tag --generate-notes --title "Rando Logic Script $GITHUB_REF_NAME"
+
+  publish-marketplace:
+    name: Publish to Visual Studio Marketplace
+    needs: release
+    runs-on: ubuntu-latest
+    environment: marketplace-production
+    permissions:
+      contents: read
+      id-token: write
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+
+      - name: Set up Node
+        uses: actions/setup-node@v5
+        with:
+          node-version: 22
+
+      - name: Install extension dependencies
+        working-directory: editors/vscode
+        run: npm ci
+
+      - name: Download validated VSIX files
+        uses: actions/download-artifact@v4
+        with:
+          pattern: rando-logic-script-*
+          path: artifacts
+          merge-multiple: true
+
+      - name: Sign in to Azure with GitHub OIDC
+        uses: azure/login@v3
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Publish validated VSIX files
+        working-directory: editors/vscode
+        shell: bash
+        run: |
+          mapfile -t packages < <(find ../../artifacts -maxdepth 1 -name '*.vsix' -type f | sort)
+          test "${#packages[@]}" -eq 3
+          for package in "${packages[@]}"; do
+            npx --no-install vsce publish --azure-credential --packagePath "$package"
+          done
