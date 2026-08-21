@@ -28,7 +28,7 @@ jobs:
             target: win32-x64
             cmake_arguments: -A x64
             server: build-vscode-release/lsp/Release/rls_language_server.exe
-          - os: macos-latest
+          - os: macos-15
             target: darwin-x64
             cmake_arguments: -DCMAKE_OSX_DEPLOYMENT_TARGET=12.0
             server: build-vscode-release/lsp/rls_language_server
