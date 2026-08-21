@@ -15,13 +15,13 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - os: ubuntu-22.04
+          - os: ubuntu-latest
             target: linux-x64
             cmake_arguments: ''
           - os: windows-latest
             target: win32-x64
             cmake_arguments: -A x64
-          - os: macos-15
+          - os: macos-latest
             target: darwin-x64
             cmake_arguments: -DCMAKE_OSX_DEPLOYMENT_TARGET=12.0
 
