@@ -21,7 +21,7 @@ jobs:
           - os: windows-latest
             target: win32-x64
             cmake_arguments: -A x64
-          - os: macos-15
+          - os: macos-15-intel
             target: darwin-x64
             cmake_arguments: ''
 
