@@ -9,18 +9,38 @@
     "type": "git",
     "url": "https://github.com/xxAtrain223/RandoLogicScript"
   },
+  "homepage": "https://github.com/xxAtrain223/RandoLogicScript#readme",
+  "bugs": {
+    "url": "https://github.com/xxAtrain223/RandoLogicScript/issues"
+  },
+  "pricing": "Free",
   "keywords": [
     "rando logic script",
     "rls",
-    "randomizer"
+    "randomizer",
+    "language server",
+    "domain specific language"
   ],
   "engines": {
     "vscode": "^1.82.0"
   },
   "main": "./out/extension.js",
+  "extensionKind": [
+    "workspace"
+  ],
+  "capabilities": {
+    "virtualWorkspaces": {
+      "supported": false,
+      "description": "RLS projects and the native language server require a local or remote file system."
+    }
+  },
   "categories": [
     "Programming Languages"
   ],
+  "galleryBanner": {
+    "color": "#1f2933",
+    "theme": "dark"
+  },
   "contributes": {
     "languages": [
       {
