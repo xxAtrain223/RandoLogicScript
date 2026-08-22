@@ -39,10 +39,6 @@ jobs:
         with:
           node-version: 22
 
-      - name: Select Xcode with complete C++20 support
-        if: runner.os == 'macOS'
-        run: sudo xcode-select --switch /Applications/Xcode_26.3.app
-
       - name: Configure
         run: >-
           cmake -S . -B build
@@ -81,7 +77,7 @@ jobs:
         run: npm run validate:vsix -- rando-logic-script-${{ matrix.target }}.vsix ${{ matrix.target }}
 
       - name: Store validated VSIX
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: rando-logic-script-${{ matrix.target }}
           path: editors/vscode/rando-logic-script-${{ matrix.target }}.vsix

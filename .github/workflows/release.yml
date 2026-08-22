@@ -47,10 +47,6 @@ jobs:
         with:
           node-version: 22
 
-      - name: Select Xcode with complete C++20 support
-        if: runner.os == 'macOS'
-        run: sudo xcode-select --switch /Applications/Xcode_26.3.app
-
       - name: Verify tag matches extension version
         run: node -e "const actual=require('./editors/vscode/package.json').version; const tag=process.env.GITHUB_REF_NAME; if (tag !== 'v' + actual) throw new Error('Tag ' + tag + ' does not match extension v' + actual);"
 
@@ -88,7 +84,7 @@ jobs:
           subject-path: editors/vscode/rando-logic-script-${{ github.ref_name }}-${{ matrix.target }}.vsix
 
       - name: Store targeted VSIX
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: rando-logic-script-${{ matrix.target }}
           path: editors/vscode/rando-logic-script-${{ github.ref_name }}-${{ matrix.target }}.vsix
@@ -104,7 +100,7 @@ jobs:
 
     steps:
       - name: Download validated VSIX files
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v5
         with:
           pattern: rando-logic-script-*
           path: artifacts
@@ -146,7 +142,7 @@ jobs:
         run: npm ci
 
       - name: Download validated VSIX files
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v5
         with:
           pattern: rando-logic-script-*
           path: artifacts
