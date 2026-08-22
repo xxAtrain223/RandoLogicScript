@@ -84,7 +84,7 @@ jobs:
           subject-path: editors/vscode/rando-logic-script-${{ github.ref_name }}-${{ matrix.target }}.vsix
 
       - name: Store targeted VSIX
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@v7
         with:
           name: rando-logic-script-${{ matrix.target }}
           path: editors/vscode/rando-logic-script-${{ github.ref_name }}-${{ matrix.target }}.vsix
@@ -100,7 +100,7 @@ jobs:
 
     steps:
       - name: Download validated VSIX files
-        uses: actions/download-artifact@v5
+        uses: actions/download-artifact@v8
         with:
           pattern: rando-logic-script-*
           path: artifacts
@@ -142,7 +142,7 @@ jobs:
         run: npm ci
 
       - name: Download validated VSIX files
-        uses: actions/download-artifact@v5
+        uses: actions/download-artifact@v8
         with:
           pattern: rando-logic-script-*
           path: artifacts
