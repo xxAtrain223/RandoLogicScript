@@ -73,6 +73,7 @@ Testing/
 # VS Code extension build and test output
 editors/vscode/node_modules/
 editors/vscode/out/
+editors/vscode/dist/
 editors/vscode/.vscode-test/
 editors/vscode/server/
 editors/vscode/*.vsix
