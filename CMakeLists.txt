@@ -8,6 +8,11 @@ project(RandoLogicScript)
 set(CMAKE_CXX_STANDARD 20)
 
 add_library(rls_build_options INTERFACE)
+if(APPLE AND CMAKE_CXX_COMPILER_ID STREQUAL "AppleClang")
+    # Apple libc++ still gates C++20 stop tokens and jthread behind this flag.
+    target_compile_options(rls_build_options INTERFACE -fexperimental-library)
+    target_link_options(rls_build_options INTERFACE -fexperimental-library)
+endif()
 
 option(RLS_STATIC_MSVC_RUNTIME "Link the MSVC runtime statically" OFF)
 if(MSVC AND RLS_STATIC_MSVC_RUNTIME)
