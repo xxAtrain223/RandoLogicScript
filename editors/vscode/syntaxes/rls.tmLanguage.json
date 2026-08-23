@@ -1,6 +1,7 @@
 {
   "name": "Rando Logic Script",
   "scopeName": "source.rls",
+  "fileTypes": ["rls"],
   "patterns": [
     { "include": "#comments" },
     { "include": "#strings" },

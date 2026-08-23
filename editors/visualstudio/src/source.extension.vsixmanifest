@@ -3,7 +3,10 @@
   <Metadata>
     <Identity Id="RandoLogicScript.VisualStudio" Version="0.1.0" Language="en-US" Publisher="xxAtrain223" />
     <DisplayName>Rando Logic Script</DisplayName>
-    <Description xml:space="preserve">Rando Logic Script language support for Visual Studio.</Description>
+    <Description xml:space="preserve">Rando Logic Script language support with syntax highlighting and live compiler diagnostics.</Description>
+    <MoreInfo>https://github.com/xxAtrain223/RandoLogicScript</MoreInfo>
+    <License>LICENSE.txt</License>
+    <Tags>RLS, language, LSP, syntax highlighting, diagnostics</Tags>
   </Metadata>
   <Installation>
     <InstallationTarget Id="Microsoft.VisualStudio.Community" Version="[17.0,18.0)">
@@ -18,5 +21,6 @@
   </Prerequisites>
   <Assets>
     <Asset Type="Microsoft.VisualStudio.MefComponent" d:Source="Project" d:ProjectName="RandoLogicScript.VisualStudio" Path="|RandoLogicScript.VisualStudio|" xmlns:d="http://schemas.microsoft.com/developer/vsx-schema-design/2011" />
+    <Asset Type="Microsoft.VisualStudio.VsPackage" Path="RandoLogicScript.pkgdef" />
   </Assets>
 </PackageManifest>

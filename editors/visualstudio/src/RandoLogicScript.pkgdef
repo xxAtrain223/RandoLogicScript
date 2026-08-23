@@ -1,0 +1,8 @@
+[$RootKey$\TextMate\Repositories]
+"RandoLogicScript"="$PackageFolder$\Grammars"
+
+[$RootKey$\TextMate\LanguageConfiguration\GrammarMapping]
+"source.rls"="$PackageFolder$\language-configuration.json"
+
+[$RootKey$\TextMate\LanguageConfiguration\ContentTypeMapping]
+"rls"="$PackageFolder$\language-configuration.json"
