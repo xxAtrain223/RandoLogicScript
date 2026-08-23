@@ -28,9 +28,9 @@ The extension was tested with Visual Studio Community 2026 18.9.1 on Windows x64
 - A standalone-file initialization sent `rootUri: null`. Open Folder workspace-root
   and workspace-folder notification behavior still needs an automated host check.
 
-No Visual Studio 2026-specific runtime API is required. The project
-uses current 18.x VSSDK BuildTools only to build the package with the installed
-Visual Studio 2026 toolchain.
+No Visual Studio 2026-specific runtime API is required. The project uses current
+18.x VSSDK BuildTools only to build the package with the installed Visual Studio
+2026 toolchain.
 
 ## Editor Integration
 
@@ -46,28 +46,68 @@ Visual Studio 2026 toolchain.
   host shutdown. Unexpected exits use Visual Studio's bounded language-server
   recovery policy; a forced-crash host test verified exactly one replacement.
 - `RLS_LANGUAGE_SERVER_PATH` is available only as a development override. Release
-  packages will use the server bundled at `Server\rls_language_server.exe`.
+  packages use the server bundled at `Server\rls_language_server.exe`.
 
 ## Build
 
-Build with the full-framework MSBuild installed by Visual Studio:
+Build the native server from an x64 Visual Studio developer shell. CMake 4.1 does
+not expose a Visual Studio 18 generator, so Visual Studio 2026 uses Ninja:
+
+```powershell
+& 'C:\Program Files\Microsoft Visual Studio\18\Community\Common7\Tools\Launch-VsDevShell.ps1' `
+  -Arch amd64 -HostArch amd64 -SkipAutomaticLocation
+cmake -S . -B build-visualstudio-release -G Ninja `
+  -DCMAKE_BUILD_TYPE=Release `
+  -DBUILD_TESTING=OFF `
+  -DRLS_STATIC_MSVC_RUNTIME=ON
+cmake --build build-visualstudio-release --target rls_language_server --parallel
+```
+
+Then build the VSIX with full-framework MSBuild:
 
 ```powershell
 & 'C:\Program Files\Microsoft Visual Studio\18\Community\MSBuild\Current\Bin\amd64\MSBuild.exe' `
   editors\visualstudio\RandoLogicScript.VisualStudio.sln `
-  /restore /t:Build /p:Configuration=Debug
+  /restore /t:Build /p:Configuration=Release
 ```
 
 The VSIX is written to:
 
 ```text
-editors\visualstudio\src\bin\Debug\net472\RandoLogicScript.VisualStudio.vsix
+editors\visualstudio\src\bin\Release\net472\RandoLogicScript.VisualStudio.vsix
+```
+
+The project defaults `RlsLanguageServerPath` to the Ninja output above. Override it
+for another generator or CI build:
+
+```powershell
+/p:RlsLanguageServerPath=C:\path\to\rls_language_server.exe
+```
+
+The build fails if the server is absent, is not an x64 PE, or imports the dynamic
+MSVC runtime. Generated executables and VSIX files remain ignored build artifacts.
+
+## Validate the Package
+
+```powershell
+& editors\visualstudio\scripts\validate-vsix.ps1 `
+  -VsixPath editors\visualstudio\src\bin\Release\net472\RandoLogicScript.VisualStudio.vsix
+```
+
+The validator checks package identity, install target, architecture, required
+assets, exactly one bundled server, and static MSVC runtime linkage. It also requires
+the Visual Studio manifest version to match `editors/vscode/package.json`. Release
+validation can additionally enforce the tag:
+
+```powershell
+& editors\visualstudio\scripts\validate-vsix.ps1 `
+  -VsixPath editors\visualstudio\src\bin\Release\net472\RandoLogicScript.VisualStudio.vsix `
+  -ExpectedTag v0.1.0
 ```
 
 ## Run the Development Build
 
-Native-server bundling is implemented in the package-integrity phase. Until then,
-set the development override before launching an experimental Visual Studio instance:
+Set the development override to test a different server without rebuilding the VSIX:
 
 ```powershell
 $env:RLS_LANGUAGE_SERVER_PATH = (Resolve-Path 'build\lsp\rls_language_server.exe').Path
@@ -76,5 +116,5 @@ $env:RLS_LANGUAGE_SERVER_PATH = (Resolve-Path 'build\lsp\rls_language_server.exe
   /RootSuffix RLSExp
 ```
 
-Release server bundling, package validation, automated host tests, CI, and release
-publication belong to the remaining implementation phases.
+Automated host tests, CI, and release publication belong to the remaining
+implementation phases.

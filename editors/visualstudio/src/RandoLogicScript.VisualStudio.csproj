@@ -10,6 +10,9 @@
     <IncludeDebugSymbolsInVSIXContainer>false</IncludeDebugSymbolsInVSIXContainer>
     <CopyBuildOutputToOutputDirectory>true</CopyBuildOutputToOutputDirectory>
     <CopyOutputSymbolsToOutputDirectory>true</CopyOutputSymbolsToOutputDirectory>
+    <RlsLanguageServerPath Condition="'$(RlsLanguageServerPath)' == ''">$(MSBuildThisFileDirectory)..\..\..\build-visualstudio-release\lsp\rls_language_server.exe</RlsLanguageServerPath>
+    <RlsNativeValidatorPath>$(MSBuildThisFileDirectory)..\..\shared\validate-native-binary.mjs</RlsNativeValidatorPath>
+    <GetVsixSourceItemsDependsOn>PrepareRlsLanguageServer;$(GetVsixSourceItemsDependsOn)</GetVsixSourceItemsDependsOn>
   </PropertyGroup>
 
   <ItemGroup>
@@ -49,4 +52,24 @@
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
   </ItemGroup>
+
+  <Target Name="PrepareRlsLanguageServer">
+    <Error
+      Condition="'$(RlsLanguageServerPath)' == ''"
+      Text="RlsLanguageServerPath is required. Configure and build the static x64 Release rls_language_server target before packaging." />
+    <Error
+      Condition="!Exists('$(RlsLanguageServerPath)')"
+      Text="RLS language server was not found at '$(RlsLanguageServerPath)'. Build it with BUILD_TESTING=OFF and RLS_STATIC_MSVC_RUNTIME=ON, then set /p:RlsLanguageServerPath=&lt;path&gt;." />
+    <Exec
+      Command="node &quot;$(RlsNativeValidatorPath)&quot; &quot;$(RlsLanguageServerPath)&quot; win32-x64"
+      WorkingDirectory="$(MSBuildProjectDirectory)" />
+    <ItemGroup>
+      <Content Include="$(RlsLanguageServerPath)">
+        <Link>Server\rls_language_server.exe</Link>
+        <TargetPath>rls_language_server.exe</TargetPath>
+        <VSIXSubPath>Server</VSIXSubPath>
+        <IncludeInVSIX>true</IncludeInVSIX>
+      </Content>
+    </ItemGroup>
+  </Target>
 </Project>
