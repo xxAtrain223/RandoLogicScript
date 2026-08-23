@@ -116,5 +116,38 @@ $env:RLS_LANGUAGE_SERVER_PATH = (Resolve-Path 'build\lsp\rls_language_server.exe
   /RootSuffix RLSExp
 ```
 
-Automated host tests, CI, and release publication belong to the remaining
-implementation phases.
+## Test
+
+Run the client unit tests without launching Visual Studio or a real server:
+
+```powershell
+dotnet test editors\visualstudio\tests\RandoLogicScript.VisualStudio.Tests.csproj `
+  --configuration Release
+```
+
+Run the editor-neutral executable protocol matrix against the packaged server:
+
+```powershell
+python lsp\tests\process_smoke.py `
+  --server build-visualstudio-release\lsp\rls_language_server.exe
+```
+
+Run the Visual Studio 2026 Experimental Instance harness from PowerShell 7:
+
+```powershell
+& editors\visualstudio\scripts\test-experimental-instance.ps1 `
+  -Configuration Release `
+  -RootSuffix RLSPhase4
+```
+
+The host harness validates VSIX deployment, bundled-server activation, encoded Open
+Folder roots, standalone null roots, diagnostics, semantic-token and document-symbol
+requests, authoring/navigation/refactoring capability negotiation, watched manifest
+notifications, one-process crash recovery, Unicode/spaced URIs, and cleanup. The
+process smoke test sends actual completion, signature, hover, definition, references,
+document/workspace symbol, prepare-rename, rename, and semantic-token requests.
+
+Visual rendering, keyboard accessibility, and UI workflow checks remain manual. See
+`editors/visualstudio/MANUAL-TESTING.md`.
+
+CI and release publication belong to the remaining implementation phase.

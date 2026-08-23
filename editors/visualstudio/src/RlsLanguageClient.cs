@@ -3,12 +3,10 @@ using System.Collections.Generic;
 using System.ComponentModel.Composition;
 using System.Diagnostics;
 using System.IO;
-using System.Reflection;
 using System.Threading;
 using System.Threading.Tasks;
 
 using Microsoft.VisualStudio.LanguageServer.Client;
-using Microsoft.VisualStudio.Shell;
 using Microsoft.VisualStudio.Threading;
 using Microsoft.VisualStudio.Utilities;
 
@@ -18,14 +16,30 @@ namespace RandoLogicScript.VisualStudio
     [Export(typeof(ILanguageClient))]
     internal sealed class RlsLanguageClient : ILanguageClient, IDisposable
     {
-        private const string LogSource = "Rando Logic Script";
-
         private readonly object processLock = new object();
-        private Process serverProcess;
+        private readonly IRlsClientEnvironment environment;
+        private readonly IRlsClientLog log;
+        private readonly IRlsServerProcessFactory processFactory;
+        private IRlsServerProcess serverProcess;
         private CancellationTokenRegistration serverCancellation;
         private CancellationToken serverCancellationToken;
         private bool serverInitialized;
         private bool disposed;
+
+        public RlsLanguageClient()
+            : this(new RlsClientEnvironment(), new RlsServerProcessFactory(), new RlsClientLog())
+        {
+        }
+
+        internal RlsLanguageClient(
+            IRlsClientEnvironment environment,
+            IRlsServerProcessFactory processFactory,
+            IRlsClientLog log)
+        {
+            this.environment = environment ?? throw new ArgumentNullException(nameof(environment));
+            this.processFactory = processFactory ?? throw new ArgumentNullException(nameof(processFactory));
+            this.log = log ?? throw new ArgumentNullException(nameof(log));
+        }
 
         public string Name => "Rando Logic Script Language Server";
 
@@ -64,36 +78,17 @@ namespace RandoLogicScript.VisualStudio
                 }
             }
 
-            string extensionDirectory = Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location);
-            string bundledServerPath = Path.Combine(extensionDirectory, "Server", "rls_language_server.exe");
-            string configuredServerPath = Environment.GetEnvironmentVariable("RLS_LANGUAGE_SERVER_PATH");
-            string serverPath = string.IsNullOrWhiteSpace(configuredServerPath)
-                ? bundledServerPath
-                : configuredServerPath;
+            string serverPath = RlsServerConfiguration.ResolveServerPath(environment);
 
-            if (!File.Exists(serverPath))
+            if (!environment.FileExists(serverPath))
             {
                 string message = $"RLS language server executable was not found at '{serverPath}'.";
-                ActivityLog.TryLogError(LogSource, message);
+                log.Error(message);
                 throw new FileNotFoundException(message, serverPath);
             }
 
-            var startInfo = new ProcessStartInfo
-            {
-                FileName = serverPath,
-                WorkingDirectory = Path.GetDirectoryName(serverPath),
-                RedirectStandardInput = true,
-                RedirectStandardOutput = true,
-                RedirectStandardError = true,
-                UseShellExecute = false,
-                CreateNoWindow = true,
-            };
-
-            var process = new Process
-            {
-                EnableRaisingEvents = true,
-                StartInfo = startInfo,
-            };
+            ProcessStartInfo startInfo = RlsServerConfiguration.CreateStartInfo(serverPath);
+            IRlsServerProcess process = processFactory.Create(startInfo);
 
             try
             {
@@ -105,17 +100,14 @@ namespace RandoLogicScript.VisualStudio
             catch (Exception exception)
             {
                 process.Dispose();
-                ActivityLog.TryLogError(LogSource, $"Failed to start '{serverPath}': {exception}");
+                log.Error($"Failed to start '{serverPath}': {exception}");
                 throw;
             }
 
-            process.ErrorDataReceived += (_, eventArgs) =>
+            process.ErrorReceived += message =>
             {
-                if (!string.IsNullOrEmpty(eventArgs.Data))
-                {
-                    Debug.WriteLine($"[RLS language server] {eventArgs.Data}");
-                    ActivityLog.TryLogWarning(LogSource, eventArgs.Data);
-                }
+                Debug.WriteLine($"[RLS language server] {message}");
+                log.Warning(message);
             };
             process.Exited += OnServerProcessExited;
             process.BeginErrorReadLine();
@@ -146,8 +138,8 @@ namespace RandoLogicScript.VisualStudio
                 }
             }
 
-            ActivityLog.TryLogInformation(LogSource, $"Started language server '{serverPath}'.");
-            return new Connection(process.StandardOutput.BaseStream, process.StandardInput.BaseStream);
+            log.Information($"Started language server '{serverPath}'.");
+            return new Connection(process.StandardOutput, process.StandardInput);
         }
 
         public Task OnLoadedAsync()
@@ -162,7 +154,7 @@ namespace RandoLogicScript.VisualStudio
                 serverInitialized = true;
             }
 
-            ActivityLog.TryLogInformation(LogSource, "Language server initialized.");
+            log.Information("Language server initialized.");
             return Task.CompletedTask;
         }
 
@@ -176,7 +168,7 @@ namespace RandoLogicScript.VisualStudio
                     ?? "The RLS language server failed to initialize.";
             }
 
-            ActivityLog.TryLogError(LogSource, message);
+            log.Error(message);
             StopOwnedServerProcess();
             return Task.FromResult(new InitializationFailureContext { FailureMessage = message });
         }
@@ -198,7 +190,7 @@ namespace RandoLogicScript.VisualStudio
 
         private void OnServerProcessExited(object sender, EventArgs eventArgs)
         {
-            var process = sender as Process;
+            var process = sender as IRlsServerProcess;
             bool unexpectedExit;
             int exitCode = -1;
             CancellationTokenRegistration cancellation;
@@ -237,16 +229,15 @@ namespace RandoLogicScript.VisualStudio
                 return;
             }
 
-            ActivityLog.TryLogWarning(
-                LogSource,
+            log.Warning(
                 $"Language server exited unexpectedly with code {exitCode}; Visual Studio will apply its bounded recovery policy.");
         }
 
         private void StopOwnedServerProcess(
-            Process expectedProcess = null,
+            IRlsServerProcess expectedProcess = null,
             bool disposeCancellation = true)
         {
-            Process process;
+            IRlsServerProcess process;
             CancellationTokenRegistration cancellation;
 
             lock (processLock)
@@ -272,7 +263,7 @@ namespace RandoLogicScript.VisualStudio
             StopServerProcess(process);
         }
 
-        private static void StopServerProcess(Process process)
+        private static void StopServerProcess(IRlsServerProcess process)
         {
             if (process == null)
             {

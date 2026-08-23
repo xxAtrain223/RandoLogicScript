@@ -119,7 +119,12 @@ def run_smoke(server: Path) -> None:
                     "id": 1,
                     "method": "initialize",
                     "params": {
-                        "workspaceFolders": [{"uri": root_uri, "name": "smoke"}]
+                        "workspaceFolders": [{"uri": root_uri, "name": "smoke"}],
+                        "capabilities": {
+                            "workspace": {
+                                "workspaceEdit": {"documentChanges": True}
+                            }
+                        },
                     },
                 },
             )
@@ -205,6 +210,44 @@ def run_smoke(server: Path) -> None:
                 "diagnostic clear notification",
             )
 
+            send(
+                process,
+                {
+                    "jsonrpc": "2.0",
+                    "method": "textDocument/didChange",
+                    "params": {
+                        "textDocument": {"uri": source_uri, "version": 3},
+                        "contentChanges": [{"text": "def\n"}],
+                    },
+                },
+            )
+            send(
+                process,
+                {
+                    "jsonrpc": "2.0",
+                    "id": 2,
+                    "method": "textDocument/completion",
+                    "params": {
+                        "textDocument": {"uri": source_uri},
+                        "position": {"line": 0, "character": 3},
+                    },
+                },
+            )
+            completion = receive_matching(
+                messages, lambda message: message.get("id") == 2,
+                "completion response",
+            )["result"]
+            define_completion = next(
+                (item for item in completion if item.get("label") == "define"), None
+            )
+            if define_completion is None or define_completion.get("textEdit", {}).get(
+                "range", {}
+            ) != {
+                "start": {"line": 0, "character": 0},
+                "end": {"line": 0, "character": 3},
+            }:
+                raise ProtocolError("completion response omitted the active-token edit")
+
             signature_source = (
                 "extern define target(value: Bool = true) -> Bool\n"
                 "define use(): target(f"
@@ -215,7 +258,7 @@ def run_smoke(server: Path) -> None:
                     "jsonrpc": "2.0",
                     "method": "textDocument/didChange",
                     "params": {
-                        "textDocument": {"uri": source_uri, "version": 3},
+                        "textDocument": {"uri": source_uri, "version": 4},
                         "contentChanges": [{"text": signature_source}],
                     },
                 },
@@ -224,7 +267,7 @@ def run_smoke(server: Path) -> None:
                 process,
                 {
                     "jsonrpc": "2.0",
-                    "id": 2,
+                    "id": 3,
                     "method": "textDocument/signatureHelp",
                     "params": {
                         "textDocument": {"uri": source_uri},
@@ -233,7 +276,7 @@ def run_smoke(server: Path) -> None:
                 },
             )
             signature = receive_matching(
-                messages, lambda message: message.get("id") == 2,
+                messages, lambda message: message.get("id") == 3,
                 "signature help response",
             )["result"]
             if signature["activeParameter"] != 0 or signature["signatures"][0][
@@ -245,7 +288,7 @@ def run_smoke(server: Path) -> None:
                 process,
                 {
                     "jsonrpc": "2.0",
-                    "id": 3,
+                    "id": 4,
                     "method": "textDocument/hover",
                     "params": {
                         "textDocument": {"uri": source_uri},
@@ -254,7 +297,7 @@ def run_smoke(server: Path) -> None:
                 },
             )
             hover = receive_matching(
-                messages, lambda message: message.get("id") == 3,
+                messages, lambda message: message.get("id") == 4,
                 "hover response",
             )["result"]
             if "extern target(value: Bool = true) -> Bool" not in hover[
@@ -262,25 +305,178 @@ def run_smoke(server: Path) -> None:
             ]["value"]:
                 raise ProtocolError("hover response omitted callable presentation")
 
+            navigation_source = (
+                "define target(): true\n"
+                "define caller(): target() and target()\n"
+            )
             send(
                 process,
                 {
                     "jsonrpc": "2.0",
-                    "id": 4,
+                    "method": "textDocument/didChange",
+                    "params": {
+                        "textDocument": {"uri": source_uri, "version": 5},
+                        "contentChanges": [{"text": navigation_source}],
+                    },
+                },
+            )
+            receive_matching(
+                messages,
+                lambda message: message.get("method")
+                == "textDocument/publishDiagnostics"
+                and message.get("params", {}).get("uri") == source_uri
+                and any(
+                    "'caller' is defined but never used" in item.get("message", "")
+                    for item in message.get("params", {}).get("diagnostics", [])
+                ),
+                "accepted navigation-generation diagnostics",
+            )
+
+            position = {"line": 1, "character": 18}
+            send(
+                process,
+                {
+                    "jsonrpc": "2.0",
+                    "id": 5,
+                    "method": "textDocument/definition",
+                    "params": {
+                        "textDocument": {"uri": source_uri},
+                        "position": position,
+                    },
+                },
+            )
+            definition = receive_matching(
+                messages, lambda message: message.get("id") == 5,
+                "definition response",
+            )["result"]
+            if len(definition) != 1 or definition[0]["range"]["start"] != {
+                "line": 0,
+                "character": 7,
+            }:
+                raise ProtocolError("definition response did not target the declaration")
+
+            send(
+                process,
+                {
+                    "jsonrpc": "2.0",
+                    "id": 6,
+                    "method": "textDocument/references",
+                    "params": {
+                        "textDocument": {"uri": source_uri},
+                        "position": position,
+                        "context": {"includeDeclaration": False},
+                    },
+                },
+            )
+            references = receive_matching(
+                messages, lambda message: message.get("id") == 6,
+                "references response",
+            )["result"]
+            if [item["range"]["start"]["character"] for item in references] != [
+                17,
+                30,
+            ]:
+                raise ProtocolError("references response omitted resolved usages")
+
+            send(
+                process,
+                {
+                    "jsonrpc": "2.0",
+                    "id": 7,
+                    "method": "textDocument/documentSymbol",
+                    "params": {"textDocument": {"uri": source_uri}},
+                },
+            )
+            document_symbols = receive_matching(
+                messages, lambda message: message.get("id") == 7,
+                "document symbol response",
+            )["result"]
+            if [item["name"] for item in document_symbols] != ["target", "caller"]:
+                raise ProtocolError("document symbol response was incomplete")
+
+            send(
+                process,
+                {
+                    "jsonrpc": "2.0",
+                    "id": 8,
+                    "method": "workspace/symbol",
+                    "params": {"query": "target"},
+                },
+            )
+            workspace_symbols = receive_matching(
+                messages, lambda message: message.get("id") == 8,
+                "workspace symbol response",
+            )["result"]
+            if len(workspace_symbols) != 1 or workspace_symbols[0]["name"] != "target":
+                raise ProtocolError("workspace symbol response was incomplete")
+
+            send(
+                process,
+                {
+                    "jsonrpc": "2.0",
+                    "id": 9,
+                    "method": "textDocument/prepareRename",
+                    "params": {
+                        "textDocument": {"uri": source_uri},
+                        "position": position,
+                    },
+                },
+            )
+            prepared = receive_matching(
+                messages, lambda message: message.get("id") == 9,
+                "prepare rename response",
+            )["result"]
+            if prepared != {
+                "start": {"line": 1, "character": 17},
+                "end": {"line": 1, "character": 23},
+            }:
+                raise ProtocolError("prepare rename range was incorrect")
+
+            send(
+                process,
+                {
+                    "jsonrpc": "2.0",
+                    "id": 10,
+                    "method": "textDocument/rename",
+                    "params": {
+                        "textDocument": {"uri": source_uri},
+                        "position": position,
+                        "newName": "replacement",
+                    },
+                },
+            )
+            rename = receive_matching(
+                messages, lambda message: message.get("id") == 10,
+                "rename response",
+            )["result"]
+            changes = rename.get("documentChanges", [])
+            if (
+                len(changes) != 1
+                or changes[0]["textDocument"] != {"uri": source_uri, "version": 5}
+                or len(changes[0]["edits"]) != 3
+                or any(edit["newText"] != "replacement" for edit in changes[0]["edits"])
+            ):
+                raise ProtocolError("rename response omitted versioned edits")
+
+            send(
+                process,
+                {
+                    "jsonrpc": "2.0",
+                    "id": 11,
                     "method": "textDocument/semanticTokens/full",
                     "params": {"textDocument": {"uri": source_uri}},
                 },
             )
             token_data = receive_matching(
-                messages, lambda message: message.get("id") == 4,
+                messages, lambda message: message.get("id") == 11,
                 "semantic token response",
             )["result"]["data"]
             if not token_data or len(token_data) % 5 != 0:
                 raise ProtocolError("semantic token response was not delta encoded")
 
-            send(process, {"jsonrpc": "2.0", "id": 5, "method": "shutdown"})
+            send(process, {"jsonrpc": "2.0", "id": 12, "method": "shutdown"})
             receive_matching(
-                messages, lambda message: message.get("id") == 5, "shutdown response"
+                messages, lambda message: message.get("id") == 12, "shutdown response"
             )
             send(process, {"jsonrpc": "2.0", "method": "exit"})
             assert process.stdin is not None

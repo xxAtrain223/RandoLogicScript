@@ -58,6 +58,8 @@ compile_commands.json
 *.log 
 *.bak 
 *.swp 
+__pycache__/
+*.py[cod]
 
 # vcpkg
 vcpkg_installed/
