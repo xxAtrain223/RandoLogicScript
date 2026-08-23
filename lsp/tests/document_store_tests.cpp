@@ -1,3 +1,5 @@
+#include <fstream>
+
 #include <gtest/gtest.h>
 
 #include "rls/lsp/document_store.h"
@@ -61,6 +63,38 @@ TEST(DocumentStoreTests, StoresDocumentsUnderNormalizedUris) {
     EXPECT_EQ(document->uri, "file:///work/My.rls");
     EXPECT_EQ(document->text, "old");
 }
+
+#ifndef _WIN32
+TEST(DocumentStoreTests, FindsLocalDocumentsThroughCanonicalSymlinkUris) {
+    const fs::path root = fs::temp_directory_path() / "rls-document-store-symlink";
+    const fs::path realDirectory = root / "real";
+    const fs::path aliasDirectory = root / "alias";
+    const fs::path realPath = realDirectory / "main.rls";
+    std::error_code error;
+    fs::remove_all(root, error);
+    fs::create_directories(realDirectory);
+    std::ofstream(realPath) << "define value(): true\n";
+    fs::create_directory_symlink(realDirectory, aliasDirectory, error);
+    ASSERT_FALSE(error) << error.message();
+
+    const std::string aliasUri = "file://" + (aliasDirectory / "main.rls").generic_string();
+    const auto canonicalUri = PathToFileUri(realPath);
+    ASSERT_TRUE(canonicalUri.has_value());
+    ASSERT_NE(aliasUri, *canonicalUri);
+
+    DocumentStore store;
+    ASSERT_EQ(store.open(aliasUri, "rls", 5, "current"),
+        DocumentUpdateResult::Applied);
+    const auto* document = store.find(*canonicalUri);
+    ASSERT_NE(document, nullptr);
+    EXPECT_EQ(document->version, 5);
+    EXPECT_EQ(store.applyFullChange(*canonicalUri, 6, "changed"),
+        DocumentUpdateResult::Applied);
+    EXPECT_EQ(store.find(aliasUri)->text, "changed");
+
+    fs::remove_all(root, error);
+}
+#endif
 
 TEST(DocumentStoreTests, RequiresStrictlyIncreasingVersions) {
     DocumentStore store;

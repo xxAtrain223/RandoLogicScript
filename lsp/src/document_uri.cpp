@@ -174,6 +174,17 @@ std::optional<std::string> DocumentUriKey(std::string_view uri) {
     if (!normalized) {
         return std::nullopt;
     }
+    if (normalized->starts_with("file:///")) {
+        const auto path = FileUriToPath(*normalized);
+        if (!path) {
+            return std::nullopt;
+        }
+        const auto canonicalUri = PathToFileUri(*path);
+        if (!canonicalUri) {
+            return std::nullopt;
+        }
+        normalized = canonicalUri;
+    }
 #ifdef _WIN32
     if (normalized->starts_with("file:")) {
         for (size_t index = 0; index < normalized->size(); ++index) {
