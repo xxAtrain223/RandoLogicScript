@@ -2,15 +2,29 @@
 
 import argparse
 import json
+import os
 import queue
 import subprocess
 import tempfile
 import threading
 from pathlib import Path
+from urllib.parse import unquote, urlparse
+from urllib.request import url2pathname
 
 
 class ProtocolError(RuntimeError):
     pass
+
+
+def canonical_file_uri_path(uri: str) -> str:
+    parsed = urlparse(uri)
+    if parsed.scheme != "file":
+        raise ProtocolError(f"expected a file URI, received {uri!r}")
+
+    path_text = url2pathname(unquote(parsed.path))
+    if parsed.netloc and parsed.netloc != "localhost":
+        path_text = f"//{parsed.netloc}{path_text}"
+    return os.path.normcase(str(Path(path_text).resolve()))
 
 
 def encode_message(message: dict) -> bytes:
@@ -450,13 +464,24 @@ def run_smoke(server: Path) -> None:
                 "rename response",
             )["result"]
             changes = rename.get("documentChanges", [])
+            document_edit = changes[0] if len(changes) == 1 else None
+            edits = document_edit.get("edits", []) if document_edit else []
             if (
-                len(changes) != 1
-                or changes[0]["textDocument"] != {"uri": source_uri, "version": 5}
-                or len(changes[0]["edits"]) != 3
-                or any(edit["newText"] != "replacement" for edit in changes[0]["edits"])
+                document_edit is None
+                or canonical_file_uri_path(document_edit["textDocument"]["uri"])
+                != canonical_file_uri_path(source_uri)
+                or document_edit["textDocument"].get("version") != 5
+                or [edit["range"]["start"] for edit in edits]
+                != [
+                    {"line": 0, "character": 7},
+                    {"line": 1, "character": 17},
+                    {"line": 1, "character": 30},
+                ]
+                or any(edit["newText"] != "replacement" for edit in edits)
             ):
-                raise ProtocolError("rename response omitted versioned edits")
+                raise ProtocolError(
+                    f"rename response omitted versioned edits: {rename!r}"
+                )
 
             send(
                 process,
