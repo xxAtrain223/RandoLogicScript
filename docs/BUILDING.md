@@ -103,6 +103,12 @@ validates protocol traces and crash recovery, and cleans up its processes. Use
 `editors/visualstudio/MANUAL-TESTING.md` for visual, accessibility, theme, and supported
 Visual Studio version checks.
 
+GitHub-hosted runners can install Visual Studio 2026 without providing an interactive
+desktop that registers DTE automation. CI invokes the harness with
+`-SkipWhenDteUnavailable`; this skips only the initial DTE-unavailable condition after
+build, smoke, unit, deployment, and package validation succeed. Local runs omit the
+switch and remain strict.
+
 For development, `RLS_LANGUAGE_SERVER_PATH` overrides the bundled executable when
 Visual Studio starts the language client. Release users do not need this setting.
 

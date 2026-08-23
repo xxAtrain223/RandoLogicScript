@@ -171,6 +171,7 @@ jobs:
           & editors/visualstudio/scripts/test-experimental-instance.ps1
           -Configuration Release
           -RootSuffix RLSPhase4CI
+          -SkipWhenDteUnavailable
 
       - name: Stage Visual Studio VSIX
         shell: pwsh

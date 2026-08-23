@@ -162,6 +162,12 @@ Run the Visual Studio 2026 Experimental Instance harness from PowerShell 7:
   -RootSuffix RLSPhase4
 ```
 
+Interactive local runs are strict. Hosted CI additionally passes
+`-SkipWhenDteUnavailable` because a runner can have Visual Studio installed without an
+interactive desktop capable of registering its DTE automation object. That switch
+only skips the initial DTE acquisition timeout; it does not suppress host assertion
+failures after DTE becomes available.
+
 The host harness validates VSIX deployment, bundled-server activation, encoded Open
 Folder roots, standalone null roots, diagnostics, semantic-token and document-symbol
 requests, authoring/navigation/refactoring capability negotiation, watched manifest
