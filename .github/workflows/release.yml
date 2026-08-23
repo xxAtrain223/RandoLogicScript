@@ -1,4 +1,4 @@
-name: Release VS Code extension
+name: Release editor extensions
 
 on:
   push:
@@ -86,14 +86,88 @@ jobs:
       - name: Store targeted VSIX
         uses: actions/upload-artifact@v7
         with:
-          name: rando-logic-script-${{ matrix.target }}
+          name: rando-logic-script-vscode-${{ matrix.target }}
           path: editors/vscode/rando-logic-script-${{ github.ref_name }}-${{ matrix.target }}.vsix
+          if-no-files-found: error
+          retention-days: 7
+
+  visual-studio-package:
+    name: Package Visual Studio x64
+    runs-on: windows-latest
+    permissions:
+      contents: read
+      id-token: write
+      attestations: write
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+
+      - name: Set up Python for process smoke test
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+
+      - name: Set up Node for native validation
+        uses: actions/setup-node@v5
+        with:
+          node-version: 22
+
+      - name: Verify tag matches extension version
+        run: node -e "const actual=require('./editors/vscode/package.json').version; const tag=process.env.GITHUB_REF_NAME; if (tag !== 'v' + actual) throw new Error('Tag ' + tag + ' does not match extension v' + actual);"
+
+      - name: Build static x64 language server
+        shell: pwsh
+        run: |
+          $vswhere = Join-Path ${env:ProgramFiles(x86)} 'Microsoft Visual Studio\Installer\vswhere.exe'
+          $installation = & $vswhere -latest -products * -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath
+          if (-not $installation) { throw 'Visual Studio with the x64 C++ tools was not found.' }
+          & (Join-Path $installation 'Common7\Tools\Launch-VsDevShell.ps1') -Arch amd64 -HostArch amd64 -SkipAutomaticLocation
+          cmake -S . -B build-visualstudio-release -G Ninja `
+            -DCMAKE_BUILD_TYPE=Release `
+            -DBUILD_TESTING=OFF `
+            -DRLS_STATIC_MSVC_RUNTIME=ON
+          cmake --build build-visualstudio-release --target rls_language_server --parallel
+
+      - name: Smoke test release server
+        run: python lsp/tests/process_smoke.py --server build-visualstudio-release/lsp/rls_language_server.exe
+
+      - name: Build and test Visual Studio extension
+        shell: pwsh
+        run: |
+          $vswhere = Join-Path ${env:ProgramFiles(x86)} 'Microsoft Visual Studio\Installer\vswhere.exe'
+          $installation = & $vswhere -latest -products * -property installationPath
+          $msbuild = Join-Path $installation 'MSBuild\Current\Bin\amd64\MSBuild.exe'
+          if (-not (Test-Path $msbuild)) { throw "Full-framework MSBuild was not found at '$msbuild'." }
+          & $msbuild editors/visualstudio/RandoLogicScript.VisualStudio.sln /restore /t:Build /p:Configuration=Release /m /v:minimal
+          dotnet test editors/visualstudio/tests/RandoLogicScript.VisualStudio.Tests.csproj --configuration Release --no-restore
+
+      - name: Validate and stage Visual Studio VSIX
+        shell: pwsh
+        run: |
+          $source = 'editors/visualstudio/src/bin/Release/net472/RandoLogicScript.VisualStudio.vsix'
+          $tag = $env:GITHUB_REF_NAME
+          & editors/visualstudio/scripts/validate-vsix.ps1 -VsixPath $source -ExpectedTag $tag
+          Copy-Item $source "editors/visualstudio/rando-logic-script-$tag-visualstudio-x64.vsix"
+
+      - name: Attest Visual Studio VSIX build provenance
+        uses: actions/attest@v4
+        with:
+          subject-path: editors/visualstudio/rando-logic-script-${{ github.ref_name }}-visualstudio-x64.vsix
+
+      - name: Store Visual Studio VSIX
+        uses: actions/upload-artifact@v7
+        with:
+          name: rando-logic-script-visualstudio-x64
+          path: editors/visualstudio/rando-logic-script-${{ github.ref_name }}-visualstudio-x64.vsix
           if-no-files-found: error
           retention-days: 7
 
   release:
     name: Create GitHub release
-    needs: package
+    needs:
+      - package
+      - visual-studio-package
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -110,7 +184,11 @@ jobs:
         shell: bash
         run: |
           mapfile -t artifacts < <(find artifacts -maxdepth 1 -name '*.vsix' -type f | sort)
-          test "${#artifacts[@]}" -eq 3
+          test "${#artifacts[@]}" -eq 4
+          test "$(find artifacts -maxdepth 1 -name '*-visualstudio-x64.vsix' -type f | wc -l)" -eq 1
+          test "$(find artifacts -maxdepth 1 -name '*-win32-x64.vsix' -type f | wc -l)" -eq 1
+          test "$(find artifacts -maxdepth 1 -name '*-linux-x64.vsix' -type f | wc -l)" -eq 1
+          test "$(find artifacts -maxdepth 1 -name '*-darwin-x64.vsix' -type f | wc -l)" -eq 1
           printf '%s\n' "${artifacts[@]}"
 
       - name: Create GitHub release
@@ -120,7 +198,7 @@ jobs:
         run: gh release create "$GITHUB_REF_NAME" artifacts/*.vsix --verify-tag --generate-notes --title "Rando Logic Script $GITHUB_REF_NAME"
 
   publish-marketplace:
-    name: Publish to Visual Studio Marketplace
+    name: Publish VS Code Marketplace packages
     needs: release
     runs-on: ubuntu-latest
     environment: marketplace-production
@@ -144,7 +222,7 @@ jobs:
       - name: Download validated VSIX files
         uses: actions/download-artifact@v8
         with:
-          pattern: rando-logic-script-*
+          pattern: rando-logic-script-vscode-*
           path: artifacts
           merge-multiple: true
 

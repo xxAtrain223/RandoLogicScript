@@ -48,6 +48,28 @@ No Visual Studio 2026-specific runtime API is required. The project uses current
 - `RLS_LANGUAGE_SERVER_PATH` is available only as a development override. Release
   packages use the server bundled at `Server\rls_language_server.exe`.
 
+Visual Studio LSP tracing is available for Open Folder workspaces. Add the following
+to `.vs\VSWorkspaceSettings.json`:
+
+```json
+{
+  "randoLogicScript.trace.server": "Verbose"
+}
+```
+
+Trace files are written under `%TEMP%\VisualStudio\LSP`. Extension startup, stderr,
+initialization failures, and unexpected exits are also written to the Visual Studio
+Activity Log.
+
+## Known Limitations
+
+- Windows x64 only; Visual Studio 2019 and ARM64 are not supported.
+- Visual Studio 2026 advertises no completion snippet support, so completions use plain
+  text and server-side indentation.
+- Visual Studio requests flat document symbols rather than hierarchical symbols.
+- No custom project system, debugger integration, or designer is included.
+- Visual Studio Marketplace publication is currently manual.
+
 ## Build
 
 Build the native server from an x64 Visual Studio developer shell. CMake 4.1 does

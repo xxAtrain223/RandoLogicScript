@@ -104,3 +104,85 @@ jobs:
       - name: Generate and test Tree-sitter grammar
         working-directory: tooling/tree-sitter-rls
         run: npm ci && npm run generate && npm test
+
+  visual-studio-extension:
+    name: Visual Studio x64 extension
+    runs-on: windows-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+
+      - name: Set up Python for process smoke test
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+
+      - name: Set up Node for native validation
+        uses: actions/setup-node@v5
+        with:
+          node-version: 22
+
+      - name: Build static x64 language server
+        shell: pwsh
+        run: |
+          $vswhere = Join-Path ${env:ProgramFiles(x86)} 'Microsoft Visual Studio\Installer\vswhere.exe'
+          $installation = & $vswhere -latest -products * -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath
+          if (-not $installation) { throw 'Visual Studio with the x64 C++ tools was not found.' }
+          & (Join-Path $installation 'Common7\Tools\Launch-VsDevShell.ps1') -Arch amd64 -HostArch amd64 -SkipAutomaticLocation
+          cmake -S . -B build-visualstudio-release -G Ninja `
+            -DCMAKE_BUILD_TYPE=Release `
+            -DBUILD_TESTING=OFF `
+            -DRLS_STATIC_MSVC_RUNTIME=ON
+          cmake --build build-visualstudio-release --target rls_language_server --parallel
+
+      - name: Smoke test release server
+        run: python lsp/tests/process_smoke.py --server build-visualstudio-release/lsp/rls_language_server.exe
+
+      - name: Build and test Visual Studio extension
+        shell: pwsh
+        run: |
+          $vswhere = Join-Path ${env:ProgramFiles(x86)} 'Microsoft Visual Studio\Installer\vswhere.exe'
+          $installation = & $vswhere -latest -products * -property installationPath
+          $msbuild = Join-Path $installation 'MSBuild\Current\Bin\amd64\MSBuild.exe'
+          if (-not (Test-Path $msbuild)) { throw "Full-framework MSBuild was not found at '$msbuild'." }
+          & $msbuild editors/visualstudio/RandoLogicScript.VisualStudio.sln /restore /t:Build /p:Configuration=Release /m /v:minimal
+          dotnet test editors/visualstudio/tests/RandoLogicScript.VisualStudio.Tests.csproj --configuration Release --no-restore
+
+      - name: Validate Visual Studio VSIX
+        shell: pwsh
+        run: >-
+          & editors/visualstudio/scripts/validate-vsix.ps1
+          -VsixPath editors/visualstudio/src/bin/Release/net472/RandoLogicScript.VisualStudio.vsix
+
+      - name: Detect Visual Studio 2026 host
+        id: visual-studio-2026
+        shell: pwsh
+        run: |
+          $vswhere = Join-Path ${env:ProgramFiles(x86)} 'Microsoft Visual Studio\Installer\vswhere.exe'
+          $versions = @((& $vswhere -products * -format json | ConvertFrom-Json).installationVersion)
+          $available = @($versions | Where-Object { [version]$_ -ge [version]'18.0' }).Count -gt 0
+          "available=$($available.ToString().ToLowerInvariant())" >> $env:GITHUB_OUTPUT
+
+      - name: Test Visual Studio 2026 Experimental Instance
+        if: steps.visual-studio-2026.outputs.available == 'true'
+        shell: pwsh
+        run: >-
+          & editors/visualstudio/scripts/test-experimental-instance.ps1
+          -Configuration Release
+          -RootSuffix RLSPhase4CI
+
+      - name: Stage Visual Studio VSIX
+        shell: pwsh
+        run: >-
+          Copy-Item
+          editors/visualstudio/src/bin/Release/net472/RandoLogicScript.VisualStudio.vsix
+          editors/visualstudio/rando-logic-script-visualstudio-x64.vsix
+
+      - name: Store validated Visual Studio VSIX
+        uses: actions/upload-artifact@v7
+        with:
+          name: rando-logic-script-visualstudio-x64
+          path: editors/visualstudio/rando-logic-script-visualstudio-x64.vsix
+          if-no-files-found: error
+          retention-days: 7
