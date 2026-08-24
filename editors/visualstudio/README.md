@@ -188,4 +188,6 @@ document/workspace symbol, prepare-rename, rename, and semantic-token requests.
 Visual rendering, keyboard accessibility, and UI workflow checks remain manual. See
 `editors/visualstudio/MANUAL-TESTING.md`.
 
-CI and release publication belong to the remaining implementation phase.
+CI builds and validates the Visual Studio extension, and GitHub Releases publish the
+Visual Studio VSIX alongside the VS Code packages. Visual Studio Marketplace
+publication remains manual.

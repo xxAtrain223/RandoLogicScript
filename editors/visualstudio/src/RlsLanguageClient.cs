@@ -153,11 +153,13 @@ namespace RandoLogicScript.VisualStudio
             }
 
             var cancellation = token.Register(() => StopOwnedServerProcess(process, false));
+            Connection connection = null;
             lock (processLock)
             {
-                if (ReferenceEquals(serverProcess, process))
+                if (ReferenceEquals(serverProcess, process) && !token.IsCancellationRequested)
                 {
                     serverCancellation = cancellation;
+                    connection = new Connection(process.StandardOutput, process.StandardInput);
                 }
                 else
                 {
@@ -165,8 +167,15 @@ namespace RandoLogicScript.VisualStudio
                 }
             }
 
+            if (connection == null)
+            {
+                StopOwnedServerProcess(process);
+                token.ThrowIfCancellationRequested();
+                throw new InvalidOperationException("Language server process ownership was lost during startup.");
+            }
+
             log.Information($"Started language server '{serverPath}'.");
-            return new Connection(process.StandardOutput, process.StandardInput);
+            return connection;
         }
 
         public Task OnLoadedAsync()

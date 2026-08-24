@@ -132,6 +132,26 @@ namespace RandoLogicScript.VisualStudio.Tests
         }
 
         [Fact]
+        public async Task CancellationDuringStartupDoesNotReturnDeadConnection()
+        {
+            using (var cancellation = new CancellationTokenSource())
+            using (var client = CreateClient(out _, out var factory, out var log))
+            {
+                factory.ProcessCreated = process =>
+                    process.StartAction = cancellation.Cancel;
+
+                await Assert.ThrowsAnyAsync<OperationCanceledException>(() =>
+                    client.ActivateAsync(cancellation.Token));
+
+                FakeProcess process = Assert.Single(factory.Processes);
+                Assert.True(process.KillCalled);
+                Assert.True(process.DisposeCalled);
+                Assert.DoesNotContain(log.InformationMessages, message =>
+                    message.Contains("Started language server"));
+            }
+        }
+
+        [Fact]
         public async Task SecondActivationStopsPreviouslyOwnedProcess()
         {
             using (var client = CreateClient(out _, out var factory, out _))
@@ -262,9 +282,12 @@ namespace RandoLogicScript.VisualStudio.Tests
 
             public List<ProcessStartInfo> StartInfos { get; } = new List<ProcessStartInfo>();
 
+            public Action<FakeProcess> ProcessCreated { get; set; }
+
             public IRlsServerProcess Create(ProcessStartInfo startInfo)
             {
                 var process = new FakeProcess();
+                ProcessCreated?.Invoke(process);
                 Processes.Add(process);
                 StartInfos.Add(startInfo);
                 return process;
@@ -295,9 +318,12 @@ namespace RandoLogicScript.VisualStudio.Tests
 
             public bool DisposeCalled { get; private set; }
 
+            public Action StartAction { get; set; }
+
             public bool Start()
             {
                 StartCalled = true;
+                StartAction?.Invoke();
                 return true;
             }
 
