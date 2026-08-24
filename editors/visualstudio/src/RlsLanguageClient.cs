@@ -61,7 +61,7 @@ namespace RandoLogicScript.VisualStudio
                         ["parameter"] = "parameter name",
                         ["enum"] = "cppValueType",
                         ["enumMember"] = "cppEnumerator",
-                        ["property"] = "property name",
+                        ["property"] = "string",
                         ["variable"] = "local name",
                         ["operator"] = "operator",
                         ["rlsPropertyDeclaration"] = "string",

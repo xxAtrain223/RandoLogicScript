@@ -44,7 +44,8 @@ No Visual Studio 2026-specific runtime API is required. The project uses current
   while constructing the initialize response, before Visual Studio caches the
   legend. Token indexes, modifier bits, ranges, and semantic analysis are unchanged.
 - Visual Studio maps the canonical RLS token names to its method, C++ value-type,
-  C++ enumerator, parameter, property, local, operator, and string classifications. Unsupported
+  C++ enumerator, parameter, local, operator, and string classifications. Exit-key
+  properties and RLS property declarations both map to the string classification. Unsupported
   modifiers map to an unregistered no-style name, so they do not overlay resolved
   symbols with plain text.
 - Server stderr, startup failures, initialization failures, and unexpected exits
