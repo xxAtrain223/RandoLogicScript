@@ -51,11 +51,38 @@ namespace RandoLogicScript.VisualStudio
             {
                 sectionSnippetIndentation = "server",
             },
+            semanticTokens = new
+            {
+                legend = new
+                {
+                    tokenTypes = new Dictionary<string, string>
+                    {
+                        ["function"] = "method name",
+                        ["parameter"] = "parameter name",
+                        ["enum"] = "enum name",
+                        ["enumMember"] = "enum member name",
+                        ["property"] = "property name",
+                        ["variable"] = "local name",
+                        ["operator"] = "operator",
+                        ["rlsPropertyDeclaration"] = "string",
+                    },
+                    tokenModifiers = new Dictionary<string, string>
+                    {
+                        ["declaration"] = "rlsNoStyleModifier",
+                        ["definition"] = "rlsNoStyleModifier",
+                        ["readonly"] = "rlsNoStyleModifier",
+                        ["defaultLibrary"] = "rlsNoStyleModifier",
+                        ["deprecated"] = "rlsNoStyleModifier",
+                    },
+                },
+            },
         };
 
         public IEnumerable<string> FilesToWatch => new[] { "**/*.rls", "**/rls.json" };
 
         public bool ShowNotificationOnInitializeFailed => true;
+
+        public object MiddleLayer => null;
 
     #pragma warning disable CS0067
         public event AsyncEventHandler<EventArgs> StartAsync;

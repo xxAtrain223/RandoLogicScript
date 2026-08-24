@@ -38,6 +38,9 @@ Studio version, edition, Windows version, extension version, and result for each
 - [ ] Diagnostics clear after fixing a source or manifest error.
 - [ ] TextMate syntax scopes render coherently in light, dark, and high-contrast themes.
 - [ ] Semantic function, parameter, enum, member, property, variable, and operator tokens render.
+- [ ] In `examples/soh/src/overworld/root.rls`, `setting`/`is_child` render as
+	methods, `TimePasses` as an enum, `No`/`SCENE_ID_MAX`/`RA_LINKS_POCKET` as enum
+	members, and event/location labels as properties rather than generic text.
 - [ ] Semantic colors remain legible when they overlap TextMate syntax classifications.
 - [ ] Comments, bracket matching, auto-closing, surrounding pairs, and word selection behave as configured.
 

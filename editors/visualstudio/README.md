@@ -39,6 +39,14 @@ No Visual Studio 2026-specific runtime API is required. The project uses current
   `editors/vscode`; the syntax and local editor behavior have one source of truth.
 - The language configuration supplies comments, bracket matching, auto-closing,
   surrounding pairs, and RLS word boundaries.
+- The client supplies semantic token type and modifier name mappings in
+  `initializationOptions.semanticTokens.legend`. The server applies those mappings
+  while constructing the initialize response, before Visual Studio caches the
+  legend. Token indexes, modifier bits, ranges, and semantic analysis are unchanged.
+- Visual Studio maps the canonical RLS token names to its method, enum, enum-member,
+  parameter, property, local, operator, and string classifications. Unsupported
+  modifiers map to an unregistered no-style name, so they do not overlay resolved
+  symbols with plain text.
 - Server stderr, startup failures, initialization failures, and unexpected exits
   are written to the Visual Studio Activity Log. Visual Studio supplies the
   initialization-failure InfoBar.
@@ -170,7 +178,8 @@ failures after DTE becomes available.
 
 The host harness validates VSIX deployment, bundled-server activation, encoded Open
 Folder roots, standalone null roots, diagnostics, semantic-token and document-symbol
-requests, authoring/navigation/refactoring capability negotiation, watched manifest
+requests, Visual Studio semantic classification legend adaptation,
+authoring/navigation/refactoring capability negotiation, watched manifest
 notifications, one-process crash recovery, Unicode/spaced URIs, and cleanup. The
 process smoke test sends actual completion, signature, hover, definition, references,
 document/workspace symbol, prepare-rename, rename, and semantic-token requests.

@@ -62,12 +62,49 @@ TEST(ServerCompositionRootTests, AdvertisesImplementedTextDocumentFeatures) {
         Json::array({"(", ","}));
     EXPECT_EQ(result["capabilities"]["hoverProvider"], true);
     EXPECT_EQ(result["capabilities"]["semanticTokensProvider"]["legend"]["tokenTypes"],
-        Json::array({"function", "parameter", "enum", "enumMember", "property", "variable", "operator"}));
+        Json::array({"function", "parameter", "enum", "enumMember", "property", "variable", "operator",
+            "rlsPropertyDeclaration"}));
     EXPECT_EQ(result["capabilities"]["semanticTokensProvider"]["legend"]["tokenModifiers"],
         Json::array({"declaration", "definition", "readonly", "defaultLibrary", "deprecated"}));
     EXPECT_EQ(result["capabilities"]["semanticTokensProvider"]["range"], false);
     EXPECT_EQ(result["capabilities"]["semanticTokensProvider"]["full"], true);
     EXPECT_EQ(result["capabilities"]["workspaceSymbolProvider"], true);
+}
+
+TEST(ServerCompositionRootTests, MapsSemanticTokenLegendFromInitializationOptions) {
+    ServerCompositionRoot server;
+    const auto responses = server.handlePayload(R"({
+        "jsonrpc":"2.0",
+        "id":1,
+        "method":"initialize",
+        "params":{
+            "initializationOptions":{
+                "semanticTokens":{
+                    "legend":{
+                        "tokenTypes":{
+                            "function":"method name",
+                            "enumMember":"enum member name",
+                            "missing":"ignored"
+                        },
+                        "tokenModifiers":{
+                            "declaration":"rlsNoStyleModifier",
+                            "readonly":"rlsNoStyleModifier"
+                        }
+                    }
+                }
+            }
+        }
+    })");
+
+    ASSERT_EQ(responses.size(), 1);
+    const auto legend = Json::parse(responses.front())["result"]["capabilities"]
+        ["semanticTokensProvider"]["legend"];
+    EXPECT_EQ(legend["tokenTypes"], Json::array({
+        "method name", "parameter", "enum", "enum member name", "property",
+        "variable", "operator", "rlsPropertyDeclaration"}));
+    EXPECT_EQ(legend["tokenModifiers"], Json::array({
+        "rlsNoStyleModifier", "definition", "rlsNoStyleModifier",
+        "defaultLibrary", "deprecated"}));
 }
 
 TEST(ServerCompositionRootTests, RoutesCompletionWithActiveTokenTextEdit) {

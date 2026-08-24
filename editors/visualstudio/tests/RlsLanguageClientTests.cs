@@ -64,7 +64,21 @@ namespace RandoLogicScript.VisualStudio.Tests
                 Assert.Equal(
                     "server",
                     ReadProperty(ReadProperty(client.InitializationOptions, "completion"), "sectionSnippetIndentation"));
+                object legend = ReadProperty(
+                    ReadProperty(ReadProperty(client.InitializationOptions, "semanticTokens"), "legend"),
+                    "tokenTypes");
+                var tokenTypes = Assert.IsAssignableFrom<IDictionary<string, string>>(legend);
+                Assert.Equal("method name", tokenTypes["function"]);
+                Assert.Equal("enum member name", tokenTypes["enumMember"]);
+                Assert.Equal("string", tokenTypes["rlsPropertyDeclaration"]);
+                var tokenModifiers = Assert.IsAssignableFrom<IDictionary<string, string>>(
+                    ReadProperty(
+                        ReadProperty(ReadProperty(client.InitializationOptions, "semanticTokens"), "legend"),
+                        "tokenModifiers"));
+                Assert.All(tokenModifiers.Values, value =>
+                    Assert.Equal("rlsNoStyleModifier", value));
                 Assert.True(client.ShowNotificationOnInitializeFailed);
+                Assert.Null(client.MiddleLayer);
             }
         }
 

@@ -4,6 +4,7 @@
 
 #include "rls/lsp/json_rpc_router.h"
 #include "rls/lsp/lifecycle_service.h"
+#include "rls/lsp/semantic_token_legend.h"
 #include "rls/lsp/semantic_tokens_service.h"
 #include "rls/lsp/workspace_service.h"
 
@@ -129,6 +130,9 @@ void RegisterLifecycleRoutes(
             definitionLinkSupport(params), documentSymbolHierarchySupport(params),
             completionSnippetSupport(params), sectionSnippetIndentation(params),
             workspaceDocumentChangesSupport(params));
+        const auto semanticTokenLegend = MapSemanticTokenLegend(
+            params, SemanticTokensService::tokenTypes(),
+            SemanticTokensService::tokenModifiers());
         return Json{
             {"capabilities", {
                 {"textDocumentSync", {
@@ -150,8 +154,8 @@ void RegisterLifecycleRoutes(
                 {"hoverProvider", true},
                 {"semanticTokensProvider", {
                     {"legend", {
-                        {"tokenTypes", SemanticTokensService::tokenTypes()},
-                        {"tokenModifiers", SemanticTokensService::tokenModifiers()},
+                        {"tokenTypes", semanticTokenLegend.tokenTypes},
+                        {"tokenModifiers", semanticTokenLegend.tokenModifiers},
                     }},
                     {"range", false},
                     {"full", true},

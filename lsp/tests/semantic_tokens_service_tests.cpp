@@ -139,9 +139,11 @@ TEST(SemanticTokensServiceTests, EncodesResolvedCategoriesAndModifiers) {
     EXPECT_EQ(memberUse->type, 3u);
     EXPECT_EQ(memberUse->modifiers, 12u);
     EXPECT_EQ(region, nullptr);
-    EXPECT_EQ(property, nullptr);
+    ASSERT_NE(property, nullptr);
+    EXPECT_EQ(property->type, 7u);
+    EXPECT_EQ(property->modifiers, 1u);
     ASSERT_NE(entry, nullptr);
-    EXPECT_EQ(entry->type, 4u);
+    EXPECT_EQ(entry->type, 7u);
     EXPECT_EQ(entry->modifiers, 1u);
     ASSERT_NE(exit, nullptr);
     EXPECT_EQ(exit->type, 4u);

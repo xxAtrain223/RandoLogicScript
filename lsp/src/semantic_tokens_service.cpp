@@ -18,6 +18,7 @@ enum class TokenType : uint32_t {
     Property,
     Variable,
     Operator,
+    RlsPropertyDeclaration,
 };
 
 enum class TokenModifier : uint32_t {
@@ -93,6 +94,10 @@ std::optional<AbsoluteToken> makeToken(
     const sema::AnalysisSnapshot& snapshot, const ast::SourceText& source,
     const sema::OccurrenceRecord& occurrence, const sema::SymbolRecord& symbol) {
     auto type = tokenType(symbol.category);
+    const bool propertyDeclaration = occurrence.kind == sema::OccurrenceKind::Declaration
+        && (symbol.category == sema::SymbolCategory::RegionDataEntry
+            || symbol.category == sema::SymbolCategory::SectionEntry);
+    if (propertyDeclaration) type = TokenType::RlsPropertyDeclaration;
     const bool concretePatternValue = symbol.category == sema::SymbolCategory::ExternEnumPattern
         && occurrence.kind != sema::OccurrenceKind::Declaration;
     const bool exitTarget = occurrence.kind == sema::OccurrenceKind::ExitTarget;
@@ -152,6 +157,7 @@ SemanticTokensService::SemanticTokensService(
 const std::vector<std::string>& SemanticTokensService::tokenTypes() {
     static const std::vector<std::string> result = {
         "function", "parameter", "enum", "enumMember", "property", "variable", "operator",
+        "rlsPropertyDeclaration",
     };
     return result;
 }

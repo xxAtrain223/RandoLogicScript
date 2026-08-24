@@ -14,6 +14,9 @@ in this file.
 - Added Open Folder, CMake-folder, and standalone-file project discovery behavior.
 - Added Activity Log reporting, initialization failure notifications, deterministic
   process cleanup, and Visual Studio-managed bounded crash recovery.
+- Added client-configurable semantic-token legend mapping during initialization, so
+  Visual Studio receives its method, enum, enum-member, parameter, property, local,
+  and operator classification names. Standard LSP clients retain the canonical legend.
 - Added static native binary/package validation, xUnit tests, expanded process smoke
   coverage, and a Visual Studio 2026 Experimental Instance harness.
 

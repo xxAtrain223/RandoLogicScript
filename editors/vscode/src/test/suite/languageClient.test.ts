@@ -26,6 +26,9 @@ export async function runLanguageClientTest(): Promise<void> {
   assert.ok(extension, 'extension is available in the development host');
   const semanticScopeMap = extension.packageJSON.contributes.semanticTokenScopes[0];
   assert.equal(semanticScopeMap.language, 'rls');
+  assert.deepEqual(semanticScopeMap.scopes.rlsPropertyDeclaration, [
+    'variable.other.enummember.rls',
+  ]);
   assert.deepEqual(semanticScopeMap.scopes.function, ['entity.name.function.rls']);
   assert.deepEqual(semanticScopeMap.scopes['function.defaultLibrary'], [
     'entity.name.function.rls',

@@ -62,10 +62,20 @@
         "path": "./syntaxes/rls.tmLanguage.json"
       }
     ],
+    "semanticTokenTypes": [
+      {
+        "id": "rlsPropertyDeclaration",
+        "superType": "property",
+        "description": "RLS property declaration"
+      }
+    ],
     "semanticTokenScopes": [
       {
         "language": "rls",
         "scopes": {
+          "rlsPropertyDeclaration": [
+            "variable.other.enummember.rls"
+          ],
           "function": [
             "entity.name.function.rls"
           ],
