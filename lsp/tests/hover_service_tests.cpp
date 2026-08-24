@@ -72,8 +72,9 @@ TEST(HoverServiceTests, RendersCallSignatureDefaultsProvenanceAndLocation) {
 
     ASSERT_TRUE(result);
     EXPECT_NE(result->markdown.find(
-        "```rls\nextern paint(color: Color = RED) -> Bool\n```"),
+        "`extern paint(color: Color = RED) -> Bool`"),
         std::string::npos);
+    EXPECT_EQ(result->markdown.find("```"), std::string::npos);
     EXPECT_NE(result->markdown.find("External function declaration."), std::string::npos);
     EXPECT_NE(result->markdown.find("*External declaration.*"), std::string::npos);
     EXPECT_NE(result->markdown.find("[Open declaration](file:"), std::string::npos);

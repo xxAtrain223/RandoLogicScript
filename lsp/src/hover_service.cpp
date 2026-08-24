@@ -217,7 +217,20 @@ PresentationSymbol presentationSymbol(
 }
 
 std::string hoverMarkdown(const RenderedPresentation& rendered) {
-    std::string result = "```rls\n" + rendered.detail + "\n```";
+    size_t longestRun = 0;
+    size_t currentRun = 0;
+    for (const char character : rendered.detail) {
+        if (character == '`') {
+            longestRun = std::max(longestRun, ++currentRun);
+        } else {
+            currentRun = 0;
+        }
+    }
+    const std::string delimiter(longestRun + 1, '`');
+    const bool pad = !rendered.detail.empty()
+        && (rendered.detail.front() == '`' || rendered.detail.back() == '`');
+    std::string result = delimiter + (pad ? " " : "") + rendered.detail
+        + (pad ? " " : "") + delimiter;
     if (!rendered.documentation.empty()) result += "\n\n" + rendered.documentation;
     return result;
 }
