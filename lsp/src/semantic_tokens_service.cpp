@@ -61,13 +61,13 @@ std::optional<TokenType> tokenType(sema::SymbolCategory category) {
     case sema::SymbolCategory::Enum:
         return TokenType::Enum;
     case sema::SymbolCategory::EnumMember:
+    case sema::SymbolCategory::ExternEnumPattern:
         return TokenType::EnumMember;
     case sema::SymbolCategory::SectionEntry:
         return TokenType::Property;
     case sema::SymbolCategory::RegionDataEntry:
     case sema::SymbolCategory::Region:
     case sema::SymbolCategory::RegionExtension:
-    case sema::SymbolCategory::ExternEnumPattern:
         return std::nullopt;
     }
     return std::nullopt;
@@ -132,7 +132,8 @@ std::optional<AbsoluteToken> makeToken(
                 ? TokenModifier::Definition
                 : TokenModifier::Declaration);
     }
-    if (isReadonly(symbol.category) || (concretePatternValue && !exitTarget)
+    if (isReadonly(symbol.category)
+        || (symbol.category == sema::SymbolCategory::ExternEnumPattern && !exitTarget)
         || (concreteRegionValue && !exitTarget)) {
         modifiers |= modifier(TokenModifier::Readonly);
     }

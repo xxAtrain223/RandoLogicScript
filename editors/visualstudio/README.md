@@ -43,8 +43,8 @@ No Visual Studio 2026-specific runtime API is required. The project uses current
   `initializationOptions.semanticTokens.legend`. The server applies those mappings
   while constructing the initialize response, before Visual Studio caches the
   legend. Token indexes, modifier bits, ranges, and semantic analysis are unchanged.
-- Visual Studio maps the canonical RLS token names to its method, enum, enum-member,
-  parameter, property, local, operator, and string classifications. Unsupported
+- Visual Studio maps the canonical RLS token names to its method, C++ value-type,
+  C++ enumerator, parameter, property, local, operator, and string classifications. Unsupported
   modifiers map to an unregistered no-style name, so they do not overlay resolved
   symbols with plain text.
 - Server stderr, startup failures, initialization failures, and unexpected exits

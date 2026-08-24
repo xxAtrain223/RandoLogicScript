@@ -59,8 +59,8 @@ namespace RandoLogicScript.VisualStudio
                     {
                         ["function"] = "method name",
                         ["parameter"] = "parameter name",
-                        ["enum"] = "enum name",
-                        ["enumMember"] = "enum member name",
+                        ["enum"] = "cppValueType",
+                        ["enumMember"] = "cppEnumerator",
                         ["property"] = "property name",
                         ["variable"] = "local name",
                         ["operator"] = "operator",
