@@ -2,6 +2,7 @@
 #include "diagnostics.h"
 #include "type_helpers.h"
 
+#include <algorithm>
 #include <fmt/format.h>
 #include <functional>
 #include <string>

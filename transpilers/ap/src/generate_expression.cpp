@@ -460,7 +460,10 @@ std::string ApTranspiler::GenerateExpression(const rls::ast::BinaryExpr& node) c
 	case rls::ast::BinaryOp::Mul:
 		return GenerateChildExpression(node.left, 6) + " * " + GenerateChildExpression(node.right, 6, true);
 	case rls::ast::BinaryOp::Div:
-		return GenerateChildExpression(node.left, 6) + " / " + GenerateChildExpression(node.right, 6, true);
+		// RLS Div is Int / Int -> Int, and the C++ target emits truncating integer division.
+		// Python's `/` is float division, so `//` is what matches (both operands are
+		// non-negative counts, where `//` and truncation agree).
+		return GenerateChildExpression(node.left, 6) + " // " + GenerateChildExpression(node.right, 6, true);
 	default:
 		return "";
 	}

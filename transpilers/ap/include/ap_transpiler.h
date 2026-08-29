@@ -131,9 +131,6 @@ protected:
 	// Record an error diagnostic for an unrepresentable construct at `span`.
 	void Diagnose(const rls::ast::Span& span, std::string message) const;
 
-private:
-	mutable std::vector<rls::ast::Diagnostic> diagnostics;
-
 	// How a Bool/Int expression lowers to the RuleBuilder target. The keystone of
 	// function generation (see docs/AP-Function-Generation.md). The rule lambda
 	// `lambda bundle: <expr>` runs ONCE to build a Rule tree; only the resulting
@@ -157,6 +154,9 @@ private:
 	enum class ValueClass { Rule, BuildTime, Runtime };
 	ValueClass ClassifyExpression(const rls::ast::Expr* expr) const;
 	ValueClass ClassifyExpression(const rls::ast::ExprPtr& expr) const;
+
+private:
+	mutable std::vector<rls::ast::Diagnostic> diagnostics;
 
 	// The value class of a call, by its callee's return semantics (setting/define/extern).
 	// Shared by ClassifyExpression and the ternary distribution guard so both agree on which

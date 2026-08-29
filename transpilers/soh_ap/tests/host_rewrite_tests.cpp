@@ -211,6 +211,43 @@ TEST(SohApHostRewrites, GsCountThresholdLowersToHasItemCount) {
 		"has_item(bundle, Items.RG_GOLD_SKULLTULA_TOKEN, 50)");
 }
 
+// A threshold does not have to be a literal. A define's parameters are BuildTime (bound at the
+// call that builds the rule), so an arithmetic expression over them threads into the helper --
+// this is SoH's CanKillEnemy(RE_SHABOM), whose threshold scales with the enemy quantity.
+TEST(SohApHostRewrites, BuildTimeThresholdThreadsIntoHelper) {
+	EXPECT_EQ(GenerateExpression(sourceToExpression(
+		"extern define effective_health() -> Int\n"
+		"define test(quantity: Int):\n"
+		"    effective_health() >= quantity / 2 + 1 or has(RG_HOOKSHOT)\n",
+		"test")),
+		"effective_health_at_least(bundle, quantity // 2 + 1) | has_item(bundle, Items.RG_HOOKSHOT)");
+}
+
+// `> <build-time expr>` normalizes to `>= expr + 1` in the emitted Python, parenthesized so the
+// `+ 1` applies to the whole threshold rather than its last term.
+TEST(SohApHostRewrites, BuildTimeThresholdGreaterThanAddsOne) {
+	EXPECT_EQ(GenerateExpression(sourceToExpression(
+		"extern define hearts() -> Int\n"
+		"define test(quantity: Int):\n"
+		"    hearts() > quantity * 2\n",
+		"test")),
+		"hearts_at_least(bundle, (quantity * 2) + 1)");
+}
+
+// A Runtime right operand (a count that moves with collection state) is still not a threshold:
+// freezing it at build time would miscompile, so it stays a raw comparison and is diagnosed.
+TEST(SohApHostRewrites, RuntimeThresholdIsNotRewritten) {
+	auto resolved = sourceToExpression(
+		"extern define effective_health() -> Int\n"
+		"extern define bottle_count() -> Int\n"
+		"define test():\n"
+		"    effective_health() >= bottle_count() and has(RG_HOOKSHOT)\n",
+		"test");
+	rls::transpilers::soh_ap::SohApTranspiler transpiler(resolved.project);
+	transpiler.GenerateExpression(resolved.expr);
+	EXPECT_FALSE(transpiler.Diagnostics().empty());
+}
+
 // A non-cap `==` (hearts() == 3 means exactly 3, not >= 3) is NOT a threshold rewrite: hearts has
 // no allowEq, so it stays a raw runtime comparison and is rejected when combined with a rule.
 TEST(SohApHostRewrites, ExactEqualityCountIsNotRewritten) {

@@ -99,9 +99,14 @@ constexpr BinaryRewrite kBinaryRewrites[] = {
 
 // A threshold comparison `<callee>() >= N` (or `> N` / `!= N` / `== N`) against a state-dependent
 // count that the world exposes as an `_at_least`-style host rule taking the threshold as an
-// argument. Unlike kBinaryRewrites the right operand is an integer literal, not a call; the literal
-// is threaded into the helper. These re-evaluate against collection state, so the comparison lowers
-// to a Rule instead of a build-time-frozen Int (which ClassifyExpression rejects as a runtime value).
+// argument. Unlike kBinaryRewrites the right operand is a value, not a call; it is threaded into
+// the helper. These re-evaluate against collection state, so the comparison lowers to a Rule
+// instead of a build-time-frozen Int (which ClassifyExpression rejects as a runtime value).
+//
+// The threshold need not be a literal -- any BuildTime expression works, since it is by
+// definition fixed when the lambda that builds the rule runs. That covers a define's
+// parameters, so `effective_health() >= quantity / 2 + 1` inside a define taking `quantity`
+// lowers as `effective_health_at_least(bundle, quantity // 2 + 1)`.
 //
 // `extraArg` is inserted before the amount, for a helper that also takes a fixed argument -- e.g.
 // GS tokens reuse the generic `has_item(bundle, <item>, count)`. `allowEq` permits `== N` (lowered
@@ -271,7 +276,8 @@ std::optional<std::string> SohApTranspiler::renderBinarySpecialCase(const rls::a
 		node.op == rls::ast::BinaryOp::NotEq || node.op == rls::ast::BinaryOp::Eq) {
 		auto* leftCall = std::get_if<rls::ast::CallExpr>(&node.left->node);
 		auto* rightLit = std::get_if<rls::ast::IntLiteral>(&node.right->node);
-		if (leftCall && rightLit) {
+		const bool rightIsBuildTime = ClassifyExpression(node.right) == ValueClass::BuildTime;
+		if (leftCall && (rightLit || rightIsBuildTime)) {
 			for (const auto& rewrite : kThresholdRewrites) {
 				if (leftCall->callee.text != rewrite.rlsCallee) {
 					continue;
@@ -281,13 +287,23 @@ std::optional<std::string> SohApTranspiler::renderBinarySpecialCase(const rls::a
 				if (node.op == rls::ast::BinaryOp::Eq && !rewrite.allowEq) {
 					break;
 				}
+				// `> N` and `!= N` normalize to `>= N + 1`. A literal folds; anything else gets
+				// the `+ 1` in the emitted Python, parenthesized so it binds the whole threshold.
 				const bool plusOne = node.op == rls::ast::BinaryOp::Gt || node.op == rls::ast::BinaryOp::NotEq;
-				const int amount = rightLit->value + (plusOne ? 1 : 0);
+				std::string amount;
+				if (rightLit != nullptr) {
+					amount = std::to_string(rightLit->value + (plusOne ? 1 : 0));
+				} else {
+					amount = GenerateExpression(node.right);
+					if (plusOne) {
+						amount = "(" + amount + ") + 1";
+					}
+				}
 				std::string args = ruleContextParam() + ", ";
 				if (!rewrite.extraArg.empty()) {
 					args += std::string(rewrite.extraArg) + ", ";
 				}
-				args += std::to_string(amount);
+				args += amount;
 				return std::string(rewrite.pyHelper) + "(" + args + ")";
 			}
 		}
