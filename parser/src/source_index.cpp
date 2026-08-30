@@ -150,6 +150,11 @@ void SourceIndex::addRegionContext(
 	regionContexts_.push_back({std::move(context), std::move(sections)});
 }
 
+void SourceIndex::addExtensionTarget(ExtensionTargetContext context) {
+	if (context.targetSpan.start.line == 0) return;
+	extensionTargets_.push_back(std::move(context));
+}
+
 void SourceIndex::addMemberAccess(MemberAccessContext context) {
 	if (context.memberSpan.start.line == 0) return;
 	memberAccesses_.push_back(std::move(context));
@@ -244,6 +249,20 @@ std::optional<RegionContext> SourceIndex::regionContextAt(ast::Position position
 		}
 	}
 	return context;
+}
+
+std::optional<ExtensionTargetContext> SourceIndex::extensionTargetAt(
+	ast::Position position) const {
+	const ExtensionTargetContext* result = nullptr;
+	for (const auto& context : extensionTargets_) {
+		const bool atTarget = isBeforeOrEqual(context.targetSpan.start, position)
+			&& isBeforeOrEqual(position, context.targetSpan.end);
+		if (atTarget && (!result
+			|| spanSize(context.targetSpan) < spanSize(result->targetSpan))) {
+			result = &context;
+		}
+	}
+	return result ? std::optional<ExtensionTargetContext>(*result) : std::nullopt;
 }
 
 std::optional<MemberAccessContext> SourceIndex::memberAccessAt(ast::Position position) const {
@@ -374,6 +393,7 @@ SourceIndex BuildSourceIndex(const ast::File& file, const ast::SourceText* sourc
 				}
 				indexSections(index, node.body.sections);
 			} else if constexpr (std::is_same_v<T, ast::ExtendRegionDecl>) {
+				index.addExtensionTarget({node.name.span});
 				RegionContext context{
 					.span = {node.span.file, node.name.span.end, node.span.end},
 					.name = node.name.text,

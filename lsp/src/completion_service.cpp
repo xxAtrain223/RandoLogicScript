@@ -16,6 +16,7 @@ namespace {
 enum class CompletionContext {
     TopLevel,
     Type,
+    ExtensionTarget,
     RegionBody,
     SectionEntry,
     MemberAccess,
@@ -101,11 +102,13 @@ bool startsWithCaseInsensitive(std::string_view value, std::string_view prefix) 
 CompletionContext completionContextAt(
     const parser::SourceIndex& index, ast::Position position,
     const std::optional<parser::RegionContext>& region,
+    const std::optional<parser::ExtensionTargetContext>& extensionTarget,
     const std::optional<parser::TypePositionContext>& typePosition,
     const std::optional<parser::SectionEntryContext>& sectionEntry,
     const std::optional<parser::MemberAccessContext>& memberAccess,
     const std::optional<parser::NamedArgumentContext>& namedArgument,
     const std::optional<parser::CallArgumentContext>& callArgument) {
+    if (extensionTarget) return CompletionContext::ExtensionTarget;
     if (typePosition) return CompletionContext::Type;
     if (sectionEntry) return CompletionContext::SectionEntry;
     if (memberAccess) return CompletionContext::MemberAccess;
@@ -355,6 +358,7 @@ std::vector<CompletionItem> CompletionService::complete(
     const std::string lineIndentation = lineIndentationAt(*document->source, replacement.start);
 
     const auto region = document->sourceIndex->regionContextAt(contextPosition);
+    const auto extensionTarget = document->sourceIndex->extensionTargetAt(*cursorPosition);
     const auto typePosition = document->sourceIndex->typePositionAt(*cursorPosition);
     const auto sectionEntry = document->sourceIndex->sectionEntryAt(*cursorPosition);
     const auto memberAccess = document->sourceIndex->memberAccessAt(*cursorPosition);
@@ -369,7 +373,7 @@ std::vector<CompletionItem> CompletionService::complete(
         callArgument.reset();
     }
     const auto context = completionContextAt(
-        *document->sourceIndex, contextPosition, region, typePosition,
+        *document->sourceIndex, contextPosition, region, extensionTarget, typePosition,
         sectionEntry, memberAccess, namedArgument, callArgument);
     const auto parametersFor = [&](const sema::SymbolRecord& callable) {
         std::vector<const sema::SymbolRecord*> parameters;
@@ -441,6 +445,32 @@ std::vector<CompletionItem> CompletionService::complete(
                 const auto rendered = PresentationRenderer{}.render(symbol);
                 addCandidate(candidates, labels,
                     makeItem(enumName, CompletionItemKind::Enum,
+                        rendered.detail, rendered.documentation),
+                    0, prefix);
+            }
+        }
+    } else if (context == CompletionContext::ExtensionTarget) {
+        for (const auto& symbol : document->snapshot->semanticIndex().symbols()) {
+            if (symbol.category != sema::SymbolCategory::Region) continue;
+            const auto rendered = PresentationRenderer{}.render(
+                presentationSymbol(*document->snapshot, symbol));
+            addCandidate(candidates, labels,
+                makeItem(symbol.displayName, CompletionItemKind::Value,
+                    rendered.detail, rendered.documentation),
+                0, prefix);
+        }
+        for (const auto& documentPath : document->snapshot->documentPaths()) {
+            const auto* sourceIndex = document->snapshot->sourceIndex(documentPath);
+            if (!sourceIndex) continue;
+            for (const auto& name : sourceIndex->regionNames()) {
+                PresentationSymbol symbol{
+                    .kind = PresentationSymbolKind::Region,
+                    .name = name,
+                    .type = presentationType(ast::Type::Region),
+                };
+                const auto rendered = PresentationRenderer{}.render(symbol);
+                addCandidate(candidates, labels,
+                    makeItem(name, CompletionItemKind::Value,
                         rendered.detail, rendered.documentation),
                     0, prefix);
             }

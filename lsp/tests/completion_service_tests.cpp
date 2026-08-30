@@ -335,6 +335,33 @@ TEST(CompletionServiceTests, LimitsExtensionBodiesToMissingSections) {
     EXPECT_EQ(items.front().label, "exits");
 }
 
+TEST(CompletionServiceTests, CompletesExtendRegionTargetFromRegionDeclarations) {
+    const std::string blankUsage = "extend region ";
+    CrossFileCompletionFixture blankFixture(
+        "region RR_ALPHA {}\n"
+        "region RR_BETA {}\n"
+        "extend region RR_EXTENSION_ONLY {}\n",
+        blankUsage);
+
+    const auto blankItems = blankFixture.completeAtEnd(blankUsage);
+
+    ASSERT_NE(findItem(blankItems, "RR_ALPHA"), nullptr);
+    ASSERT_NE(findItem(blankItems, "RR_BETA"), nullptr);
+    EXPECT_EQ(findItem(blankItems, "RR_EXTENSION_ONLY"), nullptr);
+    EXPECT_EQ(findItem(blankItems, "extend region"), nullptr);
+
+    const std::string partialUsage = "extend region RR_B";
+    CrossFileCompletionFixture partialFixture(
+        "region RR_ALPHA {}\nregion RR_BETA {}\n", partialUsage);
+
+    const auto partialItems = partialFixture.completeAtEnd(partialUsage);
+
+    ASSERT_NE(findItem(partialItems, "RR_BETA"), nullptr);
+    EXPECT_EQ(partialItems.front().label, "RR_BETA");
+    EXPECT_EQ(partialItems.front().replacementRange.start.character, 14u);
+    EXPECT_EQ(partialItems.front().replacementRange.end.character, 18u);
+}
+
 TEST(CompletionServiceTests, OffersHereOnlyInRegionExpressions) {
     CompletionFixture fixture(
         "region RR_TEST { events { EVENT_TEST: tr } }\n"
