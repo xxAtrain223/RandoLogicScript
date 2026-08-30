@@ -104,7 +104,7 @@ namespace RandoLogicScript.VisualStudio.Tests
             var expected = new Dictionary<string, string>
             {
                 ["region.snippet"] = "region",
-                ["extend-region.snippet"] = "extendregion",
+                ["extend-region.snippet"] = "extend",
                 ["enum.snippet"] = "enum",
                 ["events.snippet"] = "events",
                 ["locations.snippet"] = "locations",
