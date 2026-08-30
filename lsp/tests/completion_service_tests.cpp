@@ -122,10 +122,15 @@ TEST(CompletionServiceTests, OffersOnlyDeclarationKeywordsAtTopLevel) {
 
     ASSERT_NE(findItem(items, "define"), nullptr);
     ASSERT_NE(findItem(items, "extern define"), nullptr);
+    ASSERT_NE(findItem(items, "enum"), nullptr);
     EXPECT_EQ(findItem(items, "true"), nullptr);
     EXPECT_EQ(items.front().label, "define");
     EXPECT_EQ(items.front().replacementRange.start.character, 0u);
     EXPECT_EQ(items.front().replacementRange.end.character, 3u);
+    EXPECT_EQ(findItem(items, "enum")->snippetText,
+        "enum ${1:NAME} {\n    $0\n}");
+    EXPECT_EQ(findItem(items, "enum")->serverIndentedSnippetText,
+        "enum ${1:NAME} {\n    $0\n}");
 }
 
 TEST(CompletionServiceTests, OffersBuiltInAndDeclaredTypesInTypePosition) {
@@ -273,6 +278,12 @@ TEST(CompletionServiceTests, ExpeditesLatestScheduledDocumentGeneration) {
 
     ASSERT_NE(findItem(items, "region"), nullptr);
     EXPECT_EQ(items.front().label, "region");
+    EXPECT_EQ(findItem(items, "region")->snippetText,
+        "region ${1:NAME} {\n    $0\n}");
+    EXPECT_EQ(findItem(items, "region")->serverIndentedSnippetText,
+        "region ${1:NAME} {\n    $0\n}");
+    EXPECT_EQ(findItem(items, "extend region")->snippetText,
+        "extend region ${1:NAME} {\n    $0\n}");
 }
 
 TEST(CompletionServiceTests, CompletesRecoveredRegionBodyWithoutDuplicates) {
@@ -349,6 +360,8 @@ TEST(CompletionServiceTests, CompletesExtendRegionTargetFromRegionDeclarations) 
     ASSERT_NE(findItem(blankItems, "RR_BETA"), nullptr);
     EXPECT_EQ(findItem(blankItems, "RR_EXTENSION_ONLY"), nullptr);
     EXPECT_EQ(findItem(blankItems, "extend region"), nullptr);
+    EXPECT_EQ(findItem(blankItems, "RR_ALPHA")->snippetText,
+        "RR_ALPHA {\n    $0\n}");
 
     const std::string partialUsage = "extend region RR_B";
     CrossFileCompletionFixture partialFixture(
@@ -360,6 +373,7 @@ TEST(CompletionServiceTests, CompletesExtendRegionTargetFromRegionDeclarations) 
     EXPECT_EQ(partialItems.front().label, "RR_BETA");
     EXPECT_EQ(partialItems.front().replacementRange.start.character, 14u);
     EXPECT_EQ(partialItems.front().replacementRange.end.character, 18u);
+    EXPECT_EQ(partialItems.front().snippetText, "RR_BETA {\n    $0\n}");
 }
 
 TEST(CompletionServiceTests, OffersHereOnlyInRegionExpressions) {

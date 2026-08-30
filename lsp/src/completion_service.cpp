@@ -162,6 +162,28 @@ std::string regionKeySnippet(std::string_view key) {
     return std::string(key) + ": ${1}";
 }
 
+std::string namedBlockDeclarationSnippet(std::string_view keyword) {
+    return std::string(keyword) + " ${1:NAME} {\n    $0\n}";
+}
+
+std::string namedBlockDeclarationSnippet(
+    std::string_view keyword, std::string_view indentation) {
+    return std::string(keyword) + " ${1:NAME} {\n"
+        + std::string(indentation) + "    $0\n"
+        + std::string(indentation) + '}';
+}
+
+std::string regionTargetSnippet(std::string_view name) {
+    return std::string(name) + " {\n    $0\n}";
+}
+
+std::string regionTargetSnippet(
+    std::string_view name, std::string_view indentation) {
+    return std::string(name) + " {\n"
+        + std::string(indentation) + "    $0\n"
+        + std::string(indentation) + '}';
+}
+
 std::string sectionSnippet(ast::SectionKind kind) {
     return std::string(sectionName(kind)) + " {\n    $0\n}";
 }
@@ -410,9 +432,15 @@ std::vector<CompletionItem> CompletionService::complete(
             "define", "enum", "extend region", "extern define", "extern enum", "region",
         };
         for (const auto keyword : keywords) {
+            auto item = makeItem(
+                std::string(keyword), CompletionItemKind::Keyword, "declaration keyword");
+            if (keyword == "enum" || keyword == "region" || keyword == "extend region") {
+                item.snippetText = namedBlockDeclarationSnippet(keyword);
+                item.serverIndentedSnippetText = namedBlockDeclarationSnippet(
+                    keyword, lineIndentation);
+            }
             addCandidate(candidates, labels,
-                makeItem(std::string(keyword), CompletionItemKind::Keyword, "declaration keyword"),
-                0, prefix);
+                std::move(item), 0, prefix);
         }
     } else if (context == CompletionContext::Type) {
         static constexpr std::string_view builtInTypes[] = {
@@ -454,10 +482,13 @@ std::vector<CompletionItem> CompletionService::complete(
             if (symbol.category != sema::SymbolCategory::Region) continue;
             const auto rendered = PresentationRenderer{}.render(
                 presentationSymbol(*document->snapshot, symbol));
+            auto item = makeItem(symbol.displayName, CompletionItemKind::Value,
+                rendered.detail, rendered.documentation);
+            item.snippetText = regionTargetSnippet(symbol.displayName);
+            item.serverIndentedSnippetText = regionTargetSnippet(
+                symbol.displayName, lineIndentation);
             addCandidate(candidates, labels,
-                makeItem(symbol.displayName, CompletionItemKind::Value,
-                    rendered.detail, rendered.documentation),
-                0, prefix);
+                std::move(item), 0, prefix);
         }
         for (const auto& documentPath : document->snapshot->documentPaths()) {
             const auto* sourceIndex = document->snapshot->sourceIndex(documentPath);
@@ -469,10 +500,12 @@ std::vector<CompletionItem> CompletionService::complete(
                     .type = presentationType(ast::Type::Region),
                 };
                 const auto rendered = PresentationRenderer{}.render(symbol);
+                auto item = makeItem(name, CompletionItemKind::Value,
+                    rendered.detail, rendered.documentation);
+                item.snippetText = regionTargetSnippet(name);
+                item.serverIndentedSnippetText = regionTargetSnippet(name, lineIndentation);
                 addCandidate(candidates, labels,
-                    makeItem(name, CompletionItemKind::Value,
-                        rendered.detail, rendered.documentation),
-                    0, prefix);
+                    std::move(item), 0, prefix);
             }
         }
     } else if (context == CompletionContext::RegionBody && region) {
