@@ -132,6 +132,17 @@ namespace RandoLogicScript.VisualStudio.Tests
         }
 
         [Fact]
+        public void NativeSnippetFormattingPreservesNestingIndentation()
+        {
+            const string snippet = "locations {\r\n    \r\n}";
+
+            string formatted = RlsSnippetCommandHandler.ApplyBaseIndentation(snippet, "    ");
+
+            Assert.Equal("locations {\r\n        \r\n    }", formatted);
+            Assert.Equal(snippet, RlsSnippetCommandHandler.ApplyBaseIndentation(snippet, string.Empty));
+        }
+
+        [Fact]
         public async Task ActivateUsesOverrideAndStartsErrorReading()
         {
             using (var client = CreateClient(out var environment, out var factory, out var log))
