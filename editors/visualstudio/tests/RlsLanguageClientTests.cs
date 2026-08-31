@@ -142,6 +142,19 @@ namespace RandoLogicScript.VisualStudio.Tests
             Assert.Equal(snippet, RlsSnippetCommandHandler.ApplyBaseIndentation(snippet, string.Empty));
         }
 
+        [Theory]
+        [InlineData(true, true, true)]
+        [InlineData(true, false, false)]
+        [InlineData(false, true, false)]
+        public void NativeSnippetTabPrioritizesActiveCompletion(
+            bool snippetActive, bool completionActive, bool expected)
+        {
+            Assert.Equal(
+                expected,
+                RlsSnippetCommandHandler.ShouldForwardTabToCompletion(
+                    snippetActive, completionActive));
+        }
+
         [Fact]
         public async Task ActivateUsesOverrideAndStartsErrorReading()
         {

@@ -5,6 +5,7 @@ using System.Text;
 
 using Microsoft.VisualStudio;
 using Microsoft.VisualStudio.Editor;
+using Microsoft.VisualStudio.Language.Intellisense.AsyncCompletion;
 using Microsoft.VisualStudio.OLE.Interop;
 using Microsoft.VisualStudio.Shell;
 using Microsoft.VisualStudio.Text;
@@ -29,6 +30,9 @@ namespace RandoLogicScript.VisualStudio
         internal ITextStructureNavigatorSelectorService NavigatorService { get; set; }
 
         [Import]
+        internal IAsyncCompletionBroker CompletionBroker { get; set; }
+
+        [Import]
         internal SVsServiceProvider ServiceProvider { get; set; }
 
         public void VsTextViewCreated(IVsTextView textViewAdapter)
@@ -44,6 +48,7 @@ namespace RandoLogicScript.VisualStudio
                     textViewAdapter,
                     textView,
                     NavigatorService,
+                    CompletionBroker,
                     ServiceProvider));
         }
     }
@@ -57,6 +62,7 @@ namespace RandoLogicScript.VisualStudio
         private readonly IVsTextView textViewAdapter;
         private readonly ITextView textView;
         private readonly ITextStructureNavigatorSelectorService navigatorService;
+        private readonly IAsyncCompletionBroker completionBroker;
         private readonly IVsExpansionManager expansionManager;
         private IOleCommandTarget nextCommandHandler;
         private IVsExpansionSession expansionSession;
@@ -66,11 +72,13 @@ namespace RandoLogicScript.VisualStudio
             IVsTextView textViewAdapter,
             ITextView textView,
             ITextStructureNavigatorSelectorService navigatorService,
+            IAsyncCompletionBroker completionBroker,
             System.IServiceProvider serviceProvider)
         {
             this.textViewAdapter = textViewAdapter;
             this.textView = textView;
             this.navigatorService = navigatorService;
+            this.completionBroker = completionBroker;
 
             var textManager = serviceProvider.GetService(typeof(SVsTextManager)) as IVsTextManager2;
             textManager?.GetExpansionManager(out expansionManager);
@@ -108,6 +116,13 @@ namespace RandoLogicScript.VisualStudio
                 {
                     if (commandId == (uint)VSConstants.VSStd2KCmdID.TAB)
                     {
+                        if (ShouldForwardTabToCompletion(
+                                expansionSession != null,
+                                completionBroker.IsCompletionActive(textView)))
+                        {
+                            return nextCommandHandler.Exec(
+                                ref commandGroup, commandId, commandOptions, input, output);
+                        }
                         expansionSession.GoToNextExpansionField(0);
                         return VSConstants.S_OK;
                     }
@@ -135,6 +150,12 @@ namespace RandoLogicScript.VisualStudio
 
             return nextCommandHandler.Exec(
                 ref commandGroup, commandId, commandOptions, input, output);
+        }
+
+        internal static bool ShouldForwardTabToCompletion(
+            bool snippetSessionActive, bool completionSessionActive)
+        {
+            return snippetSessionActive && completionSessionActive;
         }
 
         private int InvokeInsertionUI()
