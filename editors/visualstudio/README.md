@@ -99,7 +99,13 @@ cmake -S . -B build-visualstudio-release -G Ninja `
   -DBUILD_TESTING=OFF `
   -DRLS_STATIC_MSVC_RUNTIME=ON
 cmake --build build-visualstudio-release --target rls_language_server --parallel
+python lsp/tests/process_smoke.py --server build-visualstudio-release/lsp/rls_language_server.exe
 ```
+
+Do not package `editors/vscode/server/win32-x64/rls_language_server.exe` as a
+local shortcut. That bundled binary can lag the current language-server source;
+the Visual Studio package must use the freshly built and smoke-tested
+`build-visualstudio-release` executable, matching CI.
 
 Then build the VSIX with full-framework MSBuild:
 

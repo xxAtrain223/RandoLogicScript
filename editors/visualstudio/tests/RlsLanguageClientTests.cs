@@ -136,10 +136,20 @@ namespace RandoLogicScript.VisualStudio.Tests
         {
             const string snippet = "locations {\r\n    \r\n}";
 
+            Assert.Equal(
+                "    ",
+                RlsSnippetCommandHandler.GetIndentationBeforeColumn(
+                    "    locations", 4));
             string formatted = RlsSnippetCommandHandler.ApplyBaseIndentation(snippet, "    ");
 
             Assert.Equal("locations {\r\n        \r\n    }", formatted);
             Assert.Equal(snippet, RlsSnippetCommandHandler.ApplyBaseIndentation(snippet, string.Empty));
+            Assert.True(RlsSnippetCommandHandler.TryGetBodyCaretSpan(
+                formatted, 12, out var caretSpan));
+            Assert.Equal(13, caretSpan.iStartLine);
+            Assert.Equal(8, caretSpan.iStartIndex);
+            Assert.Equal(caretSpan.iStartLine, caretSpan.iEndLine);
+            Assert.Equal(caretSpan.iStartIndex, caretSpan.iEndIndex);
         }
 
         [Theory]

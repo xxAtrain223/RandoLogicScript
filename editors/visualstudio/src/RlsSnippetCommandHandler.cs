@@ -66,7 +66,6 @@ namespace RandoLogicScript.VisualStudio
         private readonly IVsExpansionManager expansionManager;
         private IOleCommandTarget nextCommandHandler;
         private IVsExpansionSession expansionSession;
-        private string insertionIndentation;
 
         internal RlsSnippetCommandHandler(
             IVsTextView textViewAdapter,
@@ -207,71 +206,56 @@ namespace RandoLogicScript.VisualStudio
             }
 
             textViewAdapter.GetCaretPos(out var line, out var column);
-            insertionIndentation = GetLineIndentation(line, column);
-            try
+            var insertionSpan = new TextSpan
             {
-                var insertionSpan = new TextSpan
-                {
-                    iStartLine = line,
-                    iEndLine = line,
-                    iStartIndex = column,
-                    iEndIndex = column,
-                };
+                iStartLine = line,
+                iEndLine = line,
+                iStartIndex = column,
+                iEndIndex = column,
+            };
 
-                if (shortcut != null)
-                {
-                    insertionSpan.iStartIndex -= shortcut.Length;
-                    var spans = new[] { insertionSpan };
-                    if (ErrorHandler.Failed(expansionManager.GetExpansionByShortcut(
-                            this,
-                            LanguageServiceGuid,
-                            shortcut,
-                            textViewAdapter,
-                            spans,
-                            0,
-                            out path,
-                            out title)))
-                    {
-                        return false;
-                    }
-                }
-
-                if (string.IsNullOrEmpty(title) || string.IsNullOrEmpty(path))
+            if (shortcut != null)
+            {
+                insertionSpan.iStartIndex -= shortcut.Length;
+                var spans = new[] { insertionSpan };
+                if (ErrorHandler.Failed(expansionManager.GetExpansionByShortcut(
+                        this,
+                        LanguageServiceGuid,
+                        shortcut,
+                        textViewAdapter,
+                        spans,
+                        0,
+                        out path,
+                        out title)))
                 {
                     return false;
                 }
-
-                textViewAdapter.GetBuffer(out var textLines);
-                if (!(textLines is IVsExpansion expansion))
-                {
-                    return false;
-                }
-
-                return ErrorHandler.Succeeded(expansion.InsertNamedExpansion(
-                    title,
-                    path,
-                    insertionSpan,
-                    this,
-                    LanguageServiceGuid,
-                    0,
-                    out expansionSession));
             }
-            finally
+
+            if (string.IsNullOrEmpty(title) || string.IsNullOrEmpty(path))
             {
-                insertionIndentation = null;
+                return false;
             }
+
+            textViewAdapter.GetBuffer(out var textLines);
+            if (!(textLines is IVsExpansion expansion))
+            {
+                return false;
+            }
+
+            return ErrorHandler.Succeeded(expansion.InsertNamedExpansion(
+                title,
+                path,
+                insertionSpan,
+                this,
+                LanguageServiceGuid,
+                0,
+                out expansionSession));
         }
 
-        private string GetLineIndentation(int lineNumber, int column)
+        internal static string GetIndentationBeforeColumn(string line, int column)
         {
-            var snapshot = textView.TextSnapshot;
-            if (lineNumber < 0 || lineNumber >= snapshot.LineCount)
-            {
-                return string.Empty;
-            }
-
-            string line = snapshot.GetLineFromLineNumber(lineNumber).GetText();
-            int prefixLength = Math.Min(column, line.Length);
+            int prefixLength = Math.Max(0, Math.Min(column, line.Length));
             for (int index = 0; index < prefixLength; ++index)
             {
                 if (line[index] != ' ' && line[index] != '\t')
@@ -302,6 +286,38 @@ namespace RandoLogicScript.VisualStudio
             return result.ToString();
         }
 
+        internal static bool TryGetBodyCaretSpan(
+            string snippetText, int startLine, out TextSpan caretSpan)
+        {
+            caretSpan = default;
+            int firstNewline = snippetText.IndexOf('\n');
+            if (firstNewline < 0)
+            {
+                return false;
+            }
+
+            int bodyStart = firstNewline + 1;
+            int secondNewline = snippetText.IndexOf('\n', bodyStart);
+            if (secondNewline < 0)
+            {
+                return false;
+            }
+
+            int bodyLength = secondNewline - bodyStart;
+            if (bodyLength > 0 && snippetText[secondNewline - 1] == '\r')
+            {
+                --bodyLength;
+            }
+            caretSpan = new TextSpan
+            {
+                iStartLine = startLine + 1,
+                iEndLine = startLine + 1,
+                iStartIndex = bodyLength,
+                iEndIndex = bodyLength,
+            };
+            return true;
+        }
+
         public int EndExpansion()
         {
             expansionSession = null;
@@ -310,7 +326,7 @@ namespace RandoLogicScript.VisualStudio
 
         public int FormatSpan(IVsTextLines buffer, TextSpan[] spans)
         {
-            if (string.IsNullOrEmpty(insertionIndentation) || spans == null)
+            if (spans == null)
             {
                 return VSConstants.S_OK;
             }
@@ -328,6 +344,12 @@ namespace RandoLogicScript.VisualStudio
 
                     var startLine = snapshot.GetLineFromLineNumber(span.iStartLine);
                     var endLine = snapshot.GetLineFromLineNumber(span.iEndLine);
+                    string indentation = GetIndentationBeforeColumn(
+                        startLine.GetText(), span.iStartIndex);
+                    if (string.IsNullOrEmpty(indentation))
+                    {
+                        continue;
+                    }
                     int start = startLine.Start.Position + span.iStartIndex;
                     int end = endLine.Start.Position + span.iEndIndex;
                     if (start < 0 || end < start || end > snapshot.Length)
@@ -336,7 +358,7 @@ namespace RandoLogicScript.VisualStudio
                     }
 
                     string original = snapshot.GetText(start, end - start);
-                    string formatted = ApplyBaseIndentation(original, insertionIndentation);
+                    string formatted = ApplyBaseIndentation(original, indentation);
                     if (!string.Equals(original, formatted, StringComparison.Ordinal))
                     {
                         edit.Replace(start, end - start, formatted);
@@ -369,7 +391,43 @@ namespace RandoLogicScript.VisualStudio
             return VSConstants.S_OK;
         }
 
-        public int OnAfterInsertion(IVsExpansionSession session) => VSConstants.S_OK;
+        public int OnAfterInsertion(IVsExpansionSession session)
+        {
+            if (session == null)
+            {
+                return VSConstants.S_OK;
+            }
+
+            var snippetSpans = new TextSpan[1];
+            if (ErrorHandler.Failed(session.GetSnippetSpan(snippetSpans)))
+            {
+                return VSConstants.S_OK;
+            }
+
+            var span = snippetSpans[0];
+            var snapshot = textView.TextSnapshot;
+            if (span.iStartLine < 0 || span.iStartLine >= snapshot.LineCount
+                || span.iEndLine < span.iStartLine || span.iEndLine >= snapshot.LineCount)
+            {
+                return VSConstants.S_OK;
+            }
+
+            var startLine = snapshot.GetLineFromLineNumber(span.iStartLine);
+            var endLine = snapshot.GetLineFromLineNumber(span.iEndLine);
+            int start = startLine.Start.Position + span.iStartIndex;
+            int end = endLine.Start.Position + span.iEndIndex;
+            if (start < 0 || end < start || end > snapshot.Length)
+            {
+                return VSConstants.S_OK;
+            }
+
+            string snippetText = snapshot.GetText(start, end - start);
+            if (TryGetBodyCaretSpan(snippetText, span.iStartLine, out var caretSpan))
+            {
+                session.SetEndSpan(caretSpan);
+            }
+            return VSConstants.S_OK;
+        }
 
         public int OnBeforeInsertion(IVsExpansionSession session) => VSConstants.S_OK;
 
