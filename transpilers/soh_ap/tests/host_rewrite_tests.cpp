@@ -211,6 +211,18 @@ TEST(SohApHostRewrites, GsCountThresholdLowersToHasItemCount) {
 		"has_item(bundle, Items.RG_GOLD_SKULLTULA_TOKEN, 50)");
 }
 
+// The AP world has no Big Poe counter, so the whole comparison collapses to holding that many
+// bottled poes, with the target read off the rule context's options (see kBinaryRewrites).
+TEST(SohApHostRewrites, BigPoeCountLowersToBottledPoeCount) {
+	EXPECT_EQ(GenerateExpression(sourceToExpression(
+		"extern define get_big_poe_count() -> Int\n"
+		"define test():\n"
+		"    flag(LOGIC_BIG_POE_KILL) or get_big_poe_count() >= setting(RSK_BIG_POE_COUNT)\n",
+		"test")),
+		"has_item(bundle, Events.LOGIC_BIG_POE_KILL) | "
+		"has_item(bundle, Items.RG_BOTTLE_WITH_BIG_POE, bundle[1].options.big_poe_target_count.value)");
+}
+
 // A threshold does not have to be a literal. A define's parameters are BuildTime (bound at the
 // call that builds the rule), so an arithmetic expression over them threads into the helper --
 // this is SoH's CanKillEnemy(RE_SHABOM), whose threshold scales with the enemy quantity.

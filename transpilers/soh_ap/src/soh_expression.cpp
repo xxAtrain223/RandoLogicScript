@@ -95,6 +95,12 @@ constexpr BinaryRewrite kBinaryRewrites[] = {
 	{rls::ast::BinaryOp::LtEq, "check_price", "wallet_capacity", ""},
 	// Replaced wholesale: the comparison is exactly the host's triforce-hunt win check.
 	{rls::ast::BinaryOp::GtEq, "collected_triforce_pieces", "required_triforce_pieces", "CanWinTriforceHunt()"},
+	// Ship AP has no live Big Poe counter (SoH's logic->BigPoes counts poes already sold), so
+	// `get_big_poe_count() >= setting(RSK_BIG_POE_COUNT)` lowers to holding that many bottled Big
+	// Poes. The option value is read off the rule context (bundle[1].options, see
+	// ruleContextOptions) rather than `world`, so this is valid inside a define's lambda too.
+	{rls::ast::BinaryOp::GtEq, "get_big_poe_count", "setting",
+	 "has_item(bundle, Items.RG_BOTTLE_WITH_BIG_POE, bundle[1].options.big_poe_target_count.value)"},
 };
 
 // A threshold comparison `<callee>() >= N` (or `> N` / `!= N` / `== N`) against a state-dependent
