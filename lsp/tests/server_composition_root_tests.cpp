@@ -63,7 +63,7 @@ TEST(ServerCompositionRootTests, AdvertisesImplementedTextDocumentFeatures) {
     EXPECT_EQ(result["capabilities"]["hoverProvider"], true);
     EXPECT_EQ(result["capabilities"]["semanticTokensProvider"]["legend"]["tokenTypes"],
         Json::array({"function", "parameter", "enum", "enumMember", "property", "variable", "operator",
-            "rlsPropertyDeclaration"}));
+            "rlsPropertyDeclaration", "keyword"}));
     EXPECT_EQ(result["capabilities"]["semanticTokensProvider"]["legend"]["tokenModifiers"],
         Json::array({"declaration", "definition", "readonly", "defaultLibrary", "deprecated"}));
     EXPECT_EQ(result["capabilities"]["semanticTokensProvider"]["range"], false);
@@ -101,7 +101,7 @@ TEST(ServerCompositionRootTests, MapsSemanticTokenLegendFromInitializationOption
         ["semanticTokensProvider"]["legend"];
     EXPECT_EQ(legend["tokenTypes"], Json::array({
         "method name", "parameter", "enum", "enum member name", "property",
-        "variable", "operator", "rlsPropertyDeclaration"}));
+        "variable", "operator", "rlsPropertyDeclaration", "keyword"}));
     EXPECT_EQ(legend["tokenModifiers"], Json::array({
         "rlsNoStyleModifier", "definition", "rlsNoStyleModifier",
         "defaultLibrary", "deprecated"}));

@@ -77,6 +77,7 @@ namespace RandoLogicScript.VisualStudio.Tests
                 Assert.Equal("cppEnumerator", tokenTypes["enumMember"]);
                 Assert.Equal("string", tokenTypes["property"]);
                 Assert.Equal("string", tokenTypes["rlsPropertyDeclaration"]);
+                Assert.Equal("keyword", tokenTypes["keyword"]);
                 var tokenModifiers = Assert.IsAssignableFrom<IDictionary<string, string>>(
                     ReadProperty(
                         ReadProperty(ReadProperty(client.InitializationOptions, "semanticTokens"), "legend"),

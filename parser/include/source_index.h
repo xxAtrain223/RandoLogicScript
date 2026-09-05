@@ -128,6 +128,7 @@ public:
 	std::vector<std::string> regionNames() const;
 	const std::vector<std::string>& enumNames() const { return enumNames_; }
 	const std::vector<LogicalOperatorContext>& logicalOperators() const { return logicalOperators_; }
+	const std::vector<ast::Span>& booleanLiterals() const { return booleanLiterals_; }
 	const std::vector<SyntaxContext>& declarations() const { return declarations_; }
 	std::vector<SyntaxContext> declarationsIn(std::string_view file) const;
 
@@ -136,6 +137,7 @@ public:
 	void addName(SourceNameKind kind, const ast::Name& name);
 	void addExpression(const ast::Span& span);
 	void addLogicalOperator(LogicalOperatorContext context);
+	void addBooleanLiteral(const ast::Span& span);
 	void addCall(CallContext call);
 	void addDeclaration(const ast::Span& span);
 	void addRegionContext(RegionContext context, std::vector<RegionSectionContext> sections);
@@ -152,6 +154,7 @@ private:
 	std::vector<SourceNameContext> names_;
 	std::vector<SyntaxContext> expressions_;
 	std::vector<LogicalOperatorContext> logicalOperators_;
+	std::vector<ast::Span> booleanLiterals_;
 	std::vector<CallContext> calls_;
 	std::vector<SyntaxContext> declarations_;
 	struct IndexedRegionContext {

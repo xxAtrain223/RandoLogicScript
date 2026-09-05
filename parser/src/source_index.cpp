@@ -52,7 +52,9 @@ void indexExpr(SourceIndex& index, const ast::Expr& expr) {
 	index.addExpression(expr.span);
 	std::visit([&](const auto& node) {
 		using T = std::decay_t<decltype(node)>;
-		if constexpr (std::is_same_v<T, ast::Identifier>) {
+		if constexpr (std::is_same_v<T, ast::BoolLiteral>) {
+			index.addBooleanLiteral(expr.span);
+		} else if constexpr (std::is_same_v<T, ast::Identifier>) {
 			index.addName(SourceNameKind::Identifier, node.name);
 		} else if constexpr (std::is_same_v<T, ast::MemberExpr>) {
 			index.addName(SourceNameKind::MemberObject, node.object);
@@ -132,6 +134,10 @@ void SourceIndex::addExpression(const ast::Span& span) {
 
 void SourceIndex::addLogicalOperator(LogicalOperatorContext context) {
 	if (context.span.start.line != 0) logicalOperators_.push_back(std::move(context));
+}
+
+void SourceIndex::addBooleanLiteral(const ast::Span& span) {
+	if (span.start.line != 0) booleanLiterals_.push_back(span);
 }
 
 void SourceIndex::addCall(CallContext call) {
