@@ -6,6 +6,7 @@ using System.Linq;
 using System.Reflection;
 using System.Threading;
 using System.Threading.Tasks;
+using System.Xml.Linq;
 
 using Microsoft.VisualStudio.LanguageServer.Client;
 
@@ -15,6 +16,9 @@ namespace RandoLogicScript.VisualStudio.Tests
 {
     public sealed class RlsLanguageClientTests
     {
+        private static readonly string RepositoryRoot = Path.GetFullPath(
+            Path.Combine(AppContext.BaseDirectory, @"..\..\..\..\..\.."));
+
         [Fact]
         public void ResolveServerPathUsesBundledServerByDefault()
         {
@@ -73,6 +77,7 @@ namespace RandoLogicScript.VisualStudio.Tests
                 Assert.Equal("cppEnumerator", tokenTypes["enumMember"]);
                 Assert.Equal("string", tokenTypes["property"]);
                 Assert.Equal("string", tokenTypes["rlsPropertyDeclaration"]);
+                Assert.Equal("keyword", tokenTypes["keyword"]);
                 var tokenModifiers = Assert.IsAssignableFrom<IDictionary<string, string>>(
                     ReadProperty(
                         ReadProperty(ReadProperty(client.InitializationOptions, "semanticTokens"), "legend"),
@@ -82,6 +87,83 @@ namespace RandoLogicScript.VisualStudio.Tests
                 Assert.True(client.ShowNotificationOnInitializeFailed);
                 Assert.Null(client.MiddleLayer);
             }
+        }
+
+        [Fact]
+        public void NativeSnippetCatalogUsesRegisteredLanguageAndExpectedShortcuts()
+        {
+            string snippetDirectory = Path.Combine(
+                RepositoryRoot, "editors", "visualstudio", "src", "Snippets", "1033");
+            var index = XDocument.Load(Path.Combine(snippetDirectory, "RandoLogicScript.xml"));
+            XElement language = Assert.Single(index.Root.Elements("Language"));
+            Assert.Equal("Rando Logic Script", (string)language.Attribute("Lang"));
+            Assert.Equal(
+                "{4C159F73-D995-4A40-ACD4-A04BB3DE2118}",
+                (string)language.Attribute("Guid"));
+
+            XNamespace snippetNamespace = "http://schemas.microsoft.com/VisualStudio/2005/CodeSnippet";
+            var expected = new Dictionary<string, string>
+            {
+                ["region.snippet"] = "region",
+                ["extend-region.snippet"] = "extend",
+                ["enum.snippet"] = "enum",
+                ["events.snippet"] = "events",
+                ["locations.snippet"] = "locations",
+                ["exits.snippet"] = "exits",
+            };
+            foreach (var pair in expected)
+            {
+                var snippet = XDocument.Load(Path.Combine(snippetDirectory, pair.Key));
+                XElement codeSnippet = Assert.Single(
+                    snippet.Root.Elements(snippetNamespace + "CodeSnippet"));
+                Assert.Equal(
+                    pair.Value,
+                    (string)codeSnippet.Element(snippetNamespace + "Header")
+                        .Element(snippetNamespace + "Shortcut"));
+                XElement code = codeSnippet.Element(snippetNamespace + "Snippet")
+                    .Element(snippetNamespace + "Code");
+                Assert.Equal("RLS", (string)code.Attribute("Language"));
+                Assert.Contains("$end$", code.Value);
+            }
+
+            string registration = File.ReadAllText(Path.Combine(
+                RepositoryRoot, "editors", "visualstudio", "src", "RandoLogicScript.pkgdef"));
+            Assert.Contains(@"Languages\CodeExpansions\Rando Logic Script", registration);
+            Assert.Contains("{4C159F73-D995-4A40-ACD4-A04BB3DE2118}", registration);
+        }
+
+        [Fact]
+        public void NativeSnippetFormattingPreservesNestingIndentation()
+        {
+            const string snippet = "locations {\r\n    \r\n}";
+
+            Assert.Equal(
+                "    ",
+                RlsSnippetCommandHandler.GetIndentationBeforeColumn(
+                    "    locations", 4));
+            string formatted = RlsSnippetCommandHandler.ApplyBaseIndentation(snippet, "    ");
+
+            Assert.Equal("locations {\r\n        \r\n    }", formatted);
+            Assert.Equal(snippet, RlsSnippetCommandHandler.ApplyBaseIndentation(snippet, string.Empty));
+            Assert.True(RlsSnippetCommandHandler.TryGetBodyCaretSpan(
+                formatted, 12, out var caretSpan));
+            Assert.Equal(13, caretSpan.iStartLine);
+            Assert.Equal(8, caretSpan.iStartIndex);
+            Assert.Equal(caretSpan.iStartLine, caretSpan.iEndLine);
+            Assert.Equal(caretSpan.iStartIndex, caretSpan.iEndIndex);
+        }
+
+        [Theory]
+        [InlineData(true, true, true)]
+        [InlineData(true, false, false)]
+        [InlineData(false, true, false)]
+        public void NativeSnippetTabPrioritizesActiveCompletion(
+            bool snippetActive, bool completionActive, bool expected)
+        {
+            Assert.Equal(
+                expected,
+                RlsSnippetCommandHandler.ShouldForwardTabToCompletion(
+                    snippetActive, completionActive));
         }
 
         [Fact]

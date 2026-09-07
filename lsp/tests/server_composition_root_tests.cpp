@@ -63,7 +63,7 @@ TEST(ServerCompositionRootTests, AdvertisesImplementedTextDocumentFeatures) {
     EXPECT_EQ(result["capabilities"]["hoverProvider"], true);
     EXPECT_EQ(result["capabilities"]["semanticTokensProvider"]["legend"]["tokenTypes"],
         Json::array({"function", "parameter", "enum", "enumMember", "property", "variable", "operator",
-            "rlsPropertyDeclaration"}));
+            "rlsPropertyDeclaration", "keyword"}));
     EXPECT_EQ(result["capabilities"]["semanticTokensProvider"]["legend"]["tokenModifiers"],
         Json::array({"declaration", "definition", "readonly", "defaultLibrary", "deprecated"}));
     EXPECT_EQ(result["capabilities"]["semanticTokensProvider"]["range"], false);
@@ -101,7 +101,7 @@ TEST(ServerCompositionRootTests, MapsSemanticTokenLegendFromInitializationOption
         ["semanticTokensProvider"]["legend"];
     EXPECT_EQ(legend["tokenTypes"], Json::array({
         "method name", "parameter", "enum", "enum member name", "property",
-        "variable", "operator", "rlsPropertyDeclaration"}));
+        "variable", "operator", "rlsPropertyDeclaration", "keyword"}));
     EXPECT_EQ(legend["tokenModifiers"], Json::array({
         "rlsNoStyleModifier", "definition", "rlsNoStyleModifier",
         "defaultLibrary", "deprecated"}));
@@ -544,6 +544,28 @@ TEST(ServerCompositionRootTests, NegotiatesCompletionSnippetsWithPlainFallback) 
     ASSERT_FALSE(plainKeyword.is_null());
     EXPECT_EQ(plainKeyword["insertTextFormat"], 1);
     EXPECT_EQ(plainKeyword["textEdit"]["newText"], "define");
+
+    const auto snippetRegion = find(
+        complete(true, "client", "reg\n", 0, 3), "region");
+    ASSERT_FALSE(snippetRegion.is_null());
+    EXPECT_EQ(snippetRegion["insertTextFormat"], 2);
+    EXPECT_EQ(snippetRegion["insertTextMode"], 2);
+    EXPECT_EQ(snippetRegion["textEdit"]["newText"],
+        "region ${1:NAME} {\n    $0\n}");
+
+    const auto snippetEnum = find(
+        complete(true, "client", "enu\n", 0, 3), "enum");
+    ASSERT_FALSE(snippetEnum.is_null());
+    EXPECT_EQ(snippetEnum["insertTextFormat"], 2);
+    EXPECT_EQ(snippetEnum["insertTextMode"], 2);
+    EXPECT_EQ(snippetEnum["textEdit"]["newText"],
+        "enum ${1:NAME} {\n    $0\n}");
+
+    const auto plainRegion = find(
+        complete(false, std::nullopt, "reg\n", 0, 3), "region");
+    ASSERT_FALSE(plainRegion.is_null());
+    EXPECT_EQ(plainRegion["insertTextFormat"], 1);
+    EXPECT_EQ(plainRegion["textEdit"]["newText"], "region");
 }
 
 TEST(ServerCompositionRootTests, RoutesDefinitionFromAcceptedSnapshot) {

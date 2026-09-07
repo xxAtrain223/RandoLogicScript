@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<SnippetCollection>
+  <Language Lang="Rando Logic Script" Guid="{4C159F73-D995-4A40-ACD4-A04BB3DE2118}">
+    <SnippetDir>
+      <OnOff>On</OnOff>
+      <Installed>true</Installed>
+      <Locale>1033</Locale>
+      <DirPath>%InstallRoot%\Snippets\%LCID%\</DirPath>
+      <LocalizedName>Rando Logic Script</LocalizedName>
+    </SnippetDir>
+  </Language>
+</SnippetCollection>
