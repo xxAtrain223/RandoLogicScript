@@ -19,6 +19,14 @@ static std::string generateEnums(const std::string& source) {
 	return writer.content("enums_gen.py");
 }
 
+// Transpile several named sources and hand back the generated enums file.
+static std::string generateEnumsFromFiles(const std::vector<SourceFile>& files) {
+	auto project = resolveRawFiles(files);
+	MemoryWriter writer;
+	rls::transpilers::soh_ap::SohApTranspiler(project).Transpile(writer);
+	return writer.content("enums_gen.py");
+}
+
 // Dotted enum access (`Item.RG_HOOKSHOT`) renders exactly like the bare identifier form:
 // both route through renderEnumValue with the same enum name, so choosing the disambiguated
 // spelling in RLS never changes the generated Python.
@@ -130,4 +138,24 @@ TEST(SohApEnums, RrNoneSentinelIsAlwaysEmitted) {
 	// It is not a region, so it gets a scene row with no scene rather than being absent --
 	// REGION_SCENE stays subscriptable for every Regions member.
 	EXPECT_NE(out.find("    Regions.RR_NONE: \"\","), std::string::npos) << out;
+}
+
+// REGION_QUEST comes from the declaring file, not the region name: SoH splits the two dungeon
+// layouts across <dungeon>_mq.rls and <dungeon>_vanilla.rls and keeps the regions both quests
+// share in <dungeon>.rls. That third "" state is the one a naming rule cannot see.
+TEST(SohApEnums, RegionQuestComesFromTheDeclaringFile) {
+	const std::vector<SourceFile> files = {
+		{"host.rls", "extern enum Scene { SCENE_* }\nextern enum Region { RR_* }\n"},
+		{"deku_tree.rls",
+			"region RR_SHARED_ENTRYWAY {\n    name: \"Shared Entryway\"\n    scene: SCENE_DEKU_TREE\n}\n"},
+		{"deku_tree_mq.rls",
+			"region RR_MQ_ROOM {\n    name: \"MQ Room\"\n    scene: SCENE_DEKU_TREE\n}\n"},
+		{"deku_tree_vanilla.rls",
+			"region RR_VANILLA_ROOM {\n    name: \"Vanilla Room\"\n    scene: SCENE_DEKU_TREE\n}\n"},
+	};
+	const std::string out = generateEnumsFromFiles(files);
+
+	EXPECT_NE(out.find("    Regions.RR_SHARED_ENTRYWAY: \"\","), std::string::npos) << out;
+	EXPECT_NE(out.find("    Regions.RR_MQ_ROOM: \"mq\","), std::string::npos) << out;
+	EXPECT_NE(out.find("    Regions.RR_VANILLA_ROOM: \"vanilla\","), std::string::npos) << out;
 }

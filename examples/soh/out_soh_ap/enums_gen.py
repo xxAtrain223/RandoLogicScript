@@ -93,6 +93,33 @@ REGION_SCENE: dict[Regions, str] = {
     Regions.RR_NONE: "",
 }
 
+REGION_QUEST: dict[Regions, str] = {
+    Regions.RR_ADULT_SPAWN: "",
+    Regions.RR_BOLERO_OF_FIRE_WARP: "",
+    Regions.RR_CHILD_SPAWN: "",
+    Regions.RR_KF_BOULDER_LOOP: "",
+    Regions.RR_KF_HOUSE_OF_TWINS: "",
+    Regions.RR_KF_KNOW_IT_ALL_HOUSE: "",
+    Regions.RR_KF_KOKIRI_SHOP: "",
+    Regions.RR_KF_LINKS_HOUSE: "",
+    Regions.RR_KF_LINKS_PORCH: "",
+    Regions.RR_KF_MIDOS_HOUSE: "",
+    Regions.RR_KF_OUTSIDE_DEKU_TREE: "",
+    Regions.RR_KF_OUTSIDE_LOST_WOODS: "",
+    Regions.RR_KF_RUPEE_ALCOVE: "",
+    Regions.RR_KF_SARIAS_HOUSE: "",
+    Regions.RR_KF_STORMS_GROTTO: "",
+    Regions.RR_KOKIRI_FOREST: "",
+    Regions.RR_MINUET_OF_FOREST_WARP: "",
+    Regions.RR_NOCTURNE_OF_SHADOW_WARP: "",
+    Regions.RR_PRELUDE_OF_LIGHT_WARP: "",
+    Regions.RR_REQUIEM_OF_SPIRIT_WARP: "",
+    Regions.RR_ROOT: "",
+    Regions.RR_ROOT_EXITS: "",
+    Regions.RR_SERENADE_OF_WATER_WARP: "",
+    Regions.RR_NONE: "",
+}
+
 class Locations(StrEnum):
     @staticmethod
     def _generate_next_value_(name, start, count, last_values):

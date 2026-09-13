@@ -28,6 +28,29 @@ std::string pyString(std::string_view value) {
 	return out + "\"";
 }
 
+// Which quest variant a region belongs to, taken from the file that declares it. SoH keeps the
+// two dungeon layouts in <dungeon>_mq.rls and <dungeon>_vanilla.rls, and the regions common to
+// both -- entryways and boss rooms, the ones actually carrying the is_mq()/is_vanilla() branch --
+// in <dungeon>.rls. "" therefore means "exists in both quests", which is a third state no naming
+// rule can see: RR_DEKU_TREE_ENTRYWAY and RR_DEKU_TREE_LOBBY look alike, but only the first is
+// shared, and dropping it along with the vanilla half would disconnect the dungeon entirely.
+std::string regionQuest(const rls::ast::RegionDecl& region) {
+	std::string_view file = region.span.file;
+	if (const auto slash = file.find_last_of("/\\"); slash != std::string_view::npos) {
+		file.remove_prefix(slash + 1);
+	}
+	const auto endsWith = [file](std::string_view suffix) {
+		return file.size() >= suffix.size() && file.substr(file.size() - suffix.size()) == suffix;
+	};
+	if (endsWith("_mq.rls")) {
+		return "mq";
+	}
+	if (endsWith("_vanilla.rls")) {
+		return "vanilla";
+	}
+	return "";
+}
+
 // Emit a StrEnum whose members are `auto()`-valued. The shared _generate_next_value_ turns
 // a member name into its display string by dropping `stripPrefix` and title-casing the rest
 // (RC_SONG_FROM_SARIA -> "Song From Saria"), so the values never have to be spelled out.
@@ -86,12 +109,14 @@ void SohApTranspiler::writeEnums(rls::OutputWriter& out) const {
 	std::vector<std::string> eventLocations;   // region x event pairs, in region order
 	std::vector<std::string> regions;          // `RR_X = "Display Name"` lines
 	std::vector<std::pair<std::string, std::string>> regionScenes;  // region key -> SCENE_ token
+	std::vector<std::pair<std::string, std::string>> regionQuests;  // region key -> "mq"/"vanilla"/""
 	std::set<std::string> events;              // deduplicated across regions and extensions
 	std::set<std::string> locations;
 
 	for (const auto& [regionName, region] : project.RegionDecls) {
 		regions.push_back(region->key.text + " = \"" + RegionDisplayName(*region) + "\"");
 		regionScenes.emplace_back(region->key.text, RegionScene(*region));
+		regionQuests.emplace_back(region->key.text, regionQuest(*region));
 
 		// A region's own sections plus every `extend region` block that targets it.
 		std::vector<const rls::ast::ExtendRegionDecl*> extendRegionDecls;
@@ -123,6 +148,7 @@ void SohApTranspiler::writeEnums(rls::OutputWriter& out) const {
 	// SoH target, and the sentinel is part of its host ABI rather than of any one project.
 	regions.push_back("RR_NONE = \"None\"");
 	regionScenes.emplace_back("RR_NONE", "");
+	regionQuests.emplace_back("RR_NONE", "");
 
 	// Unlike the auto() StrEnums above, this class has no _generate_next_value_ to fall back
 	// on: every member carries its own display name.
@@ -137,6 +163,13 @@ void SohApTranspiler::writeEnums(rls::OutputWriter& out) const {
 	source << "\nREGION_SCENE: dict[Regions, str] = {\n";
 	for (const auto& [regionKey, scene] : regionScenes) {
 		source << "    Regions." << regionKey << ": " << pyString(scene) << ",\n";
+	}
+	source << "}\n";
+
+	// Which quest each region belongs to; "" for the ones both quests share.
+	source << "\nREGION_QUEST: dict[Regions, str] = {\n";
+	for (const auto& [regionKey, quest] : regionQuests) {
+		source << "    Regions." << regionKey << ": " << pyString(quest) << ",\n";
 	}
 	source << "}\n";
 

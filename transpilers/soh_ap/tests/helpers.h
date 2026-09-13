@@ -89,6 +89,35 @@ inline rls::ast::Project resolveFromSource(const std::string& source) {
 	return project;
 }
 
+// Resolve several named sources as one project. Needed wherever the generated output depends
+// on *which file* declared something -- REGION_QUEST reads the declaring file's name, which a
+// single in-memory source cannot express.
+struct SourceFile {
+	std::string name;
+	std::string source;
+};
+
+inline rls::ast::Project resolveRawFiles(const std::vector<SourceFile>& files) {
+	rls::ast::Project project;
+	for (const auto& f : files) {
+		auto file = rls::parser::ParseString(f.source, f.name);
+		for (const auto& d : file.diagnostics) {
+			if (d.level == rls::ast::DiagnosticLevel::Error)
+				printDiagnostic(d);
+		}
+		project.files.push_back(std::move(file));
+	}
+
+	const auto& diags = rls::sema::analyze(project);
+
+	for (const auto& d : diags) {
+		if (d.level == rls::ast::DiagnosticLevel::Error)
+			printDiagnostic(d);
+	}
+
+	return project;
+}
+
 // An analyzed project paired with one expression borrowed out of it. The project must
 // outlive the expression, so the two travel together.
 struct ResolvedExpression {
