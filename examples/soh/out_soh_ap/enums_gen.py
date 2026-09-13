@@ -64,6 +64,7 @@ class Regions(StrEnum):
     RR_ROOT = "Root"
     RR_ROOT_EXITS = "Root Exits"
     RR_SERENADE_OF_WATER_WARP = "Serenade of Water Warp"
+    RR_NONE = "None"
 
 REGION_SCENE: dict[Regions, str] = {
     Regions.RR_ADULT_SPAWN: "SCENE_ID_MAX",
@@ -89,6 +90,7 @@ REGION_SCENE: dict[Regions, str] = {
     Regions.RR_ROOT: "SCENE_ID_MAX",
     Regions.RR_ROOT_EXITS: "SCENE_ID_MAX",
     Regions.RR_SERENADE_OF_WATER_WARP: "SCENE_ID_MAX",
+    Regions.RR_NONE: "",
 }
 
 class Locations(StrEnum):

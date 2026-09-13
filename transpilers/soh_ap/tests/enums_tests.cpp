@@ -101,7 +101,7 @@ TEST(SohApEnums, RegionSceneMapIsGenerated) {
 		"}\n");
 
 	EXPECT_NE(out.find("REGION_SCENE: dict[Regions, str] = {\n"
-			"    Regions.RR_TEST_ROOM: \"SCENE_TEST_DUNGEON\",\n}"),
+			"    Regions.RR_TEST_ROOM: \"SCENE_TEST_DUNGEON\",\n"),
 		std::string::npos) << out;
 }
 
@@ -114,4 +114,20 @@ TEST(SohApEnums, RegionWithoutSceneGetsEmptyValue) {
 		"}\n");
 
 	EXPECT_NE(out.find("    Regions.RR_TEST_ROOM: \"\","), std::string::npos) << out;
+}
+
+// RR_NONE is Ship's sentinel region: host.rls uses it as the default for spirit_shared's
+// optional region parameters, so generated code references it even though no region declares it.
+TEST(SohApEnums, RrNoneSentinelIsAlwaysEmitted) {
+	const std::string out = generateEnums(
+		"region RR_TEST_ROOM {\n"
+		"    name: \"Test Room\"\n"
+		"    scene: SCENE_TEST\n"
+		"}\n");
+
+	EXPECT_NE(out.find("    RR_TEST_ROOM = \"Test Room\"\n    RR_NONE = \"None\"\n"),
+		std::string::npos) << out;
+	// It is not a region, so it gets a scene row with no scene rather than being absent --
+	// REGION_SCENE stays subscriptable for every Regions member.
+	EXPECT_NE(out.find("    Regions.RR_NONE: \"\","), std::string::npos) << out;
 }

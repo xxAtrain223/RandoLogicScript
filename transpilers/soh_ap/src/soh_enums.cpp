@@ -117,14 +117,18 @@ void SohApTranspiler::writeEnums(rls::OutputWriter& out) const {
 	writeAutoStrEnum(source, "EventLocations", "RR_", eventLocations);
 	writeAutoStrEnum(source, "Events", "LOGIC_", {events.begin(), events.end()});
 
+	// RR_NONE is Ship's sentinel region (RandomizerRegion.h). host.rls uses it as the default for
+	// spirit_shared's optional region parameters, so the generated code references it, but no
+	// region declares it and the walk above never produces it. It is always emitted: this is the
+	// SoH target, and the sentinel is part of its host ABI rather than of any one project.
+	regions.push_back("RR_NONE = \"None\"");
+	regionScenes.emplace_back("RR_NONE", "");
+
 	// Unlike the auto() StrEnums above, this class has no _generate_next_value_ to fall back
-	// on, so an empty body needs an explicit `pass` to stay valid Python.
+	// on: every member carries its own display name.
 	source << "\nclass Regions(StrEnum):\n";
 	for (const auto& region : regions) {
 		source << "    " << region << "\n";
-	}
-	if (regions.empty()) {
-		source << "    pass\n";
 	}
 
 	// Which scene each region sits in. The host needs this to answer is_mq()/is_vanilla():
