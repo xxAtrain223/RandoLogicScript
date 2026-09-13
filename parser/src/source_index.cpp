@@ -52,7 +52,9 @@ void indexExpr(SourceIndex& index, const ast::Expr& expr) {
 	index.addExpression(expr.span);
 	std::visit([&](const auto& node) {
 		using T = std::decay_t<decltype(node)>;
-		if constexpr (std::is_same_v<T, ast::Identifier>) {
+		if constexpr (std::is_same_v<T, ast::BoolLiteral>) {
+			index.addBooleanLiteral(expr.span);
+		} else if constexpr (std::is_same_v<T, ast::Identifier>) {
 			index.addName(SourceNameKind::Identifier, node.name);
 		} else if constexpr (std::is_same_v<T, ast::MemberExpr>) {
 			index.addName(SourceNameKind::MemberObject, node.object);
@@ -134,6 +136,10 @@ void SourceIndex::addLogicalOperator(LogicalOperatorContext context) {
 	if (context.span.start.line != 0) logicalOperators_.push_back(std::move(context));
 }
 
+void SourceIndex::addBooleanLiteral(const ast::Span& span) {
+	if (span.start.line != 0) booleanLiterals_.push_back(span);
+}
+
 void SourceIndex::addCall(CallContext call) {
 	calls_.push_back(std::move(call));
 }
@@ -148,6 +154,11 @@ void SourceIndex::addRegionContext(
 	RegionContext context, std::vector<RegionSectionContext> sections) {
 	if (context.span.start.line == 0) return;
 	regionContexts_.push_back({std::move(context), std::move(sections)});
+}
+
+void SourceIndex::addExtensionTarget(ExtensionTargetContext context) {
+	if (context.targetSpan.start.line == 0) return;
+	extensionTargets_.push_back(std::move(context));
 }
 
 void SourceIndex::addMemberAccess(MemberAccessContext context) {
@@ -244,6 +255,20 @@ std::optional<RegionContext> SourceIndex::regionContextAt(ast::Position position
 		}
 	}
 	return context;
+}
+
+std::optional<ExtensionTargetContext> SourceIndex::extensionTargetAt(
+	ast::Position position) const {
+	const ExtensionTargetContext* result = nullptr;
+	for (const auto& context : extensionTargets_) {
+		const bool atTarget = isBeforeOrEqual(context.targetSpan.start, position)
+			&& isBeforeOrEqual(position, context.targetSpan.end);
+		if (atTarget && (!result
+			|| spanSize(context.targetSpan) < spanSize(result->targetSpan))) {
+			result = &context;
+		}
+	}
+	return result ? std::optional<ExtensionTargetContext>(*result) : std::nullopt;
 }
 
 std::optional<MemberAccessContext> SourceIndex::memberAccessAt(ast::Position position) const {
@@ -374,6 +399,7 @@ SourceIndex BuildSourceIndex(const ast::File& file, const ast::SourceText* sourc
 				}
 				indexSections(index, node.body.sections);
 			} else if constexpr (std::is_same_v<T, ast::ExtendRegionDecl>) {
+				index.addExtensionTarget({node.name.span});
 				RegionContext context{
 					.span = {node.span.file, node.name.span.end, node.span.end},
 					.name = node.name.text,

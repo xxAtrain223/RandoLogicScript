@@ -297,6 +297,7 @@ machine to enforce the complete host validation.
     Assert-TraceContains $workspaceTrace.FullName '"method name"' 'mapped function token legend'
     Assert-TraceContains $workspaceTrace.FullName '"cppValueType"' 'mapped enum type token legend'
     Assert-TraceContains $workspaceTrace.FullName '"cppEnumerator"' 'mapped enum member token legend'
+    Assert-TraceContains $workspaceTrace.FullName '"keyword"' 'mapped keyword token legend'
     Assert-TraceContains $workspaceTrace.FullName '"rlsNoStyleModifier"' 'mapped semantic token modifiers'
     Assert-TraceContains $workspaceTrace.FullName '"documentChanges"\s*:\s*true' 'workspace edit documentChanges support'
     Assert-TraceContains $workspaceTrace.FullName '"hover"\s*:\s*\{' 'hover capability'

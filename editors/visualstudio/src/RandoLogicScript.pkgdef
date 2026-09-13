@@ -6,3 +6,15 @@
 
 [$RootKey$\TextMate\LanguageConfiguration\ContentTypeMapping]
 "rls"="$PackageFolder$\language-configuration.json"
+
+[$RootKey$\Languages\CodeExpansions\Rando Logic Script]
+@="{4C159F73-D995-4A40-ACD4-A04BB3DE2118}"
+"DisplayName"="Rando Logic Script"
+"LangStringID"="RLS"
+"IndexPath"="$PackageFolder$\Snippets\%LCID%\RandoLogicScript.xml"
+
+[$RootKey$\Languages\CodeExpansions\Rando Logic Script\ForceCreateDirs]
+"Rando Logic Script"="$PackageFolder$\Snippets\%LCID%\"
+
+[$RootKey$\Languages\CodeExpansions\Rando Logic Script\Paths]
+"Rando Logic Script"="$PackageFolder$\Snippets\%LCID%\"

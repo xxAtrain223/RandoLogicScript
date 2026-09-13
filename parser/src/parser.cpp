@@ -196,6 +196,9 @@ IndexedFile ParseStringWithIndex(
 		for (const auto& typePosition : editorSyntax->typePositions) {
 			sourceIndex.addTypePosition({typePosition.span});
 		}
+		for (const auto& target : editorSyntax->extensionTargets) {
+			sourceIndex.addExtensionTarget({target});
+		}
 		for (const auto& call : editorSyntax->calls) {
 			std::vector<std::optional<std::string>> labels;
 			labels.reserve(call.arguments.size());

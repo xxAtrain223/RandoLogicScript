@@ -52,6 +52,7 @@ struct EditorSyntaxBuilder {
 	std::optional<ast::Name> callCallee;
 	std::vector<CallFrame> callFrames;
 	bool nextRegionExtension = false;
+	std::optional<size_t> extensionTargetIndex;
 	std::optional<ast::Name> regionName;
 	std::vector<RegionFrame> regionFrames;
 	std::optional<ast::SectionKind> sectionKind;
@@ -93,6 +94,20 @@ struct EditorSyntaxBuilder {
 			ast::Span{std::string(filename), delimiter.end, *end},
 			SyntaxRecoveryStatus::Recovered});
 		typePositionIndex = result.typePositions.size() - 1;
+	}
+
+	void beginExtensionTarget(const ast::Span& regionKeyword) {
+		if (!nextRegionExtension) return;
+		size_t startOffset = offsetFor(regionKeyword.end).value_or(source.content().size());
+		while (startOffset < source.content().size()
+			&& (source.content()[startOffset] == ' '
+				|| source.content()[startOffset] == '\t')) {
+			++startOffset;
+		}
+		const auto span = spanFromOffsets(startOffset, startOffset);
+		if (!span) return;
+		extensionTargetIndex = result.extensionTargets.size();
+		result.extensionTargets.push_back(*span);
 	}
 
 	void completeTypePosition(const ast::Span& name) {
@@ -509,6 +524,18 @@ struct editor_action<grammar::kw_extend> {
 };
 
 template<>
+struct editor_action<grammar::kw_region> {
+	template<typename Input>
+	static void apply(
+		const Input& input, EditorSyntaxBuilder& builder,
+		grammar::ParseState&) {
+		if (const auto span = builder.spanFor(input)) {
+			builder.beginExtensionTarget(*span);
+		}
+	}
+};
+
+template<>
 struct editor_action<grammar::region_name> {
 	template<typename Input>
 	static void apply(
@@ -516,6 +543,9 @@ struct editor_action<grammar::region_name> {
 		grammar::ParseState&) {
 		if (const auto span = builder.spanFor(input)) {
 			builder.regionName = ast::Name(input.string(), *span);
+			if (builder.nextRegionExtension && builder.extensionTargetIndex) {
+				builder.result.extensionTargets[*builder.extensionTargetIndex] = *span;
+			}
 		}
 	}
 };

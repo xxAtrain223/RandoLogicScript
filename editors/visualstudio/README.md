@@ -39,6 +39,12 @@ No Visual Studio 2026-specific runtime API is required. The project uses current
   `editors/vscode`; the syntax and local editor behavior have one source of truth.
 - The language configuration supplies comments, bracket matching, auto-closing,
   surrounding pairs, and RLS word boundaries.
+- The VSIX registers native Visual Studio expansion snippets for `region`,
+  `extend region`, `enum`, `events`, `locations`, and `exits`. Use **Edit >
+  IntelliSense > Insert Snippet** or type a shortcut and press **Tab**. The
+  shortcuts are `region`, `extend`, `enum`, `events`, `locations`, and
+  `exits`; declaration snippets expose an editable `NAME` field before placing
+  the caret in the body.
 - The client supplies semantic token type and modifier name mappings in
   `initializationOptions.semanticTokens.legend`. The server applies those mappings
   while constructing the initialize response, before Visual Studio caches the
@@ -74,7 +80,8 @@ Activity Log.
 
 - Windows x64 only; Visual Studio 2019 and ARM64 are not supported.
 - Visual Studio 2026 advertises no completion snippet support, so completions use plain
-  text and server-side indentation.
+  text and server-side indentation. Native Visual Studio expansion snippets provide
+  declaration and section blocks independently of LSP completion.
 - Visual Studio requests flat document symbols rather than hierarchical symbols.
 - No custom project system, debugger integration, or designer is included.
 - Visual Studio Marketplace publication is currently manual.
@@ -92,7 +99,13 @@ cmake -S . -B build-visualstudio-release -G Ninja `
   -DBUILD_TESTING=OFF `
   -DRLS_STATIC_MSVC_RUNTIME=ON
 cmake --build build-visualstudio-release --target rls_language_server --parallel
+python lsp/tests/process_smoke.py --server build-visualstudio-release/lsp/rls_language_server.exe
 ```
+
+Do not package `editors/vscode/server/win32-x64/rls_language_server.exe` as a
+local shortcut. That bundled binary can lag the current language-server source;
+the Visual Studio package must use the freshly built and smoke-tested
+`build-visualstudio-release` executable, matching CI.
 
 Then build the VSIX with full-framework MSBuild:
 

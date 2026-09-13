@@ -166,6 +166,7 @@ def run_smoke(server: Path) -> None:
                 "variable",
                 "operator",
                 "rlsPropertyDeclaration",
+                "keyword",
             ] or semantic_tokens.get("full") is not True:
                 raise ProtocolError("server did not advertise semantic token support")
 

@@ -108,10 +108,47 @@ try {
         'Grammars/rls.tmLanguage.json',
         'language-configuration.json',
         'LICENSE.txt',
+        'Snippets/1033/RandoLogicScript.xml',
+        'Snippets/1033/region.snippet',
+        'Snippets/1033/extend-region.snippet',
+        'Snippets/1033/enum.snippet',
+        'Snippets/1033/events.snippet',
+        'Snippets/1033/locations.snippet',
+        'Snippets/1033/exits.snippet',
         'Server/rls_language_server.exe'
     )
     foreach ($entryName in $requiredEntries) {
         Require-ZipEntry $archive $entryName | Out-Null
+    }
+
+    $expectedSnippets = @{
+        'Snippets/1033/region.snippet' = 'region'
+        'Snippets/1033/extend-region.snippet' = 'extend'
+        'Snippets/1033/enum.snippet' = 'enum'
+        'Snippets/1033/events.snippet' = 'events'
+        'Snippets/1033/locations.snippet' = 'locations'
+        'Snippets/1033/exits.snippet' = 'exits'
+    }
+    foreach ($snippetEntryName in $expectedSnippets.Keys) {
+        [xml]$snippet = Read-ZipEntryText (Require-ZipEntry $archive $snippetEntryName)
+        $snippetNamespace = [System.Xml.XmlNamespaceManager]::new($snippet.NameTable)
+        $snippetNamespace.AddNamespace('s', 'http://schemas.microsoft.com/VisualStudio/2005/CodeSnippet')
+        $codeSnippet = $snippet.SelectSingleNode('/s:CodeSnippets/s:CodeSnippet', $snippetNamespace)
+        $shortcut = $codeSnippet.SelectSingleNode('s:Header/s:Shortcut', $snippetNamespace)
+        $code = $codeSnippet.SelectSingleNode('s:Snippet/s:Code', $snippetNamespace)
+        if ($null -eq $codeSnippet -or $shortcut.InnerText -ne $expectedSnippets[$snippetEntryName] -or
+            $code.Language -ne 'RLS' -or $code.InnerText -notmatch '\$end\$') {
+            throw "VSIX snippet '$snippetEntryName' has invalid RLS expansion metadata."
+        }
+    }
+
+    [xml]$snippetIndex = Read-ZipEntryText (
+        Require-ZipEntry $archive 'Snippets/1033/RandoLogicScript.xml')
+    $snippetLanguage = $snippetIndex.SelectSingleNode('/SnippetCollection/Language')
+    if ($null -eq $snippetLanguage -or
+        $snippetLanguage.Lang -ne 'Rando Logic Script' -or
+        $snippetLanguage.Guid -ne '{4C159F73-D995-4A40-ACD4-A04BB3DE2118}') {
+        throw 'VSIX native snippet index has invalid RLS language registration.'
     }
 
     $serverEntries = @($archive.Entries | Where-Object {

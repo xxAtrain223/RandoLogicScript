@@ -65,6 +65,7 @@ namespace RandoLogicScript.VisualStudio
                         ["variable"] = "local name",
                         ["operator"] = "operator",
                         ["rlsPropertyDeclaration"] = "string",
+                        ["keyword"] = "keyword",
                     },
                     tokenModifiers = new Dictionary<string, string>
                     {

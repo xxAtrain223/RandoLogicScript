@@ -208,6 +208,21 @@ TEST(SemanticTokensServiceTests, EmitsLogicalOperatorsWithTheSameType) {
     EXPECT_EQ(andToken->length, 3u);
 }
 
+TEST(SemanticTokensServiceTests, EmitsAllBooleanLiteralSpellingsAsKeywords) {
+    const std::string source = "define check(): true and false or always or never\n";
+    SemanticTokensFixture fixture(source);
+
+    const auto tokens = fixture.tokens();
+    for (const std::string spelling : {"true", "false", "always", "never"}) {
+        const auto position = static_cast<uint32_t>(source.find(spelling));
+        const auto* token = tokenAt(tokens, 0, position);
+        ASSERT_NE(token, nullptr) << spelling;
+        EXPECT_EQ(token->type, 8u) << spelling;
+        EXPECT_EQ(token->length, spelling.size()) << spelling;
+        EXPECT_EQ(token->modifiers, 0u) << spelling;
+    }
+}
+
 TEST(SemanticTokensServiceTests, HighlightsConcreteValuesResolvedThroughUniquePatterns) {
     SemanticTokensFixture fixture(
         "extern enum Item { RG_* }\n"

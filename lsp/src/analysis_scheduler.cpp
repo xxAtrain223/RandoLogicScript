@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <array>
+#include <cstdint>
 #include <fstream>
 #include <stdexcept>
 #include <utility>
@@ -14,6 +15,66 @@ std::optional<AnalysisScheduler::Snapshot> buildSnapshot(
     std::stop_token cancellation) {
     return sema::AnalysisSnapshot::Create(
         std::move(sources), generation, cancellation);
+}
+
+void appendUtf8(std::string& result, uint32_t codePoint) {
+    if (codePoint <= 0x7f) {
+        result.push_back(static_cast<char>(codePoint));
+    } else if (codePoint <= 0x7ff) {
+        result.push_back(static_cast<char>(0xc0 | (codePoint >> 6)));
+        result.push_back(static_cast<char>(0x80 | (codePoint & 0x3f)));
+    } else if (codePoint <= 0xffff) {
+        result.push_back(static_cast<char>(0xe0 | (codePoint >> 12)));
+        result.push_back(static_cast<char>(0x80 | ((codePoint >> 6) & 0x3f)));
+        result.push_back(static_cast<char>(0x80 | (codePoint & 0x3f)));
+    } else {
+        result.push_back(static_cast<char>(0xf0 | (codePoint >> 18)));
+        result.push_back(static_cast<char>(0x80 | ((codePoint >> 12) & 0x3f)));
+        result.push_back(static_cast<char>(0x80 | ((codePoint >> 6) & 0x3f)));
+        result.push_back(static_cast<char>(0x80 | (codePoint & 0x3f)));
+    }
+}
+
+std::optional<std::string> decodeUtf16(std::string_view bytes, bool littleEndian) {
+    if (bytes.size() % 2 != 0) return std::nullopt;
+    auto codeUnitAt = [&](size_t offset) {
+        const auto first = static_cast<unsigned char>(bytes[offset]);
+        const auto second = static_cast<unsigned char>(bytes[offset + 1]);
+        return static_cast<uint16_t>(littleEndian
+            ? first | (second << 8)
+            : (first << 8) | second);
+    };
+
+    std::string result;
+    result.reserve(bytes.size());
+    for (size_t offset = 0; offset < bytes.size(); offset += 2) {
+        uint32_t codePoint = codeUnitAt(offset);
+        if (codePoint >= 0xd800 && codePoint <= 0xdbff) {
+            if (offset + 3 >= bytes.size()) return std::nullopt;
+            const uint32_t low = codeUnitAt(offset + 2);
+            if (low < 0xdc00 || low > 0xdfff) return std::nullopt;
+            codePoint = 0x10000 + ((codePoint - 0xd800) << 10) + (low - 0xdc00);
+            offset += 2;
+        } else if (codePoint >= 0xdc00 && codePoint <= 0xdfff) {
+            return std::nullopt;
+        }
+        appendUtf8(result, codePoint);
+    }
+    return result;
+}
+
+std::optional<std::string> decodeSource(std::string content) {
+    if (content.starts_with("\xef\xbb\xbf")) {
+        content.erase(0, 3);
+        return content;
+    }
+    if (content.starts_with("\xff\xfe")) {
+        return decodeUtf16(std::string_view(content).substr(2), true);
+    }
+    if (content.starts_with("\xfe\xff")) {
+        return decodeUtf16(std::string_view(content).substr(2), false);
+    }
+    return content;
 }
 
 std::optional<std::string> readSource(
@@ -41,7 +102,7 @@ std::optional<std::string> readSource(
     if (!input.eof() || cancellation.stop_requested()) {
         return std::nullopt;
     }
-    return content;
+    return decodeSource(std::move(content));
 }
 
 std::string pathString(const std::filesystem::path& path) {

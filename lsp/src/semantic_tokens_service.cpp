@@ -19,6 +19,7 @@ enum class TokenType : uint32_t {
     Variable,
     Operator,
     RlsPropertyDeclaration,
+    Keyword,
 };
 
 enum class TokenModifier : uint32_t {
@@ -158,7 +159,7 @@ SemanticTokensService::SemanticTokensService(
 const std::vector<std::string>& SemanticTokensService::tokenTypes() {
     static const std::vector<std::string> result = {
         "function", "parameter", "enum", "enumMember", "property", "variable", "operator",
-        "rlsPropertyDeclaration",
+        "rlsPropertyDeclaration", "keyword",
     };
     return result;
 }
@@ -187,6 +188,21 @@ std::vector<uint32_t> SemanticTokensService::full(std::string_view uri) const {
 
     std::vector<AbsoluteToken> tokens;
     if (const auto* sourceIndex = snapshot->sourceIndex(documentPath)) {
+        for (const auto& booleanLiteral : sourceIndex->booleanLiterals()) {
+            const auto startOffset = source->byteOffsetFromUtf8Position(booleanLiteral.start);
+            const auto endOffset = source->byteOffsetFromUtf8Position(booleanLiteral.end);
+            if (!startOffset || !endOffset || *startOffset >= *endOffset) continue;
+            const auto start = source->utf16PositionAtByteOffset(*startOffset);
+            const auto end = source->utf16PositionAtByteOffset(*endOffset);
+            if (!start || !end || start->line != end->line || start->column >= end->column) continue;
+            tokens.push_back({
+                start->line - 1,
+                start->column - 1,
+                end->column - start->column,
+                TokenType::Keyword,
+                0,
+            });
+        }
         for (const auto& logicalOperator : sourceIndex->logicalOperators()) {
             const auto startOffset = source->byteOffsetFromUtf8Position(logicalOperator.span.start);
             const auto endOffset = source->byteOffsetFromUtf8Position(logicalOperator.span.end);

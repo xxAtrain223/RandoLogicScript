@@ -82,6 +82,7 @@ struct EditorSyntax {
 	std::vector<EditorTypePosition> typePositions;
 	std::vector<EditorCall> calls;
 	std::vector<EditorRegion> regions;
+	std::vector<ast::Span> extensionTargets;
 };
 
 EditorSyntax ParseEditorSyntax(

@@ -291,6 +291,79 @@ TEST(AnalysisSchedulerTests, DefaultReaderAnalyzesEmptyDiskFile) {
     std::filesystem::remove(path, error);
 }
 
+TEST(AnalysisSchedulerTests, DefaultReaderDecodesBomEncodedSources) {
+    const auto directory = std::filesystem::temp_directory_path();
+    const auto littleEndianPath = directory / "rls-utf16-le-source.rls";
+    const auto bigEndianPath = directory / "rls-utf16-be-source.rls";
+    const auto utf8BomPath = directory / "rls-utf8-bom-source.rls";
+    {
+        std::ofstream output(littleEndianPath, std::ios::binary);
+        const char bytes[] = "\xff\xfe" "d\0e\0f\0i\0n\0e\0 \0l\0e\0(\0)\0:\0 \0t\0r\0u\0e\0\n\0";
+        output.write(bytes, sizeof(bytes) - 1);
+    }
+    {
+        std::ofstream output(bigEndianPath, std::ios::binary);
+        const char bytes[] = "\xfe\xff\0d\0e\0f\0i\0n\0e\0 \0b\0e\0(\0)\0:\0 \0t\0r\0u\0e\0\n";
+        output.write(bytes, sizeof(bytes) - 1);
+    }
+    {
+        std::ofstream output(utf8BomPath, std::ios::binary);
+        output << "\xef\xbb\xbf" "define utf8(): true\n";
+    }
+
+    AnalysisScheduler scheduler(
+        {.debounce = std::chrono::milliseconds(0), .maximumConcurrency = 1});
+    ASSERT_TRUE(scheduler.schedule({
+        "project", 1,
+        {
+            {littleEndianPath.generic_string(), std::nullopt, littleEndianPath},
+            {bigEndianPath.generic_string(), std::nullopt, bigEndianPath},
+            {utf8BomPath.generic_string(), std::nullopt, utf8BomPath},
+        },
+        1, 1,
+    }));
+    scheduler.waitForIdle();
+
+    const auto snapshot = scheduler.acceptedSnapshot("project");
+    ASSERT_NE(snapshot, nullptr);
+    EXPECT_EQ(snapshot->documentCount(), 3);
+    EXPECT_EQ(snapshot->sourceText(std::filesystem::weakly_canonical(littleEndianPath).generic_string())
+                  ->content(),
+        "define le(): true\n");
+    EXPECT_EQ(snapshot->sourceText(std::filesystem::weakly_canonical(bigEndianPath).generic_string())
+                  ->content(),
+        "define be(): true\n");
+    EXPECT_EQ(snapshot->sourceText(std::filesystem::weakly_canonical(utf8BomPath).generic_string())
+                  ->content(),
+        "define utf8(): true\n");
+
+    std::error_code error;
+    std::filesystem::remove(littleEndianPath, error);
+    std::filesystem::remove(bigEndianPath, error);
+    std::filesystem::remove(utf8BomPath, error);
+}
+
+TEST(AnalysisSchedulerTests, DefaultReaderRejectsMalformedUtf16) {
+    const auto path = std::filesystem::temp_directory_path() /
+        "rls-malformed-utf16-source.rls";
+    {
+        std::ofstream output(path, std::ios::binary);
+        const char bytes[] = "\xff\xfe\0\xd8";
+        output.write(bytes, sizeof(bytes) - 1);
+    }
+
+    AnalysisScheduler scheduler(
+        {.debounce = std::chrono::milliseconds(0), .maximumConcurrency = 1});
+    ASSERT_TRUE(scheduler.schedule({
+        "project", 1, {{path.generic_string(), std::nullopt, path}}, 1, 1,
+    }));
+    scheduler.waitForIdle();
+
+    EXPECT_EQ(scheduler.acceptedSnapshot("project"), nullptr);
+    std::error_code error;
+    std::filesystem::remove(path, error);
+}
+
 TEST(AnalysisSchedulerTests, CanonicalizesFilesystemOverlayIdentity) {
     const auto path = std::filesystem::temp_directory_path() /
         "rls-overlay-parent" / ".." / "rls-overlay-source.rls";
