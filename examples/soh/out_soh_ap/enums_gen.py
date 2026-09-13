@@ -65,6 +65,32 @@ class Regions(StrEnum):
     RR_ROOT_EXITS = "Root Exits"
     RR_SERENADE_OF_WATER_WARP = "Serenade of Water Warp"
 
+REGION_SCENE: dict[Regions, str] = {
+    Regions.RR_ADULT_SPAWN: "SCENE_ID_MAX",
+    Regions.RR_BOLERO_OF_FIRE_WARP: "SCENE_ID_MAX",
+    Regions.RR_CHILD_SPAWN: "SCENE_ID_MAX",
+    Regions.RR_KF_BOULDER_LOOP: "SCENE_KOKIRI_FOREST",
+    Regions.RR_KF_HOUSE_OF_TWINS: "SCENE_TWINS_HOUSE",
+    Regions.RR_KF_KNOW_IT_ALL_HOUSE: "SCENE_KNOW_IT_ALL_BROS_HOUSE",
+    Regions.RR_KF_KOKIRI_SHOP: "SCENE_KOKIRI_SHOP",
+    Regions.RR_KF_LINKS_HOUSE: "SCENE_LINKS_HOUSE",
+    Regions.RR_KF_LINKS_PORCH: "SCENE_KOKIRI_FOREST",
+    Regions.RR_KF_MIDOS_HOUSE: "SCENE_MIDOS_HOUSE",
+    Regions.RR_KF_OUTSIDE_DEKU_TREE: "SCENE_KOKIRI_FOREST",
+    Regions.RR_KF_OUTSIDE_LOST_WOODS: "SCENE_KOKIRI_FOREST",
+    Regions.RR_KF_RUPEE_ALCOVE: "SCENE_KOKIRI_FOREST",
+    Regions.RR_KF_SARIAS_HOUSE: "SCENE_SARIAS_HOUSE",
+    Regions.RR_KF_STORMS_GROTTO: "SCENE_GROTTOS",
+    Regions.RR_KOKIRI_FOREST: "SCENE_KOKIRI_FOREST",
+    Regions.RR_MINUET_OF_FOREST_WARP: "SCENE_ID_MAX",
+    Regions.RR_NOCTURNE_OF_SHADOW_WARP: "SCENE_ID_MAX",
+    Regions.RR_PRELUDE_OF_LIGHT_WARP: "SCENE_ID_MAX",
+    Regions.RR_REQUIEM_OF_SPIRIT_WARP: "SCENE_ID_MAX",
+    Regions.RR_ROOT: "SCENE_ID_MAX",
+    Regions.RR_ROOT_EXITS: "SCENE_ID_MAX",
+    Regions.RR_SERENADE_OF_WATER_WARP: "SCENE_ID_MAX",
+}
+
 class Locations(StrEnum):
     @staticmethod
     def _generate_next_value_(name, start, count, last_values):

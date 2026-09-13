@@ -91,3 +91,27 @@ TEST(SohApEnums, RegionWalkMaterializesStrEnums) {
 	// Each region/event pair also gets an EventLocations member.
 	EXPECT_NE(out.find("    RR_TEST_ROOM_LOGIC_TEST_FLAG = auto()"), std::string::npos) << out;
 }
+// REGION_SCENE maps every region to its `scene:` token. The host needs it to answer
+// is_mq()/is_vanilla(), where a rule knows only the region it hangs off.
+TEST(SohApEnums, RegionSceneMapIsGenerated) {
+	const std::string out = generateEnums(
+		"region RR_TEST_ROOM {\n"
+		"    name: \"Test Room\"\n"
+		"    scene: SCENE_TEST_DUNGEON\n"
+		"}\n");
+
+	EXPECT_NE(out.find("REGION_SCENE: dict[Regions, str] = {\n"
+			"    Regions.RR_TEST_ROOM: \"SCENE_TEST_DUNGEON\",\n}"),
+		std::string::npos) << out;
+}
+
+// A region with no `scene:` still gets a row, with an empty value rather than a missing key,
+// so the host can subscript REGION_SCENE without guarding every lookup.
+TEST(SohApEnums, RegionWithoutSceneGetsEmptyValue) {
+	const std::string out = generateEnums(
+		"region RR_TEST_ROOM {\n"
+		"    name: \"Test Room\"\n"
+		"}\n");
+
+	EXPECT_NE(out.find("    Regions.RR_TEST_ROOM: \"\","), std::string::npos) << out;
+}

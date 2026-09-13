@@ -12,8 +12,21 @@ namespace rls::transpilers::soh_ap {
 using ap::WriteEntries;
 using ap::InsertToSet;
 using ap::RegionDisplayName;
+using ap::RegionScene;
 
 namespace {
+
+// Python string literal, with the two characters that could end or escape it neutralized.
+std::string pyString(std::string_view value) {
+	std::string out = "\"";
+	for (const char c : value) {
+		if (c == '\\' || c == '"') {
+			out += '\\';
+		}
+		out += c;
+	}
+	return out + "\"";
+}
 
 // Emit a StrEnum whose members are `auto()`-valued. The shared _generate_next_value_ turns
 // a member name into its display string by dropping `stripPrefix` and title-casing the rest
@@ -72,11 +85,13 @@ void SohApTranspiler::writeEnums(rls::OutputWriter& out) const {
 	// their classes are built from the region walk rather than from the enum declaration.
 	std::vector<std::string> eventLocations;   // region x event pairs, in region order
 	std::vector<std::string> regions;          // `RR_X = "Display Name"` lines
+	std::vector<std::pair<std::string, std::string>> regionScenes;  // region key -> SCENE_ token
 	std::set<std::string> events;              // deduplicated across regions and extensions
 	std::set<std::string> locations;
 
 	for (const auto& [regionName, region] : project.RegionDecls) {
 		regions.push_back(region->key.text + " = \"" + RegionDisplayName(*region) + "\"");
+		regionScenes.emplace_back(region->key.text, RegionScene(*region));
 
 		// A region's own sections plus every `extend region` block that targets it.
 		std::vector<const rls::ast::ExtendRegionDecl*> extendRegionDecls;
@@ -111,6 +126,15 @@ void SohApTranspiler::writeEnums(rls::OutputWriter& out) const {
 	if (regions.empty()) {
 		source << "    pass\n";
 	}
+
+	// Which scene each region sits in. The host needs this to answer is_mq()/is_vanilla():
+	// a rule's region identifies its dungeon only via the scene -- RR_GANONS_TOWER_ENTRYWAY is
+	// SCENE_INSIDE_GANONS_CASTLE, so it follows Ganon's Castle, which no name rule would get right.
+	source << "\nREGION_SCENE: dict[Regions, str] = {\n";
+	for (const auto& [regionKey, scene] : regionScenes) {
+		source << "    Regions." << regionKey << ": " << pyString(scene) << ",\n";
+	}
+	source << "}\n";
 
 	writeAutoStrEnum(source, "Locations", "RC_", {locations.begin(), locations.end()});
 
