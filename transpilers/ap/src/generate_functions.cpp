@@ -5,7 +5,7 @@
 namespace rls::transpilers::ap {
 
 void ApTranspiler::GenerateFunctionDefinitionsSource(rls::OutputWriter& out) const {
-	auto& source = out.open("functions.gen.py");
+	auto& source = out.open("functions_gen.py");
 	source << functionsPreamble();
 
 	// Resolve an AST node's RLS type to its Python type name, deferring the

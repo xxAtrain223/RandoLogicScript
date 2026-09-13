@@ -9,7 +9,7 @@ using namespace rls::transpilers::soh_ap_tests;
 
 namespace {
 // Exposes the protected function-generation building block so a test can capture the
-// emitted functions.gen.py without wiring it into Transpile() (Phase 5).
+// emitted functions_gen.py without wiring it into Transpile() (Phase 5).
 class TestSohApTranspiler : public rls::transpilers::soh_ap::SohApTranspiler {
 public:
 	using rls::transpilers::soh_ap::SohApTranspiler::SohApTranspiler;
@@ -17,13 +17,13 @@ public:
 };
 } // namespace
 
-// Generate functions.gen.py from inline RLS source and return its contents.
+// Generate functions_gen.py from inline RLS source and return its contents.
 static std::string generateFunctions(const std::string& source) {
 	auto project = resolveFromSource(source);
 	TestSohApTranspiler transpiler(project);
 	MemoryWriter writer;
 	transpiler.GenerateFunctionDefinitionsSource(writer);
-	return writer.content("functions.gen.py");
+	return writer.content("functions_gen.py");
 }
 
 // The bundle receiver leads the parameter list, ahead of the RLS parameters.
@@ -94,10 +94,10 @@ TEST(SohApFunctionSignatures, EnumParamDefaultIsPrefixed) {
 		std::string::npos);
 }
 
-// Defines the host world supplies natively (has_bottle is a hand-written LogicHelpers rule;
-// wallet_capacity is folded into can_afford_slot) are skipped entirely -- not emitted, and
-// wallet_capacity's otherwise-unrepresentable body raises no diagnostic because it is never
-// lowered.
+// wallet_capacity is supplied natively by the host (it is folded into can_afford_slot), so it is
+// skipped entirely -- not emitted, and its otherwise-unrepresentable body raises no diagnostic
+// because it is never lowered. has_bottle is NOT host-provided: `bottle_count() >= 1` is covered
+// by the kThresholdRewrites row, so it generates like any other define.
 TEST(SohApFunctionSignatures, HostProvidedDefinesAreSkipped) {
 	auto project = resolveFromSource(
 		"extern define bottle_count() -> Int\n"
@@ -112,9 +112,10 @@ TEST(SohApFunctionSignatures, HostProvidedDefinesAreSkipped) {
 	TestSohApTranspiler transpiler(project);
 	MemoryWriter writer;
 	transpiler.GenerateFunctionDefinitionsSource(writer);
-	std::string out = writer.content("functions.gen.py");
+	std::string out = writer.content("functions_gen.py");
 
-	EXPECT_EQ(out.find("def has_bottle("), std::string::npos) << out;
+	EXPECT_NE(out.find("def has_bottle(bundle) -> bool:\n    return has_bottle_count(bundle, 1)"),
+		std::string::npos) << out;
 	EXPECT_EQ(out.find("def wallet_capacity("), std::string::npos) << out;
 	EXPECT_NE(out.find("def can_climb(bundle) -> bool:"), std::string::npos) << out;
 	EXPECT_TRUE(transpiler.Diagnostics().empty());

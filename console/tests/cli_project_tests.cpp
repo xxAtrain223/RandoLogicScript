@@ -64,7 +64,7 @@ TEST(ConsoleProject, LoadsManifestAndUsesConfiguredOutput) {
 
     EXPECT_EQ(runConsole("--project \"" + directory.path().string() + "\"",
         directory.path() / "console.log"), 0);
-    EXPECT_TRUE(fs::exists(directory.path() / "generated" / "soh_ap" / "functions.gen.py"));
+    EXPECT_TRUE(fs::exists(directory.path() / "generated" / "soh_ap" / "functions_gen.py"));
 }
 
 TEST(ConsoleProject, SelectsOnlyOneConfiguredManifestTranspiler) {
@@ -81,7 +81,7 @@ TEST(ConsoleProject, SelectsOnlyOneConfiguredManifestTranspiler) {
 
     EXPECT_EQ(runConsole("--project \"" + directory.path().string() + "\" -t soh_ap",
         directory.path() / "selection.log"), 0);
-    EXPECT_TRUE(fs::exists(directory.path() / "generated" / "soh_ap" / "functions.gen.py"));
+    EXPECT_TRUE(fs::exists(directory.path() / "generated" / "soh_ap" / "functions_gen.py"));
     EXPECT_FALSE(fs::exists(directory.path() / "generated" / "soh"));
 }
 
@@ -108,7 +108,7 @@ TEST(ConsoleProject, DiscoversManifestFromCurrentDirectory) {
     writeFile(directory.path() / "src" / "logic.rls", "define smoke(): true\n");
 
     EXPECT_EQ(runConsoleFrom(directory.path() / "src", "", directory.path() / "discovery.log"), 0);
-    EXPECT_TRUE(fs::exists(directory.path() / "generated" / "soh_ap" / "functions.gen.py"));
+    EXPECT_TRUE(fs::exists(directory.path() / "generated" / "soh_ap" / "functions_gen.py"));
 }
 
 TEST(ConsoleProject, SupportsExplicitInputsAndRejectsUnknownTranspilers) {
@@ -117,7 +117,7 @@ TEST(ConsoleProject, SupportsExplicitInputsAndRejectsUnknownTranspilers) {
 
     EXPECT_EQ(runConsole("-t soh_ap -o \"" + (directory.path() / "soh_ap").string() + "\" \"" +
         (directory.path() / "logic.rls").string() + "\"", directory.path() / "explicit.log"), 0);
-    EXPECT_TRUE(fs::exists(directory.path() / "soh_ap" / "functions.gen.py"));
+    EXPECT_TRUE(fs::exists(directory.path() / "soh_ap" / "functions_gen.py"));
 
     EXPECT_NE(runConsole("-t unknown -o \"" + (directory.path() / "unknown").string() + "\" \"" +
         (directory.path() / "logic.rls").string() + "\"", directory.path() / "unknown.log"), 0);

@@ -6,7 +6,7 @@ How RLS `define` functions become Python functions for the Archipelago
 RuleBuilder target. The C++ `soh` target generates functions trivially; the AP
 target cannot, because a `Bool` is not a uniform type there. This document
 specifies why that is hard and how generation handles it. `SohApTranspiler::Transpile`
-emits `functions.gen.py`; the section references below point at the code and
+emits `functions_gen.py`; the section references below point at the code and
 tests that realize each piece.
 
 ---
@@ -343,9 +343,9 @@ Pinned by `SohApFunctionSignatures.HostProvidedDefinesAreSkipped`.
 | Diagnostics (§6.4) | `ap_transpiler.cpp` (`Diagnose`/`Diagnostics`), `console/main.cpp` (`runTranspiler`) | `ApDiagnostics.*` |
 | Signatures & types (§6.3) | `soh_functions.cpp` (`pythonTypeName`) + `soh_expression.cpp` (`enumClassName`/`renderEnumValue`) | `SohApFunctionSignatures.*` |
 | Host-provided defines (§6.5) | `isHostProvidedDefine` hook + `soh_expression.cpp` | `SohApFunctionSignatures.HostProvidedDefinesAreSkipped` |
-| Emission | `SohApTranspiler::Transpile` → `GenerateFunctionDefinitionsSource` (emits `functions.gen.py`) | `AcceptanceSoh` (byte-for-byte golden) |
+| Emission | `SohApTranspiler::Transpile` → `GenerateFunctionDefinitionsSource` (emits `functions_gen.py`) | `AcceptanceSoh` (byte-for-byte golden) |
 
-The generated `functions.gen.py` preamble imports the host primitives
+The generated `functions_gen.py` preamble imports the host primitives
 (`from .Rules import *` — the host rules, enum classes, and the `Callable`/`Rule`
 names the annotations use) plus the match helpers; the regions file imports the
 generated functions (`from .functions.gen import *`).

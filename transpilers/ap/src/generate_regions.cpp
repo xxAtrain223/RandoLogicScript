@@ -7,7 +7,9 @@
 namespace rls::transpilers::ap {
 
 void ApTranspiler::GenerateRegionsSource(rls::OutputWriter& out) const {
-	auto& source = out.open("regions.gen.py");
+	// `foo.gen.py` is not importable: Python reads the dot as a package separator, so the
+	// module would have to be reached as `foo.gen`. Underscore keeps it a plain module name.
+	auto& source = out.open("regions_gen.py");
 	source << regionsPreamble();
 
 	// Helper-call names are the same for every region; resolve them once.

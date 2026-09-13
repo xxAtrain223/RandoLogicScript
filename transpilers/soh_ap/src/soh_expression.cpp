@@ -23,7 +23,7 @@ namespace {
 //                                         the whole expr renders can_afford_slot)
 //     collected_triforce_pieces >= required_triforce_pieces -> CanWinTriforceHunt()
 //   Defines provided natively (isHostProvidedDefine, [kHostProvidedDefines]):
-//     has_bottle, wallet_capacity  -> skipped by function generation
+//     wallet_capacity  -> skipped by function generation
 //
 // Note on check_price -- it deliberately appears in TWO stages, which is the one
 // non-obvious thing here:
@@ -125,6 +125,10 @@ struct ThresholdRewrite {
 	bool allowEq;
 };
 constexpr ThresholdRewrite kThresholdRewrites[] = {
+	// bottle_count() only ever appears as `bottle_count() >= 1` inside the stdlib's has_bottle,
+	// so the threshold form covers it and has_bottle generates like any other define -- it is
+	// deliberately NOT in kHostProvidedDefines.
+	{"bottle_count", "has_bottle_count", "", false},
 	{"fire_timer", "fire_timer_at_least", "", false},
 	{"water_timer", "water_timer_at_least", "", false},
 	{"hearts", "hearts_at_least", "", false},
@@ -162,12 +166,10 @@ constexpr SmallKeyScene kSmallKeyScenes[] = {
 };
 
 // RLS defines the world supplies by hand, so function generation skips them.
-// has_bottle is a hand-written rule in the reference Rules.py / LogicHelpers;
 // wallet_capacity is a state-dependent Int that only ever appears inside
 // `check_price(...) <= wallet_capacity()` (collapsed away by kBinaryRewrites),
 // so generating its body would emit an unrepresentable runtime value.
 constexpr std::string_view kHostProvidedDefines[] = {
-	"has_bottle",
 	"wallet_capacity",
 };
 
@@ -179,7 +181,7 @@ std::optional<std::string> SohApTranspiler::enumClassName(std::string_view enumN
 			return std::string(mapping.pyClass);
 		}
 	}
-	// An enum declared in RLS is generated into enums.gen.py under its own name (see
+	// An enum declared in RLS is generated into enums_gen.py under its own name (see
 	// writeEnums), so it is referenced by that name -- no kEnumClasses row needed. Only
 	// extern enums need one, to reach the class the hand-written world keeps them in.
 	if (const auto* info = project.getEnumInfo(enumName);

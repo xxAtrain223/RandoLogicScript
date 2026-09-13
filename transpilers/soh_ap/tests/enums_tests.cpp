@@ -1,4 +1,4 @@
-// Enum tests: which classes reach the generated enums.gen.py, and how enum values render
+// Enum tests: which classes reach the generated enums_gen.py, and how enum values render
 // in expressions. Two families of enum reach the file:
 //   - extern enums whose values this project declares (Region/Check/Logic), materialized
 //     from the region walk into the Regions/Locations/Events StrEnums;
@@ -16,7 +16,7 @@ static std::string generateEnums(const std::string& source) {
 	auto project = resolveFromSource(source);
 	MemoryWriter writer;
 	rls::transpilers::soh_ap::SohApTranspiler(project).Transpile(writer);
-	return writer.content("enums.gen.py");
+	return writer.content("enums_gen.py");
 }
 
 // Dotted enum access (`Item.RG_HOOKSHOT`) renders exactly like the bare identifier form:
