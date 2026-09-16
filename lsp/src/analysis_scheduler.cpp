@@ -10,13 +10,6 @@
 namespace rls::lsp {
 namespace {
 
-std::optional<AnalysisScheduler::Snapshot> buildSnapshot(
-    std::vector<sema::SourceInput> sources, uint64_t generation,
-    std::stop_token cancellation) {
-    return sema::AnalysisSnapshot::Create(
-        std::move(sources), generation, cancellation);
-}
-
 void appendUtf8(std::string& result, uint32_t codePoint) {
     if (codePoint <= 0x7f) {
         result.push_back(static_cast<char>(codePoint));
@@ -132,7 +125,7 @@ AnalysisScheduler::AnalysisScheduler()
 AnalysisScheduler::AnalysisScheduler(
         Options options, Builder builder, SourceReader sourceReader)
         : options_(options),
-            builder_(builder ? std::move(builder) : Builder(buildSnapshot)),
+            builder_(std::move(builder)),
             sourceReader_(sourceReader ? std::move(sourceReader) : SourceReader(readSource)) {
     if (options_.maximumConcurrency == 0) {
         throw std::invalid_argument("analysis concurrency must be at least one");
@@ -331,7 +324,12 @@ void AnalysisScheduler::worker(std::stop_token shutdown) {
                         sources.clear();
                         break;
                     }
+                    const auto readStarted = std::chrono::steady_clock::now();
                     content = sourceReader_(*source.diskPath, cancellation->get_token());
+                    if (request.timings) {
+                        request.timings->sourceRead +=
+                            std::chrono::steady_clock::now() - readStarted;
+                    }
                 }
                 if (!content || cancellation->stop_requested()) {
                     sources.clear();
@@ -340,8 +338,20 @@ void AnalysisScheduler::worker(std::stop_token shutdown) {
                 sources.push_back({sourceIdentity(std::move(source.identity)), std::move(*content)});
             }
             if (!sources.empty()) {
-                snapshot = builder_(
-                    std::move(sources), request.generation, cancellation->get_token());
+                const auto snapshotStarted = std::chrono::steady_clock::now();
+                if (builder_) {
+                    snapshot = builder_(
+                        std::move(sources), request.generation, cancellation->get_token());
+                } else {
+                    snapshot = sema::AnalysisSnapshot::Create(
+                        std::move(sources), request.generation,
+                        cancellation->get_token(),
+                        request.timings ? &request.timings->snapshot : nullptr);
+                }
+                if (request.timings) {
+                    request.timings->snapshotBuild =
+                        std::chrono::steady_clock::now() - snapshotStarted;
+                }
             }
         } catch (...) {
             snapshot = std::nullopt;
@@ -358,7 +368,12 @@ void AnalysisScheduler::worker(std::stop_token shutdown) {
                     && !state.removed && state.latestGeneration == request.generation
                     && state.latestDocumentGeneration == request.documentGeneration
                     && state.latestManifestGeneration == request.manifestGeneration) {
+                    const auto replacementStarted = std::chrono::steady_clock::now();
                     state.accepted = std::move(*snapshot);
+                    if (request.timings) {
+                        request.timings->snapshotReplacement =
+                            std::chrono::steady_clock::now() - replacementStarted;
+                    }
                     acceptedSnapshot = state.accepted;
                     acceptedHandler = acceptedHandler_;
                 }

@@ -1,5 +1,6 @@
 #pragma once
 
+#include <chrono>
 #include <cstdint>
 #include <memory>
 #include <optional>
@@ -7,6 +8,7 @@
 #include <string>
 #include <vector>
 
+#include "analysis_timings.h"
 #include "ast.h"
 #include "semantic_index.h"
 #include "source_index.h"
@@ -18,12 +20,18 @@ struct SourceInput {
 	std::string content;
 };
 
+struct AnalysisSnapshotTimings {
+	std::chrono::nanoseconds parse{};
+	SemanticAnalysisTimings analysis;
+	std::chrono::nanoseconds semanticIndex{};
+};
+
 /// Immutable result of analyzing one explicit source set.
 class AnalysisSnapshot {
 public:
 	static std::optional<std::shared_ptr<const AnalysisSnapshot>> Create(
 		std::vector<SourceInput> sources, uint64_t generation = 0,
-		std::stop_token cancellation = {});
+		std::stop_token cancellation = {}, AnalysisSnapshotTimings* timings = nullptr);
 
 	uint64_t generation() const { return generation_; }
 	size_t documentCount() const { return documents_.size(); }

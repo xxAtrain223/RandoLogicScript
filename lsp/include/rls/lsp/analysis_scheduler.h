@@ -29,6 +29,13 @@ struct AnalysisSource {
     std::optional<std::filesystem::path> diskPath;
 };
 
+struct AnalysisTimings {
+    std::chrono::nanoseconds sourceRead{};
+    std::chrono::nanoseconds snapshotBuild{};
+    std::chrono::nanoseconds snapshotReplacement{};
+    sema::AnalysisSnapshotTimings snapshot;
+};
+
 struct AnalysisRequest {
     std::string projectId;
     // Strictly monotonic identity for the complete source-set capture.
@@ -37,6 +44,7 @@ struct AnalysisRequest {
     // Component generations may remain equal while aggregate generation advances.
     uint64_t documentGeneration = 0;
     uint64_t manifestGeneration = 0;
+    std::shared_ptr<AnalysisTimings> timings;
 };
 
 class AnalysisScheduler {

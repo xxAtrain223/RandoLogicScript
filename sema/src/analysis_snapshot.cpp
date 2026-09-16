@@ -4,6 +4,7 @@
 #include "sema.h"
 
 #include <algorithm>
+#include <chrono>
 #include <map>
 #include <tuple>
 
@@ -85,13 +86,16 @@ std::optional<CallRecord> resolveRecoveredCall(
 } // namespace
 
 std::optional<std::shared_ptr<const AnalysisSnapshot>> AnalysisSnapshot::Create(
-	std::vector<SourceInput> sources, uint64_t generation, std::stop_token cancellation) {
+	std::vector<SourceInput> sources, uint64_t generation, std::stop_token cancellation,
+	AnalysisSnapshotTimings* timings) {
 	if (cancellation.stop_requested()) return std::nullopt;
+	if (timings) *timings = {};
 	auto snapshot = std::make_shared<AnalysisSnapshot>();
 	snapshot->generation_ = generation;
 	std::map<std::string, std::string> effectiveSources;
 	for (auto& source : sources) effectiveSources[std::move(source.path)] = std::move(source.content);
 
+	const auto parseStarted = std::chrono::steady_clock::now();
 	for (auto& [path, content] : effectiveSources) {
 		if (cancellation.stop_requested()) return std::nullopt;
 		const auto sourceText = ast::SourceText::FromUtf8(content);
@@ -102,9 +106,11 @@ std::optional<std::shared_ptr<const AnalysisSnapshot>> AnalysisSnapshot::Create(
 		snapshot->documents_.push_back({path, *sourceText, std::move(parsed.sourceIndex)});
 		snapshot->project_.files.push_back(std::move(parsed.file));
 	}
+	if (timings) timings->parse = std::chrono::steady_clock::now() - parseStarted;
 
 	if (cancellation.stop_requested()) return std::nullopt;
-	snapshot->diagnostics_ = analyze(snapshot->project_);
+	snapshot->diagnostics_ = analyze(
+		snapshot->project_, timings ? &timings->analysis : nullptr);
 	if (cancellation.stop_requested()) return std::nullopt;
 	for (const auto& file : snapshot->project_.files) {
 		for (const auto& diagnostic : file.diagnostics) {
@@ -112,7 +118,9 @@ std::optional<std::shared_ptr<const AnalysisSnapshot>> AnalysisSnapshot::Create(
 		}
 	}
 	if (cancellation.stop_requested()) return std::nullopt;
+	const auto indexStarted = std::chrono::steady_clock::now();
 	snapshot->semanticIndex_ = buildSemanticIndex(snapshot->project_, snapshot->diagnostics_);
+	if (timings) timings->semanticIndex = std::chrono::steady_clock::now() - indexStarted;
 	if (cancellation.stop_requested()) return std::nullopt;
 	for (const auto& diagnostic : snapshot->diagnostics_) {
 		if (diagnostic.code.starts_with("RLS-V")) continue;
