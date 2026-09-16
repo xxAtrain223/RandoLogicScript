@@ -25,6 +25,14 @@ add_executable(rls_language_server
 )
 target_link_libraries(rls_language_server PRIVATE rls_lsp)
 
+add_executable(rls_lsp_benchmark
+    benchmarks/analysis_benchmark.cpp
+)
+target_link_libraries(rls_lsp_benchmark PRIVATE rls_lsp)
+target_compile_definitions(rls_lsp_benchmark PRIVATE
+    RLS_BENCHMARK_BUILD_TYPE="$<CONFIG>"
+)
+
 if(BUILD_TESTING)
     find_package(Python3 REQUIRED COMPONENTS Interpreter)
 
