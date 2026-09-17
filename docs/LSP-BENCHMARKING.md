@@ -85,6 +85,38 @@ The mean incremental edit was distributed as follows:
 | Parse | 0.2 ms | 0.1% |
 | Other snapshot work | 0.2 ms | 0.1% |
 
-Semantic-index construction is now the dominant cost. The next optimization should
-reuse or rebuild index contributions per document while retaining full semantic
-analysis as the correctness reference.
+Semantic-index construction became the dominant cost, so the next change replaced
+repeated linear symbol scans with snapshot-local lookup tables.
+
+## Indexed semantic lookup
+
+Measured on 2026-09-16 after indexing symbols by category, container, and declaration
+order while preserving first-declaration and ambiguous-pattern behavior:
+
+| Metric | Result | Change from parsed reuse |
+| --- | ---: | ---: |
+| Sources parsed per edit | 1 of 60 | unchanged |
+| Edit mean | 62.8 ms | -60.9% |
+| Edit median | 63.3 ms | -60.4% |
+| Edit p95 | 63.7 ms | -60.4% |
+| Edit range | 60.3-64.3 ms | |
+| Initial analysis | 345.9 ms | -21.2% |
+
+The mean incremental edit was distributed as follows:
+
+| Stage | Mean | Share |
+| --- | ---: | ---: |
+| Semantic index | 20.9 ms | 33.3% |
+| Accepted-snapshot replacement | 10.4 ms | 16.6% |
+| Type resolution | 10.1 ms | 16.1% |
+| AST materialization | 9.1 ms | 14.5% |
+| Scheduler and other work | 3.7 ms | 5.9% |
+| Source reads | 3.6 ms | 5.8% |
+| Validation | 3.4 ms | 5.4% |
+| Declaration collection | 1.1 ms | 1.8% |
+| Parse | 0.2 ms | 0.4% |
+| Other snapshot work | 0.2 ms | 0.3% |
+
+Semantic-index construction now averages 20.9 ms, down from 119.1 ms. No single
+stage dominates the remaining edit latency. Further incremental work should target
+one of these ownership boundaries rather than caching semantic-index records alone.
