@@ -13,6 +13,7 @@ class SymbolId {
 public:
 	SymbolId() = default;
 	bool operator==(const SymbolId&) const = default;
+	uint64_t value() const { return value_; }
 
 private:
 	uint64_t value_ = 0;

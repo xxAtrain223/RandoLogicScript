@@ -4,12 +4,125 @@
 #include "sema.h"
 
 #include <algorithm>
+#include <chrono>
 #include <map>
 #include <tuple>
 
 namespace rls::sema {
 
 namespace {
+
+ast::ExprPtr cloneExpr(const ast::ExprPtr& expression);
+
+ast::Expr::Variant cloneExprNode(const ast::Expr::Variant& node) {
+	return std::visit([](const auto& value) -> ast::Expr::Variant {
+		using T = std::decay_t<decltype(value)>;
+		if constexpr (std::is_same_v<T, ast::UnaryExpr>) {
+			return ast::UnaryExpr(value.op, cloneExpr(value.operand));
+		} else if constexpr (std::is_same_v<T, ast::BinaryExpr>) {
+			return ast::BinaryExpr(
+				value.op, cloneExpr(value.left), cloneExpr(value.right), value.operatorSpan);
+		} else if constexpr (std::is_same_v<T, ast::TernaryExpr>) {
+			return ast::TernaryExpr(
+				cloneExpr(value.condition), cloneExpr(value.thenBranch),
+				cloneExpr(value.elseBranch));
+		} else if constexpr (std::is_same_v<T, ast::CallExpr>) {
+			std::vector<ast::Arg> arguments;
+			arguments.reserve(value.args.size());
+			for (const auto& argument : value.args) {
+				arguments.emplace_back(argument.name, cloneExpr(argument.value));
+			}
+			return ast::CallExpr(value.callee, std::move(arguments));
+		} else if constexpr (std::is_same_v<T, ast::InvokeExpr>) {
+			return ast::InvokeExpr(cloneExpr(value.callee));
+		} else if constexpr (std::is_same_v<T, ast::MatchExpr>) {
+			std::vector<ast::MatchArm> arms;
+			arms.reserve(value.arms.size());
+			for (const auto& arm : value.arms) {
+				std::vector<ast::ExprPtr> patterns;
+				patterns.reserve(arm.patterns.size());
+				for (const auto& pattern : arm.patterns) patterns.push_back(cloneExpr(pattern));
+				arms.emplace_back(
+					std::move(patterns), arm.isDefault, cloneExpr(arm.body), arm.fallthrough);
+			}
+			return ast::MatchExpr(cloneExpr(value.discriminant), std::move(arms));
+		} else if constexpr (std::is_same_v<T, ast::ListExpr>) {
+			std::vector<ast::ExprPtr> elements;
+			elements.reserve(value.elements.size());
+			for (const auto& element : value.elements) elements.push_back(cloneExpr(element));
+			return ast::ListExpr(std::move(elements));
+		} else {
+			return value;
+		}
+	}, node);
+}
+
+ast::ExprPtr cloneExpr(const ast::ExprPtr& expression) {
+	if (!expression) return nullptr;
+	return std::make_unique<ast::Expr>(cloneExprNode(expression->node), expression->span);
+}
+
+std::vector<ast::Param> cloneParams(const std::vector<ast::Param>& parameters) {
+	std::vector<ast::Param> result;
+	result.reserve(parameters.size());
+	for (const auto& parameter : parameters) {
+		result.emplace_back(
+			parameter.name, parameter.type, cloneExpr(parameter.defaultValue), parameter.span);
+	}
+	return result;
+}
+
+std::vector<ast::Section> cloneSections(const std::vector<ast::Section>& sections) {
+	std::vector<ast::Section> result;
+	result.reserve(sections.size());
+	for (const auto& section : sections) {
+		std::vector<ast::Entry> entries;
+		entries.reserve(section.entries.size());
+		for (const auto& entry : section.entries) {
+			entries.emplace_back(entry.name, cloneExpr(entry.condition), entry.span);
+		}
+		result.emplace_back(section.kind, std::move(entries), section.span);
+	}
+	return result;
+}
+
+ast::Decl cloneDecl(const ast::Decl& declaration) {
+	return std::visit([](const auto& value) -> ast::Decl {
+		using T = std::decay_t<decltype(value)>;
+		if constexpr (std::is_same_v<T, ast::RegionDecl>) {
+			std::vector<ast::RegionDataEntry> data;
+			data.reserve(value.body.data.size());
+			for (const auto& entry : value.body.data) {
+				data.emplace_back(entry.key, cloneExpr(entry.value), entry.span);
+			}
+			return ast::RegionDecl(
+				value.key,
+				ast::RegionBody(std::move(data), cloneSections(value.body.sections)),
+				value.span);
+		} else if constexpr (std::is_same_v<T, ast::ExtendRegionDecl>) {
+			return ast::ExtendRegionDecl(value.name, cloneSections(value.sections), value.span);
+		} else if constexpr (std::is_same_v<T, ast::DefineDecl>) {
+			return ast::DefineDecl(
+				value.name, cloneParams(value.params), cloneExpr(value.body), value.span);
+		} else if constexpr (std::is_same_v<T, ast::ExternDefineDecl>) {
+			return ast::ExternDefineDecl(
+				value.name, cloneParams(value.params), value.returnType, value.span);
+		} else {
+			return value;
+		}
+	}, declaration);
+}
+
+ast::File cloneFile(const ast::File& file) {
+	ast::File result;
+	result.path = file.path;
+	result.diagnostics = file.diagnostics;
+	result.declarations.reserve(file.declarations.size());
+	for (const auto& declaration : file.declarations) {
+		result.declarations.push_back(cloneDecl(declaration));
+	}
+	return result;
+}
 
 std::vector<const SymbolRecord*> parametersFor(
 	const SemanticIndex& index, SymbolId callable) {
@@ -85,26 +198,57 @@ std::optional<CallRecord> resolveRecoveredCall(
 } // namespace
 
 std::optional<std::shared_ptr<const AnalysisSnapshot>> AnalysisSnapshot::Create(
-	std::vector<SourceInput> sources, uint64_t generation, std::stop_token cancellation) {
+	std::vector<SourceInput> sources, uint64_t generation, std::stop_token cancellation,
+	AnalysisSnapshotTimings* timings, std::shared_ptr<const AnalysisSnapshot> previous) {
 	if (cancellation.stop_requested()) return std::nullopt;
+	if (timings) *timings = {};
 	auto snapshot = std::make_shared<AnalysisSnapshot>();
 	snapshot->generation_ = generation;
 	std::map<std::string, std::string> effectiveSources;
 	for (auto& source : sources) effectiveSources[std::move(source.path)] = std::move(source.content);
+	std::map<std::string, std::shared_ptr<const ParsedDocument>> previousDocuments;
+	if (previous) {
+		for (const auto& document : previous->documents_) {
+			previousDocuments.emplace(document->path, document);
+		}
+	}
 
 	for (auto& [path, content] : effectiveSources) {
 		if (cancellation.stop_requested()) return std::nullopt;
-		const auto sourceText = ast::SourceText::FromUtf8(content);
-		if (!sourceText) return std::nullopt;
-		auto parsed = rls::parser::ParseStringWithIndex(
-			content, path, rls::parser::ParseMode::Editor);
+		std::shared_ptr<const ParsedDocument> document;
+		const auto cached = previousDocuments.find(path);
+		if (cached != previousDocuments.end()
+			&& cached->second->sourceText.content() == content) {
+			document = cached->second;
+			if (timings) ++timings->documentsReused;
+		} else {
+			const auto parseStarted = std::chrono::steady_clock::now();
+			const auto sourceText = ast::SourceText::FromUtf8(content);
+			if (!sourceText) return std::nullopt;
+			auto parsed = rls::parser::ParseStringWithIndex(
+				content, path, rls::parser::ParseMode::Editor);
+			document = std::make_shared<const ParsedDocument>(ParsedDocument{
+				path, std::move(*sourceText), std::move(parsed.sourceIndex),
+				std::move(parsed.file),
+			});
+			if (timings) {
+				timings->parse += std::chrono::steady_clock::now() - parseStarted;
+				++timings->documentsParsed;
+			}
+		}
 		if (cancellation.stop_requested()) return std::nullopt;
-		snapshot->documents_.push_back({path, *sourceText, std::move(parsed.sourceIndex)});
-		snapshot->project_.files.push_back(std::move(parsed.file));
+		snapshot->documents_.push_back(document);
+		const auto materializationStarted = std::chrono::steady_clock::now();
+		snapshot->project_.files.push_back(cloneFile(document->file));
+		if (timings) {
+			timings->astMaterialization +=
+				std::chrono::steady_clock::now() - materializationStarted;
+		}
 	}
 
 	if (cancellation.stop_requested()) return std::nullopt;
-	snapshot->diagnostics_ = analyze(snapshot->project_);
+	snapshot->diagnostics_ = analyze(
+		snapshot->project_, timings ? &timings->analysis : nullptr);
 	if (cancellation.stop_requested()) return std::nullopt;
 	for (const auto& file : snapshot->project_.files) {
 		for (const auto& diagnostic : file.diagnostics) {
@@ -112,7 +256,9 @@ std::optional<std::shared_ptr<const AnalysisSnapshot>> AnalysisSnapshot::Create(
 		}
 	}
 	if (cancellation.stop_requested()) return std::nullopt;
+	const auto indexStarted = std::chrono::steady_clock::now();
 	snapshot->semanticIndex_ = buildSemanticIndex(snapshot->project_, snapshot->diagnostics_);
+	if (timings) timings->semanticIndex = std::chrono::steady_clock::now() - indexStarted;
 	if (cancellation.stop_requested()) return std::nullopt;
 	for (const auto& diagnostic : snapshot->diagnostics_) {
 		if (diagnostic.code.starts_with("RLS-V")) continue;
@@ -128,22 +274,22 @@ std::optional<std::shared_ptr<const AnalysisSnapshot>> AnalysisSnapshot::Create(
 std::vector<std::string> AnalysisSnapshot::documentPaths() const {
 	std::vector<std::string> paths;
 	paths.reserve(documents_.size());
-	for (const auto& document : documents_) paths.push_back(document.path);
+	for (const auto& document : documents_) paths.push_back(document->path);
 	return paths;
 }
 
 const ast::SourceText* AnalysisSnapshot::sourceText(std::string_view path) const {
-	const auto it = std::find_if(documents_.begin(), documents_.end(), [&](const Document& document) {
-		return document.path == path;
+	const auto it = std::find_if(documents_.begin(), documents_.end(), [&](const auto& document) {
+		return document->path == path;
 	});
-	return it == documents_.end() ? nullptr : &it->sourceText;
+	return it == documents_.end() ? nullptr : &(*it)->sourceText;
 }
 
 const rls::parser::SourceIndex* AnalysisSnapshot::sourceIndex(std::string_view path) const {
-	const auto it = std::find_if(documents_.begin(), documents_.end(), [&](const Document& document) {
-		return document.path == path;
+	const auto it = std::find_if(documents_.begin(), documents_.end(), [&](const auto& document) {
+		return document->path == path;
 	});
-	return it == documents_.end() ? nullptr : &it->sourceIndex;
+	return it == documents_.end() ? nullptr : &(*it)->sourceIndex;
 }
 
 std::optional<rls::parser::SyntaxContext> AnalysisSnapshot::syntaxAt(std::string_view path, ast::Position position) const {

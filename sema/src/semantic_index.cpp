@@ -8,6 +8,7 @@
 #include <functional>
 #include <type_traits>
 #include <unordered_map>
+#include <unordered_set>
 
 namespace rls::sema {
 
@@ -326,22 +327,51 @@ SemanticIndex buildSemanticIndex(const ast::Project& project,
 		}
 	}
 
-	auto findSymbol = [&](SymbolCategory category, std::string_view name) -> std::optional<SymbolId> {
-		for (const auto& symbol : index.symbols_) {
-			if (symbol.category == category && symbol.displayName == name) return symbol.id;
+	std::unordered_map<SymbolCategory, std::unordered_map<std::string, SymbolId>> symbolsByCategory;
+	std::unordered_map<uint64_t, std::unordered_map<std::string, SymbolId>> enumMembersByContainer;
+	std::unordered_map<uint64_t, std::unordered_map<std::string, SymbolId>> parametersByContainer;
+	std::unordered_map<uint64_t, std::vector<const SymbolRecord*>> parameterOrderByContainer;
+	std::unordered_map<uint64_t, std::vector<std::pair<std::string, SymbolId>>> patternsByContainer;
+	std::unordered_set<uint64_t> patternSymbolIds;
+	for (const auto& symbol : index.symbols_) {
+		symbolsByCategory[symbol.category].try_emplace(symbol.displayName, symbol.id);
+		if (symbol.container) {
+			if (symbol.category == SymbolCategory::EnumMember) {
+				enumMembersByContainer[symbol.container->value()].try_emplace(
+					symbol.displayName, symbol.id);
+			} else if (symbol.category == SymbolCategory::Parameter) {
+				parametersByContainer[symbol.container->value()].try_emplace(
+					symbol.displayName, symbol.id);
+				parameterOrderByContainer[symbol.container->value()].push_back(&symbol);
+			} else if (symbol.category == SymbolCategory::ExternEnumPattern) {
+				patternsByContainer[symbol.container->value()].emplace_back(
+					symbol.displayName, symbol.id);
+				patternSymbolIds.insert(symbol.id.value());
+			}
 		}
-		return std::nullopt;
+	}
+	auto findSymbol = [&](SymbolCategory category, std::string_view name) -> std::optional<SymbolId> {
+		const auto categorySymbols = symbolsByCategory.find(category);
+		if (categorySymbols == symbolsByCategory.end()) return std::nullopt;
+		const auto symbol = categorySymbols->second.find(std::string(name));
+		return symbol == categorySymbols->second.end()
+			? std::nullopt : std::optional(symbol->second);
+	};
+	auto findChild = [&](const auto& lookup, SymbolId container,
+		std::string_view name) -> std::optional<SymbolId> {
+		const auto children = lookup.find(container.value());
+		if (children == lookup.end()) return std::nullopt;
+		const auto child = children->second.find(std::string(name));
+		return child == children->second.end() ? std::nullopt : std::optional(child->second);
 	};
 	auto findUniquePattern = [&](SymbolId enumId, std::string_view valueName) {
 		std::optional<SymbolId> result;
-		for (const auto& symbol : index.symbols_) {
-			if (symbol.category != SymbolCategory::ExternEnumPattern
-				|| symbol.container != enumId
-				|| !globMatches(symbol.displayName, valueName)) {
-				continue;
-			}
+		const auto patterns = patternsByContainer.find(enumId.value());
+		if (patterns == patternsByContainer.end()) return result;
+		for (const auto& [pattern, id] : patterns->second) {
+			if (!globMatches(pattern, valueName)) continue;
 			if (result) return std::optional<SymbolId>{};
-			result = symbol.id;
+			result = id;
 		}
 		return result;
 	};
@@ -473,12 +503,7 @@ SemanticIndex buildSemanticIndex(const ast::Project& project,
 		}
 	};
 	auto isPatternSymbol = [&](std::optional<SymbolId> symbolId) {
-		if (!symbolId) return false;
-		return std::any_of(index.symbols_.begin(), index.symbols_.end(),
-			[&](const SymbolRecord& symbol) {
-				return symbol.id == *symbolId
-					&& symbol.category == SymbolCategory::ExternEnumPattern;
-			});
+		return symbolId && patternSymbolIds.contains(symbolId->value());
 	};
 	std::function<void(const ast::Expr&, std::optional<SymbolId>)> indexExpression;
 	indexExpression = [&](const ast::Expr& expression, std::optional<SymbolId> defineScope) {
@@ -489,13 +514,7 @@ SemanticIndex buildSemanticIndex(const ast::Project& project,
 				std::optional<SymbolId> target;
 				OccurrenceKind kind = OccurrenceKind::Unresolved;
 				if (node.kind == ast::IdentifierKind::Parameter && defineScope) {
-					for (const auto& symbol : index.symbols_) {
-						if (symbol.category == SymbolCategory::Parameter &&
-							symbol.container == defineScope && symbol.displayName == node.name.text) {
-							target = symbol.id;
-							break;
-						}
-					}
+					target = findChild(parametersByContainer, *defineScope, node.name.text);
 					kind = target ? OccurrenceKind::Reference : OccurrenceKind::Unresolved;
 				} else if (node.kind == ast::IdentifierKind::FunctionRef) {
 					target = findSymbol(SymbolCategory::Define, node.name.text);
@@ -506,14 +525,10 @@ SemanticIndex buildSemanticIndex(const ast::Project& project,
 					if (type == ast::Type::Region) {
 						target = findSymbol(SymbolCategory::Region, node.name.text);
 					} else if (type == ast::Type::Event || type == ast::Type::Location) {
-						for (const auto& symbol : index.symbols_) {
-							if (symbol.category == SymbolCategory::SectionEntry
-								&& symbol.type == type
-								&& symbol.displayName == node.name.text) {
-								target = symbol.id;
-								break;
-							}
-						}
+						const auto& declarations = type == ast::Type::Event
+							? eventSymbols : locationSymbols;
+						const auto declaration = declarations.find(node.name.text);
+						if (declaration != declarations.end()) target = declaration->second;
 					}
 					kind = target ? OccurrenceKind::Reference : OccurrenceKind::Unresolved;
 				} else if (node.kind == ast::IdentifierKind::EnumValue) {
@@ -521,14 +536,7 @@ SemanticIndex buildSemanticIndex(const ast::Project& project,
 					if (enumName) {
 						const auto enumId = findSymbol(SymbolCategory::Enum, *enumName);
 						if (enumId) {
-							for (const auto& symbol : index.symbols_) {
-								if (symbol.category == SymbolCategory::EnumMember
-									&& symbol.container == enumId
-									&& symbol.displayName == node.name.text) {
-									target = symbol.id;
-									break;
-								}
-							}
+							target = findChild(enumMembersByContainer, *enumId, node.name.text);
 							if (!target) target = findUniquePattern(*enumId, node.name.text);
 						}
 						if (!target || isPatternSymbol(target)) {
@@ -544,14 +552,7 @@ SemanticIndex buildSemanticIndex(const ast::Project& project,
 					enumId ? OccurrenceKind::Reference : OccurrenceKind::Unresolved});
 				std::optional<SymbolId> memberId;
 				if (enumId) {
-					for (const auto& symbol : index.symbols_) {
-						if (symbol.category == SymbolCategory::EnumMember
-							&& symbol.container == enumId
-							&& symbol.displayName == node.member.text) {
-							memberId = symbol.id;
-							break;
-						}
-					}
+					memberId = findChild(enumMembersByContainer, *enumId, node.member.text);
 					if (!memberId) memberId = findUniquePattern(*enumId, node.member.text);
 				}
 				index.occurrences_.push_back({memberId, node.member.span,
@@ -627,10 +628,10 @@ SemanticIndex buildSemanticIndex(const ast::Project& project,
 					}
 					call.normalizedBindings.push_back(binding);
 					if (binding && target) {
-						size_t parameterIndex = 0;
-						for (const auto& symbol : index.symbols_) {
-							if (symbol.category != SymbolCategory::Parameter || symbol.container != target) continue;
-							if (parameterIndex++ != *binding) continue;
+						const auto parameters = parameterOrderByContainer.find(target->value());
+						if (parameters != parameterOrderByContainer.end()
+							&& *binding < parameters->second.size()) {
+							const auto& symbol = *parameters->second[*binding];
 							if (argument.name) {
 								index.occurrences_.push_back({
 									symbol.id, argument.name->span, OccurrenceKind::Reference});
@@ -639,7 +640,6 @@ SemanticIndex buildSemanticIndex(const ast::Project& project,
 								index.expectedTypes_.push_back({
 									argument.value->span, *symbol.type, symbol.enumName});
 							}
-							break;
 						}
 					}
 					indexExpression(*argument.value, defineScope);

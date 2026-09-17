@@ -4,6 +4,7 @@
 
 #include "ast.h"
 #include "analysis_snapshot.h"
+#include "analysis_timings.h"
 #include "semantic_index.h"
 
 namespace rls::sema {
@@ -19,6 +20,7 @@ namespace rls::sema {
 ///
 /// Returns all diagnostics (errors and warnings) accumulated across passes.
 /// The Project is modified in-place to populate its side tables.
-std::vector<ast::Diagnostic> analyze(ast::Project& project);
+std::vector<ast::Diagnostic> analyze(
+	ast::Project& project, SemanticAnalysisTimings* timings = nullptr);
 
 } // namespace rls::sema

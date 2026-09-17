@@ -179,6 +179,46 @@ TEST(AnalysisSchedulerTests, DefaultBuilderCreatesWholeProjectSnapshot) {
     EXPECT_EQ(accepted->documentCount(), 2);
 }
 
+TEST(AnalysisSchedulerTests, DefaultBuilderReusesOnlyAcceptedParsedDocuments) {
+    AnalysisScheduler scheduler(
+        {.debounce = std::chrono::milliseconds(0), .maximumConcurrency = 1});
+    auto initialTimings = std::make_shared<rls::lsp::AnalysisTimings>();
+    ASSERT_TRUE(scheduler.schedule({
+        "project",
+        1,
+        {
+            {"first.rls", "define first(): true\n"},
+            {"second.rls", "define second(): first()\n"},
+        },
+        1,
+        1,
+        initialTimings,
+    }));
+    scheduler.waitForIdle();
+    EXPECT_EQ(initialTimings->snapshot.documentsParsed, 2u);
+    EXPECT_EQ(initialTimings->snapshot.documentsReused, 0u);
+
+    auto changedTimings = std::make_shared<rls::lsp::AnalysisTimings>();
+    ASSERT_TRUE(scheduler.schedule({
+        "project",
+        2,
+        {
+            {"first.rls", "define first(): false\n"},
+            {"second.rls", "define second(): first()\n"},
+        },
+        2,
+        1,
+        changedTimings,
+    }));
+    scheduler.waitForIdle();
+
+    EXPECT_EQ(changedTimings->snapshot.documentsParsed, 1u);
+    EXPECT_EQ(changedTimings->snapshot.documentsReused, 1u);
+    const auto accepted = scheduler.acceptedSnapshot("project");
+    ASSERT_NE(accepted, nullptr);
+    EXPECT_EQ(accepted->generation(), 2u);
+}
+
 TEST(AnalysisSchedulerTests, BuilderFailureDoesNotStrandScheduler) {
     AnalysisScheduler scheduler(
         {.debounce = std::chrono::milliseconds(0), .maximumConcurrency = 1},
