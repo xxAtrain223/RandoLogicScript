@@ -267,6 +267,7 @@ void AnalysisScheduler::worker(std::stop_token shutdown) {
     while (!shutdown.stop_requested()) {
         AnalysisRequest request;
         std::shared_ptr<std::stop_source> cancellation;
+        Snapshot previousSnapshot;
 
         {
             std::unique_lock lock(mutex_);
@@ -293,6 +294,7 @@ void AnalysisScheduler::worker(std::stop_token shutdown) {
                     state.pending.reset();
                     cancellation = std::make_shared<std::stop_source>();
                     state.activeCancellation = cancellation;
+                    previousSnapshot = state.accepted;
                     ++activeBuilds_;
                     break;
                 }
@@ -346,7 +348,8 @@ void AnalysisScheduler::worker(std::stop_token shutdown) {
                     snapshot = sema::AnalysisSnapshot::Create(
                         std::move(sources), request.generation,
                         cancellation->get_token(),
-                        request.timings ? &request.timings->snapshot : nullptr);
+                        request.timings ? &request.timings->snapshot : nullptr,
+                        std::move(previousSnapshot));
                 }
                 if (request.timings) {
                     request.timings->snapshotBuild =

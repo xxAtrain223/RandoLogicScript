@@ -187,6 +187,36 @@ TEST(AnalysisSnapshotTests, IsolatesParseFailuresAcrossExplicitSources) {
 	EXPECT_EQ((*second)->sourceText("valid.rls")->content(), "define valid(): false\n");
 }
 
+TEST(AnalysisSnapshotTests, ReusesUnchangedParsedDocumentsAndReanalyzesTheirMeaning) {
+	AnalysisSnapshotTimings initialTimings;
+	const auto initial = AnalysisSnapshot::Create({
+		{"host.rls", "extern define value() -> Bool\n"},
+		{"caller.rls", "define caller(): value()\n"},
+	}, 110, {}, &initialTimings);
+	ASSERT_TRUE(initial);
+	EXPECT_EQ(initialTimings.documentsParsed, 2u);
+	EXPECT_EQ(initialTimings.documentsReused, 0u);
+	const auto initialType = (*initial)->typeAt("caller.rls", {1, 18});
+	ASSERT_TRUE(initialType);
+	EXPECT_EQ(initialType->type, Type::Bool);
+
+	AnalysisSnapshotTimings changedTimings;
+	const auto changed = AnalysisSnapshot::Create({
+		{"host.rls", "extern define value() -> Int\n"},
+		{"caller.rls", "define caller(): value()\n"},
+	}, 111, {}, &changedTimings, *initial);
+	ASSERT_TRUE(changed);
+	EXPECT_EQ(changedTimings.documentsParsed, 1u);
+	EXPECT_EQ(changedTimings.documentsReused, 1u);
+	const auto changedType = (*changed)->typeAt("caller.rls", {1, 18});
+	ASSERT_TRUE(changedType);
+	EXPECT_EQ(changedType->type, Type::Int);
+
+	const auto preservedType = (*initial)->typeAt("caller.rls", {1, 18});
+	ASSERT_TRUE(preservedType);
+	EXPECT_EQ(preservedType->type, Type::Bool);
+}
+
 TEST(AnalysisSnapshotTests, AnalyzesCompleteNeighborsInMalformedDocument) {
 	const auto snapshot = AnalysisSnapshot::Create({{
 		"partial.rls",

@@ -30,9 +30,10 @@ using rls::lsp::AnalysisScheduler;
 using rls::lsp::AnalysisSource;
 using rls::lsp::AnalysisTimings;
 
-constexpr std::array<std::string_view, 9> StageNames{
+constexpr std::array<std::string_view, 10> StageNames{
     "source_read",
     "parse",
+    "ast_materialization",
     "declaration_collection",
     "type_resolution",
     "validation",
@@ -45,6 +46,8 @@ constexpr std::array<std::string_view, 9> StageNames{
 struct Measurement {
     double wallMs = 0.0;
     std::array<double, StageNames.size()> stagesMs{};
+    size_t documentsParsed = 0;
+    size_t documentsReused = 0;
 };
 
 struct Options {
@@ -148,9 +151,10 @@ Measurement runGeneration(
         throw std::runtime_error("benchmark generation did not produce a snapshot");
     }
     const auto& snapshotTimings = timings->snapshot;
-    const std::array<double, 6> measuredStages{
+    const std::array<double, 7> measuredStages{
         milliseconds(timings->sourceRead),
         milliseconds(snapshotTimings.parse),
+        milliseconds(snapshotTimings.astMaterialization),
         milliseconds(snapshotTimings.analysis.declarationCollection),
         milliseconds(snapshotTimings.analysis.typeResolution),
         milliseconds(snapshotTimings.analysis.validation),
@@ -169,8 +173,11 @@ Measurement runGeneration(
         {
             measuredStages[0], measuredStages[1], measuredStages[2],
             measuredStages[3], measuredStages[4], measuredStages[5],
+            measuredStages[6],
             snapshotOther, snapshotReplacement, schedulerOther,
         },
+        snapshotTimings.documentsParsed,
+        snapshotTimings.documentsReused,
     };
 }
 
@@ -229,6 +236,14 @@ int main(int argc, char** argv) {
         std::vector<double> samples;
         samples.reserve(measurements.size());
         for (const auto& measurement : measurements) samples.push_back(measurement.wallMs);
+        const bool consistentReuse = std::all_of(
+            measurements.begin(), measurements.end(), [&](const Measurement& measurement) {
+                return measurement.documentsParsed == measurements.front().documentsParsed
+                    && measurement.documentsReused == measurements.front().documentsReused;
+            });
+        if (!consistentReuse) {
+            throw std::runtime_error("edit iterations produced inconsistent parse reuse counts");
+        }
         const double total = std::accumulate(samples.begin(), samples.end(), 0.0);
         const nlohmann::json result{
             {"build_type", RLS_BENCHMARK_BUILD_TYPE},
@@ -239,12 +254,16 @@ int main(int argc, char** argv) {
             {"warmup_iterations", options.warmupIterations},
             {"initial_analysis_ms", initial.wallMs},
             {"initial_stages_ms", stageValues(initial.stagesMs)},
+            {"initial_documents_parsed", initial.documentsParsed},
+            {"initial_documents_reused", initial.documentsReused},
             {"edit_mean_ms", total / static_cast<double>(samples.size())},
             {"edit_median_ms", percentile(samples, 0.5)},
             {"edit_p95_ms", percentile(samples, 0.95)},
             {"edit_min_ms", *std::min_element(samples.begin(), samples.end())},
             {"edit_max_ms", *std::max_element(samples.begin(), samples.end())},
             {"edit_samples_ms", samples},
+            {"edit_documents_parsed", measurements.front().documentsParsed},
+            {"edit_documents_reused", measurements.front().documentsReused},
             {"edit_stage_mean_ms", aggregateStages(measurements, [](std::vector<double> values) {
                 return std::accumulate(values.begin(), values.end(), 0.0)
                     / static_cast<double>(values.size());

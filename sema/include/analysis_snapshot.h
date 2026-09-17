@@ -22,8 +22,11 @@ struct SourceInput {
 
 struct AnalysisSnapshotTimings {
 	std::chrono::nanoseconds parse{};
+	std::chrono::nanoseconds astMaterialization{};
 	SemanticAnalysisTimings analysis;
 	std::chrono::nanoseconds semanticIndex{};
+	size_t documentsParsed = 0;
+	size_t documentsReused = 0;
 };
 
 /// Immutable result of analyzing one explicit source set.
@@ -31,7 +34,8 @@ class AnalysisSnapshot {
 public:
 	static std::optional<std::shared_ptr<const AnalysisSnapshot>> Create(
 		std::vector<SourceInput> sources, uint64_t generation = 0,
-		std::stop_token cancellation = {}, AnalysisSnapshotTimings* timings = nullptr);
+		std::stop_token cancellation = {}, AnalysisSnapshotTimings* timings = nullptr,
+		std::shared_ptr<const AnalysisSnapshot> previous = nullptr);
 
 	uint64_t generation() const { return generation_; }
 	size_t documentCount() const { return documents_.size(); }
@@ -52,14 +56,15 @@ public:
 	std::vector<CompilerDiagnostic> diagnosticsFor(std::string_view path) const;
 
 private:
-	struct Document {
+	struct ParsedDocument {
 		std::string path;
 		ast::SourceText sourceText;
 		rls::parser::SourceIndex sourceIndex;
+		ast::File file;
 	};
 
 	uint64_t generation_ = 0;
-	std::vector<Document> documents_;
+	std::vector<std::shared_ptr<const ParsedDocument>> documents_;
 	ast::Project project_;
 	std::vector<ast::Diagnostic> diagnostics_;
 	SemanticIndex semanticIndex_;
