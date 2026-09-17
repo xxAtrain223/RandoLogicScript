@@ -15,6 +15,7 @@
 
 #include <nlohmann/json.hpp>
 
+#include "project.h"
 #include "rls/lsp/analysis_scheduler.h"
 
 #ifndef RLS_BENCHMARK_BUILD_TYPE
@@ -92,21 +93,16 @@ Options parseOptions(int argc, char** argv) {
 
 std::vector<std::filesystem::path> discoverSources(
     const std::filesystem::path& projectRoot) {
-    const auto manifest = nlohmann::json::parse(readFile(projectRoot / "rls.json"));
-    std::vector<std::filesystem::path> sources;
-    for (const auto& sourceRoot : manifest.at("sources")) {
-        const auto root = projectRoot / sourceRoot.get<std::string>();
-        for (const auto& entry : std::filesystem::recursive_directory_iterator(root)) {
-            if (entry.is_regular_file() && entry.path().extension() == ".rls") {
-                sources.push_back(std::filesystem::weakly_canonical(entry.path()));
-            }
-        }
+    const auto loaded = rls::project::LoadManifest(projectRoot / "rls.json");
+    if (!loaded.config) {
+        throw std::runtime_error(loaded.error);
     }
-    std::sort(sources.begin(), sources.end());
-    if (sources.empty()) {
-        throw std::runtime_error("project contains no .rls sources");
+
+    auto sources = rls::project::CollectManifestSources(*loaded.config);
+    if (!sources.error.empty()) {
+        throw std::runtime_error(sources.error);
     }
-    return sources;
+    return std::move(sources.sourceFiles);
 }
 
 std::vector<AnalysisSource> makeSources(
