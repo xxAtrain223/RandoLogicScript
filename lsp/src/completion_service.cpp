@@ -99,6 +99,11 @@ bool startsWithCaseInsensitive(std::string_view value, std::string_view prefix) 
     return asciiLower(value.substr(0, prefix.size())) == asciiLower(prefix);
 }
 
+bool positionPrecedes(ast::Position left, ast::Position right) {
+    return left.line < right.line
+        || (left.line == right.line && left.column < right.column);
+}
+
 CompletionContext completionContextAt(
     const parser::SourceIndex& index, ast::Position position,
     const std::optional<parser::RegionContext>& region,
@@ -768,6 +773,17 @@ std::vector<CompletionItem> CompletionService::complete(
             addCandidate(candidates, labels,
                 makeItem(std::string(keyword), CompletionItemKind::Keyword, "expression keyword"),
                 40, prefix);
+        }
+        const auto enclosingExpression =
+            document->sourceIndex->enclosingExpression(contextPosition);
+        if (enclosingExpression
+            && positionPrecedes(enclosingExpression->span.start, replacement.start)) {
+            for (const std::string_view keyword : {"and", "or"}) {
+                addCandidate(candidates, labels,
+                    makeItem(std::string(keyword), CompletionItemKind::Keyword,
+                        "expression keyword"),
+                    40, prefix);
+            }
         }
         if (region) {
             PresentationSymbol symbol{

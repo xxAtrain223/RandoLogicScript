@@ -200,6 +200,39 @@ TEST(CompletionServiceTests, UsesScopeAndExpectedEnumForExpressionCandidates) {
         "choose(value: Color) -> Color");
 }
 
+TEST(CompletionServiceTests, PrefersLogicalOperatorKeywordsAfterAnOperand) {
+    CompletionFixture fixture(
+        "define this_or_that(): true\n"
+        "define this_and_that(): true\n"
+        "define use(): true or false and true\n");
+
+    CompletionService completion(fixture.projects, fixture.scheduler);
+    const auto orItems = completion.complete(fixture.uri, {2, 21});
+    const auto andItems = completion.complete(fixture.uri, {2, 31});
+
+    ASSERT_NE(findItem(orItems, "or"), nullptr);
+    ASSERT_NE(findItem(orItems, "this_or_that"), nullptr);
+    EXPECT_EQ(orItems.front().label, "or");
+    EXPECT_EQ(orItems.front().replacementRange.start.character, 19u);
+    EXPECT_EQ(orItems.front().replacementRange.end.character, 21u);
+
+    ASSERT_NE(findItem(andItems, "and"), nullptr);
+    ASSERT_NE(findItem(andItems, "this_and_that"), nullptr);
+    EXPECT_EQ(andItems.front().label, "and");
+    EXPECT_EQ(andItems.front().replacementRange.start.character, 28u);
+    EXPECT_EQ(andItems.front().replacementRange.end.character, 31u);
+}
+
+TEST(CompletionServiceTests, OmitsLogicalOperatorsAtStartOfExpression) {
+    CompletionFixture fixture("define use(): true\n");
+
+    CompletionService completion(fixture.projects, fixture.scheduler);
+    const auto items = completion.complete(fixture.uri, {0, 18});
+
+    EXPECT_EQ(findItem(items, "and"), nullptr);
+    EXPECT_EQ(findItem(items, "or"), nullptr);
+}
+
 TEST(CompletionServiceTests, RendersCallableDefaultsAndReturnType) {
     const std::string usage = "define use(): tar";
     CompletionFixture fixture(
