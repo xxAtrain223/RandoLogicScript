@@ -31,7 +31,7 @@ execFileSync(
 );
 execFileSync(
   'cmake',
-  ['--build', buildDirectory, '--config', 'Release', '--target', 'rls_language_server'],
+  ['--build', buildDirectory, '--config', 'Release', '--target', 'rls_language_server', '--parallel'],
   { stdio: 'inherit' },
 );
 
