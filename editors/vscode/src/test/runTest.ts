@@ -17,6 +17,8 @@ function discoverServer(repositoryRoot: string): string {
     path.join(repositoryRoot, 'build', 'lsp', 'Release', executable),
     path.join(repositoryRoot, 'build-vs', 'lsp', 'Debug', executable),
     path.join(repositoryRoot, 'build-vs', 'lsp', 'Release', executable),
+    path.join(repositoryRoot, 'build-vscode-release', 'lsp', executable),
+    path.join(repositoryRoot, 'build-vscode-release', 'lsp', 'Release', executable),
   ].filter((candidate): candidate is string => Boolean(candidate));
   const server = candidates.find((candidate) => fs.existsSync(candidate));
   if (!server) {

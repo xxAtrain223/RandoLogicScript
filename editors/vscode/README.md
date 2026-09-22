@@ -50,7 +50,10 @@ Enable `randoLogicScript.trace.server` when collecting protocol logs for an
 2. Run `npm ci` in this directory.
 3. Run `npm test` for the extension-host integration test, or use the repository's **Run RLS Language Extension** launch configuration.
 
-During repository development, the extension discovers common CMake outputs under `build/` and `build-vs/`. Set `randoLogicScript.server.path` to use another executable. The `RLS_LANGUAGE_SERVER_PATH` environment variable is available for automated tests.
+During repository development, the extension discovers common CMake outputs under
+`build/`, `build-vs/`, and `build-vscode-release/`. Set
+`randoLogicScript.server.path` to use another executable. The
+`RLS_LANGUAGE_SERVER_PATH` environment variable is available for automated tests.
 
 Use **Rando Logic Script: Restart Language Server** after changing the configured executable or arguments.
 
