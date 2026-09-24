@@ -39,6 +39,9 @@ jobs:
         with:
           node-version: 22
 
+      - name: Verify release versions agree
+        run: node tooling/verify-release-version.js
+
       - name: Configure
         run: >-
           cmake -S . -B build

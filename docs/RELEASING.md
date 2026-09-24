@@ -24,7 +24,7 @@ amd64 Visual Studio `[17.0,18.0)`. Visual Studio 2026 accepts this compatible pa
    npm version <version> --no-git-tag-version
    ```
 
-2. Update the `Version` in
+2. Update `project(... VERSION ...)` in `CMakeLists.txt` and the `Version` in
    `editors/visualstudio/src/source.extension.vsixmanifest` to the same value.
 3. Update `editors/vscode/CHANGELOG.md` and `editors/visualstudio/CHANGELOG.md`, then
    commit the version and release notes.

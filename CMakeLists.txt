@@ -4,7 +4,7 @@ if(POLICY CMP0091)
 	cmake_policy(SET CMP0091 NEW)
 endif()
 
-project(RandoLogicScript)
+project(RandoLogicScript VERSION 0.1.0)
 set(CMAKE_CXX_STANDARD 20)
 
 add_library(rls_build_options INTERFACE)
