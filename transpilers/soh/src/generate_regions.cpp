@@ -276,7 +276,7 @@ void SohTranspiler::WriteRegionsSource(rls::OutputWriter& out) const {
         auto fileName = fs::path(file).replace_extension("").filename().string();
         source << "void register_" << fileName << "() {\n\n";
 
-        for (const auto& [regionName, region] : project.RegionDecls) {
+        for (const auto& region : regions) {
             const auto extendRegionIt = project.ExtendRegionDecls.find(region->key.text);
             std::vector<const rls::ast::ExtendRegionDecl*> extendRegionDecls;
             if (extendRegionIt != project.ExtendRegionDecls.end()) {
