@@ -78,7 +78,7 @@ inline std::string withHostExterns(const std::string& source) {
 inline rls::ast::Project resolveFromSource(
 	const std::string& source)
 {
-	auto file = rls::parser::ParseString(withHostExterns(source));
+	auto file = rls::parser::ParseString(withHostExterns(source), "tests.rls");
 
 	for (const auto& d : file.diagnostics) {
 		if (d.level == rls::ast::DiagnosticLevel::Error)

@@ -57,7 +57,7 @@ TEST(SohSolverTests, GenerateRegionSimple) {
         "\n"
         "using namespace Rando;\n"
 		"\n"
-		"void RegisterRegions() {\n"
+		"void register_tests() {\n"
         "\n"
         "areaTable[RR_HC_GATE] = Region(\"Hyrule Castle Gate\", SCENE_HYRULE_CASTLE, {\n"
         "    // Events\n"
@@ -75,6 +75,10 @@ TEST(SohSolverTests, GenerateRegionSimple) {
         "    ENTRANCE(RR_HC_PAST_GATE, has(RandomizerGet::RG_CHILD_WALLET) && has(RandomizerGet::RG_SPEAK_HYLIAN)),\n"
         "});\n"
         "\n"
+        "}\n"
+        "\n"
+        "void RegisterRegions() {\n"
+        "    register_tests();\n"
         "}\n"
 	);
 }
@@ -120,7 +124,7 @@ TEST(SohSolverTests, GenerateRegionUsesExplicitConstructorForRegionMetadata) {
         "\n"
         "using namespace Rando;\n"
 		"\n"
-		"void RegisterRegions() {\n"
+		"void register_tests() {\n"
         "\n"
         "areaTable[RR_CHILD_SPAWN] = Region(\"Child Spawn\", SCENE_ID_MAX, false, {RA_LINKS_POCKET}, {\n"
         "    // Events\n"
@@ -131,6 +135,10 @@ TEST(SohSolverTests, GenerateRegionUsesExplicitConstructorForRegionMetadata) {
         "    ENTRANCE(RR_KF_LINKS_HOUSE, true),\n"
         "});\n"
         "\n"
+        "}\n"
+        "\n"
+        "void RegisterRegions() {\n"
+        "    register_tests();\n"
         "}\n"
 	);
 }
