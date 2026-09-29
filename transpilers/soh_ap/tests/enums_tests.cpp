@@ -76,8 +76,8 @@ TEST(SohApEnums, ExternEnumEmitsNoClass) {
 	EXPECT_EQ(out.find("class Potion"), std::string::npos) << out;
 }
 
-// The region walk still materializes Regions/Locations/Events, and a region's display name
-// becomes its Regions value.
+// The region walk still materializes Regions/Events, and a region's display name becomes its
+// Regions value.
 TEST(SohApEnums, RegionWalkMaterializesStrEnums) {
 	const std::string out = generateEnums(
 		"region RR_TEST_ROOM {\n"
@@ -94,7 +94,10 @@ TEST(SohApEnums, RegionWalkMaterializesStrEnums) {
 
 	EXPECT_NE(out.find("class Regions(StrEnum):\n    RR_TEST_ROOM = \"Test Room\"\n"),
 		std::string::npos) << out;
-	EXPECT_NE(out.find("    RC_TEST_CHEST = auto()"), std::string::npos) << out;
+	// Locations are the host's: their values are the names the Ship client resolves checks by,
+	// which a title-cased identifier cannot reproduce ("Kf ..." where Ship has "KF ...").
+	EXPECT_EQ(out.find("class Locations"), std::string::npos) << out;
+	EXPECT_EQ(out.find("RC_TEST_CHEST"), std::string::npos) << out;
 	EXPECT_NE(out.find("    LOGIC_TEST_FLAG = auto()"), std::string::npos) << out;
 	// Each region/event pair also gets an EventLocations member.
 	EXPECT_NE(out.find("    RR_TEST_ROOM_LOGIC_TEST_FLAG = auto()"), std::string::npos) << out;

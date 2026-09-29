@@ -103,15 +103,14 @@ void SohApTranspiler::writeEnums(rls::OutputWriter& out) const {
 		<< "from enum import StrEnum, IntEnum, auto\n";
 
 	// == Enums materialized from the region declarations ======================
-	// Region, Check and Logic are extern enums: RLS knows them only as glob patterns, but
-	// this project *declares* the values that matter (every region, location and event), so
-	// their classes are built from the region walk rather than from the enum declaration.
+	// Region and Event are extern enums: RLS knows them only as glob patterns, but this project
+	// *declares* the values that matter (every region and event), so their classes are built
+	// from the region walk rather than from the enum declaration.
 	std::vector<std::string> eventLocations;   // region x event pairs, in region order
 	std::vector<std::string> regions;          // `RR_X = "Display Name"` lines
 	std::vector<std::pair<std::string, std::string>> regionScenes;  // region key -> SCENE_ token
 	std::vector<std::pair<std::string, std::string>> regionQuests;  // region key -> "mq"/"vanilla"/""
 	std::set<std::string> events;              // deduplicated across regions and extensions
-	std::set<std::string> locations;
 
 	for (const auto& [regionName, region] : project.RegionDecls) {
 		regions.push_back(region->key.text + " = \"" + RegionDisplayName(*region) + "\"");
@@ -130,7 +129,6 @@ void SohApTranspiler::writeEnums(rls::OutputWriter& out) const {
 				eventLocations.push_back(region->key.text + "_" + entry.name.text);
 			});
 			InsertToSet(sections, rls::ast::SectionKind::Events, events);
-			InsertToSet(sections, rls::ast::SectionKind::Locations, locations);
 		};
 
 		collectFrom(region->body.sections);
@@ -173,7 +171,10 @@ void SohApTranspiler::writeEnums(rls::OutputWriter& out) const {
 	}
 	source << "}\n";
 
-	writeAutoStrEnum(source, "Locations", "RC_", {locations.begin(), locations.end()});
+	// No Locations or Items class: both are extern and glob-only (`extern enum Location { RC_* }`),
+	// so RLS never learns their names. Their values are a name contract with the Ship client --
+	// title-casing an identifier gives "Kf Kokiri Sword Chest" where Ship has "KF Kokiri Sword
+	// Chest" -- so the host generates both from Shipwright itself.
 
 	// == Enums declared directly in RLS =======================================
 	// `enum Foo { ... }` carries its members in the AST, so the class is generated here and
