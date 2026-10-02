@@ -5,6 +5,8 @@
 #include <set>
 #include <string>
 #include <string_view>
+#include <type_traits>
+#include <variant>
 #include <vector>
 
 namespace rls::transpilers::soh_ap {
@@ -93,6 +95,58 @@ void writeDeclaredEnum(std::ostream& out, std::string_view className, const rls:
 	}
 }
 
+// Every LOGIC_* an expression names. An event no region declares -- Ship's LOGIC_BUY_BOMBCHUS is
+// the logic value of a shop item, not something a region sets -- still needs an enum member, so the
+// generated code can name it and the host can give it a meaning.
+void collectEventRefs(const rls::ast::Expr* expr, std::set<std::string>& out) {
+	if (expr == nullptr) {
+		return;
+	}
+	std::visit([&](const auto& node) {
+		using T = std::decay_t<decltype(node)>;
+		if constexpr (std::is_same_v<T, rls::ast::Identifier>) {
+			if (node.name.text.rfind("LOGIC_", 0) == 0) {
+				out.insert(node.name.text);
+			}
+		} else if constexpr (std::is_same_v<T, rls::ast::UnaryExpr>) {
+			collectEventRefs(node.operand.get(), out);
+		} else if constexpr (std::is_same_v<T, rls::ast::BinaryExpr>) {
+			collectEventRefs(node.left.get(), out);
+			collectEventRefs(node.right.get(), out);
+		} else if constexpr (std::is_same_v<T, rls::ast::TernaryExpr>) {
+			collectEventRefs(node.condition.get(), out);
+			collectEventRefs(node.thenBranch.get(), out);
+			collectEventRefs(node.elseBranch.get(), out);
+		} else if constexpr (std::is_same_v<T, rls::ast::CallExpr>) {
+			for (const auto& arg : node.args) {
+				collectEventRefs(arg.value.get(), out);
+			}
+		} else if constexpr (std::is_same_v<T, rls::ast::InvokeExpr>) {
+			collectEventRefs(node.callee.get(), out);
+		} else if constexpr (std::is_same_v<T, rls::ast::MatchExpr>) {
+			collectEventRefs(node.discriminant.get(), out);
+			for (const auto& arm : node.arms) {
+				for (const auto& pattern : arm.patterns) {
+					collectEventRefs(pattern.get(), out);
+				}
+				collectEventRefs(arm.body.get(), out);
+			}
+		} else if constexpr (std::is_same_v<T, rls::ast::ListExpr>) {
+			for (const auto& element : node.elements) {
+				collectEventRefs(element.get(), out);
+			}
+		}
+	}, expr->node);
+}
+
+void collectEventRefs(const std::vector<rls::ast::Section>& sections, std::set<std::string>& out) {
+	for (const auto& section : sections) {
+		for (const auto& entry : section.entries) {
+			collectEventRefs(entry.condition.get(), out);
+		}
+	}
+}
+
 } // namespace
 
 void SohApTranspiler::writeEnums(rls::OutputWriter& out) const {
@@ -132,8 +186,16 @@ void SohApTranspiler::writeEnums(rls::OutputWriter& out) const {
 		};
 
 		collectFrom(region->body.sections);
+		collectEventRefs(region->body.sections, events);
 		for (const auto* extendRegion : extendRegionDecls) {
 			collectFrom(extendRegion->sections);
+			collectEventRefs(extendRegion->sections, events);
+		}
+	}
+	for (const auto& [name, define] : project.DefineDecls) {
+		collectEventRefs(define->body.get(), events);
+		for (const auto& param : define->params) {
+			collectEventRefs(param.defaultValue.get(), events);
 		}
 	}
 

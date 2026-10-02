@@ -27,10 +27,13 @@ class Events(StrEnum):
     def _generate_next_value_(name, start, count, last_values):
         return name.replace("LOGIC_", "").replace("_", " ").title()
     LOGIC_BUG_ACCESS = auto()
+    LOGIC_DEKU_TREE_CLEAR = auto()
     LOGIC_FAIRY_ACCESS = auto()
     LOGIC_FISH_ACCESS = auto()
+    LOGIC_FOREST_TEMPLE_CLEAR = auto()
     LOGIC_FREED_EPONA = auto()
     LOGIC_KAKARIKO_GATE_OPEN = auto()
+    LOGIC_LINKS_COW = auto()
     LOGIC_NUT_ACCESS = auto()
     LOGIC_SHOWED_MIDO_SWORD_AND_SHIELD = auto()
     LOGIC_STICK_ACCESS = auto()
