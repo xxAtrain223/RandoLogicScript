@@ -8,6 +8,7 @@
 #include <type_traits>
 #include <variant>
 #include <vector>
+#include <filesystem>
 
 namespace rls::transpilers::soh_ap {
 
@@ -37,21 +38,20 @@ std::string pyString(std::string_view value) {
 // rule can see: RR_DEKU_TREE_ENTRYWAY and RR_DEKU_TREE_LOBBY look alike, but only the first is
 // shared, and dropping it along with the vanilla half would disconnect the dungeon entirely.
 std::string regionQuest(const rls::ast::RegionDecl& region) {
-	std::string_view file = region.span.file;
-	if (const auto slash = file.find_last_of("/\\"); slash != std::string_view::npos) {
-		file.remove_prefix(slash + 1);
+	const std::filesystem::path file{region.span.file};
+	if (file.extension() != ".rls") {
+		return "";
 	}
-	const auto endsWith = [file](std::string_view suffix) {
-		return file.size() >= suffix.size() && file.substr(file.size() - suffix.size()) == suffix;
-	};
-	if (endsWith("_mq.rls")) {
+	const std::string stem = file.stem().string();
+	if (stem.ends_with("_mq")) {
 		return "mq";
 	}
-	if (endsWith("_vanilla.rls")) {
+	if (stem.ends_with("_vanilla")) {
 		return "vanilla";
 	}
 	return "";
 }
+
 
 // Emit a StrEnum whose members are `auto()`-valued. The shared _generate_next_value_ turns
 // a member name into its display string by dropping `stripPrefix` and title-casing the rest
