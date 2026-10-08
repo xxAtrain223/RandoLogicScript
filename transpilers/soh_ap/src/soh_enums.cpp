@@ -52,7 +52,6 @@ std::string regionQuest(const rls::ast::RegionDecl& region) {
 	return "";
 }
 
-
 // Emit a StrEnum whose members are `auto()`-valued. The shared _generate_next_value_ turns
 // a member name into its display string by dropping `stripPrefix` and title-casing the rest
 // (RC_SONG_FROM_SARIA -> "Song From Saria"), so the values never have to be spelled out.
