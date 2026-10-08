@@ -58,3 +58,27 @@ define can_break_upper_beehives():
 
 define can_break_lower_beehives():
     can_break_upper_beehives() or can_use(RG_BOMB_BAG)
+
+define can_reflect_nuts():
+	can_use(RG_DEKU_SHIELD) or (is_adult() and has(RG_HYLIAN_SHIELD))
+
+define has_fire_source_with_torch():
+	has_fire_source() or can_use(RG_STICKS)
+
+define blast_or_smash():
+	has_explosives() or can_use(RG_MEGATON_HAMMER)
+
+define can_ground_jump(hasBombflower: Bool = false):
+	trick(RT_GROUND_JUMP) and can_standing_shield() and (can_use(RG_BOMB_BAG) or (hasBombflower and has(RG_GORONS_BRACELET)))
+
+define can_hit_eye_targets():
+	can_use(RG_FAIRY_BOW) or can_use(RG_FAIRY_SLINGSHOT)
+
+define has_fire_source():
+	can_use(RG_DINS_FIRE) or can_use(RG_FIRE_ARROWS)
+
+define can_shield():
+	can_use(RG_MIRROR_SHIELD) or has(RG_HYLIAN_SHIELD) or can_use(RG_DEKU_SHIELD)
+
+define can_standing_shield():
+	can_use(RG_MIRROR_SHIELD) or (is_adult() and has(RG_HYLIAN_SHIELD)) or can_use(RG_DEKU_SHIELD)

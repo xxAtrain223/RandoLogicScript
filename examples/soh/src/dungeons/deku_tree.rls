@@ -1,0 +1,49 @@
+# Vanilla/MQ Decider
+region RR_DEKU_TREE_ENTRYWAY {
+    name: "Deku Tree Entryway"
+    scene: SCENE_DEKU_TREE
+
+    exits {
+        RR_DEKU_TREE_LOBBY:      is_vanilla()
+        RR_DEKU_TREE_MQ_1F:      is_mq()
+        RR_KF_OUTSIDE_DEKU_TREE: always
+    }
+}
+
+region RR_DEKU_TREE_BOSS_ENTRYWAY {
+    name: "Deku Tree Boss Entryway"
+    scene: SCENE_DEKU_TREE
+
+    exits {
+        RR_DEKU_TREE_BOSS_ROOM: always
+    }
+}
+
+region RR_DEKU_TREE_BOSS_EXIT {
+    name: "Deku Tree Boss Exit"
+    scene: SCENE_DEKU_TREE
+
+    exits {
+        RR_DEKU_TREE_OUTSIDE_BOSS_ROOM:    is_vanilla()
+        RR_DEKU_TREE_MQ_OUTSIDE_BOSS_ROOM: is_mq()
+    }
+}
+
+region RR_DEKU_TREE_BOSS_ROOM {
+    name: "Deku Tree Boss Room"
+    scene: SCENE_DEKU_TREE_BOSS
+
+    events {
+        LOGIC_DEKU_TREE_CLEAR: can_kill(RE_GOHMA)
+    }
+
+    locations {
+        RC_QUEEN_GOHMA:                 flag(LOGIC_DEKU_TREE_CLEAR)
+        RC_DEKU_TREE_QUEEN_GOHMA_HEART: flag(LOGIC_DEKU_TREE_CLEAR)
+    }
+
+    exits {
+        RR_DEKU_TREE_BOSS_EXIT:  always
+        RR_KF_OUTSIDE_DEKU_TREE: flag(LOGIC_DEKU_TREE_CLEAR)
+    }
+}

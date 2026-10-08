@@ -25,6 +25,358 @@ def set_region_rules(world: "SohWorld") -> None:
         (Regions.RR_KF_LINKS_HOUSE, lambda bundle: True_()),
     ])
 
+    # Deku Tree 2F Middle Room
+    # Exits
+    connect_regions(Regions.RR_DEKU_TREE_2F_MIDDLE_ROOM, world, [
+        (Regions.RR_DEKU_TREE_LOBBY, lambda bundle: any_age(bundle, (lambda bundle: can_reflect_nuts(bundle) | can_use(bundle, Items.RG_MEGATON_HAMMER)))),
+        (Regions.RR_DEKU_TREE_SLINGSHOT_ROOM, lambda bundle: any_age(bundle, (lambda bundle: can_reflect_nuts(bundle) | can_use(bundle, Items.RG_MEGATON_HAMMER)))),
+    ])
+
+    # Deku Tree Basement Back Lobby
+    # Events
+    add_events(Regions.RR_DEKU_TREE_BASEMENT_BACK_LOBBY, world, [
+        (EventLocations.RR_DEKU_TREE_BASEMENT_BACK_LOBBY_LOGIC_STICK_ACCESS, Events.LOGIC_STICK_ACCESS, lambda bundle: can_get_deku_baba_sticks(bundle)),
+        (EventLocations.RR_DEKU_TREE_BASEMENT_BACK_LOBBY_LOGIC_NUT_ACCESS, Events.LOGIC_NUT_ACCESS, lambda bundle: can_get_deku_baba_nuts(bundle)),
+    ])
+    # Exits
+    connect_regions(Regions.RR_DEKU_TREE_BASEMENT_BACK_LOBBY, world, [
+        (Regions.RR_DEKU_TREE_BASEMENT_TORCH_ROOM, lambda bundle: True_()),
+        (Regions.RR_DEKU_TREE_BASEMENT_BACK_ROOM, lambda bundle: any_age(bundle, (lambda bundle: has_fire_source_with_torch(bundle) | can_use(bundle, Items.RG_FAIRY_BOW))) & any_age(bundle, (lambda bundle: blast_or_smash(bundle)))),
+        (Regions.RR_DEKU_TREE_BASEMENT_UPPER, lambda bundle: any_age(bundle, (lambda bundle: has_fire_source_with_torch(bundle) | can_use(bundle, Items.RG_FAIRY_BOW))) & can_use(bundle, Items.RG_CRAWL)),
+    ])
+
+    # Deku Tree Basement Back Room
+    # Exits
+    connect_regions(Regions.RR_DEKU_TREE_BASEMENT_BACK_ROOM, world, [
+        (Regions.RR_DEKU_TREE_BASEMENT_BACK_LOBBY, lambda bundle: True_()),
+    ])
+
+    # Deku Tree Basement Lower
+    # Events
+    add_events(Regions.RR_DEKU_TREE_BASEMENT_LOWER, world, [
+        (EventLocations.RR_DEKU_TREE_BASEMENT_LOWER_LOGIC_STICK_ACCESS, Events.LOGIC_STICK_ACCESS, lambda bundle: can_get_deku_baba_sticks(bundle)),
+        (EventLocations.RR_DEKU_TREE_BASEMENT_LOWER_LOGIC_NUT_ACCESS, Events.LOGIC_NUT_ACCESS, lambda bundle: can_get_deku_baba_nuts(bundle)),
+        (EventLocations.RR_DEKU_TREE_BASEMENT_LOWER_LOGIC_DEKU_TREE_B1_BROKE_WEB, Events.LOGIC_DEKU_TREE_B1_BROKE_WEB, lambda bundle: can_use(bundle, Items.RG_STICKS) & (has_item(bundle, Events.LOGIC_DEKU_TREE_PUSHED_BASEMENT_BLOCK) | is_adult(bundle) | can_use(bundle, Items.RG_HOVER_BOOTS)) | can_do_trick(bundle, Tricks.RT_DEKU_B1_BOW_WEBS) & is_adult(bundle) & can_use(bundle, Items.RG_FAIRY_BOW)),
+    ])
+    # Exits
+    connect_regions(Regions.RR_DEKU_TREE_BASEMENT_LOWER, world, [
+        (Regions.RR_DEKU_TREE_LOBBY, lambda bundle: has_item(bundle, Items.RG_CLIMB) | is_adult(bundle) & can_use(bundle, Items.RG_LONGSHOT)),
+        (Regions.RR_DEKU_TREE_BASEMENT_SCRUB_ROOM, lambda bundle: any_age(bundle, (lambda bundle: has_fire_source_with_torch(bundle) | can_use(bundle, Items.RG_FAIRY_BOW)))),
+        (Regions.RR_DEKU_TREE_BASEMENT_UPPER, lambda bundle: is_adult(bundle) | can_do_trick(bundle, Tricks.RT_DEKU_B1_SKIP) | can_ground_jump(bundle, False) | has_item(bundle, Events.LOGIC_DEKU_TREE_PUSHED_BASEMENT_BLOCK)),
+        (Regions.RR_DEKU_TREE_OUTSIDE_BOSS_ROOM, lambda bundle: False_()),
+    ])
+
+    # Deku Tree Basement Scrub Room
+    # Exits
+    connect_regions(Regions.RR_DEKU_TREE_BASEMENT_SCRUB_ROOM, world, [
+        (Regions.RR_DEKU_TREE_BASEMENT_LOWER, lambda bundle: True_()),
+        (Regions.RR_DEKU_TREE_BASEMENT_WATER_ROOM_FRONT, lambda bundle: any_age(bundle, (lambda bundle: can_hit_eye_targets(bundle)))),
+    ])
+
+    # Deku Tree Basement Torch Room
+    # Events
+    add_events(Regions.RR_DEKU_TREE_BASEMENT_TORCH_ROOM, world, [
+        (EventLocations.RR_DEKU_TREE_BASEMENT_TORCH_ROOM_LOGIC_STICK_ACCESS, Events.LOGIC_STICK_ACCESS, lambda bundle: can_get_deku_baba_sticks(bundle)),
+        (EventLocations.RR_DEKU_TREE_BASEMENT_TORCH_ROOM_LOGIC_NUT_ACCESS, Events.LOGIC_NUT_ACCESS, lambda bundle: can_get_deku_baba_nuts(bundle)),
+    ])
+    # Exits
+    connect_regions(Regions.RR_DEKU_TREE_BASEMENT_TORCH_ROOM, world, [
+        (Regions.RR_DEKU_TREE_BASEMENT_WATER_ROOM_BACK, lambda bundle: any_age(bundle, (lambda bundle: has_fire_source_with_torch(bundle) | can_use(bundle, Items.RG_FAIRY_BOW)))),
+        (Regions.RR_DEKU_TREE_BASEMENT_BACK_LOBBY, lambda bundle: any_age(bundle, (lambda bundle: has_fire_source_with_torch(bundle) | can_use(bundle, Items.RG_FAIRY_BOW)))),
+    ])
+
+    # Deku Tree Basement Upper
+    # Events
+    add_events(Regions.RR_DEKU_TREE_BASEMENT_UPPER, world, [
+        (EventLocations.RR_DEKU_TREE_BASEMENT_UPPER_LOGIC_STICK_ACCESS, Events.LOGIC_STICK_ACCESS, lambda bundle: can_get_deku_baba_sticks(bundle)),
+        (EventLocations.RR_DEKU_TREE_BASEMENT_UPPER_LOGIC_NUT_ACCESS, Events.LOGIC_NUT_ACCESS, lambda bundle: can_get_deku_baba_nuts(bundle)),
+        (EventLocations.RR_DEKU_TREE_BASEMENT_UPPER_LOGIC_DEKU_TREE_PUSHED_BASEMENT_BLOCK, Events.LOGIC_DEKU_TREE_PUSHED_BASEMENT_BLOCK, lambda bundle: has_item(bundle, Items.RG_POWER_BRACELET)),
+        (EventLocations.RR_DEKU_TREE_BASEMENT_UPPER_LOGIC_DEKU_TREE_B1_BROKE_WEB, Events.LOGIC_DEKU_TREE_B1_BROKE_WEB, lambda bundle: has_fire_source(bundle)),
+    ])
+    # Exits
+    connect_regions(Regions.RR_DEKU_TREE_BASEMENT_UPPER, world, [
+        (Regions.RR_DEKU_TREE_BASEMENT_LOWER, lambda bundle: True_()),
+        (Regions.RR_DEKU_TREE_BASEMENT_BACK_LOBBY, lambda bundle: can_use(bundle, Items.RG_CRAWL)),
+        (Regions.RR_DEKU_TREE_OUTSIDE_BOSS_ROOM, lambda bundle: has_item(bundle, Events.LOGIC_DEKU_TREE_B1_BROKE_WEB) & (has_item(bundle, Items.RG_BRONZE_SCALE) | can_use(bundle, Items.RG_IRON_BOOTS))),
+    ])
+
+    # Deku Tree Basement Water Room Back
+    # Exits
+    connect_regions(Regions.RR_DEKU_TREE_BASEMENT_WATER_ROOM_BACK, world, [
+        (Regions.RR_DEKU_TREE_BASEMENT_WATER_ROOM_FRONT, lambda bundle: has_item(bundle, Items.RG_BRONZE_SCALE) | can_do_trick(bundle, Tricks.RT_DEKU_B1_BACKFLIP_OVER_SPIKED_LOG)),
+        (Regions.RR_DEKU_TREE_BASEMENT_TORCH_ROOM, lambda bundle: True_()),
+    ])
+
+    # Deku Tree Basement Water Room Front
+    # Exits
+    connect_regions(Regions.RR_DEKU_TREE_BASEMENT_WATER_ROOM_FRONT, world, [
+        (Regions.RR_DEKU_TREE_BASEMENT_SCRUB_ROOM, lambda bundle: True_()),
+        (Regions.RR_DEKU_TREE_BASEMENT_WATER_ROOM_BACK, lambda bundle: has_item(bundle, Items.RG_BRONZE_SCALE) | can_do_trick(bundle, Tricks.RT_DEKU_B1_BACKFLIP_OVER_SPIKED_LOG)),
+    ])
+
+    # Deku Tree Boss Entryway
+    # Exits
+    connect_regions(Regions.RR_DEKU_TREE_BOSS_ENTRYWAY, world, [
+        (Regions.RR_DEKU_TREE_BOSS_ROOM, lambda bundle: True_()),
+    ])
+
+    # Deku Tree Boss Exit
+    # Exits
+    connect_regions(Regions.RR_DEKU_TREE_BOSS_EXIT, world, [
+        (Regions.RR_DEKU_TREE_OUTSIDE_BOSS_ROOM, lambda bundle: is_vanilla(bundle)),
+        (Regions.RR_DEKU_TREE_MQ_OUTSIDE_BOSS_ROOM, lambda bundle: is_mq(bundle)),
+    ])
+
+    # Deku Tree Boss Room
+    # Events
+    add_events(Regions.RR_DEKU_TREE_BOSS_ROOM, world, [
+        (EventLocations.RR_DEKU_TREE_BOSS_ROOM_LOGIC_DEKU_TREE_CLEAR, Events.LOGIC_DEKU_TREE_CLEAR, lambda bundle: can_kill(bundle, Enemies.RE_GOHMA, EnemyDistance.ED_CLOSE, True, 1, False, False)),
+    ])
+    # Locations
+    add_locations(Regions.RR_DEKU_TREE_BOSS_ROOM, world, [
+        (Locations.RC_QUEEN_GOHMA, lambda bundle: has_item(bundle, Events.LOGIC_DEKU_TREE_CLEAR)),
+        (Locations.RC_DEKU_TREE_QUEEN_GOHMA_HEART, lambda bundle: has_item(bundle, Events.LOGIC_DEKU_TREE_CLEAR)),
+    ])
+    # Exits
+    connect_regions(Regions.RR_DEKU_TREE_BOSS_ROOM, world, [
+        (Regions.RR_DEKU_TREE_BOSS_EXIT, lambda bundle: True_()),
+        (Regions.RR_KF_OUTSIDE_DEKU_TREE, lambda bundle: has_item(bundle, Events.LOGIC_DEKU_TREE_CLEAR)),
+    ])
+
+    # Deku Tree Compass Room
+    # Events
+    add_events(Regions.RR_DEKU_TREE_COMPASS_ROOM, world, [
+        (EventLocations.RR_DEKU_TREE_COMPASS_ROOM_LOGIC_STICK_ACCESS, Events.LOGIC_STICK_ACCESS, lambda bundle: can_get_deku_baba_sticks(bundle)),
+        (EventLocations.RR_DEKU_TREE_COMPASS_ROOM_LOGIC_NUT_ACCESS, Events.LOGIC_NUT_ACCESS, lambda bundle: can_get_deku_baba_nuts(bundle)),
+    ])
+    # Exits
+    connect_regions(Regions.RR_DEKU_TREE_COMPASS_ROOM, world, [
+        (Regions.RR_DEKU_TREE_LOBBY, lambda bundle: has_fire_source_with_torch(bundle) | can_use(bundle, Items.RG_FAIRY_BOW)),
+        (Regions.RR_DEKU_TREE_BOSS_ENTRYWAY, lambda bundle: False_()),
+    ])
+
+    # Deku Tree Entryway
+    # Exits
+    connect_regions(Regions.RR_DEKU_TREE_ENTRYWAY, world, [
+        (Regions.RR_DEKU_TREE_LOBBY, lambda bundle: is_vanilla(bundle)),
+        (Regions.RR_DEKU_TREE_MQ_1F, lambda bundle: is_mq(bundle)),
+        (Regions.RR_KF_OUTSIDE_DEKU_TREE, lambda bundle: True_()),
+    ])
+
+    # Deku Tree Lobby
+    # Events
+    add_events(Regions.RR_DEKU_TREE_LOBBY, world, [
+        (EventLocations.RR_DEKU_TREE_LOBBY_LOGIC_STICK_ACCESS, Events.LOGIC_STICK_ACCESS, lambda bundle: can_get_deku_baba_sticks(bundle)),
+        (EventLocations.RR_DEKU_TREE_LOBBY_LOGIC_NUT_ACCESS, Events.LOGIC_NUT_ACCESS, lambda bundle: can_get_deku_baba_nuts(bundle)),
+        (EventLocations.RR_DEKU_TREE_LOBBY_LOGIC_DEKU_TREE_1F_BROKE_WEB, Events.LOGIC_DEKU_TREE_1F_BROKE_WEB, lambda bundle: has_fire_source(bundle)),
+    ])
+    # Exits
+    connect_regions(Regions.RR_DEKU_TREE_LOBBY, world, [
+        (Regions.RR_DEKU_TREE_ENTRYWAY, lambda bundle: True_()),
+        (Regions.RR_DEKU_TREE_LOBBY_2F, lambda bundle: has_item(bundle, Items.RG_CLIMB) | can_use(bundle, Items.RG_HOOKSHOT)),
+        (Regions.RR_DEKU_TREE_BASEMENT_LOWER, lambda bundle: has_item(bundle, Events.LOGIC_DEKU_TREE_1F_BROKE_WEB)),
+        (Regions.RR_DEKU_TREE_OUTSIDE_BOSS_ROOM, lambda bundle: False_()),
+        (Regions.RR_DEKU_TREE_BOSS_ENTRYWAY, lambda bundle: False_()),
+    ])
+
+    # Deku Tree Lobby 2F
+    # Exits
+    connect_regions(Regions.RR_DEKU_TREE_LOBBY_2F, world, [
+        (Regions.RR_DEKU_TREE_LOBBY, lambda bundle: True_()),
+        (Regions.RR_DEKU_TREE_LOBBY_3F, lambda bundle: has_item(bundle, Items.RG_CLIMB) | can_use(bundle, Items.RG_LONGSHOT)),
+        (Regions.RR_DEKU_TREE_2F_MIDDLE_ROOM, lambda bundle: True_()),
+    ])
+
+    # Deku Tree Lobby 3F
+    # Events
+    add_events(Regions.RR_DEKU_TREE_LOBBY_3F, world, [
+        (EventLocations.RR_DEKU_TREE_LOBBY_3F_LOGIC_DEKU_TREE_1F_BROKE_WEB, Events.LOGIC_DEKU_TREE_1F_BROKE_WEB, lambda bundle: can_pass(bundle, Enemies.RE_BIG_SKULLTULA, EnemyDistance.ED_CLOSE, True)),
+    ])
+    # Exits
+    connect_regions(Regions.RR_DEKU_TREE_LOBBY_3F, world, [
+        (Regions.RR_DEKU_TREE_LOBBY_2F, lambda bundle: True_()),
+        (Regions.RR_DEKU_TREE_COMPASS_ROOM, lambda bundle: True_()),
+    ])
+
+    # Deku Tree MQ 1F
+    # Events
+    add_events(Regions.RR_DEKU_TREE_MQ_1F, world, [
+        (EventLocations.RR_DEKU_TREE_MQ_1F_LOGIC_STICK_ACCESS, Events.LOGIC_STICK_ACCESS, lambda bundle: can_kill(bundle, Enemies.RE_WITHERED_DEKU_BABA, EnemyDistance.ED_CLOSE, True, 1, False, False)),
+        (EventLocations.RR_DEKU_TREE_MQ_1F_LOGIC_NUT_ACCESS, Events.LOGIC_NUT_ACCESS, lambda bundle: has_fire_source(bundle)),
+    ])
+    # Exits
+    connect_regions(Regions.RR_DEKU_TREE_MQ_1F, world, [
+        (Regions.RR_DEKU_TREE_ENTRYWAY, lambda bundle: True_()),
+        (Regions.RR_DEKU_TREE_MQ_2F, lambda bundle: has_item(bundle, Items.RG_CLIMB) | can_use(bundle, Items.RG_HOOKSHOT)),
+        (Regions.RR_DEKU_TREE_MQ_BASEMENT, lambda bundle: has_item(bundle, Events.LOGIC_DEKU_TREE_1F_BROKE_WEB)),
+    ])
+
+    # Deku Tree MQ 2F
+    # Events
+    add_events(Regions.RR_DEKU_TREE_MQ_2F, world, [
+        (EventLocations.RR_DEKU_TREE_MQ_2F_LOGIC_DEKU_TREE_MQ_2F_BURNED_WEB, Events.LOGIC_DEKU_TREE_MQ_2F_BURNED_WEB, lambda bundle: has_fire_source(bundle)),
+    ])
+    # Exits
+    connect_regions(Regions.RR_DEKU_TREE_MQ_2F, world, [
+        (Regions.RR_DEKU_TREE_MQ_1F, lambda bundle: True_()),
+        (Regions.RR_DEKU_TREE_MQ_3F, lambda bundle: has_item(bundle, Items.RG_CLIMB) | can_use(bundle, Items.RG_LONGSHOT)),
+        (Regions.RR_DEKU_TREE_MQ_EYE_TARGET_ROOM, lambda bundle: has_item(bundle, Events.LOGIC_DEKU_TREE_MQ_2F_BURNED_WEB)),
+    ])
+
+    # Deku Tree MQ 3F
+    # Events
+    add_events(Regions.RR_DEKU_TREE_MQ_3F, world, [
+        (EventLocations.RR_DEKU_TREE_MQ_3F_LOGIC_STICK_ACCESS, Events.LOGIC_STICK_ACCESS, lambda bundle: can_get_deku_baba_sticks(bundle)),
+        (EventLocations.RR_DEKU_TREE_MQ_3F_LOGIC_NUT_ACCESS, Events.LOGIC_NUT_ACCESS, lambda bundle: can_get_deku_baba_nuts(bundle)),
+        (EventLocations.RR_DEKU_TREE_MQ_3F_LOGIC_DEKU_TREE_1F_BROKE_WEB, Events.LOGIC_DEKU_TREE_1F_BROKE_WEB, lambda bundle: True_()),
+        (EventLocations.RR_DEKU_TREE_MQ_3F_LOGIC_DEKU_TREE_MQ_2F_BURNED_WEB, Events.LOGIC_DEKU_TREE_MQ_2F_BURNED_WEB, lambda bundle: can_use(bundle, Items.RG_STICKS) | can_use(bundle, Items.RG_FAIRY_BOW)),
+    ])
+    # Exits
+    connect_regions(Regions.RR_DEKU_TREE_MQ_3F, world, [
+        (Regions.RR_DEKU_TREE_MQ_2F, lambda bundle: True_()),
+        (Regions.RR_DEKU_TREE_MQ_SLINGSHOT_ROOM, lambda bundle: True_()),
+        (Regions.RR_DEKU_TREE_MQ_BASEMENT, lambda bundle: True_()),
+    ])
+
+    # Deku Tree MQ Basement
+    # Events
+    add_events(Regions.RR_DEKU_TREE_MQ_BASEMENT, world, [
+        (EventLocations.RR_DEKU_TREE_MQ_BASEMENT_LOGIC_STICK_ACCESS, Events.LOGIC_STICK_ACCESS, lambda bundle: can_get_deku_baba_sticks(bundle)),
+        (EventLocations.RR_DEKU_TREE_MQ_BASEMENT_LOGIC_NUT_ACCESS, Events.LOGIC_NUT_ACCESS, lambda bundle: can_get_deku_baba_nuts(bundle)),
+        (EventLocations.RR_DEKU_TREE_MQ_BASEMENT_LOGIC_DEKU_TREE_B1_BROKE_WEB, Events.LOGIC_DEKU_TREE_B1_BROKE_WEB, lambda bundle: can_use(bundle, Items.RG_STICKS) & (has_item(bundle, Events.LOGIC_DEKU_TREE_PUSHED_BASEMENT_BLOCK) | is_adult(bundle) | can_use(bundle, Items.RG_HOVER_BOOTS))),
+    ])
+    # Exits
+    connect_regions(Regions.RR_DEKU_TREE_MQ_BASEMENT, world, [
+        (Regions.RR_DEKU_TREE_MQ_1F, lambda bundle: has_item(bundle, Items.RG_CLIMB) | can_use(bundle, Items.RG_LONGSHOT)),
+        (Regions.RR_DEKU_TREE_MQ_BASEMENT_SOUTHEAST_ROOM, lambda bundle: any_age(bundle, (lambda bundle: can_hit_eye_targets(bundle)))),
+        (Regions.RR_DEKU_TREE_MQ_BASEMENT_WATER_ROOM_FRONT, lambda bundle: any_age(bundle, (lambda bundle: can_hit_eye_targets(bundle))) & has_item(bundle, Events.LOGIC_DEKU_TREE_MQ_CLEARED_SE_ROOM) & any_age(bundle, (lambda bundle: can_use(bundle, Items.RG_STICKS)))),
+        (Regions.RR_DEKU_TREE_MQ_BASEMENT_LEDGE, lambda bundle: is_adult(bundle) | can_do_trick(bundle, Tricks.RT_DEKU_B1_SKIP) | can_ground_jump(bundle, False) | has_item(bundle, Events.LOGIC_DEKU_TREE_PUSHED_BASEMENT_BLOCK) | can_use(bundle, Items.RG_HOVER_BOOTS)),
+    ])
+
+    # Deku Tree MQ Basement Back Room
+    # Exits
+    connect_regions(Regions.RR_DEKU_TREE_MQ_BASEMENT_BACK_ROOM, world, [
+        (Regions.RR_DEKU_TREE_MQ_BASEMENT_GRAVE_ROOM, lambda bundle: True_()),
+    ])
+
+    # Deku Tree MQ Basement Grave Room
+    # Events
+    add_events(Regions.RR_DEKU_TREE_MQ_BASEMENT_GRAVE_ROOM, world, [
+        (EventLocations.RR_DEKU_TREE_MQ_BASEMENT_GRAVE_ROOM_LOGIC_STICK_ACCESS, Events.LOGIC_STICK_ACCESS, lambda bundle: can_get_deku_baba_sticks(bundle)),
+        (EventLocations.RR_DEKU_TREE_MQ_BASEMENT_GRAVE_ROOM_LOGIC_NUT_ACCESS, Events.LOGIC_NUT_ACCESS, lambda bundle: can_get_deku_baba_nuts(bundle)),
+    ])
+    # Exits
+    connect_regions(Regions.RR_DEKU_TREE_MQ_BASEMENT_GRAVE_ROOM, world, [
+        (Regions.RR_DEKU_TREE_MQ_BASEMENT_LEDGE, lambda bundle: can_use(bundle, Items.RG_CRAWL) & any_age(bundle, (lambda bundle: has_fire_source_with_torch(bundle) | can_use(bundle, Items.RG_FAIRY_BOW)))),
+        (Regions.RR_DEKU_TREE_MQ_BASEMENT_SOUTHWEST_ROOM, lambda bundle: True_()),
+        (Regions.RR_DEKU_TREE_MQ_BASEMENT_BACK_ROOM, lambda bundle: any_age(bundle, (lambda bundle: has_fire_source_with_torch(bundle) | can_use(bundle, Items.RG_FAIRY_BOW)))),
+    ])
+
+    # Deku Tree MQ Basement Ledge
+    # Events
+    add_events(Regions.RR_DEKU_TREE_MQ_BASEMENT_LEDGE, world, [
+        (EventLocations.RR_DEKU_TREE_MQ_BASEMENT_LEDGE_LOGIC_DEKU_TREE_PUSHED_BASEMENT_BLOCK, Events.LOGIC_DEKU_TREE_PUSHED_BASEMENT_BLOCK, lambda bundle: has_item(bundle, Items.RG_POWER_BRACELET)),
+        (EventLocations.RR_DEKU_TREE_MQ_BASEMENT_LEDGE_LOGIC_DEKU_TREE_B1_BROKE_WEB, Events.LOGIC_DEKU_TREE_B1_BROKE_WEB, lambda bundle: has_fire_source(bundle)),
+    ])
+    # Exits
+    connect_regions(Regions.RR_DEKU_TREE_MQ_BASEMENT_LEDGE, world, [
+        (Regions.RR_DEKU_TREE_MQ_BASEMENT_GRAVE_ROOM, lambda bundle: can_use(bundle, Items.RG_CRAWL)),
+        (Regions.RR_DEKU_TREE_MQ_BASEMENT, lambda bundle: True_()),
+        (Regions.RR_DEKU_TREE_MQ_OUTSIDE_BOSS_ROOM, lambda bundle: has_item(bundle, Events.LOGIC_DEKU_TREE_B1_BROKE_WEB) & (has_item(bundle, Items.RG_BRONZE_SCALE) | can_use(bundle, Items.RG_IRON_BOOTS))),
+    ])
+
+    # Deku Tree MQ Southeast Room
+    # Events
+    add_events(Regions.RR_DEKU_TREE_MQ_BASEMENT_SOUTHEAST_ROOM, world, [
+        (EventLocations.RR_DEKU_TREE_MQ_BASEMENT_SOUTHEAST_ROOM_LOGIC_DEKU_TREE_MQ_CLEARED_SE_ROOM, Events.LOGIC_DEKU_TREE_MQ_CLEARED_SE_ROOM, lambda bundle: can_kill(bundle, Enemies.RE_MAD_SCRUB, EnemyDistance.ED_CLOSE, True, 1, False, False)),
+    ])
+    # Exits
+    connect_regions(Regions.RR_DEKU_TREE_MQ_BASEMENT_SOUTHEAST_ROOM, world, [
+        (Regions.RR_DEKU_TREE_MQ_BASEMENT_WATER_ROOM_FRONT, lambda bundle: has_fire_source(bundle)),
+        (Regions.RR_DEKU_TREE_MQ_BASEMENT, lambda bundle: has_item(bundle, Events.LOGIC_DEKU_TREE_MQ_CLEARED_SE_ROOM)),
+    ])
+
+    # Deku Tree MQ Basement Southwest Room
+    # Exits
+    connect_regions(Regions.RR_DEKU_TREE_MQ_BASEMENT_SOUTHWEST_ROOM, world, [
+        (Regions.RR_DEKU_TREE_MQ_BASEMENT_GRAVE_ROOM, lambda bundle: any_age(bundle, (lambda bundle: can_kill(bundle, Enemies.RE_MAD_SCRUB, EnemyDistance.ED_CLOSE, True, 1, False, False) & can_kill(bundle, Enemies.RE_KEESE, EnemyDistance.ED_CLOSE, True, 1, False, False)))),
+        (Regions.RR_DEKU_TREE_MQ_BASEMENT_WATER_ROOM_BACK, lambda bundle: any_age(bundle, (lambda bundle: can_kill(bundle, Enemies.RE_MAD_SCRUB, EnemyDistance.ED_CLOSE, True, 1, False, False) & can_kill(bundle, Enemies.RE_KEESE, EnemyDistance.ED_CLOSE, True, 1, False, False)))),
+    ])
+
+    # Deku Tree MQ Basement Water Room Back
+    # Events
+    add_events(Regions.RR_DEKU_TREE_MQ_BASEMENT_WATER_ROOM_BACK, world, [
+        (EventLocations.RR_DEKU_TREE_MQ_BASEMENT_WATER_ROOM_BACK_LOGIC_STICK_ACCESS, Events.LOGIC_STICK_ACCESS, lambda bundle: can_kill(bundle, Enemies.RE_WITHERED_DEKU_BABA, EnemyDistance.ED_CLOSE, True, 1, False, False)),
+        (EventLocations.RR_DEKU_TREE_MQ_BASEMENT_WATER_ROOM_BACK_LOGIC_NUT_ACCESS, Events.LOGIC_NUT_ACCESS, lambda bundle: has_fire_source(bundle)),
+    ])
+    # Exits
+    connect_regions(Regions.RR_DEKU_TREE_MQ_BASEMENT_WATER_ROOM_BACK, world, [
+        (Regions.RR_DEKU_TREE_MQ_BASEMENT_SOUTHWEST_ROOM, lambda bundle: has_item(bundle, Events.LOGIC_DEKU_TREE_MQ_WATER_ROOM_TORCHES) & rls_conditional(bundle, can_use(bundle, Items.RG_SONG_OF_TIME), can_pass(bundle, Enemies.RE_BIG_SKULLTULA, EnemyDistance.ED_CLOSE, True), can_pass(bundle, Enemies.RE_BIG_SKULLTULA, EnemyDistance.ED_SHORT_JUMPSLASH, True))),
+        (Regions.RR_DEKU_TREE_MQ_BASEMENT_WATER_ROOM_FRONT, lambda bundle: can_do_trick(bundle, Tricks.RT_DEKU_MQ_LOG) | is_child(bundle) & can_shield(bundle) | can_use(bundle, Items.RG_LONGSHOT) | has_item(bundle, Items.RG_BRONZE_SCALE) | can_use(bundle, Items.RG_IRON_BOOTS) & (is_adult(bundle) | can_use(bundle, Items.RG_HOOKSHOT))),
+    ])
+
+    # Deku Tree MQ Basement Water Room Front
+    # Events
+    add_events(Regions.RR_DEKU_TREE_MQ_BASEMENT_WATER_ROOM_FRONT, world, [
+        (EventLocations.RR_DEKU_TREE_MQ_BASEMENT_WATER_ROOM_FRONT_LOGIC_DEKU_TREE_MQ_WATER_ROOM_TORCHES, Events.LOGIC_DEKU_TREE_MQ_WATER_ROOM_TORCHES, lambda bundle: can_use(bundle, Items.RG_FIRE_ARROWS) | can_use(bundle, Items.RG_STICKS) & (can_do_trick(bundle, Tricks.RT_DEKU_MQ_LOG) | is_child(bundle) & can_shield(bundle))),
+    ])
+    # Exits
+    connect_regions(Regions.RR_DEKU_TREE_MQ_BASEMENT_WATER_ROOM_FRONT, world, [
+        (Regions.RR_DEKU_TREE_MQ_BASEMENT_WATER_ROOM_BACK, lambda bundle: can_do_trick(bundle, Tricks.RT_DEKU_MQ_LOG) | is_child(bundle) & can_shield(bundle) | can_use(bundle, Items.RG_LONGSHOT) | can_use(bundle, Items.RG_HOOKSHOT) & can_use(bundle, Items.RG_IRON_BOOTS)),
+        (Regions.RR_DEKU_TREE_MQ_BASEMENT_SOUTHEAST_ROOM, lambda bundle: True_()),
+    ])
+
+    # Deku Tree MQ Compass Room
+    # Exits
+    connect_regions(Regions.RR_DEKU_TREE_MQ_COMPASS_ROOM, world, [
+        (Regions.RR_DEKU_TREE_MQ_EYE_TARGET_ROOM, lambda bundle: True_()),
+        (Regions.RR_DEKU_TREE_MQ_PAST_BOULDER_VINES, lambda bundle: (has_item(bundle, Items.RG_CLIMB) | can_use(bundle, Items.RG_HOOKSHOT) | is_adult(bundle) & can_use(bundle, Items.RG_SONG_OF_TIME)) & any_age(bundle, (lambda bundle: can_use(bundle, Items.RG_BOMBCHU_5) | can_use(bundle, Items.RG_BOMB_BAG) & (can_use(bundle, Items.RG_SONG_OF_TIME) | is_adult(bundle) | can_use(bundle, Items.RG_HOVER_BOOTS)) | can_use(bundle, Items.RG_MEGATON_HAMMER) & (is_adult(bundle) & can_use(bundle, Items.RG_SONG_OF_TIME) | can_do_trick(bundle, Tricks.RT_DEKU_MQ_COMPASS_GS) & has_item(bundle, Items.RG_CLIMB))))),
+    ])
+
+    # Deku Tree MQ Eye Target Room
+    # Exits
+    connect_regions(Regions.RR_DEKU_TREE_MQ_EYE_TARGET_ROOM, world, [
+        (Regions.RR_DEKU_TREE_MQ_COMPASS_ROOM, lambda bundle: any_age(bundle, (lambda bundle: can_hit_eye_targets(bundle)))),
+        (Regions.RR_DEKU_TREE_MQ_2F, lambda bundle: True_()),
+    ])
+
+    # Deku Tree MQ Outside Boss Room
+    # Exits
+    connect_regions(Regions.RR_DEKU_TREE_MQ_OUTSIDE_BOSS_ROOM, world, [
+        (Regions.RR_DEKU_TREE_MQ_BASEMENT_LEDGE, lambda bundle: has_item(bundle, Items.RG_CLIMB) & (has_item(bundle, Items.RG_BRONZE_SCALE) | can_use(bundle, Items.RG_HOOKSHOT))),
+        (Regions.RR_DEKU_TREE_BOSS_ENTRYWAY, lambda bundle: any_age(bundle, (lambda bundle: can_reflect_nuts(bundle)))),
+    ])
+
+    # Deku Tree MQ Past Boulder Vines
+    # Exits
+    connect_regions(Regions.RR_DEKU_TREE_MQ_PAST_BOULDER_VINES, world, [
+        (Regions.RR_DEKU_TREE_MQ_COMPASS_ROOM, lambda bundle: blast_or_smash(bundle)),
+    ])
+
+    # Deku Tree MQ Slingshot Room
+    # Events
+    add_events(Regions.RR_DEKU_TREE_MQ_SLINGSHOT_ROOM, world, [
+        (EventLocations.RR_DEKU_TREE_MQ_SLINGSHOT_ROOM_LOGIC_STICK_ACCESS, Events.LOGIC_STICK_ACCESS, lambda bundle: can_get_deku_baba_sticks(bundle)),
+        (EventLocations.RR_DEKU_TREE_MQ_SLINGSHOT_ROOM_LOGIC_NUT_ACCESS, Events.LOGIC_NUT_ACCESS, lambda bundle: can_get_deku_baba_nuts(bundle)),
+    ])
+    # Exits
+    connect_regions(Regions.RR_DEKU_TREE_MQ_SLINGSHOT_ROOM, world, [
+        (Regions.RR_DEKU_TREE_MQ_3F, lambda bundle: can_kill(bundle, Enemies.RE_DEKU_BABA, EnemyDistance.ED_CLOSE, True, 1, False, False)),
+    ])
+
+    # Deku Tree Outside Boss Room
+    # Exits
+    connect_regions(Regions.RR_DEKU_TREE_OUTSIDE_BOSS_ROOM, world, [
+        (Regions.RR_DEKU_TREE_BASEMENT_UPPER, lambda bundle: has_item(bundle, Items.RG_CLIMB) & (has_item(bundle, Items.RG_BRONZE_SCALE) | can_use(bundle, Items.RG_HOOKSHOT))),
+        (Regions.RR_DEKU_TREE_BOSS_ENTRYWAY, lambda bundle: any_age(bundle, (lambda bundle: can_reflect_nuts(bundle)))),
+    ])
+
+    # Deku Tree Slingshot Room
+    # Exits
+    connect_regions(Regions.RR_DEKU_TREE_SLINGSHOT_ROOM, world, [
+        (Regions.RR_DEKU_TREE_2F_MIDDLE_ROOM, lambda bundle: True_()),
+    ])
+
     # KF Boulder Loop
     # Locations
     add_locations(Regions.RR_KF_BOULDER_LOOP, world, [

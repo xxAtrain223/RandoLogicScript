@@ -14,6 +14,9 @@ def _can_get_drop_gold_skulltula(bundle, distance: EnemyDistance) -> bool:
 def _can_kill_gold_skulltula(bundle, distance: EnemyDistance, wall_or_floor: bool) -> bool:
     return rls_match_rule((lambda distance=distance: distance == EnemyDistance.ED_CLOSE), (lambda: can_use(bundle, Items.RG_MEGATON_HAMMER)), True, (lambda distance=distance: distance == EnemyDistance.ED_SHORT_JUMPSLASH), (lambda: can_use(bundle, Items.RG_KOKIRI_SWORD)), True, (lambda distance=distance: distance == EnemyDistance.ED_MASTER_SWORD_JUMPSLASH), (lambda: can_use(bundle, Items.RG_MASTER_SWORD)), True, (lambda distance=distance: distance == EnemyDistance.ED_LONG_JUMPSLASH), (lambda: can_use(bundle, Items.RG_BIGGORON_SWORD) | can_use(bundle, Items.RG_STICKS)), True, (lambda distance=distance: distance == EnemyDistance.ED_BOMB_THROW), (lambda: can_use(bundle, Items.RG_BOMB_BAG)), True, (lambda distance=distance: distance == EnemyDistance.ED_BOOMERANG), (lambda: can_use(bundle, Items.RG_BOOMERANG) | can_use(bundle, Items.RG_DINS_FIRE)), True, (lambda distance=distance: distance == EnemyDistance.ED_HOOKSHOT), (lambda: can_use(bundle, Items.RG_HOOKSHOT)), True, (lambda distance=distance: distance == EnemyDistance.ED_LONGSHOT), (lambda: can_use(bundle, Items.RG_LONGSHOT) | (can_use(bundle, Items.RG_BOMBCHU_5) if wall_or_floor else False_())), True, (lambda distance=distance: distance == EnemyDistance.ED_FAR), (lambda: can_use(bundle, Items.RG_FAIRY_SLINGSHOT) | can_use(bundle, Items.RG_FAIRY_BOW)), False)
 
+def blast_or_smash(bundle) -> bool:
+    return has_explosives(bundle) | can_use(bundle, Items.RG_MEGATON_HAMMER)
+
 def call_gossip_fairy(bundle) -> bool:
     return call_gossip_fairy_except_suns(bundle) | can_use(bundle, Items.RG_SUNS_SONG)
 
@@ -47,6 +50,12 @@ def can_get_drop(bundle, e: Enemies, distance: EnemyDistance = EnemyDistance.ED_
 def can_get_night_time_gs(bundle) -> bool:
     return at_night(bundle) & (can_use(bundle, Items.RG_SUNS_SONG) | True_(options=[OptionFilter(RSK_SKULLS_SUNS_SONG, False)]))
 
+def can_ground_jump(bundle, hasBombflower: bool = False) -> bool:
+    return can_do_trick(bundle, Tricks.RT_GROUND_JUMP) & can_standing_shield(bundle) & (can_use(bundle, Items.RG_BOMB_BAG) | (has_item(bundle, Items.RG_GORONS_BRACELET) if hasBombflower else False_()))
+
+def can_hit_eye_targets(bundle) -> bool:
+    return can_use(bundle, Items.RG_FAIRY_BOW) | can_use(bundle, Items.RG_FAIRY_SLINGSHOT)
+
 def can_jumpslash(bundle) -> bool:
     return can_jumpslash_except_hammer(bundle) | can_use(bundle, Items.RG_MEGATON_HAMMER)
 
@@ -62,8 +71,17 @@ def can_open_storms_grotto(bundle) -> bool:
 def can_pass(bundle, e: Enemies, distance: EnemyDistance = EnemyDistance.ED_CLOSE, wall_or_floor: bool = True) -> bool:
     return can_kill(bundle, e, distance, wall_or_floor, 1, False, False) | rls_match_rule((lambda e=e: e == Enemies.RE_GOLD_SKULLTULA), (lambda: True_()), False)
 
+def can_reflect_nuts(bundle) -> bool:
+    return can_use(bundle, Items.RG_DEKU_SHIELD) | is_adult(bundle) & has_item(bundle, Items.RG_HYLIAN_SHIELD)
+
+def can_shield(bundle) -> bool:
+    return can_use(bundle, Items.RG_MIRROR_SHIELD) | has_item(bundle, Items.RG_HYLIAN_SHIELD) | can_use(bundle, Items.RG_DEKU_SHIELD)
+
 def can_spawn_soil_skull(bundle, bean: Items) -> bool:
     return is_child(bundle) & can_use(bundle, Items.RG_BOTTLE_WITH_BUGS) & has_item(bundle, bean)
+
+def can_standing_shield(bundle) -> bool:
+    return can_use(bundle, Items.RG_MIRROR_SHIELD) | is_adult(bundle) & has_item(bundle, Items.RG_HYLIAN_SHIELD) | can_use(bundle, Items.RG_DEKU_SHIELD)
 
 def can_use_sword(bundle) -> bool:
     return can_use(bundle, Items.RG_KOKIRI_SWORD) | can_use(bundle, Items.RG_MASTER_SWORD) | can_use(bundle, Items.RG_BIGGORON_SWORD)
@@ -76,6 +94,12 @@ def has_bottle(bundle) -> bool:
 
 def has_explosives(bundle) -> bool:
     return can_use(bundle, Items.RG_BOMB_BAG) | can_use(bundle, Items.RG_BOMBCHU_5)
+
+def has_fire_source(bundle) -> bool:
+    return can_use(bundle, Items.RG_DINS_FIRE) | can_use(bundle, Items.RG_FIRE_ARROWS)
+
+def has_fire_source_with_torch(bundle) -> bool:
+    return has_fire_source(bundle) | can_use(bundle, Items.RG_STICKS)
 
 def hookshot_or_boomerang(bundle) -> bool:
     return can_use(bundle, Items.RG_HOOKSHOT) | can_use(bundle, Items.RG_BOOMERANG)

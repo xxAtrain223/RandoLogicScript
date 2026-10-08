@@ -4,6 +4,418 @@
 
 using namespace Rando;
 
+void register_deku_tree() {
+
+areaTable[RR_DEKU_TREE_BOSS_ENTRYWAY] = Region("Deku Tree Boss Entryway", SCENE_DEKU_TREE, {
+    // Events
+}, {
+    // Locations
+}, {
+    // Exits
+    ENTRANCE(RR_DEKU_TREE_BOSS_ROOM, true),
+});
+
+areaTable[RR_DEKU_TREE_BOSS_EXIT] = Region("Deku Tree Boss Exit", SCENE_DEKU_TREE, {
+    // Events
+}, {
+    // Locations
+}, {
+    // Exits
+    ENTRANCE(RR_DEKU_TREE_OUTSIDE_BOSS_ROOM, is_vanilla()),
+    ENTRANCE(RR_DEKU_TREE_MQ_OUTSIDE_BOSS_ROOM, is_mq()),
+});
+
+areaTable[RR_DEKU_TREE_BOSS_ROOM] = Region("Deku Tree Boss Room", SCENE_DEKU_TREE_BOSS, {
+    // Events
+    EVENT_ACCESS(LOGIC_DEKU_TREE_CLEAR, can_kill(RandomizerEnemy::RE_GOHMA, EnemyDistance::ED_CLOSE, true, 1, false, false)),
+}, {
+    // Locations
+    LOCATION(RC_QUEEN_GOHMA, flag(LogicVal::LOGIC_DEKU_TREE_CLEAR)),
+    LOCATION(RC_DEKU_TREE_QUEEN_GOHMA_HEART, flag(LogicVal::LOGIC_DEKU_TREE_CLEAR)),
+}, {
+    // Exits
+    ENTRANCE(RR_DEKU_TREE_BOSS_EXIT, true),
+    ENTRANCE(RR_KF_OUTSIDE_DEKU_TREE, flag(LogicVal::LOGIC_DEKU_TREE_CLEAR)),
+});
+
+areaTable[RR_DEKU_TREE_ENTRYWAY] = Region("Deku Tree Entryway", SCENE_DEKU_TREE, {
+    // Events
+}, {
+    // Locations
+}, {
+    // Exits
+    ENTRANCE(RR_DEKU_TREE_LOBBY, is_vanilla()),
+    ENTRANCE(RR_DEKU_TREE_MQ_1F, is_mq()),
+    ENTRANCE(RR_KF_OUTSIDE_DEKU_TREE, true),
+});
+
+}
+
+void register_deku_tree_mq() {
+
+areaTable[RR_DEKU_TREE_MQ_1F] = Region("Deku Tree MQ 1F", SCENE_DEKU_TREE, {
+    // Events
+    EVENT_ACCESS(LOGIC_STICK_ACCESS, can_kill(RandomizerEnemy::RE_WITHERED_DEKU_BABA, EnemyDistance::ED_CLOSE, true, 1, false, false)),
+    EVENT_ACCESS(LOGIC_NUT_ACCESS, has_fire_source()),
+}, {
+    // Locations
+}, {
+    // Exits
+    ENTRANCE(RR_DEKU_TREE_ENTRYWAY, true),
+    ENTRANCE(RR_DEKU_TREE_MQ_2F, has(RandomizerGet::RG_CLIMB) || can_use(RandomizerGet::RG_HOOKSHOT)),
+    ENTRANCE(RR_DEKU_TREE_MQ_BASEMENT, flag(LogicVal::LOGIC_DEKU_TREE_1F_BROKE_WEB)),
+});
+
+areaTable[RR_DEKU_TREE_MQ_2F] = Region("Deku Tree MQ 2F", SCENE_DEKU_TREE, {
+    // Events
+    EVENT_ACCESS(LOGIC_DEKU_TREE_MQ_2F_BURNED_WEB, has_fire_source()),
+}, {
+    // Locations
+}, {
+    // Exits
+    ENTRANCE(RR_DEKU_TREE_MQ_1F, true),
+    ENTRANCE(RR_DEKU_TREE_MQ_3F, has(RandomizerGet::RG_CLIMB) || can_use(RandomizerGet::RG_LONGSHOT)),
+    ENTRANCE(RR_DEKU_TREE_MQ_EYE_TARGET_ROOM, flag(LogicVal::LOGIC_DEKU_TREE_MQ_2F_BURNED_WEB)),
+});
+
+areaTable[RR_DEKU_TREE_MQ_3F] = Region("Deku Tree MQ 3F", SCENE_DEKU_TREE, {
+    // Events
+    EVENT_ACCESS(LOGIC_STICK_ACCESS, can_get_deku_baba_sticks()),
+    EVENT_ACCESS(LOGIC_NUT_ACCESS, can_get_deku_baba_nuts()),
+    EVENT_ACCESS(LOGIC_DEKU_TREE_1F_BROKE_WEB, true),
+    EVENT_ACCESS(LOGIC_DEKU_TREE_MQ_2F_BURNED_WEB, can_use(RandomizerGet::RG_STICKS) || can_use(RandomizerGet::RG_FAIRY_BOW)),
+}, {
+    // Locations
+}, {
+    // Exits
+    ENTRANCE(RR_DEKU_TREE_MQ_2F, true),
+    ENTRANCE(RR_DEKU_TREE_MQ_SLINGSHOT_ROOM, true),
+    ENTRANCE(RR_DEKU_TREE_MQ_BASEMENT, true),
+});
+
+areaTable[RR_DEKU_TREE_MQ_BASEMENT] = Region("Deku Tree MQ Basement", SCENE_DEKU_TREE, {
+    // Events
+    EVENT_ACCESS(LOGIC_STICK_ACCESS, can_get_deku_baba_sticks()),
+    EVENT_ACCESS(LOGIC_NUT_ACCESS, can_get_deku_baba_nuts()),
+    EVENT_ACCESS(LOGIC_DEKU_TREE_B1_BROKE_WEB, can_use(RandomizerGet::RG_STICKS) && (flag(LogicVal::LOGIC_DEKU_TREE_PUSHED_BASEMENT_BLOCK) || is_adult() || can_use(RandomizerGet::RG_HOVER_BOOTS))),
+}, {
+    // Locations
+}, {
+    // Exits
+    ENTRANCE(RR_DEKU_TREE_MQ_1F, has(RandomizerGet::RG_CLIMB) || can_use(RandomizerGet::RG_LONGSHOT)),
+    ENTRANCE(RR_DEKU_TREE_MQ_BASEMENT_SOUTHEAST_ROOM, any_age([]{return can_hit_eye_targets();})),
+    ENTRANCE(RR_DEKU_TREE_MQ_BASEMENT_WATER_ROOM_FRONT, any_age([]{return can_hit_eye_targets();}) && flag(LogicVal::LOGIC_DEKU_TREE_MQ_CLEARED_SE_ROOM) && any_age([]{return can_use(RandomizerGet::RG_STICKS);})),
+    ENTRANCE(RR_DEKU_TREE_MQ_BASEMENT_LEDGE, is_adult() || trick(RandomizerTrick::RT_DEKU_B1_SKIP) || can_ground_jump(false) || flag(LogicVal::LOGIC_DEKU_TREE_PUSHED_BASEMENT_BLOCK) || can_use(RandomizerGet::RG_HOVER_BOOTS)),
+});
+
+areaTable[RR_DEKU_TREE_MQ_BASEMENT_BACK_ROOM] = Region("Deku Tree MQ Basement Back Room", SCENE_DEKU_TREE, {
+    // Events
+}, {
+    // Locations
+}, {
+    // Exits
+    ENTRANCE(RR_DEKU_TREE_MQ_BASEMENT_GRAVE_ROOM, true),
+});
+
+areaTable[RR_DEKU_TREE_MQ_BASEMENT_GRAVE_ROOM] = Region("Deku Tree MQ Basement Grave Room", SCENE_DEKU_TREE, {
+    // Events
+    EVENT_ACCESS(LOGIC_STICK_ACCESS, can_get_deku_baba_sticks()),
+    EVENT_ACCESS(LOGIC_NUT_ACCESS, can_get_deku_baba_nuts()),
+}, {
+    // Locations
+}, {
+    // Exits
+    ENTRANCE(RR_DEKU_TREE_MQ_BASEMENT_LEDGE, can_use(RandomizerGet::RG_CRAWL) && any_age([]{return has_fire_source_with_torch() || can_use(RandomizerGet::RG_FAIRY_BOW);})),
+    ENTRANCE(RR_DEKU_TREE_MQ_BASEMENT_SOUTHWEST_ROOM, true),
+    ENTRANCE(RR_DEKU_TREE_MQ_BASEMENT_BACK_ROOM, any_age([]{return has_fire_source_with_torch() || can_use(RandomizerGet::RG_FAIRY_BOW);})),
+});
+
+areaTable[RR_DEKU_TREE_MQ_BASEMENT_LEDGE] = Region("Deku Tree MQ Basement Ledge", SCENE_DEKU_TREE, {
+    // Events
+    EVENT_ACCESS(LOGIC_DEKU_TREE_PUSHED_BASEMENT_BLOCK, has(RandomizerGet::RG_POWER_BRACELET)),
+    EVENT_ACCESS(LOGIC_DEKU_TREE_B1_BROKE_WEB, has_fire_source()),
+}, {
+    // Locations
+}, {
+    // Exits
+    ENTRANCE(RR_DEKU_TREE_MQ_BASEMENT_GRAVE_ROOM, can_use(RandomizerGet::RG_CRAWL)),
+    ENTRANCE(RR_DEKU_TREE_MQ_BASEMENT, true),
+    ENTRANCE(RR_DEKU_TREE_MQ_OUTSIDE_BOSS_ROOM, flag(LogicVal::LOGIC_DEKU_TREE_B1_BROKE_WEB) && (has(RandomizerGet::RG_BRONZE_SCALE) || can_use(RandomizerGet::RG_IRON_BOOTS))),
+});
+
+areaTable[RR_DEKU_TREE_MQ_BASEMENT_SOUTHEAST_ROOM] = Region("Deku Tree MQ Southeast Room", SCENE_DEKU_TREE, {
+    // Events
+    EVENT_ACCESS(LOGIC_DEKU_TREE_MQ_CLEARED_SE_ROOM, can_kill(RandomizerEnemy::RE_MAD_SCRUB, EnemyDistance::ED_CLOSE, true, 1, false, false)),
+}, {
+    // Locations
+}, {
+    // Exits
+    ENTRANCE(RR_DEKU_TREE_MQ_BASEMENT_WATER_ROOM_FRONT, has_fire_source()),
+    ENTRANCE(RR_DEKU_TREE_MQ_BASEMENT, flag(LogicVal::LOGIC_DEKU_TREE_MQ_CLEARED_SE_ROOM)),
+});
+
+areaTable[RR_DEKU_TREE_MQ_BASEMENT_SOUTHWEST_ROOM] = Region("Deku Tree MQ Basement Southwest Room", SCENE_DEKU_TREE, {
+    // Events
+}, {
+    // Locations
+}, {
+    // Exits
+    ENTRANCE(RR_DEKU_TREE_MQ_BASEMENT_GRAVE_ROOM, any_age([]{return can_kill(RandomizerEnemy::RE_MAD_SCRUB, EnemyDistance::ED_CLOSE, true, 1, false, false) && can_kill(RandomizerEnemy::RE_KEESE, EnemyDistance::ED_CLOSE, true, 1, false, false);})),
+    ENTRANCE(RR_DEKU_TREE_MQ_BASEMENT_WATER_ROOM_BACK, any_age([]{return can_kill(RandomizerEnemy::RE_MAD_SCRUB, EnemyDistance::ED_CLOSE, true, 1, false, false) && can_kill(RandomizerEnemy::RE_KEESE, EnemyDistance::ED_CLOSE, true, 1, false, false);})),
+});
+
+areaTable[RR_DEKU_TREE_MQ_BASEMENT_WATER_ROOM_BACK] = Region("Deku Tree MQ Basement Water Room Back", SCENE_DEKU_TREE, {
+    // Events
+    EVENT_ACCESS(LOGIC_STICK_ACCESS, can_kill(RandomizerEnemy::RE_WITHERED_DEKU_BABA, EnemyDistance::ED_CLOSE, true, 1, false, false)),
+    EVENT_ACCESS(LOGIC_NUT_ACCESS, has_fire_source()),
+}, {
+    // Locations
+}, {
+    // Exits
+    ENTRANCE(RR_DEKU_TREE_MQ_BASEMENT_SOUTHWEST_ROOM, flag(LogicVal::LOGIC_DEKU_TREE_MQ_WATER_ROOM_TORCHES) && can_pass(RandomizerEnemy::RE_BIG_SKULLTULA, can_use(RandomizerGet::RG_SONG_OF_TIME) ? EnemyDistance::ED_CLOSE : EnemyDistance::ED_SHORT_JUMPSLASH, true)),
+    ENTRANCE(RR_DEKU_TREE_MQ_BASEMENT_WATER_ROOM_FRONT, trick(RandomizerTrick::RT_DEKU_MQ_LOG) || is_child() && can_shield() || can_use(RandomizerGet::RG_LONGSHOT) || has(RandomizerGet::RG_BRONZE_SCALE) || can_use(RandomizerGet::RG_IRON_BOOTS) && (is_adult() || can_use(RandomizerGet::RG_HOOKSHOT))),
+});
+
+areaTable[RR_DEKU_TREE_MQ_BASEMENT_WATER_ROOM_FRONT] = Region("Deku Tree MQ Basement Water Room Front", SCENE_DEKU_TREE, {
+    // Events
+    EVENT_ACCESS(LOGIC_DEKU_TREE_MQ_WATER_ROOM_TORCHES, can_use(RandomizerGet::RG_FIRE_ARROWS) || can_use(RandomizerGet::RG_STICKS) && (trick(RandomizerTrick::RT_DEKU_MQ_LOG) || is_child() && can_shield())),
+}, {
+    // Locations
+}, {
+    // Exits
+    ENTRANCE(RR_DEKU_TREE_MQ_BASEMENT_WATER_ROOM_BACK, trick(RandomizerTrick::RT_DEKU_MQ_LOG) || is_child() && can_shield() || can_use(RandomizerGet::RG_LONGSHOT) || can_use(RandomizerGet::RG_HOOKSHOT) && can_use(RandomizerGet::RG_IRON_BOOTS)),
+    ENTRANCE(RR_DEKU_TREE_MQ_BASEMENT_SOUTHEAST_ROOM, true),
+});
+
+areaTable[RR_DEKU_TREE_MQ_COMPASS_ROOM] = Region("Deku Tree MQ Compass Room", SCENE_DEKU_TREE, {
+    // Events
+}, {
+    // Locations
+}, {
+    // Exits
+    ENTRANCE(RR_DEKU_TREE_MQ_EYE_TARGET_ROOM, true),
+    ENTRANCE(RR_DEKU_TREE_MQ_PAST_BOULDER_VINES, (has(RandomizerGet::RG_CLIMB) || can_use(RandomizerGet::RG_HOOKSHOT) || is_adult() && can_use(RandomizerGet::RG_SONG_OF_TIME)) && any_age([]{return can_use(RandomizerGet::RG_BOMBCHU_5) || can_use(RandomizerGet::RG_BOMB_BAG) && (can_use(RandomizerGet::RG_SONG_OF_TIME) || is_adult() || can_use(RandomizerGet::RG_HOVER_BOOTS)) || can_use(RandomizerGet::RG_MEGATON_HAMMER) && (is_adult() && can_use(RandomizerGet::RG_SONG_OF_TIME) || trick(RandomizerTrick::RT_DEKU_MQ_COMPASS_GS) && has(RandomizerGet::RG_CLIMB));})),
+});
+
+areaTable[RR_DEKU_TREE_MQ_EYE_TARGET_ROOM] = Region("Deku Tree MQ Eye Target Room", SCENE_DEKU_TREE, {
+    // Events
+}, {
+    // Locations
+}, {
+    // Exits
+    ENTRANCE(RR_DEKU_TREE_MQ_COMPASS_ROOM, any_age([]{return can_hit_eye_targets();})),
+    ENTRANCE(RR_DEKU_TREE_MQ_2F, true),
+});
+
+areaTable[RR_DEKU_TREE_MQ_OUTSIDE_BOSS_ROOM] = Region("Deku Tree MQ Outside Boss Room", SCENE_DEKU_TREE, {
+    // Events
+}, {
+    // Locations
+}, {
+    // Exits
+    ENTRANCE(RR_DEKU_TREE_MQ_BASEMENT_LEDGE, has(RandomizerGet::RG_CLIMB) && (has(RandomizerGet::RG_BRONZE_SCALE) || can_use(RandomizerGet::RG_HOOKSHOT))),
+    ENTRANCE(RR_DEKU_TREE_BOSS_ENTRYWAY, any_age([]{return can_reflect_nuts();})),
+});
+
+areaTable[RR_DEKU_TREE_MQ_PAST_BOULDER_VINES] = Region("Deku Tree MQ Past Boulder Vines", SCENE_DEKU_TREE, {
+    // Events
+}, {
+    // Locations
+}, {
+    // Exits
+    ENTRANCE(RR_DEKU_TREE_MQ_COMPASS_ROOM, blast_or_smash()),
+});
+
+areaTable[RR_DEKU_TREE_MQ_SLINGSHOT_ROOM] = Region("Deku Tree MQ Slingshot Room", SCENE_DEKU_TREE, {
+    // Events
+    EVENT_ACCESS(LOGIC_STICK_ACCESS, can_get_deku_baba_sticks()),
+    EVENT_ACCESS(LOGIC_NUT_ACCESS, can_get_deku_baba_nuts()),
+}, {
+    // Locations
+}, {
+    // Exits
+    ENTRANCE(RR_DEKU_TREE_MQ_3F, can_kill(RandomizerEnemy::RE_DEKU_BABA, EnemyDistance::ED_CLOSE, true, 1, false, false)),
+});
+
+}
+
+void register_deku_tree_vanilla() {
+
+areaTable[RR_DEKU_TREE_2F_MIDDLE_ROOM] = Region("Deku Tree 2F Middle Room", SCENE_DEKU_TREE, {
+    // Events
+}, {
+    // Locations
+}, {
+    // Exits
+    ENTRANCE(RR_DEKU_TREE_LOBBY, any_age([]{return can_reflect_nuts() || can_use(RandomizerGet::RG_MEGATON_HAMMER);})),
+    ENTRANCE(RR_DEKU_TREE_SLINGSHOT_ROOM, any_age([]{return can_reflect_nuts() || can_use(RandomizerGet::RG_MEGATON_HAMMER);})),
+});
+
+areaTable[RR_DEKU_TREE_BASEMENT_BACK_LOBBY] = Region("Deku Tree Basement Back Lobby", SCENE_DEKU_TREE, {
+    // Events
+    EVENT_ACCESS(LOGIC_STICK_ACCESS, can_get_deku_baba_sticks()),
+    EVENT_ACCESS(LOGIC_NUT_ACCESS, can_get_deku_baba_nuts()),
+}, {
+    // Locations
+}, {
+    // Exits
+    ENTRANCE(RR_DEKU_TREE_BASEMENT_TORCH_ROOM, true),
+    ENTRANCE(RR_DEKU_TREE_BASEMENT_BACK_ROOM, any_age([]{return has_fire_source_with_torch() || can_use(RandomizerGet::RG_FAIRY_BOW);}) && any_age([]{return blast_or_smash();})),
+    ENTRANCE(RR_DEKU_TREE_BASEMENT_UPPER, any_age([]{return has_fire_source_with_torch() || can_use(RandomizerGet::RG_FAIRY_BOW);}) && can_use(RandomizerGet::RG_CRAWL)),
+});
+
+areaTable[RR_DEKU_TREE_BASEMENT_BACK_ROOM] = Region("Deku Tree Basement Back Room", SCENE_DEKU_TREE, {
+    // Events
+}, {
+    // Locations
+}, {
+    // Exits
+    ENTRANCE(RR_DEKU_TREE_BASEMENT_BACK_LOBBY, true),
+});
+
+areaTable[RR_DEKU_TREE_BASEMENT_LOWER] = Region("Deku Tree Basement Lower", SCENE_DEKU_TREE, {
+    // Events
+    EVENT_ACCESS(LOGIC_STICK_ACCESS, can_get_deku_baba_sticks()),
+    EVENT_ACCESS(LOGIC_NUT_ACCESS, can_get_deku_baba_nuts()),
+    EVENT_ACCESS(LOGIC_DEKU_TREE_B1_BROKE_WEB, can_use(RandomizerGet::RG_STICKS) && (flag(LogicVal::LOGIC_DEKU_TREE_PUSHED_BASEMENT_BLOCK) || is_adult() || can_use(RandomizerGet::RG_HOVER_BOOTS)) || trick(RandomizerTrick::RT_DEKU_B1_BOW_WEBS) && is_adult() && can_use(RandomizerGet::RG_FAIRY_BOW)),
+}, {
+    // Locations
+}, {
+    // Exits
+    ENTRANCE(RR_DEKU_TREE_LOBBY, has(RandomizerGet::RG_CLIMB) || is_adult() && can_use(RandomizerGet::RG_LONGSHOT)),
+    ENTRANCE(RR_DEKU_TREE_BASEMENT_SCRUB_ROOM, any_age([]{return has_fire_source_with_torch() || can_use(RandomizerGet::RG_FAIRY_BOW);})),
+    ENTRANCE(RR_DEKU_TREE_BASEMENT_UPPER, is_adult() || trick(RandomizerTrick::RT_DEKU_B1_SKIP) || can_ground_jump(false) || flag(LogicVal::LOGIC_DEKU_TREE_PUSHED_BASEMENT_BLOCK)),
+    ENTRANCE(RR_DEKU_TREE_OUTSIDE_BOSS_ROOM, false),
+});
+
+areaTable[RR_DEKU_TREE_BASEMENT_SCRUB_ROOM] = Region("Deku Tree Basement Scrub Room", SCENE_DEKU_TREE, {
+    // Events
+}, {
+    // Locations
+}, {
+    // Exits
+    ENTRANCE(RR_DEKU_TREE_BASEMENT_LOWER, true),
+    ENTRANCE(RR_DEKU_TREE_BASEMENT_WATER_ROOM_FRONT, any_age([]{return can_hit_eye_targets();})),
+});
+
+areaTable[RR_DEKU_TREE_BASEMENT_TORCH_ROOM] = Region("Deku Tree Basement Torch Room", SCENE_DEKU_TREE, {
+    // Events
+    EVENT_ACCESS(LOGIC_STICK_ACCESS, can_get_deku_baba_sticks()),
+    EVENT_ACCESS(LOGIC_NUT_ACCESS, can_get_deku_baba_nuts()),
+}, {
+    // Locations
+}, {
+    // Exits
+    ENTRANCE(RR_DEKU_TREE_BASEMENT_WATER_ROOM_BACK, any_age([]{return has_fire_source_with_torch() || can_use(RandomizerGet::RG_FAIRY_BOW);})),
+    ENTRANCE(RR_DEKU_TREE_BASEMENT_BACK_LOBBY, any_age([]{return has_fire_source_with_torch() || can_use(RandomizerGet::RG_FAIRY_BOW);})),
+});
+
+areaTable[RR_DEKU_TREE_BASEMENT_UPPER] = Region("Deku Tree Basement Upper", SCENE_DEKU_TREE, {
+    // Events
+    EVENT_ACCESS(LOGIC_STICK_ACCESS, can_get_deku_baba_sticks()),
+    EVENT_ACCESS(LOGIC_NUT_ACCESS, can_get_deku_baba_nuts()),
+    EVENT_ACCESS(LOGIC_DEKU_TREE_PUSHED_BASEMENT_BLOCK, has(RandomizerGet::RG_POWER_BRACELET)),
+    EVENT_ACCESS(LOGIC_DEKU_TREE_B1_BROKE_WEB, has_fire_source()),
+}, {
+    // Locations
+}, {
+    // Exits
+    ENTRANCE(RR_DEKU_TREE_BASEMENT_LOWER, true),
+    ENTRANCE(RR_DEKU_TREE_BASEMENT_BACK_LOBBY, can_use(RandomizerGet::RG_CRAWL)),
+    ENTRANCE(RR_DEKU_TREE_OUTSIDE_BOSS_ROOM, flag(LogicVal::LOGIC_DEKU_TREE_B1_BROKE_WEB) && (has(RandomizerGet::RG_BRONZE_SCALE) || can_use(RandomizerGet::RG_IRON_BOOTS))),
+});
+
+areaTable[RR_DEKU_TREE_BASEMENT_WATER_ROOM_BACK] = Region("Deku Tree Basement Water Room Back", SCENE_DEKU_TREE, {
+    // Events
+}, {
+    // Locations
+}, {
+    // Exits
+    ENTRANCE(RR_DEKU_TREE_BASEMENT_WATER_ROOM_FRONT, has(RandomizerGet::RG_BRONZE_SCALE) || trick(RandomizerTrick::RT_DEKU_B1_BACKFLIP_OVER_SPIKED_LOG)),
+    ENTRANCE(RR_DEKU_TREE_BASEMENT_TORCH_ROOM, true),
+});
+
+areaTable[RR_DEKU_TREE_BASEMENT_WATER_ROOM_FRONT] = Region("Deku Tree Basement Water Room Front", SCENE_DEKU_TREE, {
+    // Events
+}, {
+    // Locations
+}, {
+    // Exits
+    ENTRANCE(RR_DEKU_TREE_BASEMENT_SCRUB_ROOM, true),
+    ENTRANCE(RR_DEKU_TREE_BASEMENT_WATER_ROOM_BACK, has(RandomizerGet::RG_BRONZE_SCALE) || trick(RandomizerTrick::RT_DEKU_B1_BACKFLIP_OVER_SPIKED_LOG)),
+});
+
+areaTable[RR_DEKU_TREE_COMPASS_ROOM] = Region("Deku Tree Compass Room", SCENE_DEKU_TREE, {
+    // Events
+    EVENT_ACCESS(LOGIC_STICK_ACCESS, can_get_deku_baba_sticks()),
+    EVENT_ACCESS(LOGIC_NUT_ACCESS, can_get_deku_baba_nuts()),
+}, {
+    // Locations
+}, {
+    // Exits
+    ENTRANCE(RR_DEKU_TREE_LOBBY, has_fire_source_with_torch() || can_use(RandomizerGet::RG_FAIRY_BOW)),
+    ENTRANCE(RR_DEKU_TREE_BOSS_ENTRYWAY, false),
+});
+
+areaTable[RR_DEKU_TREE_LOBBY] = Region("Deku Tree Lobby", SCENE_DEKU_TREE, {
+    // Events
+    EVENT_ACCESS(LOGIC_STICK_ACCESS, can_get_deku_baba_sticks()),
+    EVENT_ACCESS(LOGIC_NUT_ACCESS, can_get_deku_baba_nuts()),
+    EVENT_ACCESS(LOGIC_DEKU_TREE_1F_BROKE_WEB, has_fire_source()),
+}, {
+    // Locations
+}, {
+    // Exits
+    ENTRANCE(RR_DEKU_TREE_ENTRYWAY, true),
+    ENTRANCE(RR_DEKU_TREE_LOBBY_2F, has(RandomizerGet::RG_CLIMB) || can_use(RandomizerGet::RG_HOOKSHOT)),
+    ENTRANCE(RR_DEKU_TREE_BASEMENT_LOWER, flag(LogicVal::LOGIC_DEKU_TREE_1F_BROKE_WEB)),
+    ENTRANCE(RR_DEKU_TREE_OUTSIDE_BOSS_ROOM, false),
+    ENTRANCE(RR_DEKU_TREE_BOSS_ENTRYWAY, false),
+});
+
+areaTable[RR_DEKU_TREE_LOBBY_2F] = Region("Deku Tree Lobby 2F", SCENE_DEKU_TREE, {
+    // Events
+}, {
+    // Locations
+}, {
+    // Exits
+    ENTRANCE(RR_DEKU_TREE_LOBBY, true),
+    ENTRANCE(RR_DEKU_TREE_LOBBY_3F, has(RandomizerGet::RG_CLIMB) || can_use(RandomizerGet::RG_LONGSHOT)),
+    ENTRANCE(RR_DEKU_TREE_2F_MIDDLE_ROOM, true),
+});
+
+areaTable[RR_DEKU_TREE_LOBBY_3F] = Region("Deku Tree Lobby 3F", SCENE_DEKU_TREE, {
+    // Events
+    EVENT_ACCESS(LOGIC_DEKU_TREE_1F_BROKE_WEB, can_pass(RandomizerEnemy::RE_BIG_SKULLTULA, EnemyDistance::ED_CLOSE, true)),
+}, {
+    // Locations
+}, {
+    // Exits
+    ENTRANCE(RR_DEKU_TREE_LOBBY_2F, true),
+    ENTRANCE(RR_DEKU_TREE_COMPASS_ROOM, true),
+});
+
+areaTable[RR_DEKU_TREE_OUTSIDE_BOSS_ROOM] = Region("Deku Tree Outside Boss Room", SCENE_DEKU_TREE, {
+    // Events
+}, {
+    // Locations
+}, {
+    // Exits
+    ENTRANCE(RR_DEKU_TREE_BASEMENT_UPPER, has(RandomizerGet::RG_CLIMB) && (has(RandomizerGet::RG_BRONZE_SCALE) || can_use(RandomizerGet::RG_HOOKSHOT))),
+    ENTRANCE(RR_DEKU_TREE_BOSS_ENTRYWAY, any_age([]{return can_reflect_nuts();})),
+});
+
+areaTable[RR_DEKU_TREE_SLINGSHOT_ROOM] = Region("Deku Tree Slingshot Room", SCENE_DEKU_TREE, {
+    // Events
+}, {
+    // Locations
+}, {
+    // Exits
+    ENTRANCE(RR_DEKU_TREE_2F_MIDDLE_ROOM, true),
+});
+
+}
+
 void register_kokiri_forest() {
 
 areaTable[RR_KF_BOULDER_LOOP] = Region("KF Boulder Loop", SCENE_KOKIRI_FOREST, {
@@ -381,6 +793,9 @@ areaTable[RR_SERENADE_OF_WATER_WARP] = Region("Serenade of Water Warp", SCENE_ID
 }
 
 void RegisterRegions() {
+    register_deku_tree();
+    register_deku_tree_mq();
+    register_deku_tree_vanilla();
     register_kokiri_forest();
     register_root();
 }

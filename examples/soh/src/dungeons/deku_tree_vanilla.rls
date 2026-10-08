@@ -1,0 +1,196 @@
+region RR_DEKU_TREE_LOBBY {
+    name: "Deku Tree Lobby"
+    scene: SCENE_DEKU_TREE
+
+    events {
+        LOGIC_STICK_ACCESS:           can_get_deku_baba_sticks()
+        LOGIC_NUT_ACCESS:             can_get_deku_baba_nuts()
+        LOGIC_DEKU_TREE_1F_BROKE_WEB: has_fire_source()
+    }
+
+    exits {
+        RR_DEKU_TREE_ENTRYWAY:          always
+        RR_DEKU_TREE_LOBBY_2F:          has(RG_CLIMB) or can_use(RG_HOOKSHOT)
+        RR_DEKU_TREE_BASEMENT_LOWER:    flag(LOGIC_DEKU_TREE_1F_BROKE_WEB)
+        RR_DEKU_TREE_OUTSIDE_BOSS_ROOM: never
+        RR_DEKU_TREE_BOSS_ENTRYWAY:     never
+    }
+}
+
+region RR_DEKU_TREE_LOBBY_2F {
+    name: "Deku Tree Lobby 2F"
+    scene: SCENE_DEKU_TREE
+
+    exits {
+        RR_DEKU_TREE_LOBBY:          always
+        RR_DEKU_TREE_LOBBY_3F:       has(RG_CLIMB) or can_use(RG_LONGSHOT) # precise hookshot atop chest can make it as adult
+        RR_DEKU_TREE_2F_MIDDLE_ROOM: always
+    }
+}
+
+region RR_DEKU_TREE_LOBBY_3F {
+    name: "Deku Tree Lobby 3F"
+    scene: SCENE_DEKU_TREE
+
+    events {
+        LOGIC_DEKU_TREE_1F_BROKE_WEB: can_pass(RE_BIG_SKULLTULA)
+    }
+
+    exits {
+        RR_DEKU_TREE_LOBBY_2F:     always
+        RR_DEKU_TREE_COMPASS_ROOM: always
+    }
+}
+
+region RR_DEKU_TREE_2F_MIDDLE_ROOM {
+    name: "Deku Tree 2F Middle Room"
+    scene: SCENE_DEKU_TREE
+
+    exits {
+        RR_DEKU_TREE_LOBBY:          any_age(can_reflect_nuts() or can_use(RG_MEGATON_HAMMER))
+        RR_DEKU_TREE_SLINGSHOT_ROOM: any_age(can_reflect_nuts() or can_use(RG_MEGATON_HAMMER))
+    }
+}
+
+region RR_DEKU_TREE_SLINGSHOT_ROOM {
+    name: "Deku Tree Slingshot Room"
+    scene: SCENE_DEKU_TREE
+
+    exits {
+        RR_DEKU_TREE_2F_MIDDLE_ROOM: always
+    }
+}
+
+region RR_DEKU_TREE_COMPASS_ROOM {
+    name: "Deku Tree Compass Room"
+    scene: SCENE_DEKU_TREE
+
+    events {
+        LOGIC_STICK_ACCESS: can_get_deku_baba_sticks()
+        LOGIC_NUT_ACCESS:   can_get_deku_baba_nuts()
+    }
+
+    exits {
+        RR_DEKU_TREE_LOBBY:         has_fire_source_with_torch() or can_use(RG_FAIRY_BOW)
+        RR_DEKU_TREE_BOSS_ENTRYWAY: never
+    }
+}
+
+region RR_DEKU_TREE_BASEMENT_LOWER {
+    name: "Deku Tree Basement Lower"
+    scene: SCENE_DEKU_TREE
+
+    events {
+        LOGIC_STICK_ACCESS:           can_get_deku_baba_sticks()
+        LOGIC_NUT_ACCESS:             can_get_deku_baba_nuts()
+        LOGIC_DEKU_TREE_B1_BROKE_WEB: (can_use(RG_STICKS) and (flag(LOGIC_DEKU_TREE_PUSHED_BASEMENT_BLOCK) or is_adult() or can_use(RG_HOVER_BOOTS))) or
+                                      (trick(RT_DEKU_B1_BOW_WEBS) and is_adult() and can_use(RG_FAIRY_BOW))
+    }
+
+    exits {
+        RR_DEKU_TREE_LOBBY:               has(RG_CLIMB) or (is_adult() and can_use(RG_LONGSHOT))
+        RR_DEKU_TREE_BASEMENT_SCRUB_ROOM: any_age(has_fire_source_with_torch() or can_use(RG_FAIRY_BOW))
+        RR_DEKU_TREE_BASEMENT_UPPER:      is_adult() or trick(RT_DEKU_B1_SKIP) or can_ground_jump() or flag(LOGIC_DEKU_TREE_PUSHED_BASEMENT_BLOCK)
+        RR_DEKU_TREE_OUTSIDE_BOSS_ROOM:   never
+    }
+}
+
+region RR_DEKU_TREE_BASEMENT_SCRUB_ROOM {
+    name: "Deku Tree Basement Scrub Room"
+    scene: SCENE_DEKU_TREE
+
+    exits {
+        RR_DEKU_TREE_BASEMENT_LOWER:            always
+        RR_DEKU_TREE_BASEMENT_WATER_ROOM_FRONT: any_age(can_hit_eye_targets())
+    }
+}
+
+region RR_DEKU_TREE_BASEMENT_WATER_ROOM_FRONT {
+    name: "Deku Tree Basement Water Room Front"
+    scene: SCENE_DEKU_TREE
+
+    exits {
+        RR_DEKU_TREE_BASEMENT_SCRUB_ROOM:      always
+        RR_DEKU_TREE_BASEMENT_WATER_ROOM_BACK: has(RG_BRONZE_SCALE) or trick(RT_DEKU_B1_BACKFLIP_OVER_SPIKED_LOG)
+    }
+}
+
+region RR_DEKU_TREE_BASEMENT_WATER_ROOM_BACK {
+    name: "Deku Tree Basement Water Room Back"
+    scene: SCENE_DEKU_TREE
+
+    exits {
+        RR_DEKU_TREE_BASEMENT_WATER_ROOM_FRONT: has(RG_BRONZE_SCALE) or trick(RT_DEKU_B1_BACKFLIP_OVER_SPIKED_LOG)
+        RR_DEKU_TREE_BASEMENT_TORCH_ROOM:       always
+    }
+}
+
+region RR_DEKU_TREE_BASEMENT_TORCH_ROOM {
+    name: "Deku Tree Basement Torch Room"
+    scene: SCENE_DEKU_TREE
+
+    events {
+        LOGIC_STICK_ACCESS: can_get_deku_baba_sticks()
+        LOGIC_NUT_ACCESS:   can_get_deku_baba_nuts()
+    }
+
+    exits {
+        RR_DEKU_TREE_BASEMENT_WATER_ROOM_BACK: any_age(has_fire_source_with_torch() or can_use(RG_FAIRY_BOW))
+        RR_DEKU_TREE_BASEMENT_BACK_LOBBY:      any_age(has_fire_source_with_torch() or can_use(RG_FAIRY_BOW))
+    }
+}
+
+region RR_DEKU_TREE_BASEMENT_BACK_LOBBY {
+    name: "Deku Tree Basement Back Lobby"
+    scene: SCENE_DEKU_TREE
+
+    events {
+        LOGIC_STICK_ACCESS: can_get_deku_baba_sticks()
+        LOGIC_NUT_ACCESS:   can_get_deku_baba_nuts()
+    }
+
+    exits {
+        RR_DEKU_TREE_BASEMENT_TORCH_ROOM: always
+        RR_DEKU_TREE_BASEMENT_BACK_ROOM:  any_age(has_fire_source_with_torch() or can_use(RG_FAIRY_BOW)) and any_age(blast_or_smash())
+        RR_DEKU_TREE_BASEMENT_UPPER:      any_age(has_fire_source_with_torch() or can_use(RG_FAIRY_BOW)) and can_use(RG_CRAWL)
+    }
+}
+
+region RR_DEKU_TREE_BASEMENT_BACK_ROOM {
+    name: "Deku Tree Basement Back Room"
+    scene: SCENE_DEKU_TREE
+
+    exits {
+        RR_DEKU_TREE_BASEMENT_BACK_LOBBY: always
+    }
+}
+
+region RR_DEKU_TREE_BASEMENT_UPPER {
+    name: "Deku Tree Basement Upper"
+    scene: SCENE_DEKU_TREE
+
+    events {
+        LOGIC_STICK_ACCESS:                    can_get_deku_baba_sticks()
+        LOGIC_NUT_ACCESS:                      can_get_deku_baba_nuts()
+        LOGIC_DEKU_TREE_PUSHED_BASEMENT_BLOCK: has(RG_POWER_BRACELET)
+        LOGIC_DEKU_TREE_B1_BROKE_WEB:          has_fire_source()
+    }
+
+    exits {
+        RR_DEKU_TREE_BASEMENT_LOWER:      always
+        RR_DEKU_TREE_BASEMENT_BACK_LOBBY: can_use(RG_CRAWL)
+        # It's possible to light a stick on the upper torch with a backflip into a jumpslash, but a trick as it seems to involve landing on the torch platform
+        # Adult can simply backflip against a nearby wall to the same effect, which is much simpler but still unintuitive enough top be a trick
+        RR_DEKU_TREE_OUTSIDE_BOSS_ROOM:   flag(LOGIC_DEKU_TREE_B1_BROKE_WEB) and (has(RG_BRONZE_SCALE) or can_use(RG_IRON_BOOTS))
+    }
+}
+
+region RR_DEKU_TREE_OUTSIDE_BOSS_ROOM {
+    name: "Deku Tree Outside Boss Room"
+    scene: SCENE_DEKU_TREE
+    
+    exits {
+        RR_DEKU_TREE_BASEMENT_UPPER: has(RG_CLIMB) and (has(RG_BRONZE_SCALE) or can_use(RG_HOOKSHOT))
+        RR_DEKU_TREE_BOSS_ENTRYWAY:  any_age(can_reflect_nuts())
+    }
+}
