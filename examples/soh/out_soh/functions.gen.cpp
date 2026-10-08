@@ -10,6 +10,10 @@ bool _can_kill_gold_skulltula(const EnemyDistance distance, const bool wall_or_f
     return rls::match([&]{return distance == EnemyDistance::ED_CLOSE;}, [&]{return can_use(RandomizerGet::RG_MEGATON_HAMMER);}, true, [&]{return distance == EnemyDistance::ED_SHORT_JUMPSLASH;}, [&]{return can_use(RandomizerGet::RG_KOKIRI_SWORD);}, true, [&]{return distance == EnemyDistance::ED_MASTER_SWORD_JUMPSLASH;}, [&]{return can_use(RandomizerGet::RG_MASTER_SWORD);}, true, [&]{return distance == EnemyDistance::ED_LONG_JUMPSLASH;}, [&]{return can_use(RandomizerGet::RG_BIGGORON_SWORD) || can_use(RandomizerGet::RG_STICKS);}, true, [&]{return distance == EnemyDistance::ED_BOMB_THROW;}, [&]{return can_use(RandomizerGet::RG_BOMB_BAG);}, true, [&]{return distance == EnemyDistance::ED_BOOMERANG;}, [&]{return can_use(RandomizerGet::RG_BOOMERANG) || can_use(RandomizerGet::RG_DINS_FIRE);}, true, [&]{return distance == EnemyDistance::ED_HOOKSHOT;}, [&]{return can_use(RandomizerGet::RG_HOOKSHOT);}, true, [&]{return distance == EnemyDistance::ED_LONGSHOT;}, [&]{return can_use(RandomizerGet::RG_LONGSHOT) || wall_or_floor && can_use(RandomizerGet::RG_BOMBCHU_5);}, true, [&]{return distance == EnemyDistance::ED_FAR;}, [&]{return can_use(RandomizerGet::RG_FAIRY_SLINGSHOT) || can_use(RandomizerGet::RG_FAIRY_BOW);}, false);
 }
 
+bool blast_or_smash() {
+    return has_explosives() || can_use(RandomizerGet::RG_MEGATON_HAMMER);
+}
+
 bool call_gossip_fairy() {
     return call_gossip_fairy_except_suns() || can_use(RandomizerGet::RG_SUNS_SONG);
 }
@@ -54,6 +58,14 @@ bool can_get_night_time_gs() {
     return at_night() && (can_use(RandomizerGet::RG_SUNS_SONG) || !(setting(RSK_SKULLS_SUNS_SONG) != 0));
 }
 
+bool can_ground_jump(const bool hasBombflower) {
+    return trick(RandomizerTrick::RT_GROUND_JUMP) && can_standing_shield() && (can_use(RandomizerGet::RG_BOMB_BAG) || hasBombflower && has(RandomizerGet::RG_GORONS_BRACELET));
+}
+
+bool can_hit_eye_targets() {
+    return can_use(RandomizerGet::RG_FAIRY_BOW) || can_use(RandomizerGet::RG_FAIRY_SLINGSHOT);
+}
+
 bool can_jumpslash() {
     return can_jumpslash_except_hammer() || can_use(RandomizerGet::RG_MEGATON_HAMMER);
 }
@@ -74,8 +86,20 @@ bool can_pass(const RandomizerEnemy e, const EnemyDistance distance, const bool 
     return can_kill(e, distance, wall_or_floor, 1, false, false) || rls::match([&]{return e == RandomizerEnemy::RE_GOLD_SKULLTULA;}, [&]{return true;}, false);
 }
 
+bool can_reflect_nuts() {
+    return can_use(RandomizerGet::RG_DEKU_SHIELD) || is_adult() && has(RandomizerGet::RG_HYLIAN_SHIELD);
+}
+
+bool can_shield() {
+    return can_use(RandomizerGet::RG_MIRROR_SHIELD) || has(RandomizerGet::RG_HYLIAN_SHIELD) || can_use(RandomizerGet::RG_DEKU_SHIELD);
+}
+
 bool can_spawn_soil_skull(const RandomizerGet bean) {
     return is_child() && can_use(RandomizerGet::RG_BOTTLE_WITH_BUGS) && has(bean);
+}
+
+bool can_standing_shield() {
+    return can_use(RandomizerGet::RG_MIRROR_SHIELD) || is_adult() && has(RandomizerGet::RG_HYLIAN_SHIELD) || can_use(RandomizerGet::RG_DEKU_SHIELD);
 }
 
 bool can_use_sword() {
@@ -92,6 +116,14 @@ bool has_bottle() {
 
 bool has_explosives() {
     return can_use(RandomizerGet::RG_BOMB_BAG) || can_use(RandomizerGet::RG_BOMBCHU_5);
+}
+
+bool has_fire_source() {
+    return can_use(RandomizerGet::RG_DINS_FIRE) || can_use(RandomizerGet::RG_FIRE_ARROWS);
+}
+
+bool has_fire_source_with_torch() {
+    return has_fire_source() || can_use(RandomizerGet::RG_STICKS);
 }
 
 bool hookshot_or_boomerang() {

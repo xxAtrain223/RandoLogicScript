@@ -77,6 +77,19 @@ TEST(ApTernary, RuleConditionedValueBranchArgDistributesToConditional) {
 		"rls_conditional(has(RG_CLIMB), can_use(RG_HOOKSHOT), can_use(RG_LONGSHOT))");
 }
 
+// A rule passed for a define's Bool parameter is lifted the same way. The body reads a bare Bool
+// as build-time, so passing the rule through would put it in a Python `if` (bool(rule) raises);
+// each branch binds a literal instead. Ship's can_ground_jump(trick(RT_GROUND_JUMP_HARD)).
+TEST(ApTernary, RuleArgForBoolParamDistributesToConditional) {
+	EXPECT_EQ(GenerateExpression(sourceToExpression(
+		"define jump(flower: Bool = false):\n"
+		"    has(RG_BOMB_BAG) or (flower and has(RG_GORONS_BRACELET))\n"
+		"define test():\n"
+		"    jump(has(RG_CLIMB))\n",
+		"test")),
+		"rls_conditional(has(RG_CLIMB), jump(True), jump(False))");
+}
+
 // Distribution is scoped to RULE conditions. A build-time condition (a Bool parameter) leaves the
 // ternary an ordinary Python `if` selecting the value in place -- no conditional rule, no
 // duplicated call.

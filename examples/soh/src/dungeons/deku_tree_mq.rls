@@ -1,0 +1,228 @@
+region RR_DEKU_TREE_MQ_1F {
+    name: "Deku Tree MQ 1F"
+    scene: SCENE_DEKU_TREE
+
+    events {
+        LOGIC_STICK_ACCESS: can_kill(RE_WITHERED_DEKU_BABA)
+        LOGIC_NUT_ACCESS:   has_fire_source()
+    }
+
+    exits {
+        RR_DEKU_TREE_ENTRYWAY:    always
+        # may need canAvoid logic with enemy shuffle
+        RR_DEKU_TREE_MQ_2F:       has(RG_CLIMB) or can_use(RG_HOOKSHOT)
+        # Swim is not required because you can jump with enough momentum to hit land. You even avoid fall damage if you hit the shallow water.
+        RR_DEKU_TREE_MQ_BASEMENT: flag(LOGIC_DEKU_TREE_1F_BROKE_WEB)
+        # is it possible to recoil from here to the ledge with a trick?
+    }
+}
+
+region RR_DEKU_TREE_MQ_2F {
+    name: "Deku Tree MQ 2F"
+    scene: SCENE_DEKU_TREE
+
+    events {
+        LOGIC_DEKU_TREE_MQ_2F_BURNED_WEB: has_fire_source()
+    }
+
+    exits {
+        RR_DEKU_TREE_MQ_1F:              always
+        # Will need canAvoid logic with enemy shuffle
+        RR_DEKU_TREE_MQ_3F:              has(RG_CLIMB) or can_use(RG_LONGSHOT) # precise hookshot atop chest can make it as adult
+        RR_DEKU_TREE_MQ_EYE_TARGET_ROOM: flag(LOGIC_DEKU_TREE_MQ_2F_BURNED_WEB)
+    }
+}
+
+region RR_DEKU_TREE_MQ_3F {
+    name: "Deku Tree MQ 3F"
+    scene: SCENE_DEKU_TREE
+
+    events {
+        LOGIC_STICK_ACCESS:               can_get_deku_baba_sticks()
+        LOGIC_NUT_ACCESS:                 can_get_deku_baba_nuts()
+        LOGIC_DEKU_TREE_1F_BROKE_WEB:     always
+        LOGIC_DEKU_TREE_MQ_2F_BURNED_WEB: can_use(RG_STICKS) or can_use(RG_FAIRY_BOW)
+    }
+
+    exits {
+        RR_DEKU_TREE_MQ_2F:             always
+        RR_DEKU_TREE_MQ_SLINGSHOT_ROOM: always
+        RR_DEKU_TREE_MQ_BASEMENT:       always
+    }
+}
+
+region RR_DEKU_TREE_MQ_SLINGSHOT_ROOM {
+    name: "Deku Tree MQ Slingshot Room"
+    scene: SCENE_DEKU_TREE
+
+    events {
+        LOGIC_STICK_ACCESS: can_get_deku_baba_sticks()
+        LOGIC_NUT_ACCESS:   can_get_deku_baba_nuts()
+    }
+
+    exits {
+        RR_DEKU_TREE_MQ_3F: can_kill(RE_DEKU_BABA)
+    }
+}
+
+region RR_DEKU_TREE_MQ_EYE_TARGET_ROOM {
+    name: "Deku Tree MQ Eye Target Room"
+    scene: SCENE_DEKU_TREE
+
+    exits {
+        RR_DEKU_TREE_MQ_COMPASS_ROOM: any_age(can_hit_eye_targets())
+        RR_DEKU_TREE_MQ_2F:           always
+    }
+}
+
+region RR_DEKU_TREE_MQ_COMPASS_ROOM {
+    name: "Deku Tree MQ Compass Room"
+    scene: SCENE_DEKU_TREE
+
+    exits {
+        RR_DEKU_TREE_MQ_EYE_TARGET_ROOM:    always
+        RR_DEKU_TREE_MQ_PAST_BOULDER_VINES: (has(RG_CLIMB) or can_use(RG_HOOKSHOT) or (is_adult() and can_use(RG_SONG_OF_TIME))) and
+                                            any_age(can_use(RG_BOMBCHU_5) or
+                                                    (can_use(RG_BOMB_BAG) and (can_use(RG_SONG_OF_TIME) or is_adult() or can_use(RG_HOVER_BOOTS))) or
+                                                    (can_use(RG_MEGATON_HAMMER) and ((is_adult() and can_use(RG_SONG_OF_TIME)) or (trick(RT_DEKU_MQ_COMPASS_GS) and has(RG_CLIMB)))))
+    }
+}
+
+region RR_DEKU_TREE_MQ_PAST_BOULDER_VINES {
+    name: "Deku Tree MQ Past Boulder Vines"
+    scene: SCENE_DEKU_TREE
+
+    exits {
+        RR_DEKU_TREE_MQ_COMPASS_ROOM: blast_or_smash()
+    }
+}
+
+region RR_DEKU_TREE_MQ_BASEMENT {
+    name: "Deku Tree MQ Basement"
+    scene: SCENE_DEKU_TREE
+
+    events {
+        LOGIC_STICK_ACCESS:           can_get_deku_baba_sticks()
+        LOGIC_NUT_ACCESS:             can_get_deku_baba_nuts()
+        LOGIC_DEKU_TREE_B1_BROKE_WEB: can_use(RG_STICKS) and (flag(LOGIC_DEKU_TREE_PUSHED_BASEMENT_BLOCK) or is_adult() or can_use(RG_HOVER_BOOTS))
+    }
+
+    exits {
+        RR_DEKU_TREE_MQ_1F:                        has(RG_CLIMB) or can_use(RG_LONGSHOT)
+        RR_DEKU_TREE_MQ_BASEMENT_SOUTHEAST_ROOM:   any_age(can_hit_eye_targets())
+        # includes RR_DEKU_TREE_MQ_BASEMENT_SOUTHEAST_ROOM Access, other fire sources clear directly from there
+        RR_DEKU_TREE_MQ_BASEMENT_WATER_ROOM_FRONT: any_age(can_hit_eye_targets()) and flag(LOGIC_DEKU_TREE_MQ_CLEARED_SE_ROOM) and any_age(can_use(RG_STICKS))
+        RR_DEKU_TREE_MQ_BASEMENT_LEDGE:            is_adult() or trick(RT_DEKU_B1_SKIP) or can_ground_jump() or flag(LOGIC_DEKU_TREE_PUSHED_BASEMENT_BLOCK) or can_use(RG_HOVER_BOOTS)
+    }
+}
+
+region RR_DEKU_TREE_MQ_BASEMENT_SOUTHEAST_ROOM {
+    name: "Deku Tree MQ Southeast Room"
+    scene: SCENE_DEKU_TREE
+
+    events {
+        # Implies CanKillEnemy(RE_GOHMA_LARVA)
+        LOGIC_DEKU_TREE_MQ_CLEARED_SE_ROOM: can_kill(RE_MAD_SCRUB)
+    }
+
+    exits {
+        RR_DEKU_TREE_MQ_BASEMENT_WATER_ROOM_FRONT: has_fire_source()
+        RR_DEKU_TREE_MQ_BASEMENT:                  flag(LOGIC_DEKU_TREE_MQ_CLEARED_SE_ROOM)
+    }
+}
+
+region RR_DEKU_TREE_MQ_BASEMENT_WATER_ROOM_FRONT {
+    name: "Deku Tree MQ Basement Water Room Front"
+    scene: SCENE_DEKU_TREE
+
+    events {
+        LOGIC_DEKU_TREE_MQ_WATER_ROOM_TORCHES: can_use(RG_FIRE_ARROWS) or
+                                               (can_use(RG_STICKS) and (trick(RT_DEKU_MQ_LOG) or (is_child() and can_shield())))
+    }
+
+    exits {
+        RR_DEKU_TREE_MQ_BASEMENT_WATER_ROOM_BACK: trick(RT_DEKU_MQ_LOG) or (is_child() and can_shield()) or
+                                                  can_use(RG_LONGSHOT) or (can_use(RG_HOOKSHOT) and can_use(RG_IRON_BOOTS))
+        RR_DEKU_TREE_MQ_BASEMENT_SOUTHEAST_ROOM:  always
+    }
+}
+
+region RR_DEKU_TREE_MQ_BASEMENT_WATER_ROOM_BACK {
+    name: "Deku Tree MQ Basement Water Room Back"
+    scene: SCENE_DEKU_TREE
+
+    events {
+        LOGIC_STICK_ACCESS: can_kill(RE_WITHERED_DEKU_BABA)
+        LOGIC_NUT_ACCESS:   has_fire_source()
+    }
+
+    exits {
+        RR_DEKU_TREE_MQ_BASEMENT_SOUTHWEST_ROOM:   flag(LOGIC_DEKU_TREE_MQ_WATER_ROOM_TORCHES) and can_pass(RE_BIG_SKULLTULA, can_use(RG_SONG_OF_TIME) ? ED_CLOSE : ED_SHORT_JUMPSLASH)
+        RR_DEKU_TREE_MQ_BASEMENT_WATER_ROOM_FRONT: trick(RT_DEKU_MQ_LOG) or (is_child() and can_shield()) or can_use(RG_LONGSHOT) or has(RG_BRONZE_SCALE) or (can_use(RG_IRON_BOOTS) and (is_adult() or can_use(RG_HOOKSHOT)))
+    }
+}
+
+region RR_DEKU_TREE_MQ_BASEMENT_SOUTHWEST_ROOM {
+    name: "Deku Tree MQ Basement Southwest Room"
+    scene: SCENE_DEKU_TREE
+
+    exits {
+        # both imply CanKillEnemy(RE_GOHMA_LARVA)
+        RR_DEKU_TREE_MQ_BASEMENT_GRAVE_ROOM:      any_age(can_kill(RE_MAD_SCRUB) and can_kill(RE_KEESE))
+        RR_DEKU_TREE_MQ_BASEMENT_WATER_ROOM_BACK: any_age(can_kill(RE_MAD_SCRUB) and can_kill(RE_KEESE))
+    }
+}
+
+region RR_DEKU_TREE_MQ_BASEMENT_GRAVE_ROOM {
+    name: "Deku Tree MQ Basement Grave Room"
+    scene: SCENE_DEKU_TREE
+
+    events {
+        LOGIC_STICK_ACCESS: can_get_deku_baba_sticks()
+        LOGIC_NUT_ACCESS:   can_get_deku_baba_nuts()
+    }
+
+    exits {
+        RR_DEKU_TREE_MQ_BASEMENT_LEDGE:          can_use(RG_CRAWL) and any_age(has_fire_source_with_torch() or can_use(RG_FAIRY_BOW))
+        RR_DEKU_TREE_MQ_BASEMENT_SOUTHWEST_ROOM: always
+        # Using a bow to get past here as adult is a bit precise on standing position but simple, doing as as child requires a side-hop with the bow out to shoot through the torch and may be trick worthy
+        RR_DEKU_TREE_MQ_BASEMENT_BACK_ROOM:      any_age(has_fire_source_with_torch() or can_use(RG_FAIRY_BOW))
+    }
+}
+
+region RR_DEKU_TREE_MQ_BASEMENT_BACK_ROOM {
+    name: "Deku Tree MQ Basement Back Room"
+    scene: SCENE_DEKU_TREE
+
+    exits {
+        RR_DEKU_TREE_MQ_BASEMENT_GRAVE_ROOM: always
+    }
+}
+
+region RR_DEKU_TREE_MQ_BASEMENT_LEDGE {
+    name: "Deku Tree MQ Basement Ledge"
+    scene: SCENE_DEKU_TREE
+
+    events {
+        LOGIC_DEKU_TREE_PUSHED_BASEMENT_BLOCK: has(RG_POWER_BRACELET)
+        # You can also recoil from RR_DEKU_TREE_MQ_1F with a lit stick to burn the web, but such recoils would be tricks
+        LOGIC_DEKU_TREE_B1_BROKE_WEB:          has_fire_source()
+    }
+
+    exits {
+        RR_DEKU_TREE_MQ_BASEMENT_GRAVE_ROOM: can_use(RG_CRAWL)
+        RR_DEKU_TREE_MQ_BASEMENT:            always
+        # recoiling to skip swim is possible, but would be a trick
+        RR_DEKU_TREE_MQ_OUTSIDE_BOSS_ROOM:   flag(LOGIC_DEKU_TREE_B1_BROKE_WEB) and (has(RG_BRONZE_SCALE) or can_use(RG_IRON_BOOTS))
+    }
+}
+
+region RR_DEKU_TREE_MQ_OUTSIDE_BOSS_ROOM {
+    name: "Deku Tree MQ Outside Boss Room"
+    scene: SCENE_DEKU_TREE
+
+    exits {
+        RR_DEKU_TREE_MQ_BASEMENT_LEDGE: has(RG_CLIMB) and (has(RG_BRONZE_SCALE) or can_use(RG_HOOKSHOT))
+        RR_DEKU_TREE_BOSS_ENTRYWAY:     any_age(can_reflect_nuts())
+    }
+}

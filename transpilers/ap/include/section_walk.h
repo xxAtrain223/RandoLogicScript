@@ -38,6 +38,17 @@ inline std::string RegionDisplayName(const rls::ast::RegionDecl& region) {
 	return literal != nullptr ? literal->value : "";
 }
 
+// A region's scene, as the bare `SCENE_*` token. Unlike `name`, the data value is an enum
+// identifier rather than a string literal; a missing or non-identifier `scene` yields "".
+inline std::string RegionScene(const rls::ast::RegionDecl& region) {
+	const auto* entry = region.body.findData("scene");
+	if (entry == nullptr) {
+		return "";
+	}
+	const auto* ident = std::get_if<rls::ast::Identifier>(&entry->value->node);
+	return ident != nullptr ? ident->name.text : "";
+}
+
 // Collect the names of every entry in every section of the given kind.
 inline void InsertToSet(
 	const std::vector<rls::ast::Section>& sections,

@@ -637,6 +637,12 @@ std::string ApTranspiler::renderDefaultCall(const rls::ast::CallExpr& node, size
 	return oss.str();
 }
 
+namespace {
+// Literals bound in place of a rule argument when a call is lifted over it.
+const rls::ast::Expr kTrueLiteral{rls::ast::BoolLiteral{true}};
+const rls::ast::Expr kFalseLiteral{rls::ast::BoolLiteral{false}};
+} // namespace
+
 std::optional<std::string> ApTranspiler::tryDistributeTernaryArg(const rls::ast::CallExpr& node) const {
 	const auto* resolvedPtr = project.getResolvedCallArgs(&node);
 	if (resolvedPtr == nullptr) {
@@ -650,7 +656,21 @@ std::optional<std::string> ApTranspiler::tryDistributeTernaryArg(const rls::ast:
 		return std::nullopt;
 	}
 	const auto& resolved = *resolvedPtr;
+	const bool userDefine = project.DefineDecls.count(node.callee.text) != 0 &&
+		!isHostProvidedDefine(node.callee.text);
 	for (size_t i = 0; i < resolved.size(); ++i) {
+		// A rule passed for a define's Bool parameter. The body treats a bare Bool as build-time
+		// (a deferred rule travels as a Condition), so it would splice the rule into a Python
+		// `if`. Lift the call over the rule instead, so each branch binds a genuine literal:
+		// `f(.., R, ..)` -> `rls_conditional(<ctx>, R, f(.., True, ..), f(.., False, ..))`.
+		// A literal classifies as a Rule (it is True_() in rule position) but already binds as
+		// Python True/False here.
+		if (userDefine && ResolveCallParamType(node, i) == rls::ast::Type::Bool &&
+			!std::holds_alternative<rls::ast::BoolLiteral>(resolved[i]->node) &&
+			ClassifyExpression(resolved[i]) == ValueClass::Rule) {
+			return renderConditionalRule(GenerateExpression(resolved[i]->node),
+				renderDefaultCall(node, i, &kTrueLiteral), renderDefaultCall(node, i, &kFalseLiteral));
+		}
 		auto* tern = std::get_if<rls::ast::TernaryExpr>(&resolved[i]->node);
 		if (tern == nullptr) {
 			continue;
