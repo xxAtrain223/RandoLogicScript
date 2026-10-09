@@ -52,4 +52,8 @@ bool ApTranspiler::isHostProvidedDefine(const std::string&) const {
 	return false;
 }
 
+std::set<std::string> ApTranspiler::regionsBoundNames() const {
+	return {};
+}
+
 } // namespace rls::transpilers::ap

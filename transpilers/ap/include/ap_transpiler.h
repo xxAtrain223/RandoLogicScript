@@ -12,6 +12,16 @@
 
 namespace rls::transpilers::ap {
 
+// The names a piece of generated Python refers to but neither defines nor binds itself: the
+// identifiers its generated file has to import. A scan of the finished text rather than a list kept
+// beside the code that emits it, so a new emission path cannot be forgotten. `alsoBound` names things
+// bound outside the text (a parameter of a def the caller writes separately).
+//
+// Reads the grammar this transpiler produces, not arbitrary Python: `def`/`lambda` parameters and
+// def names bind; `x.attr` attributes, keyword-argument names, string contents, keywords and
+// builtins are not references. Annotations and default values are references.
+std::set<std::string> FreePythonNames(std::string_view source, const std::set<std::string>& alsoBound = {});
+
 // Generic RLS -> Archipelago RuleBuilder transpiler.
 //
 // This base class owns everything that is true of *any* AP world: the expression
@@ -102,8 +112,12 @@ protected:
 
 	// == Game-specific scaffolding (pure virtual: no generic AP default) ======
 
-	// Preamble for the regions file, ending with the rule-setup def line.
-	virtual std::string regionsPreamble() const = 0;
+	// Preamble for the regions file, ending with the rule-setup def line. `usedNames` are the free
+	// names of the generated body (see FreePythonNames), for the preamble's imports.
+	virtual std::string regionsPreamble(const std::set<std::string>& usedNames) const = 0;
+	// Names the regions file's own def line binds (its parameters), so the scan of the body does
+	// not report them as imports. Default: none.
+	virtual std::set<std::string> regionsBoundNames() const;
 	// Leading args of a region's helper call: e.g. `Regions.<key>, world, [\n`.
 	virtual std::string regionCreationArgs(const std::string& regionKey) const = 0;
 	// Names of the per-region helper calls.
@@ -117,8 +131,9 @@ protected:
 	virtual std::string exitEntryLine(const std::string& entryName, const std::string& rule) const = 0;
 	// Emit the entire enums file (world enum-class scaffolding).
 	virtual void writeEnums(rls::OutputWriter& out) const = 0;
-	// Preamble for the functions file (header comment + imports).
-	virtual std::string functionsPreamble() const = 0;
+	// Preamble for the functions file (header comment + imports). `usedNames` are the free names of
+	// the generated body (see FreePythonNames).
+	virtual std::string functionsPreamble(const std::set<std::string>& usedNames) const = 0;
 	// Python type name for an RLS type, used in generated function signatures. For
 	// Type::Enum, `enumName` carries which enum it is (from project.getEnumType); it is
 	// std::nullopt for every other type.

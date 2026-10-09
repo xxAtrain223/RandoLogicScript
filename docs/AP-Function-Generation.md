@@ -345,10 +345,14 @@ Pinned by `SohApFunctionSignatures.HostProvidedDefinesAreSkipped`.
 | Host-provided defines (§6.5) | `isHostProvidedDefine` hook + `soh_expression.cpp` | `SohApFunctionSignatures.HostProvidedDefinesAreSkipped` |
 | Emission | `SohApTranspiler::Transpile` → `GenerateFunctionDefinitionsSource` (emits `functions_gen.py`) | `AcceptanceSoh` (byte-for-byte golden) |
 
-The generated `functions_gen.py` preamble imports the host primitives
-(`from .Rules import *` — the host rules, enum classes, and the `Callable`/`Rule`
-names the annotations use) plus the match helpers; the regions file imports the
-generated functions (`from .functions.gen import *`).
+Each generated file imports exactly the names it uses, no star imports. The body is generated
+first and scanned for free names (`FreePythonNames`, `free_names.cpp`: what the text refers to but
+neither defines nor binds), and the SoH preamble (`soh_imports.cpp`) sorts them by where they live:
+the enums this transpiler writes (`.enums_gen`), the defines it writes (`.functions_gen`, regions
+file only), the two runtime support modules (`.rls_match`, `.rls_conditional`), `Callable` from
+`typing`, and everything else from the hard-coded host module `.LogicHelpers`. So the lists follow
+the logic, and the host module is the only name the transpiler fixes. A name the host does not
+export is an `ImportError` when the generated file loads.
 
 ---
 

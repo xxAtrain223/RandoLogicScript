@@ -1,6 +1,7 @@
 #pragma once
 
 #include <optional>
+#include <set>
 #include <string>
 #include <string_view>
 
@@ -32,7 +33,8 @@ protected:
 	std::optional<std::string> renderBinarySpecialCase(const rls::ast::BinaryExpr& node) const override;
 	bool isHostProvidedDefine(const std::string& name) const override;
 
-	std::string regionsPreamble() const override;
+	std::string regionsPreamble(const std::set<std::string>& usedNames) const override;
+	std::set<std::string> regionsBoundNames() const override;
 	std::string regionCreationArgs(const std::string& regionKey) const override;
 	std::string addEventsFn() const override;
 	std::string addLocationsFn() const override;
@@ -42,11 +44,23 @@ protected:
 	std::string locationEntryLine(const std::string& entryName, const std::string& rule) const override;
 	std::string exitEntryLine(const std::string& entryName, const std::string& rule) const override;
 	void writeEnums(rls::OutputWriter& out) const override;
-	std::string functionsPreamble() const override;
+	std::string functionsPreamble(const std::set<std::string>& usedNames) const override;
 	std::string pythonTypeName(
 		rls::ast::Type type, std::optional<std::string_view> enumName) const override;
 
 private:
+	// The import statements a generated file needs for `usedNames`, from "from typing import" down
+	// to the last module. Each name comes from the file that defines it: the enums and functions
+	// this transpiler writes, the two runtime support modules, and otherwise the hard-coded host
+	// module `LogicHelpers` -- so which names a file imports is derived from what it uses, and only
+	// that module name is fixed here.
+	std::string renderImports(const std::set<std::string>& usedNames) const;
+
+	// Enum classes this transpiler writes into enums_gen.py, and the defines it writes into
+	// functions_gen.py.
+	std::set<std::string> generatedEnumNames() const;
+	std::set<std::string> generatedDefineNames() const;
+
 	// The Python enum class that values of an RLS enum belong to (e.g. Item -> "Items",
 	// Check -> "Locations"), keyed by the RLS enum's name. std::nullopt for enums with no
 	// dedicated class in the reference world (Scene/Dungeon/Area, which render bare). This

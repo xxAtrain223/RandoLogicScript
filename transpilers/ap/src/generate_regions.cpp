@@ -7,10 +7,8 @@
 namespace rls::transpilers::ap {
 
 void ApTranspiler::GenerateRegionsSource(rls::OutputWriter& out) const {
-	// `foo.gen.py` is not importable: Python reads the dot as a package separator, so the
-	// module would have to be reached as `foo.gen`. Underscore keeps it a plain module name.
-	auto& source = out.open("regions_gen.py");
-	source << regionsPreamble();
+	// The body is generated first: the preamble's imports are whatever it turns out to use.
+	std::ostringstream source;
 
 	// Helper-call names are the same for every region; resolve them once.
 	const std::string eventsFn = addEventsFn();
@@ -72,6 +70,9 @@ void ApTranspiler::GenerateRegionsSource(rls::OutputWriter& out) const {
 		source << "    # " << RegionDisplayName(*region) << "\n";
 		source << events << locations << exits << "\n";
 	}
+
+	const std::string body = source.str();
+	out.open("regions_gen.py") << regionsPreamble(FreePythonNames(body, regionsBoundNames())) << body;
 }
 
 } // namespace rls::transpilers::ap

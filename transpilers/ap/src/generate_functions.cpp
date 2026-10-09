@@ -5,8 +5,7 @@
 namespace rls::transpilers::ap {
 
 void ApTranspiler::GenerateFunctionDefinitionsSource(rls::OutputWriter& out) const {
-	auto& source = out.open("functions_gen.py");
-	source << functionsPreamble();
+	std::ostringstream source;
 
 	// Resolve an AST node's RLS type to its Python type name, deferring the
 	// concrete mapping to the game hook.
@@ -57,6 +56,9 @@ void ApTranspiler::GenerateFunctionDefinitionsSource(rls::OutputWriter& out) con
 		source << sig.str() << ":\n";
 		source << "    return " << GenerateExpression(decl->body) << "\n";
 	}
+
+	const std::string body = source.str();
+	out.open("functions_gen.py") << functionsPreamble(FreePythonNames(body)) << body;
 }
 
 } // namespace rls::transpilers::ap

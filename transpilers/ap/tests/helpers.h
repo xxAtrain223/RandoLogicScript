@@ -46,7 +46,7 @@ namespace rls::transpilers::ap_tests {
 		using ApTranspiler::GenerateRegionsSource;
 
 	protected:
-		std::string regionsPreamble() const override { return ""; }
+		std::string regionsPreamble(const std::set<std::string>&) const override { return ""; }
 		std::string regionCreationArgs(const std::string&) const override { return ""; }
 		std::string addEventsFn() const override { return ""; }
 		std::string addLocationsFn() const override { return ""; }
@@ -57,7 +57,7 @@ namespace rls::transpilers::ap_tests {
 		std::string locationEntryLine(const std::string&, const std::string&) const override { return ""; }
 		std::string exitEntryLine(const std::string&, const std::string&) const override { return ""; }
 		void writeEnums(rls::OutputWriter&) const override {}
-		std::string functionsPreamble() const override { return ""; }
+		std::string functionsPreamble(const std::set<std::string>&) const override { return ""; }
 		std::string pythonTypeName(rls::ast::Type, std::optional<std::string_view>) const override { return ""; }
 	};
 

@@ -31,7 +31,7 @@ from rule_builder.rules import NestedRule, Rule
 
 if TYPE_CHECKING:
     from . import SohWorld
-    from .Enums import Regions
+    from .enums_gen import Regions
 
 
 class Conditional(NestedRule, game="Ship of Harkinian"):
