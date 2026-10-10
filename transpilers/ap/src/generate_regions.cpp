@@ -15,7 +15,8 @@ void ApTranspiler::GenerateRegionsSource(rls::OutputWriter& out) const {
 	const std::string locationsFn = addLocationsFn();
 	const std::string exitsFn = connectRegionsFn();
 
-	for (const auto& [regionName, region] : project.RegionDecls) {
+	for (const auto& regionEntry : project.RegionDecls) {
+		const auto& region = regionEntry.second;
 		const auto extendRegionIt = project.ExtendRegionDecls.find(region->key.text);
 
 		std::vector<const rls::ast::ExtendRegionDecl*> extendRegionDecls;
