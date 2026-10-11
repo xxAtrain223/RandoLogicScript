@@ -127,6 +127,21 @@ TEST(SohApEnums, RegionWithoutSceneGetsEmptyValue) {
 	EXPECT_NE(out.find("    Regions.RR_TEST_ROOM: \"\","), std::string::npos) << out;
 }
 
+// REGION_TIME_PASSES carries a region's explicit `timePasses:` and None for Auto (or no entry),
+// which the host resolves from the scene.
+TEST(SohApEnums, RegionTimePassesMapIsGenerated) {
+	const std::string out = generateEnums(
+		"enum TimePasses { Auto, Yes, No }\n"
+		"region RR_NO_ROOM {\n    name: \"No Room\"\n    timePasses: TimePasses.No\n}\n"
+		"region RR_YES_ROOM {\n    name: \"Yes Room\"\n    timePasses: TimePasses.Yes\n}\n"
+		"region RR_AUTO_ROOM {\n    name: \"Auto Room\"\n}\n");
+
+	EXPECT_NE(out.find("REGION_TIME_PASSES: dict[Regions, bool | None] = {\n"), std::string::npos) << out;
+	EXPECT_NE(out.find("    Regions.RR_NO_ROOM: False,\n"), std::string::npos) << out;
+	EXPECT_NE(out.find("    Regions.RR_YES_ROOM: True,\n"), std::string::npos) << out;
+	EXPECT_NE(out.find("    Regions.RR_AUTO_ROOM: None,\n"), std::string::npos) << out;
+}
+
 // RR_NONE is Ship's sentinel region: host.rls uses it as the default for spirit_shared's
 // optional region parameters, so generated code references it even though no region declares it.
 TEST(SohApEnums, RrNoneSentinelIsAlwaysEmitted) {

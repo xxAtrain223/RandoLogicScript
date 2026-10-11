@@ -52,6 +52,29 @@ std::string regionQuest(const rls::ast::RegionDecl& region) {
 	return "";
 }
 
+// A region's `timePasses:` as a Python literal: "True"/"False" for an explicit TimePasses.Yes/No,
+// "None" for Auto or no entry. Auto means "decided by the scene" (Ship's GetTimePassFromScene),
+// which is host knowledge, so the host resolves None from REGION_SCENE.
+std::string regionTimePasses(const rls::ast::RegionDecl& region) {
+	const auto* entry = region.body.findData("timePasses");
+	if (entry == nullptr) {
+		return "None";
+	}
+	std::string_view value;
+	if (const auto* member = std::get_if<rls::ast::MemberExpr>(&entry->value->node)) {
+		value = member->member.text;
+	} else if (const auto* ident = std::get_if<rls::ast::Identifier>(&entry->value->node)) {
+		value = ident->name.text;
+	}
+	if (value == "Yes") {
+		return "True";
+	}
+	if (value == "No") {
+		return "False";
+	}
+	return "None";
+}
+
 // Emit a StrEnum whose members are `auto()`-valued. The shared _generate_next_value_ turns
 // a member name into its display string by dropping `stripPrefix` and title-casing the rest
 // (RC_SONG_FROM_SARIA -> "Song From Saria"), so the values never have to be spelled out.
@@ -163,12 +186,14 @@ void SohApTranspiler::writeEnums(rls::OutputWriter& out) const {
 	std::vector<std::string> regions;          // `RR_X = "Display Name"` lines
 	std::vector<std::pair<std::string, std::string>> regionScenes;  // region key -> SCENE_ token
 	std::vector<std::pair<std::string, std::string>> regionQuests;  // region key -> "mq"/"vanilla"/""
+	std::vector<std::pair<std::string, std::string>> regionTimes;   // region key -> True/False/None
 	std::set<std::string> events;              // deduplicated across regions and extensions
 
 	for (const auto& [regionName, region] : project.RegionDecls) {
 		regions.push_back(region->key.text + " = \"" + RegionDisplayName(*region) + "\"");
 		regionScenes.emplace_back(region->key.text, RegionScene(*region));
 		regionQuests.emplace_back(region->key.text, regionQuest(*region));
+		regionTimes.emplace_back(region->key.text, regionTimePasses(*region));
 
 		// A region's own sections plus every `extend region` block that targets it.
 		std::vector<const rls::ast::ExtendRegionDecl*> extendRegionDecls;
@@ -208,6 +233,7 @@ void SohApTranspiler::writeEnums(rls::OutputWriter& out) const {
 	regions.push_back("RR_NONE = \"None\"");
 	regionScenes.emplace_back("RR_NONE", "");
 	regionQuests.emplace_back("RR_NONE", "");
+	regionTimes.emplace_back("RR_NONE", "False");
 
 	// Unlike the auto() StrEnums above, this class has no _generate_next_value_ to fall back
 	// on: every member carries its own display name.
@@ -229,6 +255,14 @@ void SohApTranspiler::writeEnums(rls::OutputWriter& out) const {
 	source << "\nREGION_QUEST: dict[Regions, str] = {\n";
 	for (const auto& [regionKey, quest] : regionQuests) {
 		source << "    Regions." << regionKey << ": " << pyString(quest) << ",\n";
+	}
+	source << "}\n";
+
+	// Whether time passes in each region (Ship's Region::timePass). None is TimePasses.Auto:
+	// the scene decides, via the host's copy of GetTimePassFromScene.
+	source << "\nREGION_TIME_PASSES: dict[Regions, bool | None] = {\n";
+	for (const auto& [regionKey, passes] : regionTimes) {
+		source << "    Regions." << regionKey << ": " << passes << ",\n";
 	}
 	source << "}\n";
 
