@@ -32,13 +32,13 @@ This plan covers the full document in implementation phases and has been approve
 
 ### Current handoff
 
-- **Completed:** Planning and user approval only. No transpiler implementation has started; all nine implementation phases remain pending.
-- **Current phase/checkpoint:** Phase 1 (`tracker-foundation`), not started. First checkpoint is backend scaffold/build wiring plus a minimal test, with no generation logic yet.
-- **Review status:** Overall design approved. No implementation checkpoint has been submitted for review.
-- **Relevant worktree state:** This plan was moved from session storage into this document. The existing requirements document is user-provided; preserve it and unrelated worktree changes. Recheck current status before editing.
-- **Validation:** Documentation-only save; no implementation tests run. Proposed validation commands below are not executed results.
-- **Blockers/open decisions:** None for the scaffold checkpoint. Real-consumer validation and recursive execution support remain outside the current local delivery, as detailed below.
-- **Next action:** Wait for the user's instruction to start the first checkpoint. Then inspect current CMake/test conventions, explain the small change, implement and validate it, update this handoff, and stop for review.
+- **Completed:** Phase 1's first checkpoint: [backend scaffold](../transpilers/soh_tracker), registered in [transpiler CMake](../transpilers/CMakeLists.txt), plus a minimal frontend-backed construction test. No implementation phase is complete.
+- **Current phase/checkpoint:** Phase 1 (`tracker-foundation`), scaffold implemented and verified. The backend holds a const analyzed project; there is deliberately no generation API, output, or CLI exposure yet.
+- **Review status:** Overall design approved. Scaffold checkpoint awaits user review; subsequent Phase 1 work has not started.
+- **Relevant worktree state:** Initially clean. Uncommitted changes are the new backend directory, CMake registration, and this handoff. Requirements and existing backends are unchanged.
+- **Validation:** `cmake --build build --target soh_tracker_tests soh_tests --parallel 2` passed in the MSVC x86 developer environment. `ctest --test-dir build\transpilers\soh_tracker --output-on-failure` passed (1/1); `ctest --test-dir build\transpilers\soh --output-on-failure` passed (70/70). `git diff --check` passed before this documentation update. No full-repository suite or consumer validation run.
+- **Blockers/open decisions:** None for the scaffold. Real-consumer validation and recursive execution support remain downstream gates.
+- **Next action:** Stop for user review. Once authorized, continue Phase 1 with a focused typed-lowering contract checkpoint; IR, deterministic graph bookkeeping, shared enum mappings, representation policy, and the consumer declaration fixture remain pending.
 
 ## Confirmed decisions and boundaries
 
