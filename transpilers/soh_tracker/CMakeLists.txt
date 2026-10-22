@@ -14,4 +14,5 @@ if(BUILD_TESTING)
 
     rls_add_gtest(soh_tracker_tests ${soh_tracker_test_sources})
     target_link_libraries(soh_tracker_tests PRIVATE soh_tracker sema)
+    target_include_directories(soh_tracker_tests PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/src")
 endif()

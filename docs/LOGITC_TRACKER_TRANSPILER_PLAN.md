@@ -32,13 +32,15 @@ This plan covers the full document in implementation phases and has been approve
 
 ### Current handoff
 
-- **Completed:** Phase 1's first checkpoint: [backend scaffold](../transpilers/soh_tracker), registered in [transpiler CMake](../transpilers/CMakeLists.txt), plus a minimal frontend-backed construction test. No implementation phase is complete.
-- **Current phase/checkpoint:** Phase 1 (`tracker-foundation`), scaffold implemented and verified. The backend holds a const analyzed project; there is deliberately no generation API, output, or CLI exposure yet.
-- **Review status:** Overall design approved. Scaffold checkpoint awaits user review; subsequent Phase 1 work has not started.
-- **Relevant worktree state:** Initially clean. Uncommitted changes are the new backend directory, CMake registration, and this handoff. Requirements and existing backends are unchanged.
-- **Validation:** `cmake --build build --target soh_tracker_tests soh_tests --parallel 2` passed in the MSVC x86 developer environment. `ctest --test-dir build\transpilers\soh_tracker --output-on-failure` passed (1/1); `ctest --test-dir build\transpilers\soh --output-on-failure` passed (70/70). `git diff --check` passed before this documentation update. No full-repository suite or consumer validation run.
-- **Blockers/open decisions:** None for the scaffold. Real-consumer validation and recursive execution support remain downstream gates.
-- **Next action:** Stop for user review. Once authorized, continue Phase 1 with a focused typed-lowering contract checkpoint; IR, deterministic graph bookkeeping, shared enum mappings, representation policy, and the consumer declaration fixture remain pending.
+- **Completed:** Phase 1 scaffold/build checkpoint and typed-lowering contract checkpoint. No implementation phase is complete.
+- **Current phase/checkpoint:** Phase 1 (`tracker-foundation`): private [descriptor contract](../transpilers/soh_tracker/src/tracker_ir.h), [representation policy](../transpilers/soh_tracker/src/tracker_ir.cpp), and [contract tests](../transpilers/soh_tracker/tests/tracker_ir_tests.cpp) implemented and verified. No lowering traversal, generation API, output, or CLI exposure yet.
+- **Contract scope:** Distinct descriptor/helper/adapter handles and final IDs/counts; typed payloads, ordered child occurrences, roots, borrowed sema facts, and provenance. Bool stays Bool; Int/enums/keys map to Int32; Condition remains distinct from the seven integral conversion targets. Missing/unsupported semantic facts produce diagnostics.
+- **Recursion status:** Storage tests demonstrate finite forward/mutual helper references with separately assigned bodies, not automatic helper registration, cycle-safe traversal, or runtime recursion support.
+- **Review status:** Overall design approved; user authorized continuation after the scaffold. Typed-contract checkpoint awaits user review.
+- **Relevant worktree state:** Scaffold was already committed when this checkpoint began. Uncommitted changes are tracker IR source/tests, tracker test include wiring, and this handoff. Requirements and existing backends are unchanged.
+- **Validation:** `cmake --build build --target soh_tracker_tests soh_tests --parallel 2` passed in the MSVC x86 developer environment. `ctest --test-dir build\transpilers\soh_tracker --output-on-failure` passed (9/9); `ctest --test-dir build\transpilers\soh --output-on-failure --quiet` passed (existing 70 tests). `git diff --check` passed before this documentation update. No full-repository suite or consumer validation run.
+- **Blockers/open decisions:** None locally. Real-consumer validation and recursive execution support remain downstream gates.
+- **Next action:** Stop for user review. Once authorized, continue Phase 1 with deterministic helper registration/discovery and final numbering, including normalized project-relative source ordering and checked ABI limits. Shared enum mappings and the consumer declaration fixture also remain pending; Phase 2 has not started.
 
 ## Confirmed decisions and boundaries
 
