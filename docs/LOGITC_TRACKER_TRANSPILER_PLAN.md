@@ -32,15 +32,16 @@ This plan covers the full document in implementation phases and has been approve
 
 ### Current handoff
 
-- **Completed:** Phase 1 scaffold/build checkpoint and typed-lowering contract checkpoint. No implementation phase is complete.
-- **Current phase/checkpoint:** Phase 1 (`tracker-foundation`): private [descriptor contract](../transpilers/soh_tracker/src/tracker_ir.h), [representation policy](../transpilers/soh_tracker/src/tracker_ir.cpp), and [contract tests](../transpilers/soh_tracker/tests/tracker_ir_tests.cpp) implemented and verified. No lowering traversal, generation API, output, or CLI exposure yet.
-- **Contract scope:** Distinct descriptor/helper/adapter handles and final IDs/counts; typed payloads, ordered child occurrences, roots, borrowed sema facts, and provenance. Bool stays Bool; Int/enums/keys map to Int32; Condition remains distinct from the seven integral conversion targets. Missing/unsupported semantic facts produce diagnostics.
-- **Recursion status:** Storage tests demonstrate finite forward/mutual helper references with separately assigned bodies, not automatic helper registration, cycle-safe traversal, or runtime recursion support.
-- **Review status:** Overall design approved; user authorized continuation after the scaffold. Typed-contract checkpoint awaits user review.
-- **Relevant worktree state:** Scaffold was already committed when this checkpoint began. Uncommitted changes are tracker IR source/tests, tracker test include wiring, and this handoff. Requirements and existing backends are unchanged.
-- **Validation:** `cmake --build build --target soh_tracker_tests soh_tests --parallel 2` passed in the MSVC x86 developer environment. `ctest --test-dir build\transpilers\soh_tracker --output-on-failure` passed (9/9); `ctest --test-dir build\transpilers\soh --output-on-failure --quiet` passed (existing 70 tests). `git diff --check` passed before this documentation update. No full-repository suite or consumer validation run.
+- **Completed:** Phase 1 scaffold, typed-lowering contract, and deterministic graph bookkeeping checkpoints. No implementation phase is complete.
+- **Current phase/checkpoint:** Phase 1 (`tracker-foundation`): [graph utilities](../transpilers/soh_tracker/src/tracker_graph.h) and [tests](../transpilers/soh_tracker/tests/tracker_graph_tests.cpp) implemented and verified. Helpers register once before their bodies; graph reference checks and root-reachable numbering are iterative and cycle-safe. Source-order policy is recorded below.
+- **Contract scope:** The existing private descriptors and sema-backed representation policy remain unchanged. New checks cover dangling/incomplete references, duplicate helper/root identities, n-ary minimum arity, uint32 node indices with uint64 counts, and the 256-argument limit for helper/extern calls. This is not the full target type/ABI validator.
+- **Coupled fix:** Successful parsing previously discarded `File::path`. [Parser orchestration](../parser/src/parser.cpp) now retains it, with a [regression test](../parser/tests/parser_tests.cpp); the source-order test exposed this dependency. No other frontend behavior was intentionally changed.
+- **Recursion status:** Synthetic self/mutual references and deep graphs terminate in discovery/numbering. Existing sema recursion rejection and deferred consumer recursion support remain unchanged.
+- **Review status:** Overall design approved; user authorized continuation after the typed contract. Graph-bookkeeping checkpoint awaits user review.
+- **Relevant worktree state:** Initially clean. Uncommitted changes are graph utilities/tests, helper registration on the IR graph, the coupled parser fix/test, and this plan. Requirements and existing backends are unchanged.
+- **Validation:** `cmake --build build --target soh_tracker_tests soh_tests parser_tests --parallel 2` passed in the MSVC x86 developer environment. `ctest --test-dir build\transpilers\soh_tracker --output-on-failure` passed (23/23); `ctest --test-dir build\parser --output-on-failure --quiet` and `ctest --test-dir build\transpilers\soh --output-on-failure --quiet` passed (complete parser suite and existing 70 SoH tests). `git diff --check` passed before this documentation update. No full-repository suite or consumer validation run.
 - **Blockers/open decisions:** None locally. Real-consumer validation and recursive execution support remain downstream gates.
-- **Next action:** Stop for user review. Once authorized, continue Phase 1 with deterministic helper registration/discovery and final numbering, including normalized project-relative source ordering and checked ABI limits. Shared enum mappings and the consumer declaration fixture also remain pending; Phase 2 has not started.
+- **Next action:** Stop for user review. Once authorized, finish Phase 1's shared enum mapping header and test-only consumer declaration fixture. Source lowering, backend orchestration wiring, full target validation, generation, and CLI exposure have not started.
 
 ## Confirmed decisions and boundaries
 
@@ -87,6 +88,14 @@ Existing parser -> existing AST/Project -> existing sema
 - Translate analyzed types to consumer-supported value representations and insert required conversion nodes. This is target lowering of established semantics, not type inference. Missing required semantic metadata produces a diagnostic rather than guessed replacement facts.
 - Keep this graph private to `soh_tracker`, scoped to generation, and no more general than required for node sharing, flattening, validation, deterministic IDs, and C++ serialization. Do not mutate the input AST or add a cross-backend IR framework.
 - Backend tests normally parse/analyze using the existing frontend. Synthetic graph tests exercise only lowering/representation invariants and do not establish a separate semantic pipeline.
+
+### Deterministic source and graph ordering
+
+- Supply an explicit absolute project source root to the private ordering/numbering utilities. Normalize paths lexically to project-relative UTF-8 names with generic separators; do not consult the filesystem or process working directory. Sources outside the root retain relative `..` components; paths on incompatible roots produce diagnostics instead of absolute-path fallbacks.
+- Traverse the sorted source-file view by normalized path, retaining each file's declaration order and each declaration's section, entry, and argument order. Extensions follow that same file/declaration order. Do not sort or mutate the analyzed project's containers; duplicate normalized file paths are errors.
+- Start final numbering from roots sorted by normalized source path and source positions, with symbolic root identity as the deterministic tie-breaker. Traverse descriptor children in payload order, call arguments before a helper body, match discriminants before arms, and arm patterns before bodies. Assign contiguous IDs on first visit using an iterative preorder walk; handles and input storage order are not emitted identities.
+- Validate reference integrity across all stored descriptors, then number only root-reachable nodes. Preserve repeated child positions even when discovery visits a shared target once. Unreachable definitions receive no final IDs; cycles do not cause recursive expansion or a tracker-specific recursion diagnostic.
+- These utilities operate on lowering descriptors, not source expressions. Phase 2 will connect the ordered source view to root collection/lowering; later emission and manifest code must reuse this ordering and path normalization.
 
 ## Required flattening policy
 

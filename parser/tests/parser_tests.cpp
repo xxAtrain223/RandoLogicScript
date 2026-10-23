@@ -49,6 +49,21 @@ TEST(ParserTests, ReturnsEmptyFileForEmptySource) {
 	EXPECT_TRUE(file.diagnostics.empty());
 }
 
+TEST(ParserTests, PreservesSourcePathForEmptyValidAndInvalidFiles) {
+	const std::string filename = "source_path.rls";
+	for (const auto source : {"", "define available(): true", "define invalid:"}) {
+		SCOPED_TRACE(source);
+		const auto file = rls::parser::ParseString(source, filename);
+		EXPECT_EQ(file.path, filename);
+		for (const auto& declaration : file.declarations) {
+			std::visit([&](const auto& node) { EXPECT_EQ(node.span.file, filename); }, declaration);
+		}
+		for (const auto& diagnostic : file.diagnostics) {
+			EXPECT_EQ(diagnostic.span.file, filename);
+		}
+	}
+}
+
 TEST(ParserTests, InvalidSourceReportsDiagnostic) {
 	const auto file = rls::parser::ParseString("not valid rls at all ^^^");
 

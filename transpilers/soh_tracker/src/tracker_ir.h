@@ -189,6 +189,8 @@ struct Graph {
 	std::vector<HelperDefinition> helpers;
 	std::vector<HostAdapter> adapters;
 	std::vector<Root> roots;
+
+	HelperHandle RegisterHelper(const ast::DefineDecl& declaration);
 };
 
 } // namespace rls::transpilers::soh_tracker::ir
