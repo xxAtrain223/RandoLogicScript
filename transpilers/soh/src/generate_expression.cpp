@@ -1,5 +1,5 @@
 #include "soh.h"
-#include "enum_mappings.h"
+#include "soh/enum_mappings.h"
 
 #include <algorithm>
 #include <optional>

@@ -6,6 +6,7 @@ add_library(soh_tracker STATIC ${soh_tracker_sources})
 
 target_include_directories(soh_tracker PUBLIC include)
 target_link_libraries(soh_tracker PUBLIC ast)
+target_link_libraries(soh_tracker PRIVATE rls_soh_host_mappings)
 
 if(BUILD_TESTING)
     file(GLOB soh_tracker_test_sources CONFIGURE_DEPENDS
