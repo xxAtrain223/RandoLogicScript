@@ -368,12 +368,10 @@ Adapters operate on the **original** `EvalResult` arguments passed by the extern
 
 ```cpp
 static value_t any_age_adapter(std::span<EvalResult> arguments) {
-	TrackerHostStateGuard stateGuard;
 	return any_age(MakeConditionCallback(arguments[0]));
 }
 
 static value_t spirit_shared_adapter(std::span<EvalResult> arguments) {
-	TrackerHostStateGuard stateGuard;
 	return spirit_shared(
 		static_cast<RandomizerRegion>(ToInt<int32_t>(arguments[0].Result)),
 		MakeConditionCallback(arguments[1]),
@@ -385,15 +383,13 @@ static value_t spirit_shared_adapter(std::span<EvalResult> arguments) {
 }
 ```
 
-`TrackerHostStateGuard` above is a proposed consumer-integration type, not an existing runtime API. Require it through a documented consumer-provided integration header (section 16), with a test implementation in the RLS-local fixture. It saves/restores `IsChild`, `IsAdult`, `AtDay`, `AtNight`, and `CurrentRegionKey`. The downstream prototype has a private `LogicStateGuard` that generated code cannot directly use. Do not infer private game layouts from unavailable headers.
+Generated adapters do not save or restore host state and must not depend on a generated integration guard. Host extern functions used by the tracker are required to be observational: they must not change age, time, region, check, or other game state. Enforce and test this contract in the host program. Callback capture is lexical scope only; age/time/current-region must be read when the callback runs, not frozen at graph construction or closure creation.
 
-Restore state on success and exceptions, including nested callbacks. Audit each context-changing host binding rather than assuming every extern is pure. Callback capture is lexical scope only; age/time/current-region must be read when the callback runs, not frozen at graph construction or closure creation.
-
-The outer tracker remains responsible for establishing region, check, and age/time context. In particular, `check_price(RC_UNKNOWN_CHECK)` resolves through `logic->CurrentCheckKey`; the generator must not replace the sentinel with a guessed location. The existing guard does not save that field, so outer integration must also preserve any check context it changes.
+The outer tracker remains responsible for establishing region, check, and age/time context. In particular, `check_price(RC_UNKNOWN_CHECK)` resolves through `logic->CurrentCheckKey`; the generator must not replace the sentinel with a guessed location.
 
 Generated `std::function` callbacks reference evaluation argument storage. The current host bridge is synchronous: callbacks must not escape the extern invocation. Supporting deferred/asynchronous callback retention would require a different ownership contract and is out of scope.
 
-For other hosts/custom extern enums, use an explicit mapping/extension point or a diagnostic identifying the missing host binding. Wildcard enum declarations are not an instruction to invent numeric enum values.
+For other hosts/custom extern enums, use an explicit C++ enum-type mapping or diagnose the missing mapping. Extern functions and their signatures come only from analyzed `extern define` declarations; do not add a separate host-function binding registry. Wildcard enum declarations are not an instruction to invent numeric enum values.
 
 ## 9. Lazy conditions, references, and invocation
 
@@ -602,7 +598,7 @@ These issues must be resolved or explicitly delivered as blocked compatibility w
 | Issue | Required handling |
 | --- | --- |
 | Prototype factory conflicts with generated resolver/count | Remove/exclude prototype definitions in the Shipwright integration build; exactly one definition each of `GetExpression(index_t)` and `GetExpressionCount()`. |
-| Private prototype state guard | Proposed `TrackerHostStateGuard` from a documented consumer integration header, with a local test implementation and downstream restoration tests. |
+| Host extern purity | The host program enforces that tracker extern functions do not mutate game state; generated adapters do not manage or restore host state. |
 | Prototype root coverage limited to eight Kokiri Shop checks | Generate complete root records and validate actual access-object association, including events and duplicate occurrences. |
 | Typed coercions | Use the implemented transparent `ConversionExpression<T>`; retain operands and original display text without extra UI rows. |
 | Numeric/enum match result types | Supply the analyzed template target in `MatchExpression<T>`; `MatchExpression<>` deliberately retains legacy behavior. |
@@ -821,7 +817,7 @@ int required_triforce_pieces(); int collected_triforce_pieces();
 
 For default arguments, use the analyzed RLS declaration, not the absence of C++ defaults in this signature list. The seven-argument `spirit_shared` RLS signature/defaults are embedded in section 7. Select reachable bindings from the actual analyzed project, including custom externs; this list describes the baseline SoH host, not a closed list of legal RLS externs.
 
-Generated adapters may include consumer-supplied `rls_host.h` and a documented generated-integration header. That header must provide the game declarations above and the agreed state-guard type `TrackerHostStateGuard`; this is a **proposed downstream integration requirement**, not an existing public class. For an RLS-only compiled fixture, provide those declarations and a test implementation of the guard. It must restore `IsChild`, `IsAdult`, `AtDay`, `AtNight`, and `CurrentRegionKey` on normal/exceptional exit; the outer consumer establishes and restores check context. Do not generate references to the private prototype `LogicStateGuard`. Do not duplicate the game's mutable global structures inside generated code.
+Generated adapters include consumer-supplied `rls_host.h` for the game declarations above. No generated integration guard is required or emitted. The host program is responsible for enforcing that tracker extern functions do not mutate game state; do not duplicate game globals or host-state management inside generated code.
 
 ### Embedded standalone corpus
 

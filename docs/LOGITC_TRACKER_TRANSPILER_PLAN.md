@@ -32,15 +32,15 @@ This plan covers the full document in implementation phases and has been approve
 
 ### Current handoff
 
-- **Completed:** Phases 1-2 and Phase 3 checkpoints 3a/3b (named calls, invocation, and function references) are implemented and locally verified. Phases 4-9 remain.
-- **Checkpoint 3b:** [Call lowering](../transpilers/soh_tracker/src/tracker_calls.cpp) now lowers callable-parameter calls to scope reads plus Invoke nodes, respecting lexical shadowing. `InvokeExpr` invokes returned Condition values without wrapping or converting them. Bare sema-classified function references become lazy Condition nodes around zero-parameter Bool helper/extern calls; provenance points to the original identifier, not a temporary synthetic AST.
-- **Preserved structure/scopes:** Call/argument/invocation occurrences remain distinct; helper bodies and extern signature descriptors are shared. Existing/returned conditions forward unchanged; lazy bodies retain lexical parameter reads. Defaults retain sema's global resolution. No generated scope names or global mutable bindings are introduced.
-- **Boundaries:** Extern descriptors do not yet generate adapters or certify host bindings (including host Condition returns). Callable-valued matches and integral conversion of conditions remain diagnosed. No CLI/emission integration or partial-success root graphs. Runtime closure execution and trace behavior are not verified locally.
-- **Coverage:** [Call tests](../transpilers/soh_tracker/tests/tracker_calls_tests.cpp) retain named/default arguments, Spirit Shared, root integration, ABI limits, and synthetic cycles. New cases cover parameter/global shadowing, separate repeated invocations, returned-condition capture, helper/extern references and defaults, Condition-valued ternaries, extern-returned conditions, persistent provenance, malformed invocation/reference metadata, and unchanged sema restrictions on defaulted/non-Bool bare references.
-- **Validation boundary:** As approved, do not restore copied consumer declarations or local generated-C++ compilation fixtures. Compile/API/runtime compatibility must be verified against the real downstream interface; no real-consumer validation has run.
-- **Review/worktree:** User authorized continuation after 3a; checkpoint 3b awaits review. Worktree was clean on entry. Changes are private call-lowering/dispatch sources, call tests, and this plan. Sema, requirements, and gameplay emission code are unchanged.
-- **Validation:** `cmake --build build --target soh_tracker_tests --parallel 2` and `ctest --test-dir build\transpilers\soh_tracker --output-on-failure` passed (68 tests). The editor test tool still did not discover the selected files; CTest verified the complete tracker suite. Existing SoH/sema suites were not rerun for these tracker-only changes.
-- **Next action:** Stop for review, then begin a focused Phase 4 checkpoint for typed host adapters and explicit binding/guard contracts. Consult requirements sections 8 and 16; do not assume every representable extern signature already has a supported host binding.
+- **Completed:** Phases 1-3 are implemented and locally verified. User authorized starting Phase 4; checkpoint **4a** implements the private typed-adapter rendering pass and awaits review.
+- **Checkpoint 4a:** [Adapter rendering](../transpilers/soh_tracker/src/tracker_adapters.cpp) derives adapters from analyzed `extern define` descriptors, with no function-name/signature registry. It returns complete in-memory definitions or source diagnostics, never partial output. Direct host calls normalize results to the declared RLS representation, including host-width differences such as `setting`, and preserve original callback argument references.
+- **Contracts:** Extern names, signatures, and value conversions come only from analyzed declarations. No custom host-binding override API exists. Host effects are not guarded or inferred by generated code; the host program must enforce that tracker externs do not mutate state. Unmapped external enum C++ types still require an explicit type mapping. Durable integration details are in Phase 4 below.
+- **Coverage:** [Adapter tests](../transpilers/soh_tracker/tests/tracker_adapters_tests.cpp) cover all embedded host declarations, custom externs, familiar names with different declared signatures, enum/key casts, return normalization, `RC_UNKNOWN_CHECK`, Spirit Shared callbacks/defaults, Condition returns, external enum mappings, empty input, and all-or-error rendering. Existing lowering/call tests remain unchanged.
+- **Pipeline boundary:** `LowerRoots` still produces unvalidated extern descriptors. The new rendering pass is independently tested, not yet called by a backend orchestration or CLI. Phase 5 must validate bindings with the complete graph; Phase 6 must consume adapter handles/symbols and emit their definitions/includes. No custom configuration syntax or CLI option was added.
+- **Downstream boundary:** No copied consumer declarations, substitute host state guard, or generated-C++ compilation fixture. Real-interface compilation, host-enforced nonmutation, and runtime callback/closure traces remain unverified downstream gates.
+- **Review/worktree:** Revised 4a per user direction to remove the `HostBinding` extension API and override-specific checks; adapters are derived only from analyzed extern declarations. Awaiting review. Changes include adapter source/header/tests and the plan plus requirements updates. Sema, public backend API, CLI, and existing gameplay output are unchanged.
+- **Validation:** In an MSVC x86 developer environment matching the existing build cache (`vcvars32.bat`), `cmake --build build --target soh_tracker_tests --parallel 2` and `ctest --test-dir build\transpilers\soh_tracker --output-on-failure` passed (**79 tests**) after removing the registry and custom-binding overrides. The editor test tool found no selected tests; CTest ran the suite. Existing SoH/sema suites and real-consumer compilation/runtime checks were not run.
+- **Next action:** Stop for checkpoint 4a review. After authorization, proceed to Phase 5 complete-graph validation, including invoking adapter contract validation before any output publication. Carry the Phase 4 downstream guard/API checks forward; do not imply locally rendered adapters are consumer-certified.
 
 ## Confirmed decisions and boundaries
 
@@ -159,7 +159,7 @@ Expose or extract the existing host enum mapping header to a shared include loca
 | `logic_tracker.gen.cpp` | Exactly one global definition each of `GetExpression(index_t)`, `uint64_t GetExpressionCount()`, and `GetLogicRoots()`; includes per-ID factories, adapters, and literal-backed metadata. |
 | `logic_tracker.manifest.json` | Deterministic debug-only node/root listing with counts and normalized source provenance; never loaded by the runtime and never used as a substitute for the root map. |
 
-The generated implementation uses consumer `rls_host.h` and a documented proposed integration header, `rls_tracker_host.h`, providing `TrackerHostStateGuard`. Include matching `functions.gen.h` when local enum declarations are needed. State clearly which includes and link implementations the consumer must supply; do not invent an existing public game guard or global-state layout.
+The generated implementation uses consumer `rls_host.h`. Include matching `functions.gen.h` when local enum declarations are needed. State clearly which includes and link implementations the consumer must supply. Host code must enforce the nonmutating-extern contract; generated adapters do not manage host state.
 
 ### Integration, samples, and documentation
 
@@ -232,12 +232,22 @@ Depends on: `tracker-foundation`, `tracker-callables`.
 - Convert Bool arguments with `ToBool`, Int arguments with `ToInt<int32_t>`, enum/key arguments with mapped host casts, and Condition arguments with `MakeConditionCallback` on the original argument result.
 - Normalize host return values to the analyzed RLS representation. In particular, `setting` returns host `uint8_t` but represents RLS Int.
 - Preserve `check_price`'s analyzed `RC_UNKNOWN_CHECK` default and leave check-context interpretation to the host.
-- Require the proposed integration guard for callback/context-changing calls; cover known built-ins and document custom bindings' synchronous callback contract.
-- Permit ordinary custom externs when their analyzed types have supported host bindings. Provide an explicit binding extension point or a source diagnostic for missing mappings or incompatible callback/return contracts; do not infer types from symbol prefixes.
-- Reject bindings declared to retain borrowed callbacks; deferred/asynchronous callback ownership is out of scope.
-- Document the required host/guard contract; verify nested and exceptional age/time/region restoration in the actual consumer project, without a local substitute host/guard.
+- Require host externs to be nonmutating and enforce that contract in the host program. Keep Condition callbacks synchronous and document that borrowed callbacks must not escape the extern invocation.
+- Permit extern declarations whose analyzed types have supported host C++ types. Diagnose unsupported/missing type mappings; do not infer types from symbol prefixes or introduce a separate host-function binding registry.
+- Require synchronous Condition callback use by host functions; deferred/asynchronous callback ownership is out of scope.
+- Document host-enforced extern nonmutation; verify it in the actual consumer project.
 
-Exit criteria: local structural/output assertions cover enum namespaces, return widths, defaults, and callback argument references. Adapter compilation and guard restoration remain downstream checks against real bindings.
+Exit criteria: local structural/output assertions cover enum namespaces, return widths, defaults, and callback argument references. Adapter compilation and host-enforced extern nonmutation remain downstream checks against real bindings.
+
+#### Adapter contracts and integration (checkpoint 4a)
+
+- [RenderHostAdapters](../transpilers/soh_tracker/src/tracker_adapters.h) is a private, pure in-memory rendering/representation-checking pass over the reachable extern descriptors registered by lowering. Successful records retain their `AdapterHandle` and generated symbol so later factories can reference the same adapter. Any diagnostic suppresses the entire rendered result. The Phase 5/6 orchestration must invoke this pass before publishing output; calling `LowerRoots` alone does not certify host bindings.
+- Adapter names, argument conversions, and result representations come from analyzed `extern define` descriptors, not a built-in function registry or symbol prefixes. By default, adapters call the declared global host function directly with typed converted arguments; the actual host header supplies its C++ signature and return width. Bool returns explicitly normalize to Bool; Int and enum/key returns explicitly normalize to `int32_t`, including a host `uint8_t` result for an RLS Int declaration such as `setting`. No return-width guess or exact C++ function-pointer signature is needed for this default path.
+- Enum/key arguments use the shared SoH C++ **type** mappings, never their constant namespaces or invented ordinals. Unmapped normal enums use the declarations from matching SoH-generated `functions.gen.h`; generate it from the same analyzed project and add its output directory to consumer include paths. Unmapped external enums require an explicit `HostEnumBinding`, otherwise a source diagnostic identifies the missing mapping.
+- Every emitted host-function name, arity, argument type, and RLS result type comes from the analyzed `extern define`; there is no separate function binding or signature override API. `HostEnumBinding` supplies only a C++ type name for an unmapped external enum, not a host function or signature.
+- Every host receiving a Condition argument must accept a synchronous callback such as `std::function<bool()>` (including an equivalent `ConditionFnCap` alias). Adapters call `MakeConditionCallback(arguments[i])` on original `EvalResult` storage, without copying it or freezing game state. Callbacks must finish before the host invocation returns, including on exception; retaining borrowed callback storage is unsupported. A Condition **return** is normalized to consumer `condition_t`, preserving the returned condition rather than wrapping a callback; the host must supply an owning condition with valid body/capture lifetime, never borrowed argument storage.
+- Final generated implementation includes consumer `logic_expression.h`, `rls_host.h`, plus matching `functions.gen.h` when local enums are used. The consumer supplies the declared host functions and runtime operations. Phase 6 is responsible for emitting these includes. Generated adapters do not include a state-management guard or mutate/restore host state.
+- Tracker host externs must not mutate game state. The consumer/host program is responsible for enforcing and validating that contract; RLS-generated adapters do not attempt to detect or prevent mutation. Outer tracker integration establishes the appropriate region, check key, age, and time context before evaluation. Adapters preserve sema's `check_price(RC_UNKNOWN_CHECK)` default as an ordinary argument and do not substitute a location.
 
 ### 5. Validating the complete graph and failure behavior
 
@@ -320,7 +330,7 @@ Depends on: `tracker-acceptance`.
 - Specify `LogicRootRegistry(GetLogicRoots(), GetExpressionCount())` construction and lookup behavior: missing keys are unavailable/error, ID zero is valid, there is no demonstration fallback, and roots/cache lookup stay separate.
 - Document how Shipwright must associate every LocationAccess, EventAccess, and Entrance with the exact root tuple. Use symbolic event identity, owner regions, occurrence zero, and original exit destination before shuffling. Do not reconstruct keys from tracker display strings or rely on registry iteration.
 - List prototype definitions/adapters/root records that the downstream build must remove or exclude, and generated translation units it must compile instead.
-- Specify proposed `TrackerHostStateGuard` ownership/header requirements and restoration fields. Outer integration establishes/restores owning region, check key, age, and time; retain the check-price sentinel behavior.
+- Specify and enforce in the consumer host program that tracker externs are nonmutating. Outer integration establishes owning region, check key, age, and time; retain the check-price sentinel behavior.
 - Record known ordinary-emitter limitations, such as repeated match discriminant evaluation and noncapturing Condition thunks. Do not copy their bugs or silently fix the ordinary backend as part of tracker work.
 - Enumerate pending real-runtime tests and production-corpus validation, including reporting production counts and confirming the uint32_t ABI. Any essential runtime API change must be described separately with before/after signatures, not committed as a replacement game runtime.
 
@@ -346,14 +356,13 @@ The target and test names above are proposed for new tests; select the exact dis
 - Deterministic generated C++ and debug listings.
 - C++20 constructor/signature/template compatibility against section 16.
 - CLI/manifest workflows, output errors, and unchanged ordinary backend artifacts.
-- Synthetic integration-guard restoration tests.
 
 ### Explicitly pending downstream
 
 - Actual cache demand construction, pointer stability, failure recovery, root validation/lookup, and lazy row expansion.
 - Evaluation order, flattened operand child indices/short-circuit traces, arithmetic intermediate conversions and early division exceptions, transparent conversion presentation, typed match fallback/fallthrough, and nested-match binding cleanup.
 - Captured lexical scope versus live game state, returned conditions, callback invocation ownership/final-trace behavior, shadowing, and exception cleanup.
-- Real host state/context restoration across child/adult and day/night, and check-price behavior.
+- Host-program verification that tracker externs are nonmutating, plus check-price behavior.
 - Actual location/event/exit access-object association, missing-root errors, shuffled-exit identity, and tracker display/smoke tests.
 - Ordinary-C++/tracker parity from independently reset identical host snapshots, with known ordinary-emitter mismatches isolated rather than masked.
 - Complete unavailable production corpus generation, reported counts, consumer build/linking, and 32-bit ABI confirmation.
