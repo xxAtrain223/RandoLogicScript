@@ -148,8 +148,10 @@ std::optional<NodeHandle> ExpressionLowerer::Lower(const ast::Expr& expression,
 			return Conditional(expression, node, type, scope);
 		} else if constexpr (std::is_same_v<T, ast::MatchExpr>) {
 			return MatchExpression(expression, node, type, scope);
-		} else if constexpr (std::is_same_v<T, ast::CallExpr> || std::is_same_v<T, ast::InvokeExpr>) {
-			return Fail(expression, "Tracker call/invocation lowering is not implemented yet.");
+		} else if constexpr (std::is_same_v<T, ast::CallExpr>) {
+			return Call(expression, node, type, scope);
+		} else if constexpr (std::is_same_v<T, ast::InvokeExpr>) {
+			return Fail(expression, "Tracker invocation lowering is not implemented yet.");
 		} else {
 			return Fail(expression, "Tracker lowering encountered an unsupported executable value.");
 		}

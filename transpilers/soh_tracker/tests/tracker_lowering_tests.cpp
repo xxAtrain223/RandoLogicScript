@@ -411,7 +411,7 @@ TEST_F(SohTrackerLowering, DoesNotGuessUnresolvedEnumsIdentifiersOrHere) {
 	expectError("sema-resolved region");
 }
 
-TEST_F(SohTrackerLowering, DiagnosesCallsAndUnselectedUnsupportedBranchesWithoutPartialSuccess) {
+TEST_F(SohTrackerLowering, RetainsCallsInUnselectedBranchesWithoutPruning) {
 	addSource(
 		"extern define host() -> Bool\n"
 		"region RR_TEST { locations {\n"
@@ -421,10 +421,14 @@ TEST_F(SohTrackerLowering, DiagnosesCallsAndUnselectedUnsupportedBranchesWithout
 	analyze();
 	ASSERT_FALSE(HasFatalFailure());
 	const auto result = LowerRoots(project, sourceRoot);
-	ASSERT_TRUE(std::holds_alternative<std::vector<ast::Diagnostic>>(result));
-	diagnostics = std::get<std::vector<ast::Diagnostic>>(result);
-	expectError("call/invocation lowering");
-	EXPECT_EQ(diagnostics[0].span.file, (sourceRoot / "expressions.rls").string());
+	ASSERT_TRUE(std::holds_alternative<Graph>(result));
+	graph = std::get<Graph>(result);
+	ASSERT_EQ(graph.roots.size(), 2);
+	const auto& logical = payload<Logical>(graph.roots[1].expression);
+	ASSERT_EQ(logical.children.size(), 2);
+	EXPECT_TRUE(std::holds_alternative<ExternCall>(graph.nodes[logical.children[1].slot].payload));
+	ASSERT_EQ(graph.adapters.size(), 1);
+	EXPECT_EQ(graph.adapters[0].declaration, project.ExternDefineDecls.at("host"));
 }
 
 TEST_F(SohTrackerLowering, RejectsConditionConversionsAndCallableValuedMatches) {

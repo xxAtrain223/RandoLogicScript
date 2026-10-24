@@ -30,6 +30,13 @@ private:
 		const ast::TernaryExpr& ternary, const ValueType& type, const ast::DefineDecl* scope);
 	std::optional<NodeHandle> MatchExpression(const ast::Expr& expression,
 		const ast::MatchExpr& match, const ValueType& type, const ast::DefineDecl* scope);
+	std::optional<NodeHandle> Coerce(NodeHandle operand, const ValueType& target,
+		const ast::Expr& expression);
+	std::optional<NodeHandle> Call(const ast::Expr& expression,
+		const ast::CallExpr& call, const ValueType& type, const ast::DefineDecl* scope);
+	std::optional<NodeHandle> CallHelper(const ast::Expr& expression,
+		const ast::DefineDecl& declaration, const ValueType& type,
+		std::vector<NodeHandle> parameters);
 };
 
 using LoweringResult = std::variant<Graph, std::vector<ast::Diagnostic>>;
