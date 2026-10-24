@@ -37,6 +37,13 @@ private:
 	std::optional<NodeHandle> CallHelper(const ast::Expr& expression,
 		const ast::DefineDecl& declaration, const ValueType& type,
 		std::vector<NodeHandle> parameters);
+	NodeHandle CallExtern(const ast::Expr& expression,
+		const ast::ExternDefineDecl& declaration, const ValueType& type,
+		std::vector<NodeHandle> parameters, std::vector<ValueType> parameterTypes);
+	std::optional<NodeHandle> FunctionReference(const ast::Expr& expression,
+		const ast::Identifier& identifier, const ValueType& type);
+	std::optional<NodeHandle> InvokeCallable(NodeHandle callable,
+		const ast::Expr& expression, const ValueType& type);
 };
 
 using LoweringResult = std::variant<Graph, std::vector<ast::Diagnostic>>;

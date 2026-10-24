@@ -491,8 +491,295 @@ TEST_F(SohTrackerCalls, DoesNotMistakeCallableParameterInvocationForAGlobalHelpe
 	ASSERT_FALSE(HasFatalFailure());
 	analyze();
 	ASSERT_FALSE(HasFatalFailure());
+	ASSERT_TRUE(lower());
+	ASSERT_EQ(graph.helpers.size(), 1);
+	EXPECT_EQ(graph.helpers[0].declaration, project.DefineDecls.at("sample"));
+	const auto callable = payload<Invoke>(*graph.helpers[0].body).callable;
+	EXPECT_EQ(std::get<ParameterRead>(payload<Value>(callable).value).declaration,
+		&project.DefineDecls.at("sample")->params[0]);
+	expectFullyReachable();
+}
+
+TEST_F(SohTrackerCalls, InvokesReturnedConditionsWithoutWrappingOrLosingCapturedParameters) {
+	parse(
+		"extern enum Item { RG_* }\n"
+		"extern define has(item: Item) -> Bool\n"
+		"define identity(condition: Condition): condition\n"
+		"define delayed(item: Item): identity(has(item))\n"
+		"region RR_TEST { locations { RC_TEST: delayed(RG_HOOKSHOT)() } }\n");
+	ASSERT_FALSE(HasFatalFailure());
+	analyze();
+	ASSERT_FALSE(HasFatalFailure());
+	ASSERT_TRUE(lower());
+	const auto& invoke = payload<Invoke>(graph.roots[0].expression);
+	const auto& delayed = payload<HelperCall>(invoke.callable);
+	EXPECT_TRUE(std::holds_alternative<ConditionTarget>(
+		graph.nodes[invoke.callable.slot].valueType->representation));
+	const auto& identity = payload<HelperCall>(*graph.helpers[delayed.definition.slot].body);
+	const auto captured = payload<Parameter>(identity.parameters[0]).value;
+	const auto& query = payload<ExternCall>(payload<Condition>(captured).body);
+	const auto read = payload<Parameter>(query.parameters[0]).value;
+	EXPECT_EQ(std::get<ParameterRead>(payload<Value>(read).value).declaration,
+		&project.DefineDecls.at("delayed")->params[0]);
+	EXPECT_TRUE(std::holds_alternative<Value>(
+		graph.nodes[graph.helpers[identity.definition.slot].body->slot].payload));
+	EXPECT_EQ(std::count_if(graph.nodes.begin(), graph.nodes.end(),
+		[](const Node& node) { return std::holds_alternative<Condition>(node.payload); }), 1);
+	expectFullyReachable();
+}
+
+TEST_F(SohTrackerCalls, KeepsSeparateInvocationOccurrencesOfTheSameConditionParameter) {
+	parse(
+		"define twice(condition: Condition): condition() and condition()\n"
+		"region RR_TEST { locations { RC_TEST: twice(false) } }\n");
+	ASSERT_FALSE(HasFatalFailure());
+	analyze();
+	ASSERT_FALSE(HasFatalFailure());
+	ASSERT_TRUE(lower());
+	const auto& calls = payload<Logical>(*graph.helpers[0].body);
+	ASSERT_EQ(calls.children.size(), 2);
+	EXPECT_NE(calls.children[0], calls.children[1]);
+	const auto first = payload<Invoke>(calls.children[0]).callable;
+	const auto second = payload<Invoke>(calls.children[1]).callable;
+	EXPECT_NE(first, second);
+	EXPECT_EQ(std::get<ParameterRead>(payload<Value>(first).value).declaration,
+		std::get<ParameterRead>(payload<Value>(second).value).declaration);
+	expectFullyReachable();
+}
+
+TEST_F(SohTrackerCalls, LowersHelperAndExternReferencesAsLazyCallsWithPersistentProvenance) {
+	parse(
+		"extern define live() -> Bool\n"
+		"extern define any_age(condition: Condition) -> Bool\n"
+		"define available(): live()\n"
+		"region RR_TEST { locations {\n"
+		"    RC_HELPER: any_age(available)\n"
+		"    RC_EXTERN: any_age(live)\n"
+		"    RC_REPEAT: any_age(available)\n"
+		"} }\n");
+	ASSERT_FALSE(HasFatalFailure());
+	analyze();
+	ASSERT_FALSE(HasFatalFailure());
+	ASSERT_TRUE(lower());
+	ASSERT_EQ(graph.helpers.size(), 1);
+	ASSERT_EQ(graph.adapters.size(), 2);
+	const auto argument = [&](size_t i) {
+		const auto& host = payload<ExternCall>(graph.roots[i].expression);
+		return payload<Parameter>(host.parameters[0]).value;
+	};
+	const auto first = argument(0);
+	const auto second = argument(1);
+	const auto repeated = argument(2);
+	EXPECT_NE(first, repeated);
+	const auto firstBody = payload<Condition>(first).body;
+	const auto repeatedBody = payload<Condition>(repeated).body;
+	EXPECT_NE(firstBody, repeatedBody);
+	EXPECT_EQ(payload<HelperCall>(firstBody).definition, payload<HelperCall>(repeatedBody).definition);
+	EXPECT_TRUE(payload<HelperCall>(firstBody).parameters.empty());
+	const auto externalBody = payload<Condition>(second).body;
+	const auto& external = payload<ExternCall>(externalBody);
+	EXPECT_TRUE(external.parameters.empty());
+	EXPECT_EQ(graph.adapters[external.adapter.slot].declaration, project.ExternDefineDecls.at("live"));
+	EXPECT_EQ(graph.adapters[external.adapter.slot].result.sourceType, ast::Type::Bool);
+	const auto& helperQuery = payload<ExternCall>(*graph.helpers[0].body);
+	EXPECT_EQ(helperQuery.adapter, external.adapter);
+	for (const size_t i : {size_t{0}, size_t{1}, size_t{2}}) {
+		const auto& source = std::get<ast::CallExpr>(rootCondition(i).node);
+		const auto* reference = project.getResolvedCallArgs(&source)->at(0);
+		const auto condition = argument(i);
+		const auto body = payload<Condition>(condition).body;
+		EXPECT_EQ(graph.nodes[condition.slot].provenance.expressions[0], reference);
+		EXPECT_EQ(graph.nodes[body.slot].provenance.expressions[0], reference);
+		EXPECT_EQ(graph.nodes[body.slot].valueType->sourceType, ast::Type::Bool);
+	}
+	// One closure per reference; passing it to Condition does not wrap it again.
+	EXPECT_EQ(std::count_if(graph.nodes.begin(), graph.nodes.end(),
+		[](const Node& node) { return std::holds_alternative<Condition>(node.payload); }), 3);
+	expectFullyReachable();
+}
+
+TEST_F(SohTrackerCalls, SupportsReturnedReferencesAndGloballyScopedReferenceDefaults) {
+	parse(
+		"extern define live() -> Bool\n"
+		"define get_reference(): live\n"
+		"define use(condition: Condition = live): condition()\n"
+		"define caller(live: Condition): use()\n"
+		"region RR_TEST { locations {\n"
+		"    RC_RETURN: get_reference()()\n"
+		"    RC_DEFAULT: caller(false)\n"
+		"} }\n");
+	ASSERT_FALSE(HasFatalFailure());
+	analyze();
+	ASSERT_FALSE(HasFatalFailure());
+	ASSERT_TRUE(lower());
+	const auto& get = payload<HelperCall>(payload<Invoke>(graph.roots[0].expression).callable);
+	const auto reference = *graph.helpers[get.definition.slot].body;
+	const auto hostCall = payload<Condition>(reference).body;
+	EXPECT_EQ(graph.adapters[payload<ExternCall>(hostCall).adapter.slot].declaration,
+		project.ExternDefineDecls.at("live"));
+	const auto& caller = payload<HelperCall>(graph.roots[1].expression);
+	const auto& use = payload<HelperCall>(*graph.helpers[caller.definition.slot].body);
+	const auto defaultReference = payload<Parameter>(use.parameters[0]).value;
+	EXPECT_TRUE(std::holds_alternative<ExternCall>(
+		graph.nodes[payload<Condition>(defaultReference).body.slot].payload));
+	EXPECT_EQ(std::get<ParameterRead>(
+		payload<Value>(payload<Invoke>(*graph.helpers[use.definition.slot].body).callable).value).declaration,
+		&project.DefineDecls.at("use")->params[0]);
+	expectFullyReachable();
+}
+
+TEST_F(SohTrackerCalls, InvokesConditionValuedTernariesWithoutIntegralConversions) {
+	parse(
+		"define select(enabled: Bool, first: Condition, second: Condition):\n"
+		"    enabled ? first : second\n"
+		"region RR_TEST { locations { RC_TEST: select(true, false, true)() } }\n");
+	ASSERT_FALSE(HasFatalFailure());
+	analyze();
+	ASSERT_FALSE(HasFatalFailure());
+	ASSERT_TRUE(lower());
+	const auto& select = payload<HelperCall>(payload<Invoke>(graph.roots[0].expression).callable);
+	const auto& ternary = payload<Ternary>(*graph.helpers[select.definition.slot].body);
+	for (const auto branch : {ternary.trueBranch, ternary.falseBranch}) {
+		EXPECT_TRUE(std::holds_alternative<ConditionTarget>(graph.nodes[branch.slot].valueType->representation));
+		EXPECT_TRUE(std::holds_alternative<ParameterRead>(payload<Value>(branch).value));
+	}
+	EXPECT_EQ(std::count_if(graph.nodes.begin(), graph.nodes.end(),
+		[](const Node& node) { return std::holds_alternative<Conversion>(node.payload); }), 0);
+	expectFullyReachable();
+}
+
+TEST_F(SohTrackerCalls, DoesNotTreatAnExplicitDefaultedCallAsABareReference) {
+	parse(
+		"extern define host(value: Bool = false) -> Bool\n"
+		"define helper(value: Bool = false): value\n"
+		"define invoke(condition: Condition): condition()\n"
+		"region RR_TEST { locations {\n"
+		"    RC_EXTERN: invoke(host())\n"
+		"    RC_HELPER: invoke(helper())\n"
+		"} }\n");
+	ASSERT_FALSE(HasFatalFailure());
+	analyze();
+	ASSERT_FALSE(HasFatalFailure());
+	ASSERT_TRUE(lower());
+	for (const auto& root : graph.roots) {
+		const auto& call = payload<HelperCall>(root.expression);
+		const auto body = payload<Condition>(payload<Parameter>(call.parameters[0]).value).body;
+		if (const auto* host = std::get_if<ExternCall>(&graph.nodes[body.slot].payload)) {
+			EXPECT_EQ(host->parameters.size(), 1);
+		} else {
+			EXPECT_EQ(payload<HelperCall>(body).parameters.size(), 1);
+		}
+	}
+	expectFullyReachable();
+}
+
+TEST_F(SohTrackerCalls, RejectsMissingOrNonemptyCallableParameterBindings) {
+	parse(
+		"define sample(condition: Condition): condition()\n"
+		"region RR_TEST { locations { RC_TEST: sample(false) } }\n");
+	ASSERT_FALSE(HasFatalFailure());
+	analyze();
+	ASSERT_FALSE(HasFatalFailure());
+	const auto* sample = project.DefineDecls.at("sample");
+	auto missingBinding = ast::makeExpr(ast::CallExpr{ast::Name{"condition"}, {}});
+	project.setType(missingBinding.get(), ast::Type::Bool);
+	ExpressionLowerer lowerer(project, graph, diagnostics);
+	EXPECT_FALSE(lowerer.Lower(*missingBinding, sample));
+	expectError("zero sema-resolved arguments");
+	const auto* call = &std::get<ast::CallExpr>(sample->body->node);
+	const auto* defaultValue = std::get<ast::CallExpr>(rootCondition().node).args[0].value.get();
+	project.setResolvedCallArgs(call, {defaultValue});
 	EXPECT_FALSE(lower());
-	expectError("callable-parameter invocation lowering is not implemented");
+	expectError("zero sema-resolved arguments");
+	project.setResolvedCallArgs(call, {});
+	project.setType(&sample->params[0], ast::Type::Bool);
+	EXPECT_FALSE(lower());
+	expectError("requires a Condition value");
+}
+
+TEST_F(SohTrackerCalls, DiagnosesMalformedInvocationMetadataRatherThanConvertingValues) {
+	// Arbitrary-expression invocation is not grammar syntax; exercise the AST contract directly.
+	auto invoke = ast::makeExpr(ast::InvokeExpr{ast::makeExpr(ast::IntLiteral{1})});
+	const auto* callee = std::get<ast::InvokeExpr>(invoke->node).callee.get();
+	project.setType(invoke.get(), ast::Type::Bool);
+	project.setType(callee, ast::Type::Int);
+	ExpressionLowerer lowerer(project, graph, diagnostics);
+	EXPECT_FALSE(lowerer.Lower(*invoke));
+	expectError("invocation requires a Condition");
+	ast::DefineDecl scope{ast::Name{"scope"}, {}, nullptr};
+	scope.params.emplace_back(ast::Name{"condition"}, std::nullopt, nullptr);
+	project.setType(&scope.params[0], ast::Type::Condition);
+	auto invalidResult = ast::makeExpr(ast::InvokeExpr{ast::makeExpr(ast::Identifier{
+		ast::Name{"condition"}, ast::IdentifierKind::Parameter})});
+	project.setType(std::get<ast::InvokeExpr>(invalidResult->node).callee.get(), ast::Type::Condition);
+	project.setType(invalidResult.get(), ast::Type::Int);
+	EXPECT_FALSE(lowerer.Lower(*invalidResult, &scope));
+	expectError("analyzed Bool result");
+}
+
+TEST_F(SohTrackerCalls, InvokesExternReturnedConditionsWithoutAnExtraClosure) {
+	parse(
+		"extern define get_condition() -> Condition\n"
+		"region RR_TEST { locations { RC_TEST: get_condition()() } }\n");
+	ASSERT_FALSE(HasFatalFailure());
+	analyze();
+	ASSERT_FALSE(HasFatalFailure());
+	ASSERT_TRUE(lower());
+	const auto& invoke = payload<Invoke>(graph.roots[0].expression);
+	const auto& call = payload<ExternCall>(invoke.callable);
+	EXPECT_TRUE(std::holds_alternative<ConditionTarget>(
+		graph.adapters[call.adapter.slot].result.representation));
+	EXPECT_EQ(graph.nodes.size(), 2);
+	expectFullyReachable();
+}
+
+TEST_F(SohTrackerCalls, DoesNotBroadenSemaFunctionReferenceRestrictions) {
+	for (const bool external : {false, true}) {
+		for (const bool defaulted : {false, true}) {
+			SCOPED_TRACE(external);
+			SCOPED_TRACE(defaulted);
+			project = {};
+			parse(std::string(external ? "extern define target(" : "define target(") +
+				(defaulted ? "value: Bool = false" : "") +
+				(external ? (defaulted ? ") -> Bool\n" : ") -> Int\n") :
+					(defaulted ? "): value\n" : "): 1\n")) +
+				"define use(condition: Condition): condition()\n"
+				"region RR_TEST { locations { RC_TEST: use(target) } }\n");
+			ASSERT_FALSE(HasFatalFailure());
+			const auto errors = sema::analyze(project);
+			EXPECT_TRUE(std::any_of(errors.begin(), errors.end(), [](const ast::Diagnostic& diagnostic) {
+				return diagnostic.level == ast::DiagnosticLevel::Error;
+			}));
+			EXPECT_FALSE(lower());
+		}
+	}
+}
+
+TEST_F(SohTrackerCalls, DiagnosesMissingOrIncompatibleFunctionReferenceDeclarations) {
+	auto reference = ast::makeExpr(ast::Identifier{
+		ast::Name{"target"}, ast::IdentifierKind::FunctionRef});
+	project.setType(reference.get(), ast::Type::Condition);
+	ExpressionLowerer lowerer(project, graph, diagnostics);
+	EXPECT_FALSE(lowerer.Lower(*reference));
+	expectError("function reference requires an analyzed declaration");
+	ast::DefineDecl helper{ast::Name{"target"}, {}, ast::makeExpr(ast::IntLiteral{1})};
+	project.DefineDecls.emplace("target", &helper);
+	project.setType(helper.body.get(), ast::Type::Int);
+	EXPECT_FALSE(lowerer.Lower(*reference));
+	expectError("zero-parameter Bool helper");
+	project.setType(helper.body.get(), ast::Type::Bool);
+	helper.params.emplace_back(ast::Name{"value"}, std::nullopt, ast::makeExpr(ast::BoolLiteral{false}));
+	EXPECT_FALSE(lowerer.Lower(*reference));
+	expectError("zero-parameter Bool helper");
+	project.DefineDecls.clear();
+	ast::ExternDefineDecl host{ast::Name{"target"}, {}, ast::TypeRef{ast::Name{"Int"}}};
+	project.ExternDefineDecls.emplace("target", &host);
+	EXPECT_FALSE(lowerer.Lower(*reference));
+	expectError("zero-parameter Bool extern");
+	host.returnType = ast::TypeRef{ast::Name{"Bool"}};
+	host.params.emplace_back(ast::Name{"value"}, std::nullopt, ast::makeExpr(ast::BoolLiteral{false}));
+	EXPECT_FALSE(lowerer.Lower(*reference));
+	expectError("zero-parameter Bool extern");
 }
 
 } // namespace

@@ -120,7 +120,7 @@ std::optional<NodeHandle> ExpressionLowerer::Lower(const ast::Expr& expression,
 				}
 				return Fail(expression, "Tracker parameter read requires its lexical declaration.");
 			case ast::IdentifierKind::FunctionRef:
-				return Fail(expression, "Tracker function-reference lowering is not implemented yet.");
+				return FunctionReference(expression, node, type);
 			case ast::IdentifierKind::Unresolved:
 				return Fail(expression, "Tracker lowering requires a resolved identifier.");
 			}
@@ -151,7 +151,9 @@ std::optional<NodeHandle> ExpressionLowerer::Lower(const ast::Expr& expression,
 		} else if constexpr (std::is_same_v<T, ast::CallExpr>) {
 			return Call(expression, node, type, scope);
 		} else if constexpr (std::is_same_v<T, ast::InvokeExpr>) {
-			return Fail(expression, "Tracker invocation lowering is not implemented yet.");
+			const auto callable = Child(node.callee, expression, scope);
+			if (!callable) return std::nullopt;
+			return InvokeCallable(*callable, expression, type);
 		} else {
 			return Fail(expression, "Tracker lowering encountered an unsupported executable value.");
 		}

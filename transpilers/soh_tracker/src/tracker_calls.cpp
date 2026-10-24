@@ -57,10 +57,28 @@ std::optional<NodeHandle> ExpressionLowerer::CallHelper(const ast::Expr& express
 std::optional<NodeHandle> ExpressionLowerer::Call(const ast::Expr& expression,
 	const ast::CallExpr& call, const ValueType& type, const ast::DefineDecl* scope)
 {
-	if (scope && std::any_of(scope->params.begin(), scope->params.end(),
-		[&](const ast::Param& parameter) { return parameter.name.text == call.callee.text; })) {
-		// Lexical callable parameters shadow global declarations, just as they do in sema.
-		return Fail(expression, "Tracker callable-parameter invocation lowering is not implemented yet.");
+	if (scope) {
+		const auto parameter = std::find_if(scope->params.begin(), scope->params.end(),
+			[&](const ast::Param& candidate) { return candidate.name.text == call.callee.text; });
+		if (parameter != scope->params.end()) {
+			// Lexical callable parameters shadow global declarations, just as they do in sema.
+			const auto* resolved = project.getResolvedCallArgs(&call);
+			if (!resolved || !resolved->empty() || !call.args.empty()) {
+				return Fail(expression, "Tracker callable-parameter invocation requires zero sema-resolved arguments.");
+			}
+			const auto parameterType = GetValueType(project, *parameter);
+			if (const auto* diagnostic = std::get_if<ast::Diagnostic>(&parameterType)) {
+				diagnostics.push_back(*diagnostic);
+				return std::nullopt;
+			}
+			const auto valueType = std::get<ValueType>(parameterType);
+			if (!std::holds_alternative<ConditionTarget>(valueType.representation)) {
+				return Fail(expression, "Tracker callable-parameter invocation requires a Condition value.");
+			}
+			const auto callable = Add(Value{ParameterRead{&*parameter}}, valueType,
+				{expression.span, {&expression}});
+			return InvokeCallable(callable, expression, type);
+		}
 	}
 
 	const ast::ExternDefineDecl* external = nullptr;
@@ -118,15 +136,68 @@ std::optional<NodeHandle> ExpressionLowerer::Call(const ast::Expr& expression,
 	if (helper) {
 		return CallHelper(expression, *helper, type, std::move(parameters));
 	}
+	return CallExtern(expression, *external, type, std::move(parameters), std::move(parameterTypes));
+}
+
+NodeHandle ExpressionLowerer::CallExtern(const ast::Expr& expression,
+	const ast::ExternDefineDecl& declaration, const ValueType& type,
+	std::vector<NodeHandle> parameters, std::vector<ValueType> parameterTypes)
+{
 	const auto existing = std::find_if(graph.adapters.begin(), graph.adapters.end(),
-		[&](const HostAdapter& adapter) { return adapter.declaration == external; });
+		[&](const HostAdapter& adapter) { return adapter.declaration == &declaration; });
 	const AdapterHandle adapter{static_cast<size_t>(existing - graph.adapters.begin())};
 	if (existing == graph.adapters.end()) {
-		// The call's analyzed result supplies the signature; no annotation parsing or host-width guess.
-		graph.adapters.push_back({external, type, std::move(parameterTypes)});
+		// Analyzed calls/references supply RLS representations, never guessed host widths.
+		graph.adapters.push_back({&declaration, type, std::move(parameterTypes)});
 	}
 	return Add(ExternCall{adapter, std::move(parameters)}, type,
 		{expression.span, {&expression}});
+}
+
+std::optional<NodeHandle> ExpressionLowerer::InvokeCallable(NodeHandle callable,
+	const ast::Expr& expression, const ValueType& type)
+{
+	const auto& callableType = graph.nodes.at(callable.slot).valueType;
+	if (!callableType || !std::holds_alternative<ConditionTarget>(callableType->representation)) {
+		return Fail(expression, "Tracker invocation requires a Condition value.");
+	}
+	if (type.sourceType != ast::Type::Bool) {
+		return Fail(expression, "Tracker invocation requires an analyzed Bool result.");
+	}
+	return Add(Invoke{callable}, type, {expression.span, {&expression}});
+}
+
+std::optional<NodeHandle> ExpressionLowerer::FunctionReference(const ast::Expr& expression,
+	const ast::Identifier& identifier, const ValueType& type)
+{
+	if (type.sourceType != ast::Type::Condition) {
+		return Fail(expression, "Tracker function reference requires an analyzed Condition type.");
+	}
+	// FunctionRef is sema's certification of a zero-parameter Bool function. Do not
+	// synthesize a CallExpr: graph provenance must reference the original, persistent AST.
+	const ValueType boolType{ast::Type::Bool, nullptr, IntegralTarget::Bool};
+	std::optional<NodeHandle> body;
+	if (const auto declaration = project.DefineDecls.find(identifier.name.text);
+		declaration != project.DefineDecls.end() && declaration->second) {
+		const auto& helper = *declaration->second;
+		if (!helper.params.empty() || !helper.body ||
+			project.getType(helper.body.get()) != ast::Type::Bool) {
+			return Fail(expression, "Tracker function reference requires a zero-parameter Bool helper.");
+		}
+		body = CallHelper(expression, helper, boolType, {});
+	} else if (const auto declaration = project.ExternDefineDecls.find(identifier.name.text);
+		declaration != project.ExternDefineDecls.end() && declaration->second) {
+		const auto& external = *declaration->second;
+		if (!external.params.empty() || !external.returnType || external.returnType->name != "Bool") {
+			return Fail(expression, "Tracker function reference requires a zero-parameter Bool extern.");
+		}
+		body = CallExtern(expression, external, boolType, {}, {});
+	} else {
+		return Fail(expression, "Tracker function reference requires an analyzed declaration for '" +
+			identifier.name.text + "'.");
+	}
+	if (!body) return std::nullopt;
+	return Add(Condition{*body}, type, {expression.span, {&expression}});
 }
 
 } // namespace rls::transpilers::soh_tracker::ir
