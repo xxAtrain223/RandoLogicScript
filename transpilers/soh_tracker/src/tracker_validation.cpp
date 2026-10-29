@@ -1,5 +1,6 @@
 #include "tracker_validation.h"
 
+#include <algorithm>
 #include <type_traits>
 #include <unordered_map>
 #include <unordered_set>
@@ -141,6 +142,38 @@ std::vector<ast::Diagnostic> ValidateGraph(const ast::Project& project, const Gr
 		}
 	};
 
+	std::unordered_set<const ast::EnumInfo*> checkedEnums;
+	const auto checkEnum = [&](const ValueType& type) {
+		if (!validType(project, type) || !type.enumInfo || !checkedEnums.insert(type.enumInfo).second) return;
+		const auto& info = *type.enumInfo;
+		const auto label = "Tracker enum '" + info.name.text + "'";
+		if (info.underlyingType != ast::Type::Int ||
+			(info.kind != ast::EnumKind::Normal && info.kind != ast::EnumKind::Extern)) {
+			error(info.span, label + " has unsupported analyzed enum metadata.");
+			return;
+		}
+
+		// Sema owns numbering. Missing normalized values are errors, never an invitation
+		// to recompute ordinals. Extern entries without values remain symbolic host keys.
+		for (const auto& entry : info.entries) {
+			const auto* member = std::get_if<ast::EnumMemberInfo>(&entry);
+			if (!member) {
+				if (info.kind == ast::EnumKind::Normal)
+					error(info.span, label + " contains an unsupported normalized wildcard entry.");
+				continue;
+			}
+			if (!member->value) {
+				if (info.kind == ast::EnumKind::Normal)
+					error(member->span, label + " member '" + member->name.text + "' is missing its normalized value.");
+				continue;
+			}
+			const auto checked = CheckInt32Value(*member->value, member->span);
+			if (const auto* diagnostic = std::get_if<ast::Diagnostic>(&checked)) {
+				error(member->span, label + " member '" + member->name.text + "': " + diagnostic->message);
+			}
+		}
+	};
+
 	// Inspect each descriptor once instead of recursively expanding helper bodies.
 	// This includes skipped/unreachable nodes and terminates for cyclic helper references.
 	for (const auto& node : graph.nodes) {
@@ -177,6 +210,7 @@ std::vector<ast::Diagnostic> ValidateGraph(const ast::Project& project, const Gr
 			(!node.valueType || !validType(project, *node.valueType))) {
 			fail("node has a missing or unsupported payload value type/representation.");
 		}
+		if (node.valueType) checkEnum(*node.valueType);
 
 		const auto typeOf = [&](NodeHandle handle) -> const std::optional<ValueType>& {
 			return graph.nodes[handle.slot].valueType;
@@ -261,6 +295,13 @@ std::vector<ast::Diagnostic> ValidateGraph(const ast::Project& project, const Gr
 							node.valueType->sourceType != ast::Type::Enum ||
 							node.valueType->enumInfo != value.declaration) {
 							fail("enum constant is missing its analyzed declaration/member identity.");
+						} else if (value.declaration->kind == ast::EnumKind::Normal) {
+							const auto& entries = value.declaration->entries;
+							const bool present = std::any_of(entries.begin(), entries.end(), [&](const ast::EnumEntryInfo& entry) {
+								const auto* member = std::get_if<ast::EnumMemberInfo>(&entry);
+								return member && member->name.text == value.member->text;
+							});
+							if (!present) fail("enum constant '" + value.member->text + "' is absent from its analyzed enum.");
 						}
 					} else if constexpr (std::is_same_v<V, KeyConstant>) {
 						if (!value.name || !node.valueType ||
@@ -281,6 +322,57 @@ std::vector<ast::Diagnostic> ValidateGraph(const ast::Project& project, const Gr
 						}
 					}
 				}, payload.value);
+
+				for (const auto* expression : node.provenance.expressions) {
+					if (!expression) continue;
+					if (const auto* literal = std::get_if<ast::IntLiteral>(&expression->node)) {
+						const auto checked = CheckInt32Value(literal->value, expression->span);
+						if (const auto* diagnostic = std::get_if<ast::Diagnostic>(&checked)) {
+							diagnostics.push_back(*diagnostic);
+						} else {
+							const auto* actual = std::get_if<int32_t>(&payload.value);
+							if (!actual || *actual != std::get<int32_t>(checked)) fail("Int literal differs from its source value.");
+						}
+					} else if (const auto* literal = std::get_if<ast::BoolLiteral>(&expression->node)) {
+						const auto* actual = std::get_if<bool>(&payload.value);
+						if (!actual || *actual != literal->value) fail("Bool literal differs from its source value.");
+					} else if (const auto* here = std::get_if<ast::HereRef>(&expression->node)) {
+						const auto* actual = std::get_if<HereValue>(&payload.value);
+						if (!actual || !actual->region || here->resolvedRegion.text != actual->region->key.text) {
+							fail("here value differs from its sema-resolved source region.");
+						}
+					} else if (const auto* member = std::get_if<ast::MemberExpr>(&expression->node)) {
+						const auto* actual = std::get_if<EnumConstant>(&payload.value);
+						if (!actual || !actual->member || actual->member->text != member->member.text)
+							fail("enum constant differs from its source member.");
+					} else if (const auto* identifier = std::get_if<ast::Identifier>(&expression->node)) {
+						const auto* enumeration = std::get_if<EnumConstant>(&payload.value);
+						const auto* key = std::get_if<KeyConstant>(&payload.value);
+						const auto* parameter = std::get_if<ParameterRead>(&payload.value);
+						const bool matches =
+							(identifier->kind == ast::IdentifierKind::EnumValue && enumeration && enumeration->member &&
+								enumeration->member->text == identifier->name.text) ||
+							(identifier->kind == ast::IdentifierKind::DeclaredValue && key && key->name &&
+								key->name->text == identifier->name.text) ||
+							(identifier->kind == ast::IdentifierKind::Parameter && parameter && parameter->declaration &&
+								parameter->declaration->name.text == identifier->name.text);
+						if (!matches) fail("value identifier differs from its analyzed source identity.");
+					} else if (const auto* call = std::get_if<ast::CallExpr>(&expression->node)) {
+						// Callable-parameter reads borrow the invocation's source expression,
+						// whose Bool result is distinct from the stored Condition value.
+						const auto* parameter = std::get_if<ParameterRead>(&payload.value);
+						if (!parameter || !parameter->declaration ||
+							parameter->declaration->name.text != call->callee.text ||
+							!node.valueType || !std::holds_alternative<ConditionTarget>(node.valueType->representation) ||
+							project.getType(expression) != ast::Type::Bool) {
+							fail("callable parameter read differs from its source invocation.");
+						}
+						continue;
+					} else {
+						fail("value node has unsupported source expression provenance.");
+					}
+					checkAnalyzed(GetValueType(project, *expression), node.valueType, span, "value");
+				}
 			} else if constexpr (std::is_same_v<T, Logical> || std::is_same_v<T, Arithmetic>) {
 				const auto target = std::is_same_v<T, Logical> ? IntegralTarget::Bool : IntegralTarget::Int32;
 				std::optional<ast::BinaryOp> sourceOperation;
@@ -394,6 +486,7 @@ std::vector<ast::Diagnostic> ValidateGraph(const ast::Project& project, const Gr
 		if (!validType(project, adapter.result)) {
 			error(declaration.span, "Tracker adapter '" + declaration.name.text + "' has an unsupported result type/representation.");
 		}
+		checkEnum(adapter.result);
 
 		const auto found = project.ExternDefineDecls.find(declaration.name.text);
 		if (found == project.ExternDefineDecls.end() || found->second != &declaration) {
@@ -405,6 +498,7 @@ std::vector<ast::Diagnostic> ValidateGraph(const ast::Project& project, const Gr
 		}
 
 		for (size_t i = 0; i < adapter.parameters.size() && i < declaration.params.size(); ++i) {
+			checkEnum(adapter.parameters[i]);
 			checkAnalyzed(GetValueType(project, declaration.params[i]), adapter.parameters[i],
 				declaration.span, "adapter '" + declaration.name.text + "' parameter");
 		}
@@ -424,6 +518,10 @@ std::vector<ast::Diagnostic> ValidateGraph(const ast::Project& project, const Gr
 		const auto& type = graph.nodes[root.expression.slot].valueType;
 		if (!type || !sameRepresentation(type->representation, IntegralTarget::Bool)) {
 			error(root.provenance.span, "Tracker root '" + root.entry->name.text + "' requires a Bool result.");
+		}
+		const auto& expressions = graph.nodes[root.expression.slot].provenance.expressions;
+		if (!root.entry->condition || expressions.empty() || expressions.front() != root.entry->condition.get()) {
+			error(root.provenance.span, "Tracker root '" + root.entry->name.text + "' differs from its source condition.");
 		}
 	}
 

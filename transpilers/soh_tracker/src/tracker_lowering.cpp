@@ -94,7 +94,12 @@ std::optional<NodeHandle> ExpressionLowerer::Lower(const ast::Expr& expression,
 		if constexpr (std::is_same_v<T, ast::BoolLiteral>) {
 			return Add(Value{node.value}, type, provenance);
 		} else if constexpr (std::is_same_v<T, ast::IntLiteral>) {
-			return Add(Value{int32_t{node.value}}, type, provenance);
+			const auto checked = CheckInt32Value(node.value, expression.span);
+			if (const auto* diagnostic = std::get_if<ast::Diagnostic>(&checked)) {
+				diagnostics.push_back(*diagnostic);
+				return std::nullopt;
+			}
+			return Add(Value{std::get<int32_t>(checked)}, type, provenance);
 		} else if constexpr (std::is_same_v<T, ast::Identifier>) {
 			switch (node.kind) {
 			case ast::IdentifierKind::EnumValue:

@@ -1,5 +1,6 @@
 #include "tracker_ir.h"
 
+#include <limits>
 #include <string>
 #include <string_view>
 
@@ -54,6 +55,13 @@ ValueTypeResult getValueType(const ast::Project& project, std::optional<ast::Typ
 }
 
 } // namespace
+
+std::variant<int32_t, ast::Diagnostic> CheckInt32Value(int64_t value, const ast::Span& span) {
+	if (value < std::numeric_limits<int32_t>::min() || value > std::numeric_limits<int32_t>::max()) {
+		return error(span, "Tracker value " + std::to_string(value) + " is outside the int32_t representation.");
+	}
+	return static_cast<int32_t>(value);
+}
 
 ValueTypeResult GetValueType(const ast::Project& project, const ast::Expr& expression) {
 	return getValueType(project, project.getType(&expression),

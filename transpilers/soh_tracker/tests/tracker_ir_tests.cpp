@@ -20,6 +20,28 @@ TEST(SohTrackerIR, KeepsConsumerCountWiderThanIndex) {
 	EXPECT_EQ(count.value, 4'294'967'296ULL);
 }
 
+TEST(SohTrackerIR, ChecksExactInt32BoundariesBeforeNarrowing) {
+	const ast::Span span{"tracker_values.rls", {3, 5}, {3, 15}};
+	const int64_t minimum = std::numeric_limits<int32_t>::min();
+	const int64_t maximum = std::numeric_limits<int32_t>::max();
+	for (const int64_t value : {minimum, int64_t{-1}, int64_t{0}, maximum}) {
+		const auto result = CheckInt32Value(value, span);
+		ASSERT_TRUE(std::holds_alternative<int32_t>(result));
+		EXPECT_EQ(std::get<int32_t>(result), value);
+	}
+	for (const int64_t value : {minimum - 1, maximum + 1, std::numeric_limits<int64_t>::min(),
+		std::numeric_limits<int64_t>::max()}) {
+		const auto result = CheckInt32Value(value, span);
+		ASSERT_TRUE(std::holds_alternative<ast::Diagnostic>(result));
+		const auto& diagnostic = std::get<ast::Diagnostic>(result);
+		EXPECT_EQ(diagnostic.level, ast::DiagnosticLevel::Error);
+		EXPECT_NE(diagnostic.message.find(std::to_string(value)), std::string::npos);
+		EXPECT_EQ(diagnostic.span.file, span.file);
+		EXPECT_EQ(diagnostic.span.start.line, 3);
+		EXPECT_EQ(diagnostic.span.start.column, 5);
+	}
+}
+
 TEST(SohTrackerIR, ReadsAnalyzedExpressionAndParameterFacts) {
 	ast::Project project;
 	project.files.push_back(parser::ParseString(

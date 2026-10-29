@@ -1,6 +1,7 @@
 #include <gtest/gtest.h>
 
 #include <algorithm>
+#include <limits>
 
 #include "parser.h"
 #include "sema.h"
@@ -441,6 +442,146 @@ TEST_F(SohTrackerValidation, ValidatesDynamicChainsAndPotentiallyThrowingOperand
 		"} }\n");
 	ASSERT_FALSE(HasFatalFailure());
 	expectSuccess();
+}
+
+TEST_F(SohTrackerValidation, PreservesExactInt32LiteralExtremes) {
+	lower("region RR_TEST { locations { RC_TEST: -2147483648 < 2147483647 } }\n");
+	ASSERT_FALSE(HasFatalFailure());
+	expectSuccess();
+	const auto& comparison = std::get<Comparison>(graph.nodes[graph.roots[0].expression.slot].payload);
+	EXPECT_EQ(std::get<int32_t>(std::get<Value>(graph.nodes[comparison.left.slot].payload).value),
+		std::numeric_limits<int32_t>::min());
+	EXPECT_EQ(std::get<int32_t>(std::get<Value>(graph.nodes[comparison.right.slot].payload).value),
+		std::numeric_limits<int32_t>::max());
+}
+
+TEST_F(SohTrackerValidation, PreservesNormalizedEnumExtremesWithoutReassigningValues) {
+	lower(
+		"enum Limit { Lowest = -2147483648, Highest = 2147483647 }\n"
+		"extern define consume(value: Limit) -> Bool\n"
+		"region RR_TEST { locations { RC_TEST: consume(Limit.Highest) } }\n");
+	ASSERT_FALSE(HasFatalFailure());
+	expectSuccess();
+	expectSuccess();
+	const auto& entries = project.EnumInfos.at("Limit").entries;
+	ASSERT_EQ(entries.size(), 2);
+	EXPECT_EQ(std::get<ast::EnumMemberInfo>(entries[0]).value, std::numeric_limits<int32_t>::min());
+	EXPECT_EQ(std::get<ast::EnumMemberInfo>(entries[1]).value, std::numeric_limits<int32_t>::max());
+}
+
+TEST_F(SohTrackerValidation, PreservesSemaApprovedEnumIntConversionsAtCallBoundaries) {
+	lower(
+		"enum Choice { FIRST = 1, SECOND = 2 }\n"
+		"extern define take_enum(value: Choice) -> Bool\n"
+		"extern define take_int(value: Int) -> Bool\n"
+		"define relay(value: Choice): take_int(value)\n"
+		"region RR_TEST { locations { RC_TEST: take_enum(1) and relay(2) } }\n");
+	ASSERT_FALSE(HasFatalFailure());
+	expectSuccess();
+}
+
+TEST_F(SohTrackerValidation, RejectsMissingNormalizedValueEvenOnAnUnusedMemberOfAUsedEnum) {
+	lower(
+		"enum Choice { FIRST, SECOND }\n"
+		"extern define consume(value: Choice) -> Bool\n"
+		"region RR_TEST { locations { RC_TEST: consume(FIRST) } }\n");
+	ASSERT_FALSE(HasFatalFailure());
+	auto& member = std::get<ast::EnumMemberInfo>(project.EnumInfos.at("Choice").entries[1]);
+	member.value.reset();
+	expectError("enum 'Choice' member 'SECOND' is missing its normalized value", &member.span);
+	EXPECT_FALSE(member.value);
+}
+
+TEST_F(SohTrackerValidation, ValidatesEnumMetadataUsedOnlyByAnAdapterSignature) {
+	lower(
+		"enum Choice { FIRST, SECOND }\n"
+		"extern define current() -> Choice\n"
+		"region RR_TEST { locations { RC_TEST: current() == 0 } }\n");
+	ASSERT_FALSE(HasFatalFailure());
+	auto& info = project.EnumInfos.at("Choice");
+	auto& member = std::get<ast::EnumMemberInfo>(info.entries[0]);
+	member.value.reset();
+	expectError("member 'FIRST' is missing its normalized value", &member.span);
+	member.value = 0;
+	info.underlyingType = ast::Type::String;
+	expectError("enum 'Choice' has unsupported analyzed enum metadata", &info.span);
+}
+
+TEST_F(SohTrackerValidation, DoesNotValidateDeterministicallyUnusedEnumDeclarations) {
+	lower(
+		"enum Unused { FIRST, SECOND }\n"
+		"region RR_TEST { locations { RC_TEST: true } }\n");
+	ASSERT_FALSE(HasFatalFailure());
+	std::get<ast::EnumMemberInfo>(project.EnumInfos.at("Unused").entries[1]).value.reset();
+	expectSuccess();
+}
+
+TEST_F(SohTrackerValidation, RetainsUnknownExternOrdinalsAsSymbolicValues) {
+	lower(
+		"extern enum Item { RG_BOW, RG_* }\n"
+		"extern define has(value: Item) -> Bool\n"
+		"region RR_TEST { locations { RC_TEST: has(RG_BOW) and has(RG_HOOKSHOT) } }\n");
+	ASSERT_FALSE(HasFatalFailure());
+	expectSuccess();
+	const auto& info = project.EnumInfos.at("Item");
+	EXPECT_FALSE(std::get<ast::EnumMemberInfo>(info.entries[0]).value);
+	EXPECT_TRUE(std::holds_alternative<ast::EnumPatternInfo>(info.entries[1]));
+}
+
+TEST_F(SohTrackerValidation, RejectsUnknownAndSubstitutedNormalEnumMembers) {
+	lower(
+		"enum Choice { FIRST, SECOND }\n"
+		"extern define consume(value: Choice) -> Bool\n"
+		"region RR_TEST { locations { RC_TEST: consume(Choice.FIRST) } }\n");
+	ASSERT_FALSE(HasFatalFailure());
+	const auto root = graph.roots[0].expression;
+	const auto parameter = std::get<ExternCall>(graph.nodes[root.slot].payload).parameters[0];
+	const auto value = std::get<Parameter>(graph.nodes[parameter.slot].payload).value;
+	auto& enumeration = std::get<EnumConstant>(std::get<Value>(graph.nodes[value.slot].payload).value);
+	const ast::Name absent{"MISSING"};
+	enumeration.member = &absent;
+	expectError("enum constant 'MISSING' is absent from its analyzed enum");
+	const ast::Name substituted{"SECOND"};
+	enumeration.member = &substituted;
+	expectError("enum constant differs from its source member");
+}
+
+TEST_F(SohTrackerValidation, RejectsSubstitutedLiteralAndIdentifierValues) {
+	lower(
+		"extern define price(value: Int) -> Bool\n"
+		"region RR_TEST { locations {\n"
+		"    RC_A: true\n"
+		"    RC_B: price(42)\n"
+		"} }\n");
+	ASSERT_FALSE(HasFatalFailure());
+	const auto boolean = graph.roots[0].expression;
+	std::get<Value>(graph.nodes[boolean.slot].payload).value = false;
+	expectError("Bool literal differs from its source value");
+	std::get<Value>(graph.nodes[boolean.slot].payload).value = true;
+	const auto& call = std::get<ExternCall>(graph.nodes[graph.roots[1].expression.slot].payload);
+	const auto integer = std::get<Parameter>(graph.nodes[call.parameters[0].slot].payload).value;
+	std::get<Value>(graph.nodes[integer.slot].payload).value = int32_t{43};
+	expectError("Int literal differs from its source value");
+}
+
+TEST_F(SohTrackerValidation, RejectsHereSubstitutionEvenWhenBothRegionsAreRegistered) {
+	lower(
+		"extern define at(value: Region) -> Bool\n"
+		"region RR_FIRST { locations { RC_TEST: at(here) } }\n"
+		"region RR_SECOND {}\n");
+	ASSERT_FALSE(HasFatalFailure());
+	const auto& call = std::get<ExternCall>(graph.nodes[graph.roots[0].expression.slot].payload);
+	const auto value = std::get<Parameter>(graph.nodes[call.parameters[0].slot].payload).value;
+	std::get<HereValue>(std::get<Value>(graph.nodes[value.slot].payload).value).region =
+		project.RegionDecls.at("RR_SECOND");
+	expectError("here value differs from its sema-resolved source region");
+}
+
+TEST_F(SohTrackerValidation, RejectsSubstitutedRootConditionsWithTheSameResultType) {
+	lower("region RR_TEST { locations { RC_FIRST: true\n RC_SECOND: false } }\n");
+	ASSERT_FALSE(HasFatalFailure());
+	graph.roots[0].expression = graph.roots[1].expression;
+	expectError("root 'RC_FIRST' differs from its source condition");
 }
 
 } // namespace

@@ -2,6 +2,7 @@
 #include <cstdlib>
 #include <filesystem>
 #include <fstream>
+#include <iterator>
 #include <string>
 
 #include <gtest/gtest.h>
@@ -121,6 +122,50 @@ TEST(ConsoleProject, SupportsExplicitInputsAndRejectsUnknownTranspilers) {
 
     EXPECT_NE(runConsole("-t unknown -o \"" + (directory.path() / "unknown").string() + "\" \"" +
         (directory.path() / "logic.rls").string() + "\"", directory.path() / "unknown.log"), 0);
+}
+
+TEST(ConsoleProject, RejectsEnumOverflowBeforeTouchingExistingArtifacts) {
+    TemporaryDirectory directory;
+    const auto source = directory.path() / "limits.rls";
+    const auto output = directory.path() / "generated";
+    const auto log = directory.path() / "overflow.log";
+    writeFile(source, "enum Limit { Highest = 2147483647, Overflow }\n");
+    writeFile(output / "functions.gen.h", "previous successful output\n");
+
+    EXPECT_NE(runConsole("-t soh -o \"" + output.string() + "\" \"" +
+        source.string() + "\"", log), 0);
+    std::ifstream artifact(output / "functions.gen.h");
+    EXPECT_EQ(std::string(std::istreambuf_iterator<char>{artifact}, {}),
+        "previous successful output\n");
+    EXPECT_FALSE(fs::exists(output / "regions.gen.cpp"));
+
+    std::ifstream diagnostics(log);
+    const std::string text(std::istreambuf_iterator<char>{diagnostics}, {});
+    EXPECT_NE(text.find("exceeds the Int value range"), std::string::npos);
+    EXPECT_NE(text.find("Overflow"), std::string::npos);
+}
+
+TEST(ConsoleProject, RejectsOutOfRangeNumericLiteralsBeforeCreatingArtifacts) {
+    TemporaryDirectory directory;
+    const std::string sources[] = {
+        "define too_large(): 2147483648\n",
+        "define too_small(): -2147483649\n",
+        "enum Limit { TooLarge = 2147483648 }\n",
+        "enum Limit { TooSmall = -2147483649 }\n"
+    };
+    for (size_t i = 0; i < std::size(sources); ++i) {
+        SCOPED_TRACE(sources[i]);
+        const auto source = directory.path() / ("limits" + std::to_string(i) + ".rls");
+        const auto output = directory.path() / ("generated" + std::to_string(i));
+        const auto log = directory.path() / ("limits" + std::to_string(i) + ".log");
+        writeFile(source, sources[i]);
+        EXPECT_NE(runConsole("-t soh -o \"" + output.string() + "\" \"" +
+            source.string() + "\"", log), 0);
+        EXPECT_FALSE(fs::exists(output));
+        std::ifstream diagnostics(log);
+        const std::string text(std::istreambuf_iterator<char>{diagnostics}, {});
+        EXPECT_NE(text.find("invalid integer literal"), std::string::npos);
+    }
 }
 
 } // namespace

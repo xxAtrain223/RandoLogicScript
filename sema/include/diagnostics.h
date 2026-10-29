@@ -187,6 +187,9 @@ inline ast::Diagnostic ExternEnumDuplicateMember(ast::Span span, std::string_vie
 inline ast::Diagnostic EnumDuplicateValue(ast::Span span, int value, std::string_view name) {
 	return {"RLS-V016", std::move(span), ast::DiagnosticLevel::Error, fmt::format("duplicate enum value {} in enum '{}'", value, name)};
 }
+inline ast::Diagnostic EnumValueOutOfRange(ast::Span span, std::string_view member, std::string_view name) {
+	return {"RLS-V021", std::move(span), ast::DiagnosticLevel::Error, fmt::format("implicit enum member '{}' in enum '{}' exceeds the Int value range; specify a representable explicit value", member, name)};
+}
 inline ast::Diagnostic ExternEnumEmpty(ast::Span span, std::string_view name) {
 	return {"RLS-V017", std::move(span), ast::DiagnosticLevel::Error, fmt::format("extern enum '{}' must declare at least one member or wildcard pattern", name)};
 }

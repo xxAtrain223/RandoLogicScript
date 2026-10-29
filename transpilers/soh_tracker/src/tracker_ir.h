@@ -47,6 +47,7 @@ struct ValueType {
 };
 
 using ValueTypeResult = std::variant<ValueType, ast::Diagnostic>;
+std::variant<int32_t, ast::Diagnostic> CheckInt32Value(int64_t value, const ast::Span& span);
 ValueTypeResult GetValueType(const ast::Project& project, const ast::Expr& expression);
 ValueTypeResult GetValueType(const ast::Project& project, const ast::Param& parameter);
 
