@@ -6,6 +6,7 @@
 #include "parser.h"
 #include "sema.h"
 #include "tracker_lowering.h"
+#include "tracker_validation.h"
 
 namespace rls::transpilers::soh_tracker::ir {
 namespace {
@@ -59,6 +60,9 @@ protected:
 	}
 
 	void expectFullyReachable() const {
+		const auto validation = ValidateGraph(project, graph, sourceRoot);
+		for (const auto& error : validation) ADD_FAILURE() << error.message;
+		ASSERT_TRUE(validation.empty());
 		const auto numbering = NumberGraph(graph, sourceRoot);
 		ASSERT_TRUE(std::holds_alternative<Numbering>(numbering));
 		EXPECT_EQ(std::get<Numbering>(numbering).count.value, graph.nodes.size());

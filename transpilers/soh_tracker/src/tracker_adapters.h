@@ -21,6 +21,9 @@ struct RenderedAdapter {
 using AdapterRenderingResult =
 	std::variant<std::vector<RenderedAdapter>, std::vector<ast::Diagnostic>>;
 
+std::vector<ast::Diagnostic> ValidateHostAdapters(const Graph& graph,
+	std::span<const HostEnumBinding> customEnums = {});
+
 // Derives adapters from analyzed externs; custom enum mappings supply host type names only.
 AdapterRenderingResult RenderHostAdapters(const Graph& graph,
 	std::span<const HostEnumBinding> customEnums = {});

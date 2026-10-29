@@ -55,7 +55,7 @@ std::string argument(const ValueType& type, std::string_view cppType, size_t pos
 
 } // namespace
 
-AdapterRenderingResult RenderHostAdapters(const Graph& graph,
+std::vector<ast::Diagnostic> ValidateHostAdapters(const Graph& graph,
 	std::span<const HostEnumBinding> customEnums)
 {
 	std::vector<ast::Diagnostic> diagnostics;
@@ -73,9 +73,7 @@ AdapterRenderingResult RenderHostAdapters(const Graph& graph,
 		}
 	}
 
-	std::vector<RenderedAdapter> rendered;
-	for (size_t slot = 0; slot < graph.adapters.size(); ++slot) {
-		const auto& adapter = graph.adapters[slot];
+	for (const auto& adapter : graph.adapters) {
 		if (!adapter.declaration) {
 			error({}, "Tracker host adapter is missing its extern declaration.");
 			continue;
@@ -84,12 +82,10 @@ AdapterRenderingResult RenderHostAdapters(const Graph& graph,
 		const auto fail = [&](std::string message) {
 			error(declaration.span, "Tracker host binding '" + declaration.name.text + "': " + message);
 		};
-		const auto before = diagnostics.size();
 		if (adapter.parameters.size() != declaration.params.size()) {
 			fail("adapter parameter count does not match the extern declaration.");
 			continue;
 		}
-		std::vector<std::string> parameterTypes;
 		for (size_t i = 0; i <= adapter.parameters.size(); ++i) {
 			const bool result = i == adapter.parameters.size();
 			const auto& type = result ? adapter.result : adapter.parameters[i];
@@ -100,10 +96,21 @@ AdapterRenderingResult RenderHostAdapters(const Graph& graph,
 				continue;
 			}
 			if (!validRepresentation(type)) fail("incompatible " + label + " representation.");
-			if (!result) parameterTypes.push_back(*expected);
 		}
-		if (diagnostics.size() != before) continue;
+	}
+	return diagnostics;
+}
 
+AdapterRenderingResult RenderHostAdapters(const Graph& graph,
+	std::span<const HostEnumBinding> customEnums)
+{
+	auto diagnostics = ValidateHostAdapters(graph, customEnums);
+	if (!diagnostics.empty()) return diagnostics;
+
+	std::vector<RenderedAdapter> rendered;
+	for (size_t slot = 0; slot < graph.adapters.size(); ++slot) {
+		const auto& adapter = graph.adapters[slot];
+		const auto& declaration = *adapter.declaration;
 		const auto symbol = declaration.name.text + "_adapter";
 		std::ostringstream out;
 		out << "static value_t " << symbol << "(std::span<EvalResult> arguments) {\n";
@@ -114,14 +121,13 @@ AdapterRenderingResult RenderHostAdapters(const Graph& graph,
 		out << "::" << declaration.name.text << "(";
 		for (size_t i = 0; i < adapter.parameters.size(); ++i) {
 			if (i) out << ", ";
-			out << argument(adapter.parameters[i], parameterTypes[i], i);
+			out << argument(adapter.parameters[i], *hostType(adapter.parameters[i], customEnums, false), i);
 		}
 		out << ")";
 		out << (condition ? "}" : ")");
 		out << ";\n}\n";
 		rendered.push_back({AdapterHandle{slot}, symbol, out.str()});
 	}
-	if (!diagnostics.empty()) return diagnostics;
 	return rendered;
 }
 

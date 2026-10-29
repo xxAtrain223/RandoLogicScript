@@ -175,7 +175,14 @@ std::variant<std::vector<OrderedSource>, std::vector<ast::Diagnostic>> OrderSour
 	return ordered;
 }
 
-std::variant<Numbering, std::vector<ast::Diagnostic>> NumberGraph(
+namespace {
+
+struct GraphStructure {
+	std::vector<std::vector<NodeHandle>> edges;
+	std::vector<std::string> rootPaths;
+};
+
+std::variant<GraphStructure, std::vector<ast::Diagnostic>> inspectGraph(
 	const Graph& graph, const std::filesystem::path& sourceRoot)
 {
 	if (!sourceRoot.is_absolute()) {
@@ -183,6 +190,10 @@ std::variant<Numbering, std::vector<ast::Diagnostic>> NumberGraph(
 			error({}, "Tracker source ordering requires an absolute project source root.")};
 	}
 	std::vector<ast::Diagnostic> diagnostics;
+	const auto count = CheckNodeCount(graph.nodes.size(), {});
+	if (const auto* diagnostic = std::get_if<ast::Diagnostic>(&count)) {
+		diagnostics.push_back(*diagnostic);
+	}
 	const auto checkReference = [&](NodeHandle handle, const ast::Span& span) {
 		if (handle.slot >= graph.nodes.size()) {
 			diagnostics.push_back(error(span, "Tracker graph references an invalid node handle."));
@@ -243,6 +254,29 @@ std::variant<Numbering, std::vector<ast::Diagnostic>> NumberGraph(
 	if (!diagnostics.empty()) {
 		return diagnostics;
 	}
+	return GraphStructure{std::move(edges), std::move(rootPaths)};
+}
+
+} // namespace
+
+std::vector<ast::Diagnostic> ValidateGraphStructure(
+	const Graph& graph, const std::filesystem::path& sourceRoot)
+{
+	auto structure = inspectGraph(graph, sourceRoot);
+	if (const auto* diagnostics = std::get_if<std::vector<ast::Diagnostic>>(&structure)) {
+		return *diagnostics;
+	}
+	return {};
+}
+
+std::variant<Numbering, std::vector<ast::Diagnostic>> NumberGraph(
+	const Graph& graph, const std::filesystem::path& sourceRoot)
+{
+	auto inspected = inspectGraph(graph, sourceRoot);
+	if (const auto* diagnostics = std::get_if<std::vector<ast::Diagnostic>>(&inspected)) {
+		return *diagnostics;
+	}
+	const auto& [edges, rootPaths] = std::get<GraphStructure>(inspected);
 
 	Numbering numbering{NodeCount{0}, {}, std::vector<std::optional<NodeId>>(graph.nodes.size()), {}};
 	numbering.rootsInOrder.resize(graph.roots.size());

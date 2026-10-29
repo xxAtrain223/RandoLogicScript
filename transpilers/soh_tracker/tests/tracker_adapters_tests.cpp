@@ -268,6 +268,22 @@ TEST_F(SohTrackerAdapters, RejectsInvalidCountsMissingDeclarationsAndRepresentat
 	expectError(RenderHostAdapters(graph), "missing its extern declaration");
 }
 
+TEST_F(SohTrackerAdapters, ValidatesContractsIndependentlyOfRendering) {
+	lower(
+		"extern enum Custom { CUSTOM_* }\n"
+		"extern define host(value: Custom) -> Bool\n"
+		"region RR_TEST { locations { RC_A: host(CUSTOM_ONE) } }\n");
+	ASSERT_FALSE(HasFatalFailure());
+	const std::vector<ast::Diagnostic> missing = ValidateHostAdapters(graph);
+	ASSERT_EQ(missing.size(), 1);
+	EXPECT_NE(missing[0].message.find("missing supported host type mapping"), std::string::npos);
+	const std::vector<HostEnumBinding> mappings{{"Custom", "HostCustom"}};
+	EXPECT_TRUE(ValidateHostAdapters(graph, mappings).empty());
+	const auto rendering = RenderHostAdapters(graph, mappings);
+	ASSERT_TRUE(std::holds_alternative<std::vector<RenderedAdapter>>(rendering));
+	ASSERT_EQ(std::get<std::vector<RenderedAdapter>>(rendering).size(), 1);
+}
+
 TEST_F(SohTrackerAdapters, RejectsAmbiguousConfigurationAndHandlesEmptyGraphs) {
 	const auto empty = RenderHostAdapters(graph);
 	ASSERT_TRUE(std::holds_alternative<std::vector<RenderedAdapter>>(empty));

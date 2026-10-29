@@ -72,6 +72,17 @@ TEST_F(SohTrackerGraph, ChecksExactNodeAndParameterAbiBoundariesWithoutAllocatin
 	}
 }
 
+TEST_F(SohTrackerGraph, ValidatesStructureIndependentlyOfNumbering) {
+	Graph graph;
+	graph.nodes.push_back(node(Value{true}));
+	graph.nodes.push_back(node(Value{false}));
+	graph.nodes.push_back(node(Logical{LogicalOperator::And, {NodeHandle{0}, NodeHandle{1}}}));
+	const std::vector<ast::Diagnostic> diagnostics = ValidateGraphStructure(graph, sourceRoot);
+	EXPECT_TRUE(diagnostics.empty());
+	std::get<Logical>(graph.nodes[2].payload).children[1] = NodeHandle{99};
+	expectError(ValidateGraphStructure(graph, sourceRoot), "invalid node handle");
+}
+
 TEST_F(SohTrackerGraph, NormalizesRelativeAndAbsolutePathsWithoutFilesystemAccess) {
 	const auto relocatedRoot = sourceRoot / "another_checkout";
 	const auto nested = std::filesystem::path{"src"} / "nested" / ".." / "graph.rls";

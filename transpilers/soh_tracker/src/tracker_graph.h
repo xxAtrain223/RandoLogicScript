@@ -31,6 +31,10 @@ struct Numbering {
 	std::vector<size_t> rootsInOrder;
 };
 
+// Checks handles, arities, root identities/paths and ABI bounds without assigning IDs.
+std::vector<ast::Diagnostic> ValidateGraphStructure(
+	const Graph& graph, const std::filesystem::path& sourceRoot);
+
 // Checks reference integrity throughout the graph; numbers only root-reachable nodes.
 // This is not the full target type/ABI validator.
 std::variant<Numbering, std::vector<ast::Diagnostic>> NumberGraph(
