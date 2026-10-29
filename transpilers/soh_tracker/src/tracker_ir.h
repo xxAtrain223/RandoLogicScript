@@ -56,6 +56,15 @@ struct Provenance {
 	std::vector<const ast::Expr*> expressions;
 };
 
+struct ChainSources {
+	Provenance provenance;
+	std::vector<const ast::Expr*> operands;
+};
+
+// Shared lowering policy: logical chains flatten both sides; arithmetic only the left.
+std::variant<ChainSources, ast::Diagnostic> CollectChainSources(
+	const ast::Project& project, const ast::Expr& expression);
+
 struct EnumConstant {
 	const ast::EnumInfo* declaration;
 	const ast::Name* member;

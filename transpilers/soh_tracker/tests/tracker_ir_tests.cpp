@@ -121,6 +121,51 @@ TEST(SohTrackerIR, StoresAllSevenIntegralConversionTargets) {
 	static_assert(!std::is_constructible_v<Conversion, ConditionTarget, NodeHandle>);
 }
 
+TEST(SohTrackerIR, ChainCollectionPreservesIntermediateRepresentationBarriers) {
+	ast::Project project;
+	project.files.push_back(parser::ParseString(
+		"define chain(a: Int, b: Int, c: Int): (a + b) + c\n", "tracker_chain.rls"));
+	for (const auto& diagnostic : project.files[0].diagnostics) {
+		ASSERT_NE(diagnostic.level, ast::DiagnosticLevel::Error) << diagnostic.message;
+	}
+	for (const auto& diagnostic : sema::analyze(project)) {
+		ASSERT_NE(diagnostic.level, ast::DiagnosticLevel::Error) << diagnostic.message;
+	}
+	const auto& expression = *project.DefineDecls.at("chain")->body;
+	const auto& binary = std::get<ast::BinaryExpr>(expression.node);
+	const auto flattened = CollectChainSources(project, expression);
+	ASSERT_TRUE(std::holds_alternative<ChainSources>(flattened));
+	EXPECT_EQ(std::get<ChainSources>(flattened).operands.size(), 3);
+
+	// Synthetic analyzed facts exercise a representation barrier the source grammar
+	// cannot currently express as a same-operator arithmetic intermediate.
+	project.setType(binary.left.get(), ast::Type::Bool);
+	const auto collected = CollectChainSources(project, expression);
+	ASSERT_TRUE(std::holds_alternative<ChainSources>(collected));
+	const auto& sources = std::get<ChainSources>(collected);
+	EXPECT_EQ(sources.provenance.expressions, (std::vector<const ast::Expr*>{&expression}));
+	EXPECT_EQ(sources.operands, (std::vector<const ast::Expr*>{binary.left.get(), binary.right.get()}));
+}
+
+TEST(SohTrackerIR, ChainCollectionDiagnosesMissingMetadataAndIncompleteBinarySources) {
+	ast::Project project;
+	project.files.push_back(parser::ParseString(
+		"define chain(): 1 + 2\n", "tracker_chain.rls"));
+	ASSERT_TRUE(project.files[0].diagnostics.empty());
+	auto& expression = *std::get<ast::DefineDecl>(project.files[0].declarations[0]).body;
+	const auto missing = CollectChainSources(project, expression);
+	ASSERT_TRUE(std::holds_alternative<ast::Diagnostic>(missing));
+	EXPECT_NE(std::get<ast::Diagnostic>(missing).message.find("analyzed value type"), std::string::npos);
+	EXPECT_EQ(std::get<ast::Diagnostic>(missing).span.file, expression.span.file);
+
+	project.setType(&expression, ast::Type::Int);
+	std::get<ast::BinaryExpr>(expression.node).left.reset();
+	const auto incomplete = CollectChainSources(project, expression);
+	ASSERT_TRUE(std::holds_alternative<ast::Diagnostic>(incomplete));
+	EXPECT_NE(std::get<ast::Diagnostic>(incomplete).message.find("complete binary expression"), std::string::npos);
+	EXPECT_EQ(std::get<ast::Diagnostic>(incomplete).span.file, expression.span.file);
+}
+
 TEST(SohTrackerIR, PreservesOrderedAndRepeatedNaryOperands) {
 	const std::vector<NodeHandle> children{{3}, {1}, {3}, {2}};
 	const Payload logical = Logical{LogicalOperator::And, children};

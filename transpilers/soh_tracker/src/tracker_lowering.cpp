@@ -180,39 +180,15 @@ std::optional<NodeHandle> ExpressionLowerer::Binary(const ast::Expr& expression,
 	if (!resultTarget || *resultTarget != target) {
 		return Fail(expression, "Tracker binary result has an incompatible analyzed representation.");
 	}
-	Provenance provenance{expression.span, {}};
-	std::vector<const ast::Expr*> operands;
 	// Collect before emitting children so flattened operators leave no orphan descriptors.
-	std::vector<std::pair<const ast::Expr*, bool>> pending{{&expression, true}};
-	while (!pending.empty()) {
-		const auto [current, mayFlatten] = pending.back();
-		pending.pop_back();
-		const auto* nested = std::get_if<ast::BinaryExpr>(&current->node);
-		if (mayFlatten && nested && nested->op == binary.op) {
-			const auto nestedType = GetValueType(project, *current);
-			if (const auto* diagnostic = std::get_if<ast::Diagnostic>(&nestedType)) {
-				diagnostics.push_back(*diagnostic);
-				return std::nullopt;
-			}
-			const auto& representation = std::get<ValueType>(nestedType).representation;
-			const auto* integral = std::get_if<IntegralTarget>(&representation);
-			// A different intermediate representation is a normalization barrier.
-			if (integral && *integral == target) {
-				if (!nested->left || !nested->right) {
-					return Fail(*current, "Tracker lowering requires a complete binary expression.");
-				}
-				provenance.expressions.push_back(current);
-				// Right-first stack pushes preserve operand order. Logical chains flatten both
-				// sides, but arithmetic retains right-nested groups and interleaved left-fold timing.
-				pending.emplace_back(nested->right.get(), logical);
-				pending.emplace_back(nested->left.get(), true);
-				continue;
-			}
-		}
-		operands.push_back(current);
+	auto collected = CollectChainSources(project, expression);
+	if (const auto* diagnostic = std::get_if<ast::Diagnostic>(&collected)) {
+		diagnostics.push_back(*diagnostic);
+		return std::nullopt;
 	}
+	auto sources = std::get<ChainSources>(std::move(collected));
 	std::vector<NodeHandle> children;
-	for (const auto* operand : operands) {
+	for (const auto* operand : sources.operands) {
 		auto child = Lower(*operand, scope);
 		if (!child) return std::nullopt;
 		child = Convert(*child, target, *operand);
@@ -221,9 +197,9 @@ std::optional<NodeHandle> ExpressionLowerer::Binary(const ast::Expr& expression,
 	}
 	if (logical) {
 		return Add(Logical{binary.op == ast::BinaryOp::And ? LogicalOperator::And :
-			LogicalOperator::Or, std::move(children)}, type, std::move(provenance));
+			LogicalOperator::Or, std::move(children)}, type, std::move(sources.provenance));
 	}
-	return Add(Arithmetic{*arithmetic, std::move(children)}, type, std::move(provenance));
+	return Add(Arithmetic{*arithmetic, std::move(children)}, type, std::move(sources.provenance));
 }
 
 std::optional<NodeHandle> ExpressionLowerer::Conditional(const ast::Expr& expression,

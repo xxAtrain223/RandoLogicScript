@@ -65,4 +65,47 @@ ValueTypeResult GetValueType(const ast::Project& project, const ast::Param& para
 		project.getEnumType(&parameter), parameter.span);
 }
 
+std::variant<ChainSources, ast::Diagnostic> CollectChainSources(
+	const ast::Project& project, const ast::Expr& expression)
+{
+	const auto* binary = std::get_if<ast::BinaryExpr>(&expression.node);
+	if (!binary) return error(expression.span, "Tracker chain requires a source binary expression.");
+
+	const bool logical = binary->op == ast::BinaryOp::And || binary->op == ast::BinaryOp::Or;
+	if (!logical && binary->op != ast::BinaryOp::Add && binary->op != ast::BinaryOp::Sub &&
+		binary->op != ast::BinaryOp::Mul && binary->op != ast::BinaryOp::Div) {
+		return error(expression.span, "Tracker chain requires a supported source operator.");
+	}
+
+	const auto target = logical ? IntegralTarget::Bool : IntegralTarget::Int32;
+	ChainSources sources{{expression.span, {}}, {}};
+	std::vector<std::pair<const ast::Expr*, bool>> pending{{&expression, true}};
+	while (!pending.empty()) {
+		const auto [current, mayFlatten] = pending.back();
+		pending.pop_back();
+		const auto* nested = std::get_if<ast::BinaryExpr>(&current->node);
+		if (mayFlatten && nested && nested->op == binary->op) {
+			const auto nestedType = GetValueType(project, *current);
+			if (const auto* diagnostic = std::get_if<ast::Diagnostic>(&nestedType)) return *diagnostic;
+			const auto& representation = std::get<ValueType>(nestedType).representation;
+			const auto* integral = std::get_if<IntegralTarget>(&representation);
+
+			// A different intermediate representation is a normalization barrier.
+			if (integral && *integral == target) {
+				if (!nested->left || !nested->right) {
+					return error(current->span, "Tracker lowering requires a complete binary expression.");
+				}
+				sources.provenance.expressions.push_back(current);
+				// Right-first pushes preserve operand order. Retaining right-nested arithmetic
+				// also preserves the consumer's interleaved left-fold/exception timing.
+				pending.emplace_back(nested->right.get(), logical);
+				pending.emplace_back(nested->left.get(), true);
+				continue;
+			}
+		}
+		sources.operands.push_back(current);
+	}
+	return sources;
+}
+
 } // namespace rls::transpilers::soh_tracker::ir

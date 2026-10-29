@@ -7,6 +7,7 @@
 #include "parser.h"
 #include "sema.h"
 #include "tracker_lowering.h"
+#include "tracker_validation.h"
 
 namespace rls::transpilers::soh_tracker::ir {
 namespace {
@@ -145,6 +146,9 @@ TEST_F(SohTrackerLowering, FlattensOnlyHomogeneousLeftAssociatedArithmetic) {
 		ASSERT_TRUE(lowerBody("sample" + std::to_string(i)));
 		EXPECT_EQ(shape(*expression), cases[i].second);
 		EXPECT_EQ(graph.nodes[expression->slot].valueType->sourceType, ast::Type::Int);
+		for (const auto& diagnostic : ValidateGraph(project, graph, sourceRoot)) {
+			ADD_FAILURE() << diagnostic.message;
+		}
 	}
 }
 
@@ -165,6 +169,9 @@ TEST_F(SohTrackerLowering, FlattensLogicalChainsWithoutCrossingOtherOperatorsOrC
 	EXPECT_EQ(shape(*expression), "and(a,or(b,c))");
 	ASSERT_TRUE(lowerBody("normalized"));
 	EXPECT_EQ(shape(*expression), "and(not(bool(n)),?:(bool(n),bool(7),false),b)");
+	for (const auto& diagnostic : ValidateGraph(project, graph, sourceRoot)) {
+		ADD_FAILURE() << diagnostic.message;
+	}
 }
 
 TEST_F(SohTrackerLowering, PreservesParameterDeclarationsAndSeparateRepeatedOccurrences) {

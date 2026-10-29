@@ -319,5 +319,129 @@ TEST_F(SohTrackerValidation, ChecksBorrowedValueIdentities) {
 	expectError("here value is missing", &span);
 }
 
+TEST_F(SohTrackerValidation, RequiresChainSourceOperatorProvenance) {
+	const auto boolean = add(Value{true}, boolType);
+	const auto chain = add(Logical{LogicalOperator::And, {boolean, boolean}}, boolType);
+	expectError("chain is missing source operator provenance", &span);
+
+	graph.nodes[chain.slot].provenance.expressions.push_back(nullptr);
+	expectError("chain is missing source operator provenance", &span);
+}
+
+TEST_F(SohTrackerValidation, RejectsReorderedAndRepeatedOperandsEvenWhenTypesMatch) {
+	lower("region RR_TEST { locations { RC_TEST: true and false and true } }\n");
+	ASSERT_FALSE(HasFatalFailure());
+	const auto root = graph.roots[0].expression;
+	auto& chain = std::get<Logical>(graph.nodes[root.slot].payload);
+	const auto original = chain.children;
+	std::swap(chain.children[0], chain.children[1]);
+	expectError("chain operand order/provenance", &graph.nodes[root.slot].provenance.span);
+	chain.children = original;
+	chain.children[1] = chain.children[0];
+	expectError("chain operand order/provenance");
+}
+
+TEST_F(SohTrackerValidation, RejectsChangedChainOperatorAndMissingFlattenedOccurrences) {
+	lower("region RR_TEST { locations { RC_TEST: true or (false or true) } }\n");
+	ASSERT_FALSE(HasFatalFailure());
+	auto& node = graph.nodes[graph.roots[0].expression.slot];
+	auto& chain = std::get<Logical>(node.payload);
+	chain.operation = LogicalOperator::And;
+	expectError("chain operator differs from its source");
+	chain.operation = LogicalOperator::Or;
+	ASSERT_EQ(node.provenance.expressions.size(), 2);
+	node.provenance.expressions.pop_back();
+	expectError("chain flattened operator provenance");
+}
+
+TEST_F(SohTrackerValidation, RejectsFlatteningRightNestedArithmeticForEveryOperator) {
+	for (const auto* operation : {"+", "-", "*", "/"}) {
+		SCOPED_TRACE(operation);
+		project = {};
+		graph = {};
+		lower(std::string("region RR_TEST { locations { RC_TEST: 24 ") +
+			operation + " (3 " + operation + " 2) } }\n");
+		ASSERT_FALSE(HasFatalFailure());
+		expectSuccess();
+		const auto root = std::get<Conversion>(graph.nodes[graph.roots[0].expression.slot].payload).operand;
+		auto& parent = std::get<Arithmetic>(graph.nodes[root.slot].payload);
+		const auto& nested = std::get<Arithmetic>(graph.nodes[parent.children[1].slot].payload);
+		const auto children = nested.children;
+		parent.children.pop_back();
+		parent.children.insert(parent.children.end(), children.begin(), children.end());
+		expectError("chain operand count violates source grouping");
+	}
+}
+
+TEST_F(SohTrackerValidation, RejectsCrossingMixedOperatorAndLogicalBoundaries) {
+	lower("region RR_TEST { locations { RC_TEST: true and (false or true) } }\n");
+	ASSERT_FALSE(HasFatalFailure());
+	auto& parent = std::get<Logical>(graph.nodes[graph.roots[0].expression.slot].payload);
+	const auto& nested = std::get<Logical>(graph.nodes[parent.children[1].slot].payload);
+	parent.children[1] = nested.children[0];
+	expectError("chain operand order/provenance");
+
+	project = {};
+	graph = {};
+	lower("region RR_TEST { locations { RC_TEST: (24 / 3) * 2 } }\n");
+	ASSERT_FALSE(HasFatalFailure());
+	const auto root = std::get<Conversion>(graph.nodes[graph.roots[0].expression.slot].payload).operand;
+	auto& arithmetic = std::get<Arithmetic>(graph.nodes[root.slot].payload);
+	const auto division = arithmetic.children[0];
+	arithmetic.children[0] = std::get<Arithmetic>(graph.nodes[division.slot].payload).children[0];
+	expectError("chain operand order/provenance");
+}
+
+TEST_F(SohTrackerValidation, RejectsFlatteningAcrossHelperAndExternCalls) {
+	for (const bool external : {false, true}) {
+		SCOPED_TRACE(external);
+		project = {};
+		graph = {};
+		lower(std::string(external ? "extern define query(value: Int) -> Int\n" :
+			"define query(value: Int): value + 1\n") +
+			"region RR_TEST { locations { RC_TEST: query(2 + 3) + 4 } }\n");
+		ASSERT_FALSE(HasFatalFailure());
+		expectSuccess();
+		const auto root = std::get<Conversion>(graph.nodes[graph.roots[0].expression.slot].payload).operand;
+		auto& chain = std::get<Arithmetic>(graph.nodes[root.slot].payload);
+		const auto& call = graph.nodes[chain.children[0].slot];
+		const auto& parameters = external ? std::get<ExternCall>(call.payload).parameters :
+			std::get<HelperCall>(call.payload).parameters;
+		chain.children[0] = std::get<Parameter>(graph.nodes[parameters[0].slot].payload).value;
+		expectError("chain operand order/provenance");
+	}
+}
+
+TEST_F(SohTrackerValidation, RejectsRemovedOrBypassedIntermediateNormalization) {
+	lower(
+		"extern define enabled() -> Bool\n"
+		"region RR_TEST { locations { RC_TEST: (enabled() ? 99 : 1) and false } }\n");
+	ASSERT_FALSE(HasFatalFailure());
+	expectSuccess();
+	const auto root = graph.roots[0].expression;
+	auto& chain = std::get<Logical>(graph.nodes[root.slot].payload);
+	const auto normalized = chain.children[0];
+	auto& conversion = std::get<Conversion>(graph.nodes[normalized.slot].payload);
+	const auto source = conversion.operand;
+	chain.children[0] = source;
+	expectError("chain operand is missing its source normalization conversion");
+	chain.children[0] = normalized;
+	conversion.operand = std::get<Ternary>(graph.nodes[source.slot].payload).trueBranch;
+	expectError("chain conversion bypasses its source operand boundary");
+}
+
+TEST_F(SohTrackerValidation, ValidatesDynamicChainsAndPotentiallyThrowingOperandsStructurally) {
+	lower(
+		"extern define value() -> Int\n"
+		"region RR_TEST { locations {\n"
+		"    RC_A: value() / 0 / value()\n"
+		"    RC_B: value() - value() - value()\n"
+		"    RC_C: value() + (value() + value())\n"
+		"    RC_D: false and (value() / 0 > 1)\n"
+		"} }\n");
+	ASSERT_FALSE(HasFatalFailure());
+	expectSuccess();
+}
+
 } // namespace
 } // namespace rls::transpilers::soh_tracker::ir

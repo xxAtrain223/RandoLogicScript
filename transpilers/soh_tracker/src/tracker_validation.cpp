@@ -64,6 +64,61 @@ bool validType(const ast::Project& project, const ValueType& type) {
 	}
 }
 
+std::optional<ast::Diagnostic> checkChainSources(const ast::Project& project,
+	const Graph& graph, const Node& node, const std::vector<NodeHandle>& children,
+	ast::BinaryOp operation, IntegralTarget target)
+{
+	const auto fail = [&](std::string message) -> std::optional<ast::Diagnostic> {
+		return ast::Diagnostic{"", node.provenance.span, ast::DiagnosticLevel::Error,
+			"Tracker chain " + std::move(message)};
+	};
+	if (node.provenance.expressions.empty() || !node.provenance.expressions.front()) {
+		return fail("is missing source operator provenance.");
+	}
+
+	const auto& expression = *node.provenance.expressions.front();
+	const auto* binary = std::get_if<ast::BinaryExpr>(&expression.node);
+	if (!binary || binary->op != operation) {
+		return fail("operator differs from its source expression.");
+	}
+	const auto collected = CollectChainSources(project, expression);
+	if (const auto* diagnostic = std::get_if<ast::Diagnostic>(&collected)) return *diagnostic;
+	const auto& sources = std::get<ChainSources>(collected);
+	if (sources.provenance.expressions != node.provenance.expressions) {
+		return fail("flattened operator provenance crosses a semantic barrier or omits an operator.");
+	}
+	if (sources.operands.size() != children.size()) {
+		return fail("operand count violates source grouping or flattening boundaries.");
+	}
+
+	for (size_t i = 0; i < children.size(); ++i) {
+		const auto& child = graph.nodes[children[i].slot];
+		const auto* operand = sources.operands[i];
+		if (child.provenance.expressions.empty() || child.provenance.expressions.front() != operand) {
+			return fail("operand order/provenance differs from its source expression.");
+		}
+
+		const auto analyzed = GetValueType(project, *operand);
+		if (const auto* diagnostic = std::get_if<ast::Diagnostic>(&analyzed)) return *diagnostic;
+		const auto& sourceType = std::get<ValueType>(analyzed);
+		if (!sameRepresentation(sourceType.representation, target)) {
+			// Only the operand's normalization may be transparent here. Never walk into
+			// calls or nested operators to find a replacement operand.
+			const auto* conversion = std::get_if<Conversion>(&child.payload);
+			if (!conversion || conversion->target != target) {
+				return fail("operand is missing its source normalization conversion.");
+			}
+			const auto& converted = graph.nodes[conversion->operand.slot];
+			if (converted.provenance.expressions.empty() ||
+				converted.provenance.expressions.front() != operand ||
+				!converted.valueType || !sameType(*converted.valueType, sourceType)) {
+				return fail("conversion bypasses its source operand boundary.");
+			}
+		}
+	}
+	return std::nullopt;
+}
+
 } // namespace
 
 std::vector<ast::Diagnostic> ValidateGraph(const ast::Project& project, const Graph& graph,
@@ -228,19 +283,30 @@ std::vector<ast::Diagnostic> ValidateGraph(const ast::Project& project, const Gr
 				}, payload.value);
 			} else if constexpr (std::is_same_v<T, Logical> || std::is_same_v<T, Arithmetic>) {
 				const auto target = std::is_same_v<T, Logical> ? IntegralTarget::Bool : IntegralTarget::Int32;
+				std::optional<ast::BinaryOp> sourceOperation;
 				if constexpr (std::is_same_v<T, Logical>) {
-					if (payload.operation != LogicalOperator::And && payload.operation != LogicalOperator::Or)
-						fail("logical node has an unsupported operator.");
+					switch (payload.operation) {
+					case LogicalOperator::And: sourceOperation = ast::BinaryOp::And; break;
+					case LogicalOperator::Or: sourceOperation = ast::BinaryOp::Or; break;
+					default: fail("logical node has an unsupported operator.");
+					}
 				} else {
 					switch (payload.operation) {
-					case ArithmeticOperator::Add: case ArithmeticOperator::Subtract:
-					case ArithmeticOperator::Multiply: case ArithmeticOperator::Divide: break;
+					case ArithmeticOperator::Add: sourceOperation = ast::BinaryOp::Add; break;
+					case ArithmeticOperator::Subtract: sourceOperation = ast::BinaryOp::Sub; break;
+					case ArithmeticOperator::Multiply: sourceOperation = ast::BinaryOp::Mul; break;
+					case ArithmeticOperator::Divide: sourceOperation = ast::BinaryOp::Div; break;
 					default: fail("arithmetic node has an unsupported operator.");
 					}
 				}
 
 				result(target);
 				for (const auto child : payload.children) require(typeOf(child), target, "chain operand");
+
+				if (sourceOperation) {
+					if (const auto diagnostic = checkChainSources(project, graph, node,
+						payload.children, *sourceOperation, target)) diagnostics.push_back(*diagnostic);
+				}
 			} else if constexpr (std::is_same_v<T, Not>) {
 				result(IntegralTarget::Bool);
 				require(typeOf(payload.operand), IntegralTarget::Bool, "not operand");
