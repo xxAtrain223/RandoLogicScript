@@ -147,6 +147,9 @@ std::vector<ast::Diagnostic> ValidateGraph(const ast::Project& project, const Gr
 		if (!validType(project, type) || !type.enumInfo || !checkedEnums.insert(type.enumInfo).second) return;
 		const auto& info = *type.enumInfo;
 		const auto label = "Tracker enum '" + info.name.text + "'";
+		if (const auto host = GetHostEnumType(info, customEnums); !host || host->empty()) {
+			error(info.span, label + " is missing a supported host type mapping.");
+		}
 		if (info.underlyingType != ast::Type::Int ||
 			(info.kind != ast::EnumKind::Normal && info.kind != ast::EnumKind::Extern)) {
 			error(info.span, label + " has unsupported analyzed enum metadata.");

@@ -5,6 +5,7 @@
 
 #include "parser.h"
 #include "sema.h"
+#include "tracker_emission.h"
 #include "tracker_lowering.h"
 #include "tracker_validation.h"
 
@@ -399,6 +400,13 @@ TEST_F(SohTrackerCalls, RegistersSyntheticSelfAndMutualDefinitionsBeforeTheirBod
 		const auto secondNumbering = NumberGraph(graph, sourceRoot);
 		EXPECT_EQ(std::get<Numbering>(firstNumbering).nodesById,
 			std::get<Numbering>(secondNumbering).nodesById);
+		const auto emitted = RenderArtifacts(project, graph, sourceRoot);
+		ASSERT_TRUE(std::holds_alternative<RenderedArtifacts>(emitted));
+		const auto& artifacts = std::get<RenderedArtifacts>(emitted);
+		EXPECT_NE(artifacts.source.find(mutual ? "return 3ULL;" : "return 2ULL;"), std::string::npos);
+		const auto emittedAgain = RenderArtifacts(project, graph, sourceRoot);
+		ASSERT_TRUE(std::holds_alternative<RenderedArtifacts>(emittedAgain));
+		EXPECT_EQ(artifacts, std::get<RenderedArtifacts>(emittedAgain));
 	}
 }
 

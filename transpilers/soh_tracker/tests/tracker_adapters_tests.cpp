@@ -96,7 +96,7 @@ TEST_F(SohTrackerAdapters, RendersBaselineEnumsWidthsAndOriginalCallbackArgument
 		std::string::npos);
 	EXPECT_EQ(spirit.find("auto arguments"), std::string::npos);
 	const auto& setting = named(adapters, "setting").definition;
-	EXPECT_NE(setting.find("return static_cast<int32_t>(::setting("), std::string::npos);
+	EXPECT_NE(setting.find("return CheckedHostInt(::setting("), std::string::npos);
 	EXPECT_EQ(setting.find("uint8_t"), std::string::npos);
 	EXPECT_EQ(setting.find("RandomizerSettingKey::"), std::string::npos);
 	const auto& has = named(adapters, "has").definition;
@@ -153,7 +153,7 @@ TEST_F(SohTrackerAdapters, CoversEveryEmbeddedBaselineBindingAndDeduplicatesRepe
 	EXPECT_NE(named(adapters, "trick").definition.find("static_cast<RandomizerTrick>"), std::string::npos);
 	EXPECT_NE(named(adapters, "trial_skipped").definition.find("static_cast<TrialKey>"), std::string::npos);
 	for (const auto& name : integerQueries) {
-		EXPECT_NE(named(adapters, name).definition.find("return static_cast<int32_t>(::" + name + "())"),
+		EXPECT_NE(named(adapters, name).definition.find("return CheckedHostInt(::" + name + "())"),
 			std::string::npos);
 	}
 }
@@ -187,7 +187,7 @@ TEST_F(SohTrackerAdapters, SupportsCustomEnumsLocalEnumsAndEnumReturnsWithoutInv
 	ASSERT_TRUE(std::holds_alternative<std::vector<RenderedAdapter>>(result));
 	const auto& output = std::get<std::vector<RenderedAdapter>>(result)[0].definition;
 	EXPECT_NE(output.find("static_cast<Local>(ToInt<int32_t>(arguments[0].Result))"), std::string::npos);
-	EXPECT_NE(output.find("return static_cast<int32_t>(::convert("), std::string::npos);
+	EXPECT_NE(output.find("return CheckedHostInt(::convert("), std::string::npos);
 }
 
 TEST_F(SohTrackerAdapters, GeneratesSynchronousCallbacksFromExternConditionTypes) {
@@ -220,7 +220,7 @@ TEST_F(SohTrackerAdapters, NormalizesCustomIntegerReturnsFromExternDeclarations)
 	const auto result = RenderHostAdapters(graph);
 	ASSERT_TRUE(std::holds_alternative<std::vector<RenderedAdapter>>(result));
 	EXPECT_NE(std::get<std::vector<RenderedAdapter>>(result)[0].definition.find(
-		"return static_cast<int32_t>(::custom(ToInt<int32_t>(arguments[0].Result)))"),
+		"return CheckedHostInt(::custom(ToInt<int32_t>(arguments[0].Result)))"),
 		std::string::npos);
 }
 

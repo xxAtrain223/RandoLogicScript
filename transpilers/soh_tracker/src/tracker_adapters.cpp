@@ -20,14 +20,7 @@ std::optional<std::string> hostType(const ValueType& type,
 	case ast::Type::Location: return "RandomizerCheck";
 	case ast::Type::Enum:
 		if (!type.enumInfo) return std::nullopt;
-		if (const auto* mapping = soh::findHostEnumMapping(type.enumInfo->name.text)) {
-			return std::string(mapping->cppType);
-		}
-		if (type.enumInfo->kind == ast::EnumKind::Normal) return type.enumInfo->name.text;
-		for (const auto& mapping : customEnums) {
-			if (mapping.rlsName == type.enumInfo->name.text) return mapping.cppType;
-		}
-		return std::nullopt;
+		return GetHostEnumType(*type.enumInfo, customEnums);
 	default: return std::nullopt;
 	}
 }
@@ -54,6 +47,19 @@ std::string argument(const ValueType& type, std::string_view cppType, size_t pos
 }
 
 } // namespace
+
+std::optional<std::string> GetHostEnumType(const ast::EnumInfo& declaration,
+	std::span<const HostEnumBinding> customEnums)
+{
+	if (const auto* mapping = soh::findHostEnumMapping(declaration.name.text)) {
+		return std::string(mapping->cppType);
+	}
+	if (declaration.kind == ast::EnumKind::Normal) return declaration.name.text;
+	for (const auto& mapping : customEnums) {
+		if (mapping.rlsName == declaration.name.text) return mapping.cppType;
+	}
+	return std::nullopt;
+}
 
 std::vector<ast::Diagnostic> ValidateHostAdapters(const Graph& graph,
 	std::span<const HostEnumBinding> customEnums)
@@ -117,7 +123,7 @@ AdapterRenderingResult RenderHostAdapters(const Graph& graph,
 		out << "\treturn ";
 		const bool condition = adapter.result.sourceType == ast::Type::Condition;
 		if (condition) out << "condition_t{";
-		else out << "static_cast<" << (adapter.result.sourceType == ast::Type::Bool ? "bool" : "int32_t") << ">(";
+		else out << (adapter.result.sourceType == ast::Type::Bool ? "static_cast<bool>(" : "CheckedHostInt(");
 		out << "::" << declaration.name.text << "(";
 		for (size_t i = 0; i < adapter.parameters.size(); ++i) {
 			if (i) out << ", ";
