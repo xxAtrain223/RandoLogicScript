@@ -4,13 +4,11 @@
 #include <string>
 
 #include "tracker_ir.h"
+#include "soh_tracker.h"
 
 namespace rls::transpilers::soh_tracker::ir {
 
-struct HostEnumBinding {
-	std::string rlsName;
-	std::string cppType;
-};
+using ::rls::transpilers::soh_tracker::HostEnumBinding;
 
 struct RenderedAdapter {
 	AdapterHandle handle;

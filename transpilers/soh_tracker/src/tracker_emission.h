@@ -16,4 +16,8 @@ std::variant<RenderedArtifacts, std::vector<ast::Diagnostic>> RenderArtifacts(
 	const ast::Project& project, const Graph& graph, const std::filesystem::path& sourceRoot,
 	std::span<const HostEnumBinding> customEnums = {});
 
+std::vector<ast::Diagnostic> EmitArtifacts(const ast::Project& project, const Graph& graph,
+	rls::OutputWriter& out, const std::filesystem::path& sourceRoot,
+	std::span<const HostEnumBinding> customEnums = {});
+
 } // namespace rls::transpilers::soh_tracker::ir

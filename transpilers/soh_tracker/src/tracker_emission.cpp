@@ -309,4 +309,20 @@ std::variant<RenderedArtifacts, std::vector<ast::Diagnostic>> RenderArtifacts(
 	return artifacts;
 }
 
+std::vector<ast::Diagnostic> EmitArtifacts(const ast::Project& project, const Graph& graph,
+	rls::OutputWriter& out, const std::filesystem::path& sourceRoot,
+	std::span<const HostEnumBinding> customEnums)
+{
+	auto rendered = RenderArtifacts(project, graph, sourceRoot, customEnums);
+	if (const auto* errors = std::get_if<std::vector<ast::Diagnostic>>(&rendered)) return *errors;
+	const auto& artifacts = std::get<RenderedArtifacts>(rendered);
+	auto& header = out.open("logic_tracker.gen.h");
+	header << artifacts.header;
+	auto& source = out.open("logic_tracker.gen.cpp");
+	source << artifacts.source;
+	auto& manifest = out.open("logic_tracker.gen.txt");
+	manifest << artifacts.manifest;
+	return {};
+}
+
 } // namespace rls::transpilers::soh_tracker::ir
