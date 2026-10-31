@@ -32,16 +32,16 @@ This plan covers the full document in implementation phases and has been approve
 
 ### Current handoff
 
-- **Review baseline:** Phases 1-7a were user-approved; checkpoint 7b added independent SoH/AP/tracker golden acceptance checks and explicitly configured tracker in the sample manifest. Its cross-backend ordering/nonmutation test was removed at user request.
-- **Current checkpoint:** Structural expression sharing and emitted-C++ cleanup. [NumberDistinctGraph](../transpilers/soh_tracker/src/tracker_graph.cpp) canonicalizes immutable descriptors after occurrence-specific validation, without mutating the graph or caching results. [Emission](../transpilers/soh_tracker/src/tracker_emission.cpp) remaps every child/root ID and checks paths for all reachable occurrences, including aliases. Emitted helpers remain `static` at global scope; generated host calls are unqualified, and the detail namespace is removed. Integer/index/parameter literals use plain representable values, and zero-argument adapters omit the unused span name. Parameter positions remain checked against 0–255.
-- **Acceptance artifacts:** The [sample manifest](../examples/soh/rls.json) configures `soh_tracker` alongside SoH/AP. Its two [golden files](../examples/soh/out_soh_tracker) now contain **574 nodes / 304 roots**, down from 1,927 nodes, with no repeated factory constructors. Default invocation runs all three configured targets; the CLI never enables tracker implicitly.
-- **Generation/documentation:** `.\build\console\Debug\RandoLogicScript.exe --project .\examples\soh\rls.json -t soh_tracker` regenerates the baselines. Existing sample unresolved-exit warnings and one unused-helper info diagnostic are not errors. Detailed tracker usage/regeneration prose remains intentionally absent from the README/building guide.
-- **Validation:** The tracker test project and console generator built successfully with the installed Visual Studio MSBuild; `build\transpilers\soh_tracker\Debug\soh_tracker_tests.exe` passed **151/151**. The sample tracker output was regenerated; `git diff --check` passed, and the generated source contains no detail namespace or qualified host calls. The earlier **177/177** focused tracker/console/acceptance CTest run also passed. Full repository/sema suites, other platforms, and real-consumer checks remain unrun.
-- **Worktree/review:** Changes are uncommitted and await review. The worktree includes tracker numbering/emission, related tests, the tracker C++ golden, and this plan. Console dispatch/writer, sema, schema, user-provided requirements, and CI workflows are unchanged.
+- **Review baseline:** Phases 1-7 and the structural-sharing/emitted-C++ cleanup were accepted before Phase 8. Existing independent SoH/AP/tracker golden checks remain; the cross-backend ordering/nonmutation test remains removed at user request.
+- **Current decision:** **Phase 8 skipped at user request.** Its added acceptance assertions, private-header test registration, and standalone core/shops fixture were reverted. Rely on existing examples, acceptance/unit tests, and integration checks in the actual SoH project; do not restart the local acceptance expansion.
+- **Acceptance artifacts:** The [sample manifest](../examples/soh/rls.json) explicitly configures tracker alongside SoH/AP. The [tracker goldens](../examples/soh/out_soh_tracker) remain **574 nodes / 304 roots**, with structural sharing and no repeated factory constructors. Default invocation runs configured targets only.
+- **Generation/documentation:** `.\build\console\Debug\RandoLogicScript.exe --project .\examples\soh\rls.json -t soh_tracker` regenerates the baselines. Existing unresolved-exit warnings and unused-helper info are not errors. Detailed invocation/integration documentation remains Phase 9.
+- **Validation baseline:** Before Phase 8, `.\build\transpilers\soh_tracker\Debug\soh_tracker_tests.exe` passed **151/151**, and the focused tracker/console/acceptance CTest run passed **177/177**. Phase 8's new tests are reverted, not retained validation gates. Full repository/sema suites, other platforms, and real-consumer checks remain unrun.
+- **Revert validation:** Rebuilt `console_acceptance_tests` with the configured Visual Studio-bundled CMake; `.\build\console\Debug\console_acceptance_tests.exe --gtest_filter=AcceptanceTracker.*` passed the restored **1/1** golden test. `git diff --check` passed; tracked test files match HEAD and no new fixture files remain.
+- **Worktree:** Only this plan's skip decision and handoff update remain uncommitted. Compiler/backends, tests, fixtures, CLI/writer, schema, requirements, goldens, and CI workflows are restored or unchanged.
 - **Publication boundary:** Phase 7a's checked console writer remains caller-owned; `OutputWriter` stays open-only. Tracker compiler diagnostics precede artifact opens, but generation/output exceptions can leave partial files. No transactional publication or crash durability is claimed. Unit-injected write/flush/close failures do not certify real disk exhaustion; cross-filesystem-root rejection and real disk flush/close failure CLI status remain untested end-to-end on this Windows checkout.
-- **Remaining local work:** Phase 8's broader acceptance matrix/corpus, root-set accounting, and numeric/descriptor limits remain separate. The 7b corpus counts and goldens are not exhaustive semantic coverage.
 - **Pending consumer gates:** Generated source still needs real C++20 consumer headers and matching SoH `functions.gen.h`. Compilation/API compatibility, host ranges/return widths, ODR, lazy cache/runtime behavior, callback lifetimes, and host-enforced nonmutation remain downstream. Recursive runtime execution remains deferred; synthetic emission does not enable recursive RLS in sema.
-- **Next action:** Stop for sharing review. After approval, choose the next review-sized Phase 8 checkpoint; do not jump to consumer certification.
+- **Next action:** Phase 9's invocation and downstream integration documentation, when requested. Keep actual SoH integration and consumer certification explicitly separate.
 
 ## Confirmed decisions and boundaries
 
@@ -363,30 +363,17 @@ Exit criteria: documented CLI invocation generates the required artifacts, and e
 - Compare tracker output against its golden directory independently, alongside the existing SoH/AP golden tests. Do not retain the cross-backend ordering test or AST snapshot helper; the user removed that coverage during review.
 - These checks establish local golden emission stability for the sample, not cross-backend nonmutation, exhaustive source semantics, consumer API compatibility, or runtime parity.
 
-### 8. Completing the local acceptance matrix and sample corpus
+### 8. Local acceptance expansion (skipped)
 
 Todo ID: `tracker-acceptance`
 
-Depends on: `tracker-cli`.
-
-- Exercise worked examples A-F, the separate core/shops files, and the available SoH source corpus. Include helper-heavy logic, wallet ternaries, Spirit Shared, vanilla/MQ ownership, and shuffle extensions.
-- Report actual fixture node/root counts and compare the root set against every composed entry. Verify eight distinct shop roots and five boss-room roots without assuming numeric IDs.
-- Exercise real emitted IDs above 65,535 without dropping roots; test the full 32-bit representational limits through synthetic arithmetic checks.
-- Test all lowered node kinds, boundary conversions, parameter order/defaults, Condition forwarding/references/invocation, typed matches, reserved names, escaping, and deterministic output. Use analyzed-IR/API assertions, not snapshots alone.
-- Assert flattened node/child counts and operand order for all six operators. Cover long chains, both-sided logical nesting, mixed operators, duplicate operands, explicit right-nested arithmetic, and explicit conversion/other semantic boundaries. Require n-ary IR for dynamic left-associated division, including a potentially zero divisor before a later host query; do not gate flattening on constant/nonthrowing prefixes. Local tests verify the required graph structure; downstream runtime regression tests verify early division exceptions skip the later query and preserve trace/evaluation order.
-- Cover unknown/missing type and binding metadata, unsupported executable strings/lists/callables, duplicate ownership, invalid arities/operators, numeric/count/parameter overflows, and write errors.
-- Add finite self/mutual-reference IR tests for definition sharing, cycle-safe reachability/validation, deterministic emission, and no tracker-specific recursion ban. Keep a source-level regression documenting the current sema cycle rejection separately; do not present it as a new backend restriction or as recursive execution coverage.
-- Record downstream checks for representative generated C++ against the real C++20 consumer interface, including two-translation-unit header inclusion and no duplicate generated entry points.
-- Run the smallest existing backend/CLI/project suites covering the changes, plus directly affected SoH/AP regression suites. Escalate only if targeted results reveal broader risk.
-- Do not claim compilation/API compatibility, runtime evaluation, trace, lifetime, rendering, or gameplay parity without checks against the actual consumer.
-
-Exit criteria: local compiler tests and generated-artifact assertions pass, sample C++ artifacts are reproducible, and the handoff records exact commands, counts, results, and remaining downstream gates.
+Status: **Skipped by user decision.** The attempted checkpoint 8a was reverted because it did not add useful coverage beyond existing examples, acceptance/unit tests, and planned integration in the actual SoH project. No additional local acceptance matrix or corpus expansion is scheduled. Existing tests remain intact; skipped checks are not claimed as verified. Consumer/runtime and production-corpus gates remain downstream.
 
 ### 9. Documenting invocation and the downstream integration contract
 
 Todo ID: `tracker-handoff`
 
-Depends on: `tracker-acceptance`.
+Depends on: `tracker-cli` (Phase 8 is intentionally skipped).
 
 - Document explicit/project invocations, all generated artifacts, include/link requirements, the matching `functions.gen.h` dependency, deterministic IDs versus stable root identity, and unsupported input diagnostics.
 - Explain that the tracker IR is a private lowering/serialization model consuming existing parser/AST/sema output, with no duplicated frontend or source-language type analysis.
