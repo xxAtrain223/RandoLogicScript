@@ -146,6 +146,47 @@ TEST_F(SohTrackerEmission, EmitsEveryPayloadWithTypedStructuralConstructorsAndCo
 	expectAccountedFor(artifacts);
 }
 
+TEST_F(SohTrackerEmission, MarksDeclaredEventConstantsWithoutGuessingPrefixes) {
+	parse(
+		"region Owner { events { State: true } locations { Check: State is State }\n"
+		"    exits { Other: Check is Check } }\n"
+		"region Other {}\n");
+	lower();
+	ASSERT_FALSE(HasFatalFailure());
+	const auto artifacts = render();
+	EXPECT_NE(artifacts.source.find(
+		"return CheckedHostInt(LogicVal::State); }, \"State\", true);"), std::string::npos);
+	EXPECT_NE(artifacts.source.find(
+		"return CheckedHostInt(RandomizerCheck::Check); }, \"Check\", false);"), std::string::npos);
+	EXPECT_NE(artifacts.source.find("return true; }, \"true\", false);"), std::string::npos);
+	expectAccountedFor(artifacts);
+}
+
+TEST_F(SohTrackerEmission, MarksExternEventConstantsButNotParametersOrOtherEnums) {
+	parse(
+		"extern enum Event { LOGIC_* }\n"
+		"extern enum Item { RG_* }\n"
+		"enum Other { OTHER_VALUE }\n"
+		"extern define flag(event: Event) -> Bool\n"
+		"define forward(event: Event): flag(event)\n"
+		"region RR_TEST { locations { RC_A: forward(LOGIC_EXTERNAL) and RG_BOW == RG_BOW\n"
+		"    and OTHER_VALUE == OTHER_VALUE and here == here } }\n");
+	lower();
+	ASSERT_FALSE(HasFatalFailure());
+	const auto artifacts = render();
+	EXPECT_NE(artifacts.source.find(
+		"return CheckedHostInt(LogicVal::LOGIC_EXTERNAL); }, \"LOGIC_EXTERNAL\", true);"), std::string::npos);
+	EXPECT_NE(artifacts.source.find(
+		"return scope.get(\"event\"); }, \"event\", false);"), std::string::npos);
+	EXPECT_NE(artifacts.source.find(
+		"return CheckedHostInt(RandomizerGet::RG_BOW); }, \"RG_BOW\", false);"), std::string::npos);
+	EXPECT_NE(artifacts.source.find(
+		"return CheckedHostInt(Other::OTHER_VALUE); }, \"OTHER_VALUE\", false);"), std::string::npos);
+	EXPECT_NE(artifacts.source.find(
+		"return CheckedHostInt(RandomizerRegion::RR_TEST); }, \"here\", false);"), std::string::npos);
+	expectAccountedFor(artifacts);
+}
+
 TEST_F(SohTrackerEmission, UsesCheckedSymbolicHostValuesAndActualHostReturnTypes) {
 	parse(
 		"extern enum Item { RG_* }\n"

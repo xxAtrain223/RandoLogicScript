@@ -189,7 +189,7 @@ static std::unique_ptr<LogicExpression> CreateExpression(index_t index) {
 	case 94: return std::make_unique<ValueExpression>([](VariableScope&) -> value_t { return CheckedHostInt(RandomizerGet::RG_FAIRY_BOW); }, "RG_FAIRY_BOW", false);
 	case 95: return std::make_unique<ExternFunctionCallExpression>(flag_adapter, "flag", std::vector<index_t>{96});
 	case 96: return std::make_unique<ParameterExpression>(0, "key", 97);
-	case 97: return std::make_unique<ValueExpression>([](VariableScope&) -> value_t { return CheckedHostInt(LogicVal::LOGIC_DEKU_TREE_CLEAR); }, "LOGIC_DEKU_TREE_CLEAR", false);
+	case 97: return std::make_unique<ValueExpression>([](VariableScope&) -> value_t { return CheckedHostInt(LogicVal::LOGIC_DEKU_TREE_CLEAR); }, "LOGIC_DEKU_TREE_CLEAR", true);
 	case 98: return std::make_unique<FunctionCallExpression>("can_kill", std::vector<index_t>{99, 6, 8, 9, 11, 13}, 14);
 	case 99: return std::make_unique<ParameterExpression>(0, "e", 100);
 	case 100: return std::make_unique<ValueExpression>([](VariableScope&) -> value_t { return CheckedHostInt(RandomizerEnemy::RE_WITHERED_DEKU_BABA); }, "RE_WITHERED_DEKU_BABA", false);
@@ -204,11 +204,11 @@ static std::unique_ptr<LogicExpression> CreateExpression(index_t index) {
 	case 109: return std::make_unique<ValueExpression>([](VariableScope&) -> value_t { return CheckedHostInt(RandomizerGet::RG_CLIMB); }, "RG_CLIMB", false);
 	case 110: return std::make_unique<ExternFunctionCallExpression>(flag_adapter, "flag", std::vector<index_t>{111});
 	case 111: return std::make_unique<ParameterExpression>(0, "key", 112);
-	case 112: return std::make_unique<ValueExpression>([](VariableScope&) -> value_t { return CheckedHostInt(LogicVal::LOGIC_DEKU_TREE_1F_BROKE_WEB); }, "LOGIC_DEKU_TREE_1F_BROKE_WEB", false);
+	case 112: return std::make_unique<ValueExpression>([](VariableScope&) -> value_t { return CheckedHostInt(LogicVal::LOGIC_DEKU_TREE_1F_BROKE_WEB); }, "LOGIC_DEKU_TREE_1F_BROKE_WEB", true);
 	case 113: return std::make_unique<OrExpression>(std::vector<index_t>{107, 78});
 	case 114: return std::make_unique<ExternFunctionCallExpression>(flag_adapter, "flag", std::vector<index_t>{115});
 	case 115: return std::make_unique<ParameterExpression>(0, "key", 116);
-	case 116: return std::make_unique<ValueExpression>([](VariableScope&) -> value_t { return CheckedHostInt(LogicVal::LOGIC_DEKU_TREE_MQ_2F_BURNED_WEB); }, "LOGIC_DEKU_TREE_MQ_2F_BURNED_WEB", false);
+	case 116: return std::make_unique<ValueExpression>([](VariableScope&) -> value_t { return CheckedHostInt(LogicVal::LOGIC_DEKU_TREE_MQ_2F_BURNED_WEB); }, "LOGIC_DEKU_TREE_MQ_2F_BURNED_WEB", true);
 	case 117: return std::make_unique<FunctionCallExpression>("can_get_deku_baba_sticks", std::vector<index_t>{}, 118);
 	case 118: return std::make_unique<OrExpression>(std::vector<index_t>{119, 62});
 	case 119: return std::make_unique<FunctionCallExpression>("can_use_sword", std::vector<index_t>{}, 120);
@@ -258,11 +258,11 @@ static std::unique_ptr<LogicExpression> CreateExpression(index_t index) {
 	case 163: return std::make_unique<OrExpression>(std::vector<index_t>{164, 141, 151});
 	case 164: return std::make_unique<ExternFunctionCallExpression>(flag_adapter, "flag", std::vector<index_t>{165});
 	case 165: return std::make_unique<ParameterExpression>(0, "key", 166);
-	case 166: return std::make_unique<ValueExpression>([](VariableScope&) -> value_t { return CheckedHostInt(LogicVal::LOGIC_DEKU_TREE_PUSHED_BASEMENT_BLOCK); }, "LOGIC_DEKU_TREE_PUSHED_BASEMENT_BLOCK", false);
+	case 166: return std::make_unique<ValueExpression>([](VariableScope&) -> value_t { return CheckedHostInt(LogicVal::LOGIC_DEKU_TREE_PUSHED_BASEMENT_BLOCK); }, "LOGIC_DEKU_TREE_PUSHED_BASEMENT_BLOCK", true);
 	case 167: return std::make_unique<AndExpression>(std::vector<index_t>{133, 168, 171});
 	case 168: return std::make_unique<ExternFunctionCallExpression>(flag_adapter, "flag", std::vector<index_t>{169});
 	case 169: return std::make_unique<ParameterExpression>(0, "key", 170);
-	case 170: return std::make_unique<ValueExpression>([](VariableScope&) -> value_t { return CheckedHostInt(LogicVal::LOGIC_DEKU_TREE_MQ_CLEARED_SE_ROOM); }, "LOGIC_DEKU_TREE_MQ_CLEARED_SE_ROOM", false);
+	case 170: return std::make_unique<ValueExpression>([](VariableScope&) -> value_t { return CheckedHostInt(LogicVal::LOGIC_DEKU_TREE_MQ_CLEARED_SE_ROOM); }, "LOGIC_DEKU_TREE_MQ_CLEARED_SE_ROOM", true);
 	case 171: return std::make_unique<ExternFunctionCallExpression>(any_age_adapter, "any_age", std::vector<index_t>{172});
 	case 172: return std::make_unique<ParameterExpression>(0, "condition", 173);
 	case 173: return std::make_unique<ConditionExpression>(49);
@@ -315,7 +315,7 @@ static std::unique_ptr<LogicExpression> CreateExpression(index_t index) {
 	case 220: return std::make_unique<AndExpression>(std::vector<index_t>{221, 224});
 	case 221: return std::make_unique<ExternFunctionCallExpression>(flag_adapter, "flag", std::vector<index_t>{222});
 	case 222: return std::make_unique<ParameterExpression>(0, "key", 223);
-	case 223: return std::make_unique<ValueExpression>([](VariableScope&) -> value_t { return CheckedHostInt(LogicVal::LOGIC_DEKU_TREE_MQ_WATER_ROOM_TORCHES); }, "LOGIC_DEKU_TREE_MQ_WATER_ROOM_TORCHES", false);
+	case 223: return std::make_unique<ValueExpression>([](VariableScope&) -> value_t { return CheckedHostInt(LogicVal::LOGIC_DEKU_TREE_MQ_WATER_ROOM_TORCHES); }, "LOGIC_DEKU_TREE_MQ_WATER_ROOM_TORCHES", true);
 	case 224: return std::make_unique<FunctionCallExpression>("can_pass", std::vector<index_t>{225, 227, 8}, 229);
 	case 225: return std::make_unique<ParameterExpression>(0, "e", 226);
 	case 226: return std::make_unique<ValueExpression>([](VariableScope&) -> value_t { return CheckedHostInt(RandomizerEnemy::RE_BIG_SKULLTULA); }, "RE_BIG_SKULLTULA", false);
@@ -357,7 +357,7 @@ static std::unique_ptr<LogicExpression> CreateExpression(index_t index) {
 	case 262: return std::make_unique<AndExpression>(std::vector<index_t>{263, 266});
 	case 263: return std::make_unique<ExternFunctionCallExpression>(flag_adapter, "flag", std::vector<index_t>{264});
 	case 264: return std::make_unique<ParameterExpression>(0, "key", 265);
-	case 265: return std::make_unique<ValueExpression>([](VariableScope&) -> value_t { return CheckedHostInt(LogicVal::LOGIC_DEKU_TREE_B1_BROKE_WEB); }, "LOGIC_DEKU_TREE_B1_BROKE_WEB", false);
+	case 265: return std::make_unique<ValueExpression>([](VariableScope&) -> value_t { return CheckedHostInt(LogicVal::LOGIC_DEKU_TREE_B1_BROKE_WEB); }, "LOGIC_DEKU_TREE_B1_BROKE_WEB", true);
 	case 266: return std::make_unique<OrExpression>(std::vector<index_t>{237, 217});
 	case 267: return std::make_unique<AndExpression>(std::vector<index_t>{107, 268});
 	case 268: return std::make_unique<OrExpression>(std::vector<index_t>{237, 71});
@@ -422,7 +422,7 @@ static std::unique_ptr<LogicExpression> CreateExpression(index_t index) {
 	case 327: return std::make_unique<OrExpression>(std::vector<index_t>{328, 331, 336});
 	case 328: return std::make_unique<ExternFunctionCallExpression>(flag_adapter, "flag", std::vector<index_t>{329});
 	case 329: return std::make_unique<ParameterExpression>(0, "key", 330);
-	case 330: return std::make_unique<ValueExpression>([](VariableScope&) -> value_t { return CheckedHostInt(LogicVal::LOGIC_SHOWED_MIDO_SWORD_AND_SHIELD); }, "LOGIC_SHOWED_MIDO_SWORD_AND_SHIELD", false);
+	case 330: return std::make_unique<ValueExpression>([](VariableScope&) -> value_t { return CheckedHostInt(LogicVal::LOGIC_SHOWED_MIDO_SWORD_AND_SHIELD); }, "LOGIC_SHOWED_MIDO_SWORD_AND_SHIELD", true);
 	case 331: return std::make_unique<ComparisonExpression>("==", 332, 335);
 	case 332: return std::make_unique<ExternFunctionCallExpression>(setting_adapter, "setting", std::vector<index_t>{333});
 	case 333: return std::make_unique<ParameterExpression>(0, "key", 334);
@@ -432,7 +432,7 @@ static std::unique_ptr<LogicExpression> CreateExpression(index_t index) {
 	case 337: return std::make_unique<OrExpression>(std::vector<index_t>{274, 338});
 	case 338: return std::make_unique<ExternFunctionCallExpression>(flag_adapter, "flag", std::vector<index_t>{339});
 	case 339: return std::make_unique<ParameterExpression>(0, "key", 340);
-	case 340: return std::make_unique<ValueExpression>([](VariableScope&) -> value_t { return CheckedHostInt(LogicVal::LOGIC_FOREST_TEMPLE_CLEAR); }, "LOGIC_FOREST_TEMPLE_CLEAR", false);
+	case 340: return std::make_unique<ValueExpression>([](VariableScope&) -> value_t { return CheckedHostInt(LogicVal::LOGIC_FOREST_TEMPLE_CLEAR); }, "LOGIC_FOREST_TEMPLE_CLEAR", true);
 	case 341: return std::make_unique<OrExpression>(std::vector<index_t>{107, 71, 342});
 	case 342: return std::make_unique<AndExpression>(std::vector<index_t>{141, 343});
 	case 343: return std::make_unique<OrExpression>(std::vector<index_t>{344, 348});
@@ -553,7 +553,7 @@ static std::unique_ptr<LogicExpression> CreateExpression(index_t index) {
 	case 458: return std::make_unique<AndExpression>(std::vector<index_t>{141, 302, 459});
 	case 459: return std::make_unique<ExternFunctionCallExpression>(flag_adapter, "flag", std::vector<index_t>{460});
 	case 460: return std::make_unique<ParameterExpression>(0, "key", 461);
-	case 461: return std::make_unique<ValueExpression>([](VariableScope&) -> value_t { return CheckedHostInt(LogicVal::LOGIC_LINKS_COW); }, "LOGIC_LINKS_COW", false);
+	case 461: return std::make_unique<ValueExpression>([](VariableScope&) -> value_t { return CheckedHostInt(LogicVal::LOGIC_LINKS_COW); }, "LOGIC_LINKS_COW", true);
 	case 462: return std::make_unique<FunctionCallExpression>("has_bottle", std::vector<index_t>{}, 463);
 	case 463: return std::make_unique<ComparisonExpression>(">=", 464, 10);
 	case 464: return std::make_unique<ExternFunctionCallExpression>(bottle_count_adapter, "bottle_count", std::vector<index_t>{});

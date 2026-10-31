@@ -107,6 +107,7 @@ public:
 			using T = std::decay_t<decltype(payload)>;
 			if constexpr (std::is_same_v<T, Value>) {
 				std::string text;
+				bool isEvent = false;
 				const auto evaluator = std::visit([&](const auto& value) -> std::string {
 					using V = std::decay_t<decltype(value)>;
 					if constexpr (std::is_same_v<V, bool>) {
@@ -122,11 +123,13 @@ public:
 						std::string symbol;
 						if constexpr (std::is_same_v<V, EnumConstant>) {
 							text = value.member->text;
+							isEvent = value.declaration->name.text == "Event";
 							symbol = soh::findHostEnumMapping(value.declaration->name.text) ?
 								qualified(value.declaration->name.text, text) :
 								GetHostEnumType(*value.declaration, customEnums).value() + "::" + text;
 						} else if constexpr (std::is_same_v<V, KeyConstant>) {
 							text = value.name->text;
+							isEvent = descriptor.valueType->sourceType == ast::Type::Event;
 							symbol = qualified(keyType(descriptor.valueType->sourceType), text);
 						} else if constexpr (std::is_same_v<V, HereValue>) {
 							text = "here";
@@ -138,7 +141,7 @@ public:
 				const auto scope = std::holds_alternative<ParameterRead>(payload.value) ?
 					"VariableScope& scope" : "VariableScope&";
 				return construct("ValueExpression", "[](" + std::string(scope) + ") -> value_t { return " +
-					evaluator + "; }, " + literal(text) + ", false");
+					evaluator + "; }, " + literal(text) + (isEvent ? ", true" : ", false"));
 			} else if constexpr (std::is_same_v<T, Logical>) {
 				return construct(payload.operation == LogicalOperator::And ? "AndExpression" :
 					"OrExpression", ids(payload.children));
