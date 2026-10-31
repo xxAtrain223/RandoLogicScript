@@ -215,10 +215,11 @@ ctest --test-dir build --output-on-failure
 Individual test executables (`ast_tests`, `parser_tests`, etc.) can also be run directly from the `build` directory.
 
 Acceptance tests are included in `console_acceptance_tests` and run the end-to-end
-pipeline over `examples/rls`.
+pipeline over `examples/soh/src`.
 
-- SOH acceptance golden files: `examples/soh/*.gen.{h,cpp}`
-- SOH AP acceptance golden files: `examples/soh_ap/*.gen.py`
+- SOH acceptance golden files: `examples/soh/out_soh/`
+- SOH AP acceptance golden files: `examples/soh/out_soh_ap/`
+- Tracker acceptance golden files: `examples/soh/out_soh_tracker/`
 
 To run only acceptance tests:
 
