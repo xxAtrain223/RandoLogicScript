@@ -1,18 +1,17 @@
 #include <algorithm>
 #include <cstdlib>
 #include <filesystem>
-#include <fstream>
 #include <iostream>
-#include <memory>
 #include <string>
 #include <vector>
 
-#include "output.h"
+#include "directory_writer.h"
 #include "parser.h"
 #include "project.h"
 #include "sema.h"
 #include "soh_ap.h"
 #include "soh.h"
+#include "soh_tracker.h"
 
 namespace fs = std::filesystem;
 
@@ -27,7 +26,7 @@ static void printUsage(const char* program) {
         << "  -p, --project <path>   Load an rls.json manifest.\n"
         << "  -t, --transpiler <name> [-o, --output <dir>]\n"
         << "                            Select a configured manifest transpiler, or override its output.\n"
-        << "                            Available transpilers: soh, soh_ap\n"
+        << "                            Available transpilers: soh, soh_ap, soh_tracker\n"
         << "  -h, --help                Show this help message.\n";
 }
 
@@ -43,72 +42,90 @@ static void printDiagnostic(const rls::ast::Diagnostic& d) {
 
 // == transpiler dispatch =====================================================
 
-/// OutputWriter that creates files in a directory on disk.
-class DirectoryWriter : public rls::OutputWriter {
-public:
-    explicit DirectoryWriter(fs::path dir) : dir_(std::move(dir)) {}
-
-    std::ostream& open(const std::string& filename) override {
-        auto stream = std::make_unique<std::ofstream>(dir_ / filename);
-        if (!*stream)
-            throw std::runtime_error("could not write " + (dir_ / filename).string());
-        streams_.push_back(std::move(stream));
-        return *streams_.back();
-    }
-
-private:
-    fs::path dir_;
-    std::vector<std::unique_ptr<std::ofstream>> streams_;
-};
-
 struct TranspilerConfig {
     std::string name;
     fs::path outputDir;
 };
 
-static bool runTranspiler(const TranspilerConfig& config, const rls::ast::Project& project) {
-    if (config.name != "soh" && config.name != "soh_ap") {
+static bool runTranspiler(const TranspilerConfig& config, const rls::ast::Project& project,
+    const fs::path& sourceRoot) {
+    if (config.name != "soh" && config.name != "soh_ap" && config.name != "soh_tracker") {
         std::cerr << "error: unknown transpiler '" << config.name << "'\n";
         return false;
     }
 
-    fs::create_directories(config.outputDir);
-    DirectoryWriter writer(config.outputDir);
+    try {
+        fs::create_directories(config.outputDir);
+        DirectoryWriter writer(config.outputDir);
 
-    if (config.name == "soh") {
-        auto diagnostics = rls::transpilers::soh::SohTranspiler(project).Transpile(writer);
-        bool hasErrors = false;
-        for (const auto& diagnostic : diagnostics) {
-            printDiagnostic(diagnostic);
-            hasErrors = hasErrors || diagnostic.level == rls::ast::DiagnosticLevel::Error;
-        }
-        if (hasErrors) {
-            std::cerr << "aborting due to SoH transpiler errors\n";
-            return false;
-        }
-    } else if (config.name == "soh_ap") {
-        rls::transpilers::soh_ap::SohApTranspiler transpiler(project);
-        transpiler.Transpile(writer);
+        if (config.name == "soh") {
+            const auto diagnostics = rls::transpilers::soh::SohTranspiler(project).Transpile(writer);
+            bool hasErrors = false;
+            for (const auto& diagnostic : diagnostics) {
+                printDiagnostic(diagnostic);
+                hasErrors = hasErrors || diagnostic.level == rls::ast::DiagnosticLevel::Error;
+            }
+            if (hasErrors) {
+                std::cerr << "aborting due to " << config.name << " transpiler errors\n";
+                return false;
+            }
+        } else if (config.name == "soh_ap") {
+            rls::transpilers::soh_ap::SohApTranspiler transpiler(project);
+            transpiler.Transpile(writer);
 
-        // Surface constructs the RuleBuilder target cannot represent (negating a rule,
-        // a rule-conditioned ternary with no known complement, a runtime value combined
-        // with a rule). Abort rather than ship Python that raises at world-load.
-        bool hasErrors = false;
-        for (const auto& d : transpiler.Diagnostics()) {
-            printDiagnostic(d);
-            if (d.level == rls::ast::DiagnosticLevel::Error)
-                hasErrors = true;
+            // Surface constructs the RuleBuilder target cannot represent (negating a rule,
+            // a rule-conditioned ternary with no known complement, a runtime value combined
+            // with a rule). Abort rather than ship Python that raises at world-load.
+            bool hasErrors = false;
+            for (const auto& d : transpiler.Diagnostics()) {
+                printDiagnostic(d);
+                if (d.level == rls::ast::DiagnosticLevel::Error)
+                    hasErrors = true;
+            }
+            if (hasErrors) {
+                std::cerr << "aborting: '" << config.name << "' could not represent some rules\n";
+                return false;
+            }
+        } else if (config.name == "soh_tracker") {
+            const auto diagnostics =
+                rls::transpilers::soh_tracker::SohTrackerTranspiler(project).Transpile(writer, sourceRoot);
+            bool hasErrors = false;
+            for (const auto& diagnostic : diagnostics) {
+                printDiagnostic(diagnostic);
+                hasErrors = hasErrors || diagnostic.level == rls::ast::DiagnosticLevel::Error;
+            }
+            if (hasErrors) {
+                std::cerr << "aborting due to " << config.name << " transpiler errors\n";
+                return false;
+            }
         }
-        if (hasErrors) {
-            std::cerr << "aborting: '" << config.name << "' could not represent some rules\n";
-            return false;
-        }
-    } else {
-        std::cerr << "error: unknown transpiler '" << config.name << "'\n";
+
+        writer.finish();
+    } catch (const fs::filesystem_error& error) {
+        std::cerr << "error: transpiler '" << config.name << "' output '"
+            << config.outputDir.string() << "': " << error.what() << "\n";
+        return false;
+    } catch (const std::ios_base::failure& error) {
+        std::cerr << "error: transpiler '" << config.name << "' output '"
+            << config.outputDir.string() << "': " << error.what() << "\n";
         return false;
     }
 
     return true;
+}
+
+static fs::path commonSourceRoot(const std::vector<fs::path>& sourceFiles) {
+    auto root = sourceFiles.front().parent_path();
+    for (const auto& file : sourceFiles) {
+        const auto parent = file.parent_path();
+        const auto rootEnd =
+            std::mismatch(root.begin(), root.end(), parent.begin(), parent.end()).first;
+        fs::path common;
+        for (auto part = root.begin(); part != rootEnd; ++part)
+            common /= *part;
+        root = std::move(common);
+    }
+    return root;
 }
 
 // == main ====================================================================
@@ -262,6 +279,14 @@ int main(int argc, char* argv[]) {
         return 1;
     }
 
+    const auto sourceRoot = manifest ? manifest->root : commonSourceRoot(sourceFiles);
+    if (!sourceRoot.is_absolute() && std::ranges::any_of(transpilers, [](const auto& config) {
+            return config.name == "soh_tracker";
+        })) {
+        std::cerr << "error: soh_tracker sources must share an absolute source root\n";
+        return 1;
+    }
+
     // == parse ===========================================================
     rls::ast::Project project;
     bool hasParseErrors = false;
@@ -300,7 +325,7 @@ int main(int argc, char* argv[]) {
 
     // == transpile & write output ========================================
     for (const auto& config : transpilers) {
-        if (!runTranspiler(config, project))
+        if (!runTranspiler(config, project, sourceRoot))
             return 1;
     }
 
