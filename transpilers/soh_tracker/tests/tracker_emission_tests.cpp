@@ -56,7 +56,7 @@ protected:
 	}
 
 	void expectAccountedFor(const test::CapturedOutput& artifacts) const {
-		const auto numbered = NumberGraph(graph, sourceRoot);
+		const auto numbered = NumberDistinctGraph(graph, sourceRoot);
 		ASSERT_TRUE(std::holds_alternative<Numbering>(numbered));
 		const auto& numbering = std::get<Numbering>(numbered);
 		EXPECT_EQ(occurrences(artifacts.source, "\tcase "), numbering.count.value);
@@ -258,7 +258,8 @@ TEST_F(SohTrackerEmission, RejectsInvalidUnreachableDescriptorsAndMissingBinding
 TEST_F(SohTrackerEmission, ArtifactsAreIdenticalAfterFileAndDescriptorEnumerationChanges) {
 	parse("extern define z_host() -> Bool\nextern define a_host() -> Bool\n"
 		"define helper(value: Bool): value\n"
-		"region RR_TEST { locations { RC_A: helper(z_host()) and a_host() } }\n", "a.rls");
+		"region RR_TEST { locations { RC_A: helper(z_host()) and a_host() and helper(z_host())\n"
+		"RC_COPY: helper(z_host()) and a_host() and helper(z_host()) } }\n", "a.rls");
 	parse("extend region RR_TEST { locations { RC_B: false } }\n", "z.rls");
 	lower();
 	ASSERT_FALSE(HasFatalFailure());
@@ -291,7 +292,8 @@ TEST_F(SohTrackerEmission, ArtifactsAreIdenticalAcrossRelocatedSourceRoots) {
 	const auto build = [&](const std::filesystem::path& root) {
 		ast::Project local;
 		local.files.push_back(parser::ParseString(
-			"region RR_TEST { locations { RC_A: 1 + 2 > 0 } }\n", (root / "source.rls").string()));
+			"region RR_TEST { locations { RC_A: 1 + 2 > 0\nRC_B: 1 + 2 > 0 } }\n",
+			(root / "source.rls").string()));
 		const auto diagnostics = sema::analyze(local);
 		EXPECT_TRUE(diagnostics.empty());
 		const auto lowered = LowerRoots(local, root);
@@ -358,7 +360,7 @@ TEST_F(SohTrackerEmission, EmitsAllSixFlattenedChainsWithOrderedIdsAndNoDescenda
 	lower();
 	ASSERT_FALSE(HasFatalFailure());
 	const auto artifacts = render();
-	const auto numbered = NumberGraph(graph, sourceRoot);
+	const auto numbered = NumberDistinctGraph(graph, sourceRoot);
 	ASSERT_TRUE(std::holds_alternative<Numbering>(numbered));
 	const auto& numbering = std::get<Numbering>(numbered);
 	size_t flattened = 0;
@@ -391,6 +393,82 @@ TEST_F(SohTrackerEmission, EmitsAllSixFlattenedChainsWithOrderedIdsAndNoDescenda
 	EXPECT_EQ(flattened, 6);
 	EXPECT_EQ(grouped, 2);
 	expectAccountedFor(artifacts);
+}
+
+TEST_F(SohTrackerEmission, SharesCallsAndRootsButRetainsArgumentAndRepeatedChildPositions) {
+	parse(
+		"extern define live() -> Bool\n"
+		"define twice(first: Bool, second: Bool): first and second\n"
+		"region RR_TEST { locations {\n"
+		"RC_A: twice(live(), live())\n"
+		"RC_B: twice(live(), live())\n"
+		"RC_C: live() and live()\n"
+		"} }\n");
+	lower();
+	ASSERT_FALSE(HasFatalFailure());
+	const auto artifacts = render();
+	EXPECT_NE(artifacts.source.find("return 8ULL;"), std::string::npos);
+	EXPECT_EQ(occurrences(artifacts.source, "std::make_unique<ExternFunctionCallExpression>"), 1);
+	EXPECT_EQ(occurrences(artifacts.source, "std::make_unique<FunctionCallExpression>"), 1);
+	EXPECT_EQ(occurrences(artifacts.source, "std::make_unique<ParameterExpression>"), 2);
+	const auto numbered = NumberDistinctGraph(graph, sourceRoot);
+	ASSERT_TRUE(std::holds_alternative<Numbering>(numbered));
+	const auto& numbering = std::get<Numbering>(numbered);
+	EXPECT_EQ(numbering.idsBySlot[graph.roots[0].expression.slot],
+		numbering.idsBySlot[graph.roots[1].expression.slot]);
+	const auto& call = std::get<HelperCall>(graph.nodes[graph.roots[0].expression.slot].payload);
+	ASSERT_EQ(call.parameters.size(), 2);
+	EXPECT_NE(numbering.idsBySlot[call.parameters[0].slot], numbering.idsBySlot[call.parameters[1].slot]);
+	const auto& first = std::get<Parameter>(graph.nodes[call.parameters[0].slot].payload);
+	const auto& second = std::get<Parameter>(graph.nodes[call.parameters[1].slot].payload);
+	EXPECT_EQ(numbering.idsBySlot[first.value.slot], numbering.idsBySlot[second.value.slot]);
+	const auto& children = std::get<Logical>(graph.nodes[graph.roots[2].expression.slot].payload).children;
+	ASSERT_EQ(children.size(), 2);
+	const auto id = std::to_string(numbering.idsBySlot[children[0].slot]->value) + "U";
+	EXPECT_NE(artifacts.source.find("std::make_unique<AndExpression>(std::vector<index_t>{" +
+		id + ", " + id + "})"), std::string::npos);
+	EXPECT_EQ(graph.roots.size(), 3);
+	expectAccountedFor(artifacts);
+}
+
+TEST_F(SohTrackerEmission, SharesConditionStructureWithoutStoringCapturedValuesOrResults) {
+	parse("extern define live() -> Bool\n"
+		"define invoke(condition: Condition): condition()\n"
+		"region RR_TEST { locations { RC_A: invoke(live())\nRC_B: invoke(live()) } }\n");
+	lower();
+	ASSERT_FALSE(HasFatalFailure());
+	const auto artifacts = render();
+	EXPECT_EQ(occurrences(artifacts.source, "std::make_unique<ConditionExpression>"), 1);
+	EXPECT_EQ(occurrences(artifacts.source, "std::make_unique<InvokeExpression>"), 1);
+	EXPECT_EQ(artifacts.source.find("ConditionValue"), std::string::npos);
+	EXPECT_EQ(artifacts.source.find("EvalResult{"), std::string::npos);
+	expectAccountedFor(artifacts);
+}
+
+TEST_F(SohTrackerEmission, SharesBindingStructureAcrossHelpersWithoutMergingTheCalls) {
+	parse("define first(value: Bool): value\n"
+		"define second(value: Bool): value\n"
+		"region RR_TEST { locations { RC_A: first(true)\nRC_B: second(true) } }\n");
+	lower();
+	ASSERT_FALSE(HasFatalFailure());
+	const auto artifacts = render();
+	EXPECT_NE(artifacts.source.find("return 5ULL;"), std::string::npos);
+	EXPECT_EQ(occurrences(artifacts.source, "std::make_unique<FunctionCallExpression>"), 2);
+	EXPECT_EQ(occurrences(artifacts.source, "std::make_unique<ParameterExpression>"), 1);
+	EXPECT_EQ(occurrences(artifacts.source, "return scope.get(\"value\");"), 1);
+	expectAccountedFor(artifacts);
+}
+
+TEST_F(SohTrackerEmission, ValidatesEachOccurrenceBeforeSharingAndOpeningOutputs) {
+	parse("region RR_TEST { locations { RC_A: true\nRC_B: true\nRC_C: false } }\n");
+	lower();
+	ASSERT_FALSE(HasFatalFailure());
+	graph.nodes[graph.roots[1].expression.slot].payload = Value{false};
+	test::MemoryWriter writer;
+	const auto diagnostics = EmitArtifacts(project, graph, writer, sourceRoot);
+	ASSERT_FALSE(diagnostics.empty());
+	EXPECT_NE(diagnostics[0].message.find("Bool literal differs from its source value"), std::string::npos);
+	EXPECT_EQ(writer.opens, 0);
 }
 
 } // namespace

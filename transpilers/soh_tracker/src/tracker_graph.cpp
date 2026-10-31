@@ -6,6 +6,7 @@
 #include <set>
 #include <tuple>
 #include <type_traits>
+#include <unordered_map>
 #include <unordered_set>
 
 namespace rls::transpilers::soh_tracker::ir {
@@ -84,6 +85,86 @@ std::vector<NodeHandle> references(const Graph& graph, const Node& node,
 			static_assert(std::is_same_v<T, void>, "Unhandled tracker payload");
 		}
 	}, node.payload);
+}
+
+struct NodeKey {
+	size_t kind;
+	std::vector<uint64_t> values;
+	std::vector<const void*> declarations;
+	std::vector<std::string> names;
+	std::vector<size_t> children;
+	bool operator==(const NodeKey&) const = default;
+};
+
+struct NodeKeyHash {
+	size_t operator()(const NodeKey& key) const {
+		size_t hash = key.kind;
+		const auto add = [&](const auto& value) {
+			hash ^= std::hash<std::decay_t<decltype(value)>>{}(value) +
+				size_t{0x9e3779b9} + (hash << 6) + (hash >> 2);
+		};
+		for (const auto value : key.values) add(value);
+		for (const auto declaration : key.declarations) add(declaration);
+		for (const auto& name : key.names) add(name);
+		for (const auto child : key.children) add(child);
+		return hash;
+	}
+};
+
+NodeKey nodeKey(const Node& node, std::vector<size_t> children) {
+	NodeKey key{node.payload.index(), {}, {}, {}, std::move(children)};
+	key.values.push_back(node.valueType.has_value());
+	if (node.valueType) {
+		key.values.push_back(static_cast<uint64_t>(node.valueType->sourceType));
+		key.values.push_back(node.valueType->representation.index());
+		key.declarations.push_back(node.valueType->enumInfo);
+		if (const auto* target = std::get_if<IntegralTarget>(&node.valueType->representation)) {
+			key.values.push_back(static_cast<uint64_t>(*target));
+		}
+	}
+	std::visit([&](const auto& payload) {
+		using T = std::decay_t<decltype(payload)>;
+		if constexpr (std::is_same_v<T, Value>) {
+			key.values.push_back(payload.value.index());
+			std::visit([&](const auto& value) {
+				using V = std::decay_t<decltype(value)>;
+				if constexpr (std::is_same_v<V, bool> || std::is_same_v<V, int32_t>) {
+					key.values.push_back(static_cast<uint64_t>(value));
+				} else if constexpr (std::is_same_v<V, EnumConstant>) {
+					key.declarations.push_back(value.declaration);
+					key.names.push_back(value.member->text);
+				} else if constexpr (std::is_same_v<V, KeyConstant>) {
+					key.names.push_back(value.name->text);
+				} else if constexpr (std::is_same_v<V, ParameterRead>) {
+					// Evaluation resolves the current scope by name, not declaration address.
+					key.names.push_back(value.declaration->name.text);
+				} else if constexpr (std::is_same_v<V, HereValue>) {
+					key.declarations.push_back(value.region);
+				} else {
+					static_assert(std::is_same_v<V, void>, "Unhandled tracker value");
+				}
+			}, payload.value);
+		} else if constexpr (std::is_same_v<T, Logical> || std::is_same_v<T, Arithmetic> ||
+			std::is_same_v<T, Comparison>) {
+			key.values.push_back(static_cast<uint64_t>(payload.operation));
+		} else if constexpr (std::is_same_v<T, HelperCall>) {
+			key.values.push_back(payload.definition.slot);
+		} else if constexpr (std::is_same_v<T, ExternCall>) {
+			key.values.push_back(payload.adapter.slot);
+		} else if constexpr (std::is_same_v<T, Parameter>) {
+			key.values.push_back(payload.position);
+			key.names.push_back(payload.declaration->name.text);
+		} else if constexpr (std::is_same_v<T, Conversion> || std::is_same_v<T, Match>) {
+			key.values.push_back(static_cast<uint64_t>(payload.target));
+		} else if constexpr (std::is_same_v<T, MatchArm>) {
+			key.values.push_back(payload.fallThrough);
+		} else {
+			static_assert(std::is_same_v<T, Not> || std::is_same_v<T, Ternary> ||
+				std::is_same_v<T, Condition> || std::is_same_v<T, Invoke> ||
+				std::is_same_v<T, MatchPatterns>, "Unhandled tracker payload");
+		}
+	}, node.payload);
+	return key;
 }
 
 } // namespace
@@ -318,6 +399,85 @@ std::variant<Numbering, std::vector<ast::Diagnostic>> NumberGraph(
 	// Each assigned ID was checked before narrowing; count may be one larger than the last ID.
 	numbering.count = NodeCount{static_cast<uint64_t>(numbering.nodesById.size())};
 	return numbering;
+}
+
+std::variant<Numbering, std::vector<ast::Diagnostic>> NumberDistinctGraph(
+	const Graph& graph, const std::filesystem::path& sourceRoot)
+{
+	auto numbered = NumberGraph(graph, sourceRoot);
+	if (const auto* diagnostics = std::get_if<std::vector<ast::Diagnostic>>(&numbered)) {
+		return *diagnostics;
+	}
+	const auto& occurrences = std::get<Numbering>(numbered);
+	std::vector<ast::Diagnostic> diagnostics;
+	std::vector<std::vector<NodeHandle>> dependencies(graph.nodes.size());
+	for (const auto handle : occurrences.nodesById) {
+		auto& children = dependencies[handle.slot];
+		children = references(graph, graph.nodes[handle.slot], diagnostics);
+		// Definition identity already implies its body. Excluding that implicit edge
+		// also keeps self/mutual helper references finite without inlining them.
+		if (std::holds_alternative<HelperCall>(graph.nodes[handle.slot].payload)) {
+			children.pop_back();
+		}
+	}
+	if (!diagnostics.empty()) return diagnostics;
+
+	std::unordered_map<NodeKey, size_t, NodeKeyHash> interned;
+	std::vector<std::optional<size_t>> classes(graph.nodes.size());
+	std::vector<bool> active(graph.nodes.size(), false);
+	struct Frame {
+		NodeHandle handle;
+		size_t nextChild;
+	};
+	std::vector<Frame> pending;
+	for (const auto handle : occurrences.nodesById) {
+		if (classes[handle.slot]) continue;
+		pending.push_back({handle, 0});
+		active[handle.slot] = true;
+		while (!pending.empty()) {
+			auto& frame = pending.back();
+			const auto current = frame.handle;
+			const auto& children = dependencies[current.slot];
+			if (frame.nextChild < children.size()) {
+				const auto child = children[frame.nextChild++];
+				if (classes[child.slot]) continue;
+				if (active[child.slot]) {
+					return std::vector<ast::Diagnostic>{error(graph.nodes[child.slot].provenance.span,
+						"Tracker structural cycle cannot be deduplicated.")};
+				}
+				active[child.slot] = true;
+				pending.push_back({child, 0});
+				continue;
+			}
+			std::vector<size_t> childClasses;
+			childClasses.reserve(children.size());
+			for (const auto child : children) childClasses.push_back(classes[child.slot].value());
+			const auto [found, inserted] = interned.emplace(
+				nodeKey(graph.nodes[current.slot], std::move(childClasses)), interned.size());
+			classes[current.slot] = found->second;
+			active[current.slot] = false;
+			pending.pop_back();
+		}
+	}
+
+	Numbering distinct{NodeCount{0}, {}, std::vector<std::optional<NodeId>>(graph.nodes.size()),
+		occurrences.rootsInOrder};
+	std::vector<std::optional<NodeId>> idsByClass(interned.size());
+	// Intern-table order and declaration addresses never determine emitted IDs.
+	for (const auto handle : occurrences.nodesById) {
+		auto& id = idsByClass[classes[handle.slot].value()];
+		if (!id) {
+			auto checked = CheckNodeId(distinct.nodesById.size(), graph.nodes[handle.slot].provenance.span);
+			if (const auto* diagnostic = std::get_if<ast::Diagnostic>(&checked)) {
+				return std::vector<ast::Diagnostic>{*diagnostic};
+			}
+			id = std::get<NodeId>(checked);
+			distinct.nodesById.push_back(handle);
+		}
+		distinct.idsBySlot[handle.slot] = id;
+	}
+	distinct.count = NodeCount{static_cast<uint64_t>(distinct.nodesById.size())};
+	return distinct;
 }
 
 } // namespace rls::transpilers::soh_tracker::ir

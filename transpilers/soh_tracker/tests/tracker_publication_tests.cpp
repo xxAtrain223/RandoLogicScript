@@ -176,7 +176,7 @@ TEST_F(SohTrackerPublication, PropagatesWriterExceptionsForEveryArtifact) {
 }
 
 TEST_F(SohTrackerPublication, PreflightChecksAllReachableNodePathsBeforeGeneration) {
-	analyze("region RR_TEST { locations { RC_A: true and false } }\n");
+	analyze("region RR_TEST { locations { RC_A: true and true } }\n");
 	ASSERT_FALSE(HasFatalFailure());
 	auto lowered = ir::LowerRoots(project, sourceRoot);
 	ASSERT_TRUE(std::holds_alternative<ir::Graph>(lowered));

@@ -307,11 +307,12 @@ std::vector<ast::Diagnostic> EmitArtifacts(const ast::Project& project, const Gr
 {
 	auto diagnostics = ValidateGraph(project, graph, sourceRoot, customEnums);
 	if (!diagnostics.empty()) return diagnostics;
-	auto numbered = NumberGraph(graph, sourceRoot);
+	auto numbered = NumberDistinctGraph(graph, sourceRoot);
 	if (const auto* errors = std::get_if<std::vector<ast::Diagnostic>>(&numbered)) return *errors;
 	const auto& numbering = std::get<Numbering>(numbered);
-	for (const auto handle : numbering.nodesById) {
-		auto path = NormalizeSourcePath(graph.nodes[handle.slot].provenance.span, sourceRoot);
+	for (size_t slot = 0; slot < graph.nodes.size(); ++slot) {
+		if (!numbering.idsBySlot[slot]) continue;
+		auto path = NormalizeSourcePath(graph.nodes[slot].provenance.span, sourceRoot);
 		if (const auto* error = std::get_if<ast::Diagnostic>(&path)) {
 			diagnostics.push_back(*error);
 		}

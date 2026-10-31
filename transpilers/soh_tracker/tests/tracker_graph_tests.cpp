@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <limits>
+#include <set>
 #include <string_view>
 
 #include "parser.h"
@@ -418,6 +419,228 @@ TEST_F(SohTrackerGraph, NumbersDeepGraphsIterativelyAndHandlesEmptyGraphs) {
 	EXPECT_EQ(numbering.count.value, graph.nodes.size());
 	EXPECT_EQ(numbering.idsBySlot.back(), (NodeId{0}));
 	EXPECT_EQ(numbering.idsBySlot.front(), (NodeId{19'999}));
+	const auto distinct = NumberDistinctGraph(graph, sourceRoot);
+	ASSERT_TRUE(std::holds_alternative<Numbering>(distinct));
+	EXPECT_EQ(std::get<Numbering>(distinct).nodesById, numbering.nodesById);
+	EXPECT_EQ(std::get<Numbering>(distinct).idsBySlot, numbering.idsBySlot);
+	const auto emptyDistinct = NumberDistinctGraph(Graph{}, sourceRoot);
+	ASSERT_TRUE(std::holds_alternative<Numbering>(emptyDistinct));
+	EXPECT_EQ(std::get<Numbering>(emptyDistinct).count, (NodeCount{0}));
+}
+
+TEST_F(SohTrackerGraph, SharesWholeSubtreesAndRootsWithoutMutatingOccurrencesOrChildPositions) {
+	Graph graph;
+	graph.nodes = {node(Value{true}), node(Value{true}), node(Value{false}),
+		node(Not{{0}}), node(Not{{1}}),
+		node(Logical{LogicalOperator::And, {{3}, {2}, {3}}}),
+		node(Logical{LogicalOperator::And, {{4}, {2}, {4}}}),
+		node(Value{int32_t{42}})};
+	graph.nodes[1].provenance.span.start.line = 99;
+	graph.roots = {root({6}, second), root({5}, first)};
+	const auto result = NumberDistinctGraph(graph, sourceRoot);
+	ASSERT_TRUE(std::holds_alternative<Numbering>(result));
+	const auto& numbering = std::get<Numbering>(result);
+	EXPECT_EQ(numbering.count, (NodeCount{4}));
+	EXPECT_EQ(numbering.nodesById, (std::vector<NodeHandle>{{5}, {3}, {0}, {2}}));
+	EXPECT_EQ(numbering.idsBySlot[0], numbering.idsBySlot[1]);
+	EXPECT_EQ(numbering.idsBySlot[3], numbering.idsBySlot[4]);
+	EXPECT_EQ(numbering.idsBySlot[5], numbering.idsBySlot[6]);
+	EXPECT_FALSE(numbering.idsBySlot[7]);
+	EXPECT_EQ(numbering.rootsInOrder, (std::vector<size_t>{1, 0}));
+	EXPECT_EQ(graph.nodes.size(), 8);
+	EXPECT_EQ(graph.nodes[1].provenance.span.start.line, 99);
+	EXPECT_EQ(std::get<Logical>(graph.nodes[6].payload).children,
+		(std::vector<NodeHandle>{{4}, {2}, {4}}));
+	EXPECT_EQ(graph.roots[0].expression, (NodeHandle{6}));
+}
+
+TEST_F(SohTrackerGraph, SharesEveryPayloadAndValueVariantUsingSemanticRatherThanSourceIdentity) {
+	const ast::DefineDecl helper{ast::Name{"helper"}, {}, nullptr};
+	ast::ExternDefineDecl host{ast::Name{"host"}, {}};
+	host.params.emplace_back(ast::Name{"value"}, std::nullopt, nullptr);
+	const ast::EnumInfo enumeration{ast::Name{"Choice"}, ast::EnumKind::Normal, ast::Type::Int, {}};
+	const ast::Name member{"FIRST"};
+	const ast::Name sameMember{"FIRST"};
+	const ast::Name key{"RC_FIRST"};
+	const ast::Name sameKey{"RC_FIRST"};
+	Graph graph;
+	graph.helpers.push_back({&helper, NodeHandle{0}});
+	graph.adapters.push_back({&host, boolType, {boolType}});
+	graph.nodes = {node(Value{true}), node(Value{false})};
+	const std::vector<Payload> payloads{
+		Value{true}, Value{int32_t{-1}}, Value{EnumConstant{&enumeration, &member}},
+		Value{KeyConstant{&key}}, Value{ParameterRead{&host.params[0]}}, Value{HereValue{&owner}},
+		Logical{LogicalOperator::And, {{0}, {1}, {0}}},
+		Not{{0}}, Arithmetic{ArithmeticOperator::Divide, {{0}, {1}}},
+		Comparison{ComparisonOperator::LessEqual, {0}, {1}}, Ternary{{0}, {1}, {0}},
+		HelperCall{{0}, {}}, ExternCall{{0}, {}}, Parameter{0, &host.params[0], {0}},
+		Conversion{IntegralTarget::Int8, {0}}, Condition{{0}}, Invoke{{0}},
+		Match{IntegralTarget::UInt16, {0}, {{1}}}, MatchArm{{0}, {1}, true},
+		MatchPatterns{{{0}, {1}}}
+	};
+	std::vector<NodeHandle> children;
+	for (const auto& payload : payloads) {
+		children.push_back({graph.nodes.size()});
+		graph.nodes.push_back(node(payload));
+		graph.nodes.push_back(node(payload));
+		children.push_back({graph.nodes.size() - 1});
+	}
+	std::get<EnumConstant>(std::get<Value>(graph.nodes[7].payload).value).member = &sameMember;
+	std::get<KeyConstant>(std::get<Value>(graph.nodes[9].payload).value).name = &sameKey;
+	const NodeHandle parent{graph.nodes.size()};
+	graph.nodes.push_back(node(Logical{LogicalOperator::Or, children}));
+	graph.roots.push_back(root(parent, first));
+	const auto result = NumberDistinctGraph(graph, sourceRoot);
+	ASSERT_TRUE(std::holds_alternative<Numbering>(result));
+	const auto& numbering = std::get<Numbering>(result);
+	std::set<uint32_t> unique;
+	for (size_t i = 0; i < payloads.size(); ++i) {
+		SCOPED_TRACE(i);
+		ASSERT_TRUE(numbering.idsBySlot[2 + 2 * i]);
+		EXPECT_EQ(numbering.idsBySlot[2 + 2 * i], numbering.idsBySlot[3 + 2 * i]);
+		unique.insert(numbering.idsBySlot[2 + 2 * i]->value);
+	}
+	EXPECT_EQ(unique.size(), payloads.size());
+	EXPECT_EQ(numbering.count.value, payloads.size() + 2);
+}
+
+TEST_F(SohTrackerGraph, KeepsOperatorsBindingsSymbolsAndOrderedChildListsDistinct) {
+	const ast::Param parameter{ast::Name{"value"}, std::nullopt, nullptr};
+	const ast::Param otherParameter{ast::Name{"other_value"}, std::nullopt, nullptr};
+	const ast::DefineDecl helper{ast::Name{"helper"}, {}, nullptr};
+	const ast::DefineDecl otherHelper{ast::Name{"other"}, {}, nullptr};
+	const ast::ExternDefineDecl host{ast::Name{"host"}, {}};
+	const ast::ExternDefineDecl otherHost{ast::Name{"other_host"}, {}};
+	const ast::RegionDecl otherRegion{ast::Name{"RR_OTHER"}, ast::RegionBody{{}, {}}};
+	const ast::EnumInfo enumeration{ast::Name{"Choice"}, ast::EnumKind::Normal, ast::Type::Int, {}};
+	const ast::EnumInfo otherEnum{ast::Name{"Other"}, ast::EnumKind::Normal, ast::Type::Int, {}};
+	const ast::Name member{"FIRST"};
+	const ast::Name otherMember{"SECOND"};
+	const std::vector<std::pair<Payload, Payload>> pairs{
+		{Value{true}, Value{int32_t{1}}},
+		{Value{int32_t{-1}}, Value{int32_t{1}}},
+		{Value{EnumConstant{&enumeration, &member}}, Value{EnumConstant{&otherEnum, &member}}},
+		{Value{EnumConstant{&enumeration, &member}}, Value{EnumConstant{&enumeration, &otherMember}}},
+		{Value{KeyConstant{&member}}, Value{KeyConstant{&otherMember}}},
+		{Value{ParameterRead{&parameter}}, Value{ParameterRead{&otherParameter}}},
+		{Value{HereValue{&owner}}, Value{HereValue{&otherRegion}}},
+		{Logical{LogicalOperator::And, {{0}, {1}}}, Logical{LogicalOperator::Or, {{0}, {1}}}},
+		{Logical{LogicalOperator::And, {{0}, {1}}}, Logical{LogicalOperator::And, {{1}, {0}}}},
+		{Logical{LogicalOperator::And, {{0}, {1}}}, Logical{LogicalOperator::And, {{0}, {1}, {0}}}},
+		{Arithmetic{ArithmeticOperator::Add, {{0}, {1}}},
+		 Arithmetic{ArithmeticOperator::Subtract, {{0}, {1}}}},
+		{Comparison{ComparisonOperator::Equal, {0}, {1}},
+		 Comparison{ComparisonOperator::NotEqual, {0}, {1}}},
+		{Comparison{ComparisonOperator::Less, {0}, {1}}, Comparison{ComparisonOperator::Less, {1}, {0}}},
+		{Ternary{{0}, {0}, {1}}, Ternary{{0}, {1}, {0}}},
+		{HelperCall{{0}, {}}, HelperCall{{1}, {}}},
+		{HelperCall{{0}, {{0}}}, HelperCall{{0}, {{1}}}},
+		{ExternCall{{0}, {}}, ExternCall{{1}, {}}},
+		{ExternCall{{0}, {{0}}}, ExternCall{{0}, {{1}}}},
+		{Parameter{0, &parameter, {0}}, Parameter{1, &parameter, {0}}},
+		{Parameter{0, &parameter, {0}}, Parameter{0, &otherParameter, {0}}},
+		{Conversion{IntegralTarget::Int8, {0}}, Conversion{IntegralTarget::UInt8, {0}}},
+		{Condition{{0}}, Condition{{1}}},
+		{Invoke{{0}}, Invoke{{1}}},
+		{Match{IntegralTarget::Int8, {0}, {{1}}}, Match{IntegralTarget::UInt8, {0}, {{1}}}},
+		{MatchArm{{0}, {1}, true}, MatchArm{{0}, {1}, false}},
+		{MatchPatterns{{{0}, {1}}}, MatchPatterns{{{1}, {0}}}}
+	};
+	for (size_t i = 0; i < pairs.size(); ++i) {
+		SCOPED_TRACE(i);
+		Graph graph;
+		graph.helpers = {{&helper, NodeHandle{0}}, {&otherHelper, NodeHandle{0}}};
+		graph.adapters = {{&host, boolType, {}}, {&otherHost, boolType, {}}};
+		graph.nodes = {node(Value{true}), node(Value{false}),
+			node(pairs[i].first), node(pairs[i].second)};
+		graph.roots = {root({2}, first), root({3}, second)};
+		const auto result = NumberDistinctGraph(graph, sourceRoot);
+		ASSERT_TRUE(std::holds_alternative<Numbering>(result));
+		const auto& numbering = std::get<Numbering>(result);
+		EXPECT_NE(numbering.idsBySlot[2], numbering.idsBySlot[3]);
+	}
+}
+
+TEST_F(SohTrackerGraph, KeepsSourceTypesEnumIdentitiesAndRepresentationsDistinct) {
+	const ast::EnumInfo enumeration{ast::Name{"Choice"}, ast::EnumKind::Normal, ast::Type::Int, {}};
+	const ast::EnumInfo otherEnum{ast::Name{"Other"}, ast::EnumKind::Normal, ast::Type::Int, {}};
+	const std::vector<std::optional<ValueType>> types{
+		std::nullopt, boolType,
+		ValueType{ast::Type::Int, nullptr, IntegralTarget::Int32},
+		ValueType{ast::Type::Int, nullptr, IntegralTarget::UInt32},
+		ValueType{ast::Type::Condition, nullptr, ConditionTarget{}},
+		ValueType{ast::Type::Region, nullptr, IntegralTarget::Int32},
+		ValueType{ast::Type::Event, nullptr, IntegralTarget::Int32},
+		ValueType{ast::Type::Location, nullptr, IntegralTarget::Int32},
+		ValueType{ast::Type::Enum, &enumeration, IntegralTarget::Int32},
+		ValueType{ast::Type::Enum, &otherEnum, IntegralTarget::Int32}
+	};
+	Graph graph;
+	graph.nodes.push_back(node(Value{true}));
+	std::vector<NodeHandle> children;
+	for (const auto& type : types) {
+		children.push_back({graph.nodes.size()});
+		graph.nodes.push_back({Condition{{0}}, type, {span, {}}});
+	}
+	const NodeHandle parent{graph.nodes.size()};
+	graph.nodes.push_back(node(Logical{LogicalOperator::And, children}));
+	graph.roots.push_back(root(parent, first));
+	const auto result = NumberDistinctGraph(graph, sourceRoot);
+	ASSERT_TRUE(std::holds_alternative<Numbering>(result));
+	EXPECT_EQ(std::get<Numbering>(result).count.value, graph.nodes.size());
+}
+
+TEST_F(SohTrackerGraph, SharesSameTypedBindingNamesAcrossDifferentParameterDeclarations) {
+	const ast::Param firstParameter{ast::Name{"value"}, std::nullopt, nullptr};
+	const ast::Param secondParameter{ast::Name{"value"}, std::nullopt, nullptr};
+	Graph graph;
+	graph.nodes = {node(Value{true}), node(Value{true}),
+		node(Value{ParameterRead{&firstParameter}}), node(Value{ParameterRead{&secondParameter}}),
+		node(Parameter{0, &firstParameter, {0}}), node(Parameter{0, &secondParameter, {1}}),
+		node(Logical{LogicalOperator::And, {{2}, {3}, {4}, {5}}})};
+	graph.roots.push_back(root({6}, first));
+	const auto result = NumberDistinctGraph(graph, sourceRoot);
+	ASSERT_TRUE(std::holds_alternative<Numbering>(result));
+	const auto& numbering = std::get<Numbering>(result);
+	EXPECT_EQ(numbering.count, (NodeCount{4}));
+	EXPECT_EQ(numbering.idsBySlot[2], numbering.idsBySlot[3]);
+	EXPECT_EQ(numbering.idsBySlot[4], numbering.idsBySlot[5]);
+	EXPECT_EQ(std::get<ParameterRead>(std::get<Value>(graph.nodes[2].payload).value).declaration,
+		&firstParameter);
+	EXPECT_EQ(std::get<ParameterRead>(std::get<Value>(graph.nodes[3].payload).value).declaration,
+		&secondParameter);
+}
+
+TEST_F(SohTrackerGraph, SharesRecursiveHelperCallsByDefinitionWithoutExpandingTheirBodies) {
+	const ast::DefineDecl a{ast::Name{"a"}, {}, nullptr};
+	const ast::DefineDecl b{ast::Name{"b"}, {}, nullptr};
+	for (const bool mutual : {false, true}) {
+		Graph graph;
+		graph.helpers = {{&a, NodeHandle{0}}, {&b, NodeHandle{1}}};
+		graph.nodes = {node(HelperCall{{mutual ? size_t{1} : size_t{0}}, {}}),
+			node(HelperCall{{0}, {}}), node(HelperCall{{0}, {}})};
+		graph.roots.push_back(root({2}, first));
+		const auto result = NumberDistinctGraph(graph, sourceRoot);
+		ASSERT_TRUE(std::holds_alternative<Numbering>(result));
+		const auto& numbering = std::get<Numbering>(result);
+		EXPECT_EQ(numbering.count.value, mutual ? 2 : 1);
+		if (mutual) EXPECT_EQ(numbering.idsBySlot[1], numbering.idsBySlot[2]);
+		else EXPECT_EQ(numbering.idsBySlot[0], numbering.idsBySlot[2]);
+	}
+}
+
+TEST_F(SohTrackerGraph, DistinctNumberingRejectsInvalidHandlesAndOrdinaryStructuralCycles) {
+	Graph graph;
+	graph.nodes = {node(Value{true}), node(Not{{99}})};
+	graph.roots.push_back(root({0}, first));
+	auto result = NumberDistinctGraph(graph, sourceRoot);
+	ASSERT_TRUE(std::holds_alternative<std::vector<ast::Diagnostic>>(result));
+	expectError(std::get<std::vector<ast::Diagnostic>>(result), "invalid node handle");
+	graph.nodes[0].payload = Not{{0}};
+	graph.nodes.pop_back();
+	result = NumberDistinctGraph(graph, sourceRoot);
+	ASSERT_TRUE(std::holds_alternative<std::vector<ast::Diagnostic>>(result));
+	expectError(std::get<std::vector<ast::Diagnostic>>(result), "structural cycle");
 }
 
 } // namespace

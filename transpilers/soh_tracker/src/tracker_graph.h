@@ -40,4 +40,9 @@ std::vector<ast::Diagnostic> ValidateGraphStructure(
 std::variant<Numbering, std::vector<ast::Diagnostic>> NumberGraph(
 	const Graph& graph, const std::filesystem::path& sourceRoot);
 
+// Shares structurally identical descriptors after occurrence-specific validation.
+// Every reachable slot retains an ID, including aliases; the graph is not mutated.
+std::variant<Numbering, std::vector<ast::Diagnostic>> NumberDistinctGraph(
+	const Graph& graph, const std::filesystem::path& sourceRoot);
+
 } // namespace rls::transpilers::soh_tracker::ir
