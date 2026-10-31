@@ -2,7 +2,6 @@
 
 #include <algorithm>
 #include <locale>
-#include <sstream>
 #include <stdexcept>
 #include <type_traits>
 
@@ -205,26 +204,126 @@ private:
 	}
 };
 
-bool needsLocalEnums(const Graph& graph, const Numbering& numbering) {
-	const auto local = [](const ValueType& type) {
-		return type.enumInfo && type.enumInfo->kind == ast::EnumKind::Normal &&
-			!soh::findHostEnumMapping(type.enumInfo->name.text);
-	};
-	for (const auto handle : numbering.nodesById) {
-		const auto& type = graph.nodes[handle.slot].valueType;
-		if (type && local(*type)) return true;
+void GenerateHeader(rls::OutputWriter& out) {
+	auto& header = out.open("logic_tracker.gen.h");
+	header << R"(#pragma once
+
+#include "logic_expression.h"
+
+uint64_t GetExpressionCount();
+LogicExpression* GetExpression(index_t index);
+const LogicRootMap& GetLogicRoots();
+)";
+}
+
+void GenerateSource(rls::OutputWriter& out, const Graph& graph, const Numbering& numbering,
+	std::span<const HostEnumBinding> customEnums)
+{
+	auto& source = out.open("logic_tracker.gen.cpp");
+	source.imbue(std::locale::classic());
+	source << R"(#include "logic_tracker.gen.h"
+#include "rls_host.h"
+#include "functions.gen.h"
+
+#include <cstdint>
+#include <memory>
+#include <span>
+#include <stdexcept>
+#include <type_traits>
+#include <utility>
+#include <vector>
+
+namespace rls_tracker_generated_detail {
+
+template <typename T>
+static int32_t CheckedHostInt(T value) {
+	if constexpr (std::is_enum_v<T>) {
+		return CheckedHostInt(static_cast<std::underlying_type_t<T>>(value));
+	} else if constexpr (std::is_same_v<T, bool>) {
+		return value ? int32_t{1} : int32_t{0};
+	} else {
+		static_assert(std::is_integral_v<T>);
+		using Wide = std::conditional_t<std::is_signed_v<T>, intmax_t, uintmax_t>;
+		if (!std::in_range<int32_t>(static_cast<Wide>(value))) {
+			throw std::out_of_range("Tracker host value is outside int32_t range.");
+		}
+		return static_cast<int32_t>(value);
 	}
-	for (const auto& adapter : graph.adapters) {
-		if (local(adapter.result) ||
-			std::any_of(adapter.parameters.begin(), adapter.parameters.end(), local)) return true;
+}
+
+)";
+	std::vector<const HostAdapter*> adapters;
+	for (const auto& adapter : graph.adapters) adapters.push_back(&adapter);
+	std::sort(adapters.begin(), adapters.end(), [](const HostAdapter* a, const HostAdapter* b) {
+		return a->declaration->name.text + "_adapter" < b->declaration->name.text + "_adapter";
+	});
+	for (const auto* adapter : adapters) {
+		GenerateHostAdapter(source, *adapter, customEnums);
+		source << "\n";
 	}
-	return false;
+	source << R"(static std::unique_ptr<LogicExpression> CreateExpression(index_t index) {
+	switch (index) {
+)";
+	const Renderer renderer(graph, numbering, customEnums);
+	for (size_t i = 0; i < numbering.nodesById.size(); ++i) {
+		const auto& node = graph.nodes[numbering.nodesById[i].slot];
+		source << "\tcase " << i << "U: return " << renderer.node(node) << ";\n";
+	}
+	source << R"(	default: throw std::out_of_range("Invalid tracker expression index.");
+	}
+}
+
+} // namespace rls_tracker_generated_detail
+
+uint64_t GetExpressionCount() {
+	return )" << numbering.count.value << R"(ULL;
+}
+
+LogicExpression* GetExpression(index_t index) {
+	static LogicExpressionCache cache(GetExpressionCount(), rls_tracker_generated_detail::CreateExpression);
+	return cache.GetExpression(index);
+}
+
+const LogicRootMap& GetLogicRoots() {
+	static const LogicRootMap roots{
+)";
+	for (const auto slot : numbering.rootsInOrder) {
+		const auto& root = graph.roots[slot];
+		source << "\t\t{LogicRootKey{LogicRootKind::" << rootKind(root.kind) << ", "
+			<< literal(root.owner->key.text) << ", " << literal(root.entry->name.text) << ", "
+			<< root.occurrence << "U}, " << renderer.id(root.expression) << "},\n";
+	}
+	source << R"(	};
+	return roots;
+}
+)";
+}
+
+void GenerateManifest(rls::OutputWriter& out, const Graph& graph, const Numbering& numbering,
+	std::span<const std::string> paths, std::span<const HostEnumBinding> customEnums)
+{
+	auto& manifest = out.open("logic_tracker.gen.txt");
+	manifest.imbue(std::locale::classic());
+	manifest << "nodes " << numbering.count.value << "\nroots " << graph.roots.size() << "\n";
+	const Renderer renderer(graph, numbering, customEnums);
+	for (size_t i = 0; i < numbering.nodesById.size(); ++i) {
+		const auto& node = graph.nodes[numbering.nodesById[i].slot];
+		manifest << "node " << i << " " << literal(paths[i]) << ":"
+			<< node.provenance.span.start.line << ":" << node.provenance.span.start.column
+			<< " " << renderer.node(node) << "\n";
+	}
+	for (const auto slot : numbering.rootsInOrder) {
+		const auto& root = graph.roots[slot];
+		manifest << "root " << rootKind(root.kind) << " " << literal(root.owner->key.text) << " "
+			<< literal(root.entry->name.text) << " " << root.occurrence << " "
+			<< renderer.id(root.expression) << "\n";
+	}
 }
 
 } // namespace
 
-std::variant<RenderedArtifacts, std::vector<ast::Diagnostic>> RenderArtifacts(
-	const ast::Project& project, const Graph& graph, const std::filesystem::path& sourceRoot,
+std::vector<ast::Diagnostic> EmitArtifacts(const ast::Project& project, const Graph& graph,
+	rls::OutputWriter& out, const std::filesystem::path& sourceRoot,
 	std::span<const HostEnumBinding> customEnums)
 {
 	auto diagnostics = ValidateGraph(project, graph, sourceRoot, customEnums);
@@ -232,97 +331,22 @@ std::variant<RenderedArtifacts, std::vector<ast::Diagnostic>> RenderArtifacts(
 	auto numbered = NumberGraph(graph, sourceRoot);
 	if (const auto* errors = std::get_if<std::vector<ast::Diagnostic>>(&numbered)) return *errors;
 	const auto& numbering = std::get<Numbering>(numbered);
-	auto adapters = RenderHostAdapters(graph, customEnums);
-	if (const auto* errors = std::get_if<std::vector<ast::Diagnostic>>(&adapters)) return *errors;
-	auto& definitions = std::get<std::vector<RenderedAdapter>>(adapters);
-	std::sort(definitions.begin(), definitions.end(),
-		[](const RenderedAdapter& a, const RenderedAdapter& b) { return a.symbol < b.symbol; });
-
-	RenderedArtifacts artifacts;
-	artifacts.header = "#pragma once\n\n#include \"logic_expression.h\"\n\n"
-		"uint64_t GetExpressionCount();\n"
-		"LogicExpression* GetExpression(index_t index);\n"
-		"const LogicRootMap& GetLogicRoots();\n";
-	std::ostringstream source;
-	std::ostringstream manifest;
-	source.imbue(std::locale::classic());
-	manifest.imbue(std::locale::classic());
-	source << "#include \"logic_tracker.gen.h\"\n#include \"rls_host.h\"\n";
-	if (needsLocalEnums(graph, numbering)) source << "#include \"functions.gen.h\"\n";
-	source << "\n#include <cstdint>\n#include <memory>\n#include <span>\n#include <stdexcept>\n"
-		"#include <type_traits>\n#include <utility>\n#include <vector>\n\n"
-		"namespace rls_tracker_generated_detail {\n\n"
-		"template <typename T>\n"
-		"static int32_t CheckedHostInt(T value) {\n"
-		"\tif constexpr (std::is_enum_v<T>) {\n"
-		"\t\treturn CheckedHostInt(static_cast<std::underlying_type_t<T>>(value));\n"
-		"\t} else if constexpr (std::is_same_v<T, bool>) {\n"
-		"\t\treturn value ? int32_t{1} : int32_t{0};\n"
-		"\t} else {\n"
-		"\t\tstatic_assert(std::is_integral_v<T>);\n"
-		"\t\tusing Wide = std::conditional_t<std::is_signed_v<T>, intmax_t, uintmax_t>;\n"
-		"\t\tif (!std::in_range<int32_t>(static_cast<Wide>(value))) {\n"
-		"\t\t\tthrow std::out_of_range(\"Tracker host value is outside int32_t range.\");\n"
-		"\t\t}\n"
-		"\t\treturn static_cast<int32_t>(value);\n"
-		"\t}\n}\n\n";
-	for (const auto& adapter : definitions) source << adapter.definition << "\n";
-	source << "static std::unique_ptr<LogicExpression> CreateExpression(index_t index) {\n"
-		"\tswitch (index) {\n";
-	manifest << "nodes " << numbering.count.value << "\nroots " << graph.roots.size() << "\n";
-	const Renderer renderer(graph, numbering, customEnums);
-	for (size_t i = 0; i < numbering.nodesById.size(); ++i) {
-		const auto& node = graph.nodes[numbering.nodesById[i].slot];
-		auto path = NormalizeSourcePath(node.provenance.span, sourceRoot);
+	std::vector<std::string> paths;
+	paths.reserve(numbering.nodesById.size());
+	for (const auto handle : numbering.nodesById) {
+		auto path = NormalizeSourcePath(graph.nodes[handle.slot].provenance.span, sourceRoot);
 		if (const auto* error = std::get_if<ast::Diagnostic>(&path)) {
 			diagnostics.push_back(*error);
-			continue;
+		} else {
+			paths.push_back(std::get<std::string>(std::move(path)));
 		}
-		const auto construction = renderer.node(node);
-		source << "\tcase " << i << "U: return " << construction << ";\n";
-		manifest << "node " << i << " " << literal(std::get<std::string>(path)) << ":"
-			<< node.provenance.span.start.line << ":" << node.provenance.span.start.column
-			<< " " << construction << "\n";
 	}
 	if (!diagnostics.empty()) return diagnostics;
-	source << "\tdefault: throw std::out_of_range(\"Invalid tracker expression index.\");\n"
-		"\t}\n}\n\n} // namespace rls_tracker_generated_detail\n\n"
-		"uint64_t GetExpressionCount() {\n\treturn " << numbering.count.value << "ULL;\n}\n\n"
-		"LogicExpression* GetExpression(index_t index) {\n"
-		"\tstatic LogicExpressionCache cache(GetExpressionCount(), "
-		"rls_tracker_generated_detail::CreateExpression);\n"
-		"\treturn cache.GetExpression(index);\n}\n\n"
-		"const LogicRootMap& GetLogicRoots() {\n"
-		"\tstatic const LogicRootMap roots{\n";
-	for (const auto slot : numbering.rootsInOrder) {
-		const auto& root = graph.roots[slot];
-		source << "\t\t{LogicRootKey{LogicRootKind::" << rootKind(root.kind) << ", "
-			<< literal(root.owner->key.text) << ", " << literal(root.entry->name.text) << ", "
-			<< root.occurrence << "U}, " << renderer.id(root.expression) << "},\n";
-		manifest << "root " << rootKind(root.kind) << " " << literal(root.owner->key.text) << " "
-			<< literal(root.entry->name.text) << " " << root.occurrence << " "
-			<< renderer.id(root.expression) << "\n";
-	}
-	source << "\t};\n\treturn roots;\n}\n";
-	artifacts.source = source.str();
-	artifacts.manifest = manifest.str();
-	return artifacts;
-}
 
-std::vector<ast::Diagnostic> EmitArtifacts(const ast::Project& project, const Graph& graph,
-	rls::OutputWriter& out, const std::filesystem::path& sourceRoot,
-	std::span<const HostEnumBinding> customEnums)
-{
-	auto rendered = RenderArtifacts(project, graph, sourceRoot, customEnums);
-	if (const auto* errors = std::get_if<std::vector<ast::Diagnostic>>(&rendered)) return *errors;
-	const auto& artifacts = std::get<RenderedArtifacts>(rendered);
-	auto& header = out.open("logic_tracker.gen.h");
-	header << artifacts.header;
-	auto& source = out.open("logic_tracker.gen.cpp");
-	source << artifacts.source;
-	auto& manifest = out.open("logic_tracker.gen.txt");
-	manifest << artifacts.manifest;
-	return {};
+	GenerateHeader(out);
+	GenerateSource(out, graph, numbering, customEnums);
+	GenerateManifest(out, graph, numbering, paths, customEnums);
+	return diagnostics;
 }
 
 } // namespace rls::transpilers::soh_tracker::ir

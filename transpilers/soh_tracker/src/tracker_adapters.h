@@ -1,5 +1,6 @@
 #pragma once
 
+#include <ostream>
 #include <span>
 #include <string>
 
@@ -23,6 +24,10 @@ std::optional<std::string> GetHostEnumType(const ast::EnumInfo& declaration,
 	std::span<const HostEnumBinding> customEnums = {});
 
 std::vector<ast::Diagnostic> ValidateHostAdapters(const Graph& graph,
+	std::span<const HostEnumBinding> customEnums = {});
+
+// Requires successful host-adapter preflight; generates without diagnostic checks.
+void GenerateHostAdapter(std::ostream& out, const HostAdapter& adapter,
 	std::span<const HostEnumBinding> customEnums = {});
 
 // Definitions use the emitter's CheckedHostInt helper for integral/enum returns.

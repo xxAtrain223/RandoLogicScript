@@ -107,6 +107,25 @@ std::vector<ast::Diagnostic> ValidateHostAdapters(const Graph& graph,
 	return diagnostics;
 }
 
+void GenerateHostAdapter(std::ostream& out, const HostAdapter& adapter,
+	std::span<const HostEnumBinding> customEnums)
+{
+	const auto& declaration = *adapter.declaration;
+	out << "static value_t " << declaration.name.text << "_adapter(std::span<EvalResult> arguments) {\n";
+	out << "\treturn ";
+	const bool condition = adapter.result.sourceType == ast::Type::Condition;
+	if (condition) out << "condition_t{";
+	else out << (adapter.result.sourceType == ast::Type::Bool ? "static_cast<bool>(" : "CheckedHostInt(");
+	out << "::" << declaration.name.text << "(";
+	for (size_t i = 0; i < adapter.parameters.size(); ++i) {
+		if (i) out << ", ";
+		out << argument(adapter.parameters[i], hostType(adapter.parameters[i], customEnums, false).value(), i);
+	}
+	out << ")";
+	out << (condition ? "}" : ")");
+	out << ";\n}\n";
+}
+
 AdapterRenderingResult RenderHostAdapters(const Graph& graph,
 	std::span<const HostEnumBinding> customEnums)
 {
@@ -119,19 +138,7 @@ AdapterRenderingResult RenderHostAdapters(const Graph& graph,
 		const auto& declaration = *adapter.declaration;
 		const auto symbol = declaration.name.text + "_adapter";
 		std::ostringstream out;
-		out << "static value_t " << symbol << "(std::span<EvalResult> arguments) {\n";
-		out << "\treturn ";
-		const bool condition = adapter.result.sourceType == ast::Type::Condition;
-		if (condition) out << "condition_t{";
-		else out << (adapter.result.sourceType == ast::Type::Bool ? "static_cast<bool>(" : "CheckedHostInt(");
-		out << "::" << declaration.name.text << "(";
-		for (size_t i = 0; i < adapter.parameters.size(); ++i) {
-			if (i) out << ", ";
-			out << argument(adapter.parameters[i], *hostType(adapter.parameters[i], customEnums, false), i);
-		}
-		out << ")";
-		out << (condition ? "}" : ")");
-		out << ";\n}\n";
+		GenerateHostAdapter(out, adapter, customEnums);
 		rendered.push_back({AdapterHandle{slot}, symbol, out.str()});
 	}
 	return rendered;

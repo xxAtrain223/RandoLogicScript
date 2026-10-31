@@ -10,20 +10,12 @@
 #include "soh_tracker.h"
 #include "tracker_emission.h"
 #include "tracker_lowering.h"
+#include "tracker_test_writer.h"
 
 namespace rls::transpilers::soh_tracker {
 namespace {
 
-class MemoryWriter : public rls::OutputWriter {
-public:
-	std::map<std::string, std::ostringstream> files;
-	size_t opens = 0;
-
-	std::ostream& open(const std::string& filename) override {
-		++opens;
-		return files[filename];
-	}
-};
+using test::MemoryWriter;
 
 enum class Failure { Open, Write };
 
@@ -93,9 +85,10 @@ TEST_F(SohTrackerPublication, PublicApiWritesAllArtifacts) {
 	const std::vector<HostEnumBinding> bindings{{"Custom", "HostCustom"}};
 	const auto lowered = ir::LowerRoots(project, sourceRoot);
 	ASSERT_TRUE(std::holds_alternative<ir::Graph>(lowered));
-	const auto rendered = ir::RenderArtifacts(project, std::get<ir::Graph>(lowered), sourceRoot, bindings);
-	ASSERT_TRUE(std::holds_alternative<ir::RenderedArtifacts>(rendered));
-	const auto& expected = std::get<ir::RenderedArtifacts>(rendered);
+	MemoryWriter expectedWriter;
+	ASSERT_TRUE(ir::EmitArtifacts(project, std::get<ir::Graph>(lowered), expectedWriter,
+		sourceRoot, bindings).empty());
+	const auto expected = expectedWriter.capture();
 	MemoryWriter writer;
 	const auto& analyzedProject = project;
 	const auto diagnostics = SohTrackerTranspiler(analyzedProject).Transpile(writer, sourceRoot, bindings);
@@ -142,16 +135,16 @@ TEST_F(SohTrackerPublication, MissingAnalyzedMetadataNeverOpensOutputs) {
 	expectUntouched(writer);
 }
 
-TEST_F(SohTrackerPublication, InvalidGraphsAndLateRenderingErrorsNeverOpenOutputs) {
+TEST_F(SohTrackerPublication, InvalidGraphsAndSourcePathsFailPreflightBeforeOpeningOutputs) {
 	analyze("region RR_TEST { locations { RC_A: true } }\n");
 	ASSERT_FALSE(HasFatalFailure());
 	const auto lowered = ir::LowerRoots(project, sourceRoot);
 	ASSERT_TRUE(std::holds_alternative<ir::Graph>(lowered));
-	for (const bool renderError : {false, true}) {
-		SCOPED_TRACE(renderError);
+	for (const bool pathError : {false, true}) {
+		SCOPED_TRACE(pathError);
 		auto graph = std::get<ir::Graph>(lowered);
-		if (renderError) {
-			// Root source identity is intact; the listing cannot normalize this node's path.
+		if (pathError) {
+			// Graph validation succeeds, but emission preflight must reject the missing path.
 			graph.nodes[0].provenance.span.file.clear();
 			ASSERT_TRUE(ir::ValidateGraph(project, graph, sourceRoot).empty());
 		} else {
@@ -181,6 +174,26 @@ TEST_F(SohTrackerPublication, PropagatesWriterExceptionsForEveryArtifact) {
 			EXPECT_EQ(writer.opens, position + 1);
 		}
 	}
+}
+
+TEST_F(SohTrackerPublication, PreflightChecksAllReachableNodePathsBeforeGeneration) {
+	analyze("region RR_TEST { locations { RC_A: true and false } }\n");
+	ASSERT_FALSE(HasFatalFailure());
+	auto lowered = ir::LowerRoots(project, sourceRoot);
+	ASSERT_TRUE(std::holds_alternative<ir::Graph>(lowered));
+	auto& graph = std::get<ir::Graph>(lowered);
+	const auto& children = std::get<ir::Logical>(graph.nodes[graph.roots[0].expression.slot].payload).children;
+	ASSERT_EQ(children.size(), 2);
+	graph.nodes[children[0].slot].provenance.span.file.clear();
+	graph.nodes[children[1].slot].provenance.span.file = sourceRoot.string();
+	ASSERT_TRUE(ir::ValidateGraph(project, graph, sourceRoot).empty());
+	MemoryWriter writer;
+	writer.files["logic_tracker.gen.h"] << "prior successful artifact";
+	const auto diagnostics = ir::EmitArtifacts(project, graph, writer, sourceRoot);
+	ASSERT_EQ(diagnostics.size(), 2);
+	EXPECT_NE(diagnostics[0].message.find("requires a source file path"), std::string::npos);
+	EXPECT_NE(diagnostics[1].message.find("cannot be made project-relative"), std::string::npos);
+	expectUntouched(writer);
 }
 
 TEST_F(SohTrackerPublication, WriterAndStreamsRemainOwnedByTheCaller) {

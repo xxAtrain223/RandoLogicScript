@@ -17,7 +17,7 @@ class SohTrackerTranspiler {
 public:
 	explicit SohTrackerTranspiler(const rls::ast::Project& project);
 
-	// sourceRoot must be absolute; all artifacts are rendered before opening outputs.
+	// sourceRoot must be absolute; all compiler diagnostics precede output generation.
 	// IO exceptions propagate as in SoH; the caller owns flushing/closing the streams.
 	std::vector<rls::ast::Diagnostic> Transpile(rls::OutputWriter& out,
 		const std::filesystem::path& sourceRoot,

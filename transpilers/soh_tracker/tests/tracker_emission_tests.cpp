@@ -9,6 +9,7 @@
 #include "tracker_emission.h"
 #include "tracker_graph.h"
 #include "tracker_lowering.h"
+#include "tracker_test_writer.h"
 
 namespace rls::transpilers::soh_tracker::ir {
 namespace {
@@ -46,16 +47,15 @@ protected:
 		graph = std::get<Graph>(std::move(result));
 	}
 
-	RenderedArtifacts render(std::span<const HostEnumBinding> customEnums = {}) const {
-		auto result = RenderArtifacts(project, graph, sourceRoot, customEnums);
-		if (const auto* errors = std::get_if<std::vector<ast::Diagnostic>>(&result)) {
-			for (const auto& error : *errors) ADD_FAILURE() << error.message;
-			return {};
-		}
-		return std::get<RenderedArtifacts>(std::move(result));
+	test::CapturedOutput render(std::span<const HostEnumBinding> customEnums = {}) const {
+		test::MemoryWriter writer;
+		const auto diagnostics = EmitArtifacts(project, graph, writer, sourceRoot, customEnums);
+		for (const auto& error : diagnostics) ADD_FAILURE() << error.message;
+		if (!diagnostics.empty()) return {};
+		return writer.capture();
 	}
 
-	void expectAccountedFor(const RenderedArtifacts& artifacts) const {
+	void expectAccountedFor(const test::CapturedOutput& artifacts) const {
 		const auto numbered = NumberGraph(graph, sourceRoot);
 		ASSERT_TRUE(std::holds_alternative<Numbering>(numbered));
 		const auto& numbering = std::get<Numbering>(numbered);
@@ -84,7 +84,7 @@ TEST_F(SohTrackerEmission, EmptyGraphHasExplicitMapAndThrowingFactoryWithoutDedu
 	EXPECT_NE(artifacts.source.find("static const LogicRootMap roots{\n\t};"), std::string::npos);
 	EXPECT_NE(artifacts.source.find("default: throw std::out_of_range("), std::string::npos);
 	EXPECT_EQ(artifacts.source.find("[] ="), std::string::npos);
-	EXPECT_EQ(artifacts.source.find("functions.gen.h"), std::string::npos);
+	EXPECT_NE(artifacts.source.find("#include \"functions.gen.h\""), std::string::npos);
 	EXPECT_EQ(artifacts.manifest, "nodes 0\nroots 0\n");
 	expectAccountedFor(artifacts);
 }
@@ -182,7 +182,7 @@ TEST_F(SohTrackerEmission, UsesCheckedSymbolicHostValuesAndActualHostReturnTypes
 	EXPECT_LT(check, narrowing);
 	EXPECT_NE(artifacts.source.find("throw std::out_of_range(\"Tracker host value"), std::string::npos);
 	EXPECT_NE(artifacts.source.find("std::is_same_v<T, bool>"), std::string::npos);
-	EXPECT_EQ(artifacts.source.find("functions.gen.h"), std::string::npos);
+	EXPECT_NE(artifacts.source.find("#include \"functions.gen.h\""), std::string::npos);
 	expectAccountedFor(artifacts);
 }
 
@@ -244,15 +244,17 @@ TEST_F(SohTrackerEmission, RejectsInvalidUnreachableDescriptorsAndMissingBinding
 		"region RR_TEST { locations { RC_A: host(CUSTOM_ONE) } }\n");
 	lower();
 	ASSERT_FALSE(HasFatalFailure());
-	const auto missing = RenderArtifacts(project, graph, sourceRoot);
-	ASSERT_TRUE(std::holds_alternative<std::vector<ast::Diagnostic>>(missing));
-	EXPECT_FALSE(std::get<std::vector<ast::Diagnostic>>(missing).empty());
+	test::MemoryWriter writer;
+	const auto missing = EmitArtifacts(project, graph, writer, sourceRoot);
+	EXPECT_FALSE(missing.empty());
+	EXPECT_EQ(writer.opens, 0);
 	const std::vector<HostEnumBinding> mappings{{"Custom", "HostCustom"}};
 	graph.nodes.push_back({Not{NodeHandle{999}}, ValueType{ast::Type::Bool, nullptr, IntegralTarget::Bool},
 		{graph.roots[0].provenance.span, {}}});
-	const auto invalid = RenderArtifacts(project, graph, sourceRoot, mappings);
-	ASSERT_TRUE(std::holds_alternative<std::vector<ast::Diagnostic>>(invalid));
-	EXPECT_NE(std::get<std::vector<ast::Diagnostic>>(invalid)[0].message.find("invalid node handle"),
+	const auto invalid = EmitArtifacts(project, graph, writer, sourceRoot, mappings);
+	ASSERT_FALSE(invalid.empty());
+	EXPECT_EQ(writer.opens, 0);
+	EXPECT_NE(invalid[0].message.find("invalid node handle"),
 		std::string::npos);
 }
 
@@ -297,14 +299,32 @@ TEST_F(SohTrackerEmission, ArtifactsAreIdenticalAcrossRelocatedSourceRoots) {
 		EXPECT_TRUE(diagnostics.empty());
 		const auto lowered = LowerRoots(local, root);
 		EXPECT_TRUE(std::holds_alternative<Graph>(lowered));
-		return RenderArtifacts(local, std::get<Graph>(lowered), root);
+		test::MemoryWriter writer;
+		const auto emitted = EmitArtifacts(local, std::get<Graph>(lowered), writer, root);
+		EXPECT_TRUE(emitted.empty());
+		return writer.capture();
 	};
 	const auto first = build(sourceRoot);
 	const auto second = build(sourceRoot / "relocated");
-	ASSERT_TRUE(std::holds_alternative<RenderedArtifacts>(first));
-	ASSERT_TRUE(std::holds_alternative<RenderedArtifacts>(second));
-	EXPECT_EQ(std::get<RenderedArtifacts>(first), std::get<RenderedArtifacts>(second));
-	EXPECT_EQ(std::get<RenderedArtifacts>(first).manifest.find(sourceRoot.string()), std::string::npos);
+	EXPECT_EQ(first, second);
+	EXPECT_EQ(first.manifest.find(sourceRoot.string()), std::string::npos);
+}
+
+TEST_F(SohTrackerEmission, GenerationUsesStableLocaleOnCallerStreams) {
+	struct GroupedNumbers : std::numpunct<char> {
+		char do_thousands_sep() const override { return '_'; }
+		std::string do_grouping() const override { return "\1"; }
+	};
+	parse("region RR_TEST { locations { RC_A: 1 + 2 + 3 + 4 + 5 + 6 + 7 + 8 + 9 > 0 } }\n");
+	lower();
+	ASSERT_FALSE(HasFatalFailure());
+	const auto expected = render();
+	test::MemoryWriter writer;
+	const std::locale grouped(std::locale::classic(), new GroupedNumbers);
+	writer.files["logic_tracker.gen.cpp"].imbue(grouped);
+	writer.files["logic_tracker.gen.txt"].imbue(grouped);
+	ASSERT_TRUE(EmitArtifacts(project, graph, writer, sourceRoot).empty());
+	EXPECT_EQ(writer.capture(), expected);
 }
 
 TEST_F(SohTrackerEmission, RequiresHostMappingsForStandaloneExternalConstantsWithoutAdapters) {
@@ -313,10 +333,11 @@ TEST_F(SohTrackerEmission, RequiresHostMappingsForStandaloneExternalConstantsWit
 	lower();
 	ASSERT_FALSE(HasFatalFailure());
 	ASSERT_TRUE(graph.adapters.empty());
-	const auto missing = RenderArtifacts(project, graph, sourceRoot);
-	ASSERT_TRUE(std::holds_alternative<std::vector<ast::Diagnostic>>(missing));
-	ASSERT_FALSE(std::get<std::vector<ast::Diagnostic>>(missing).empty());
-	EXPECT_NE(std::get<std::vector<ast::Diagnostic>>(missing)[0].message.find(
+	test::MemoryWriter writer;
+	const auto missing = EmitArtifacts(project, graph, writer, sourceRoot);
+	ASSERT_FALSE(missing.empty());
+	EXPECT_EQ(writer.opens, 0);
+	EXPECT_NE(missing[0].message.find(
 		"Tracker enum 'Custom' is missing a supported host type mapping"), std::string::npos);
 	const std::vector<HostEnumBinding> mappings{{"Custom", "HostCustom"}};
 	const auto artifacts = render(mappings);
