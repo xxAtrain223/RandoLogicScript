@@ -10,7 +10,6 @@ namespace rls::transpilers::soh_tracker::test {
 struct CapturedOutput {
 	std::string header;
 	std::string source;
-	std::string manifest;
 	bool operator==(const CapturedOutput&) const = default;
 };
 
@@ -25,8 +24,7 @@ public:
 	}
 
 	CapturedOutput capture() const {
-		return {files.at("logic_tracker.gen.h").str(), files.at("logic_tracker.gen.cpp").str(),
-			files.at("logic_tracker.gen.txt").str()};
+		return {files.at("logic_tracker.gen.h").str(), files.at("logic_tracker.gen.cpp").str()};
 	}
 };
 

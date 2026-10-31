@@ -299,27 +299,6 @@ const LogicRootMap& GetLogicRoots() {
 )";
 }
 
-void GenerateManifest(rls::OutputWriter& out, const Graph& graph, const Numbering& numbering,
-	std::span<const std::string> paths, std::span<const HostEnumBinding> customEnums)
-{
-	auto& manifest = out.open("logic_tracker.gen.txt");
-	manifest.imbue(std::locale::classic());
-	manifest << "nodes " << numbering.count.value << "\nroots " << graph.roots.size() << "\n";
-	const Renderer renderer(graph, numbering, customEnums);
-	for (size_t i = 0; i < numbering.nodesById.size(); ++i) {
-		const auto& node = graph.nodes[numbering.nodesById[i].slot];
-		manifest << "node " << i << " " << literal(paths[i]) << ":"
-			<< node.provenance.span.start.line << ":" << node.provenance.span.start.column
-			<< " " << renderer.node(node) << "\n";
-	}
-	for (const auto slot : numbering.rootsInOrder) {
-		const auto& root = graph.roots[slot];
-		manifest << "root " << rootKind(root.kind) << " " << literal(root.owner->key.text) << " "
-			<< literal(root.entry->name.text) << " " << root.occurrence << " "
-			<< renderer.id(root.expression) << "\n";
-	}
-}
-
 } // namespace
 
 std::vector<ast::Diagnostic> EmitArtifacts(const ast::Project& project, const Graph& graph,
@@ -331,21 +310,16 @@ std::vector<ast::Diagnostic> EmitArtifacts(const ast::Project& project, const Gr
 	auto numbered = NumberGraph(graph, sourceRoot);
 	if (const auto* errors = std::get_if<std::vector<ast::Diagnostic>>(&numbered)) return *errors;
 	const auto& numbering = std::get<Numbering>(numbered);
-	std::vector<std::string> paths;
-	paths.reserve(numbering.nodesById.size());
 	for (const auto handle : numbering.nodesById) {
 		auto path = NormalizeSourcePath(graph.nodes[handle.slot].provenance.span, sourceRoot);
 		if (const auto* error = std::get_if<ast::Diagnostic>(&path)) {
 			diagnostics.push_back(*error);
-		} else {
-			paths.push_back(std::get<std::string>(std::move(path)));
 		}
 	}
 	if (!diagnostics.empty()) return diagnostics;
 
 	GenerateHeader(out);
 	GenerateSource(out, graph, numbering, customEnums);
-	GenerateManifest(out, graph, numbering, paths, customEnums);
 	return diagnostics;
 }
 

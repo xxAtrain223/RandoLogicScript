@@ -32,16 +32,16 @@ This plan covers the full document in implementation phases and has been approve
 
 ### Current handoff
 
-- **Review baseline:** User approved Phases 1-7a, including separate backend dispatch branches and removal of detailed tracker usage from the main README. The worktree was clean when 7b started.
-- **Current checkpoint 7b:** [Tracker acceptance test](../console/tests/acceptance_tracker_tests.cpp) and [CMake registration](../console/CMakeLists.txt) add tracker golden comparison. The cross-backend ordering/nonmutation test and its snapshot helper were removed at user request; retain the independent SoH/AP/tracker golden tests.
-- **Acceptance artifacts:** The [sample manifest](../examples/soh/rls.json) now explicitly configures `soh_tracker` alongside SoH/AP. Its three [golden files](../examples/soh/out_soh_tracker) contain **1,927 nodes / 304 roots**. A default invocation of this manifest now runs all three configured targets; the CLI still never enables tracker implicitly.
-- **Generation/documentation:** `.\build\console\Debug\RandoLogicScript.exe --project .\examples\soh\rls.json -t soh_tracker` generated the baselines successfully. The sample reports existing unresolved-exit warnings and one unused-helper info diagnostic, not errors. Detailed tracker acceptance/regeneration prose was removed from the building guide at user request; retain checkpoint details here.
-- **Validation:** Before removing the ordering test, `cmake --build build --config Debug --target console_project_tests project_tests console_acceptance_tests soh_tracker_tests --parallel 2` and `ctest --test-dir build -C Debug --output-on-failure -R '^(ConsoleProject\.|ConsoleDirectoryWriter\.|Project(Sources|Manifest)\.|Acceptance(Soh|Ap|Tracker)\.|SohTracker)'` passed **178/178**. After removal, `cmake --build build --config Debug --target console_acceptance_tests --parallel 2` and `ctest --test-dir build -C Debug --output-on-failure -R '^Acceptance'` passed **3/3** remaining acceptance tests. `git diff --check` and `git diff --exit-code -- examples\soh\out_soh examples\soh\out_soh_ap` passed. Full repository/sema suites, other platforms, and real-consumer checks were not run.
-- **Worktree/review:** 7b is uncommitted and awaits review. Changes are limited to acceptance tests/CMake, sample manifest/new tracker goldens, building guide, and this plan. Existing SoH/AP golden files, backend implementations, console dispatch/writer, sema, schema, requirements, and CI workflows are unchanged.
+- **Review baseline:** Phases 1-7a were user-approved; checkpoint 7b added independent SoH/AP/tracker golden acceptance checks and explicitly configured tracker in the sample manifest. Its cross-backend ordering/nonmutation test was removed at user request.
+- **Current checkpoint:** Remove the debug text listing at user request. [Emission](../transpilers/soh_tracker/src/tracker_emission.cpp) now opens only the header and C++ source. Shared test capture, publication/failure tests, and CLI assertions cover the two-artifact contract; the tracked text golden is deleted. Source-path preflight, deterministic numbering, and runtime output remain unchanged.
+- **Acceptance artifacts:** The [sample manifest](../examples/soh/rls.json) configures `soh_tracker` alongside SoH/AP. Its two [golden files](../examples/soh/out_soh_tracker) contain **1,927 nodes / 304 roots**. Default invocation runs all three configured targets; the CLI never enables tracker implicitly.
+- **Generation/documentation:** `.\build\console\Debug\RandoLogicScript.exe --project .\examples\soh\rls.json -t soh_tracker` regenerates the baselines. Existing sample unresolved-exit warnings and one unused-helper info diagnostic are not errors. Detailed tracker usage/regeneration prose remains intentionally absent from the README/building guide.
+- **Validation:** Using Visual Studio's bundled CMake/CTest executables, `cmake --build build --config Debug --target soh_tracker_tests console_project_tests console_acceptance_tests --parallel 2` succeeded and `ctest --test-dir build -C Debug --output-on-failure -R '^(SohTracker|ConsoleProject\.|ConsoleDirectoryWriter\.|Acceptance)'` passed **166/166**, including all three golden acceptance tests. PATH CMake initially failed to recognize the configured Visual Studio 18 2026 generator; using the bundled tool resolved it. `git diff --check` and `git diff --exit-code -- examples\soh\out_soh examples\soh\out_soh_ap examples\soh\out_soh_tracker\logic_tracker.gen.h examples\soh\out_soh_tracker\logic_tracker.gen.cpp` passed. Full repository/sema suites, other platforms, and real-consumer checks remain unrun.
+- **Worktree/review:** Listing removal is uncommitted and awaits review; the starting worktree was clean. Existing SoH/AP and tracker C++ goldens, console dispatch/writer, sema, schema, user-provided requirements, and CI workflows are unchanged.
 - **Publication boundary:** Phase 7a's checked console writer remains caller-owned; `OutputWriter` stays open-only. Tracker compiler diagnostics precede artifact opens, but generation/output exceptions can leave partial files. No transactional publication or crash durability is claimed. Unit-injected write/flush/close failures do not certify real disk exhaustion; cross-filesystem-root rejection and real disk flush/close failure CLI status remain untested end-to-end on this Windows checkout.
 - **Remaining local work:** Phase 8's broader acceptance matrix/corpus, root-set accounting, and numeric/descriptor limits remain separate. The 7b corpus counts and goldens are not exhaustive semantic coverage.
 - **Pending consumer gates:** Generated source still needs real C++20 consumer headers and matching SoH `functions.gen.h`. Compilation/API compatibility, host ranges/return widths, ODR, lazy cache/runtime behavior, callback lifetimes, and host-enforced nonmutation remain downstream. Recursive runtime execution remains deferred; synthetic emission does not enable recursive RLS in sema.
-- **Next action:** Stop for checkpoint 7b review. After approval, choose the next review-sized Phase 8 checkpoint; do not jump to consumer certification.
+- **Next action:** Stop for listing-removal review. After approval, choose the next review-sized Phase 8 checkpoint; do not jump to consumer certification.
 
 ## Confirmed decisions and boundaries
 
@@ -49,6 +49,7 @@ This plan covers the full document in implementation phases and has been approve
 - Reuse the parser, existing AST, and sema as the sole source-language frontend. The tracker IR only records target-node choices, ordered child references, adapters, representations/conversions, root records, and provenance needed for emission; it must not duplicate parsing, symbol resolution, type inference, or source argument binding.
 - Use section 11's exact consumer-provided `LogicRootKind`, `LogicRootKey`, `LogicRootKeyHash`, and `LogicRootMap` declarations, with generated `const LogicRootMap& GetLogicRoots()`. Do not introduce a competing registry, generated access-object side table, or string-based lookup.
 - Keep existing SoH gameplay emission unchanged. Actual access-object association with these root keys is a separate, documented Shipwright task.
+- Emit only `logic_tracker.gen.h` and `logic_tracker.gen.cpp`; do not emit a debug manifest/listing. The requirements' optional debug manifest is intentionally not implemented. Provenance remains internal for diagnostics and deterministic ordering.
 - Reuse the matching SoH-generated `functions.gen.h` for local RLS enum declarations rather than redeclaring them. Document generation from the same project and the required include paths. Tracker graphs must not call ordinary generated helper functions as opaque leaves.
 - Flatten homogeneous `and` and `or` chains, and homogeneous left-associated `+`, `*`, `-`, and `/` chains into n-ary nodes while respecting semantic boundaries. Dynamic division does not require a constant or provably nonthrowing prefix: the runtime performs each prefix operation before evaluating the next child.
 - Keep the tracker architecture recursion-ready without introducing a tracker-specific recursion ban or requiring an acyclic helper graph. Enabling recursive RLS programs in sema and supporting their execution/row expansion in the consumer are deferred, coordinated work.
@@ -96,7 +97,7 @@ Existing parser -> existing AST/Project -> existing sema
 - Traverse the sorted source-file view by normalized path, retaining each file's declaration order and each declaration's section, entry, and argument order. Extensions follow that same file/declaration order. Do not sort or mutate the analyzed project's containers; duplicate normalized file paths are errors.
 - Start final numbering from roots sorted by normalized source path and source positions, with symbolic root identity as the deterministic tie-breaker. Traverse descriptor children in payload order, call arguments before a helper body, match discriminants before arms, and arm patterns before bodies. Assign contiguous IDs on first visit using an iterative preorder walk; handles and input storage order are not emitted identities.
 - Validate reference integrity across all stored descriptors, then number only root-reachable nodes. Preserve repeated child positions even when discovery visits a shared target once. Unreachable definitions receive no final IDs; cycles do not cause recursive expansion or a tracker-specific recursion diagnostic.
-- These utilities operate on lowering descriptors, not source expressions. Phase 2 will connect the ordered source view to root collection/lowering; later emission and manifest code must reuse this ordering and path normalization.
+- These utilities operate on lowering descriptors, not source expressions. Phase 2 will connect the ordered source view to root collection/lowering; later emission must reuse this ordering and path normalization.
 
 ## Required flattening policy
 
@@ -107,7 +108,7 @@ Flattening is part of normal tracker lowering, not an optional optimization or a
 - **`-` / `/`:** apply the same left-spine collection, including dynamic operands. The runtime's left-fold evaluator performs the prefix subtraction/division before evaluating the next child, matching the nested graph's evaluation and exception timing. No constant-prefix or nonthrowing-prefix restriction is needed. Never rewrite right-nested subtraction/division.
 - **General caveat:** do not flatten across explicit conversion nodes, different operators, or other semantic boundaries. Arithmetic flattening preserves left association; it does not assume mathematical associativity.
 - **Safety barriers:** retain any subtree whose removal would change intermediate type promotion/normalization, move a conversion, reorder or duplicate a host query, or cross helper-call, condition, or invocation boundaries. Preserve the runtime's interleaved operand-evaluation/operation sequence; an early division by zero must still throw before any later child is evaluated.
-- **Representation:** collect legal operands during typed lowering, before final ID assignment, so eliminated intermediate operator nodes do not leave orphan descriptors. Keep source provenance internally and in the debug manifest; do not add runtime source fields.
+- **Representation:** collect legal operands during typed lowering, before final ID assignment, so eliminated intermediate operator nodes do not leave orphan descriptors. Keep source provenance internally; do not add runtime source fields.
 - **Tracker presentation:** flattened chains intentionally expose their ordered operands as immediate children rather than retaining redundant same-operator rows. Preserve repeated operand occurrences and test the resulting child positions and skipped-child mapping. Arithmetic groups that remain nested must remain distinguishable in structural display.
 
 Required structural examples:
@@ -133,11 +134,11 @@ Required structural examples:
 
 - This decision supersedes the requirements document's proposed tracker-level rejection of recursive dependencies. Do not add a blanket recursive-call diagnostic, a DAG-only IR invariant, or recursive inlining to this backend.
 - Represent helper bodies once and refer to them by stable internal handles/IDs. Register a helper's handle before lowering its body, so self/mutual references can reuse it rather than expand indefinitely.
-- Make reachability, dependency discovery, validation, numbering, manifest emission, and any graph walk cycle-safe using visited/in-progress bookkeeping. A dependency cycle is not itself a tracker validation error; dangling references, incomplete definitions, and invalid types/arities remain errors.
+- Make reachability, dependency discovery, validation, numbering, emission, and any graph walk cycle-safe using visited/in-progress bookkeeping. A dependency cycle is not itself a tracker validation error; dangling references, incomplete definitions, and invalid types/arities remain errors.
 - Retain dependency/provenance information for future diagnostics and support work, without imposing a recursion-depth cap or inventing termination behavior.
 - Current source-level recursion still receives the existing sema diagnostic before tracker generation. Do not remove that diagnostic or claim recursive programs are accepted by the CLI in this implementation.
 - The baseline consumer's recursively expanded rows and recursive evaluation are not certified for cyclic call graphs. Future recursion enablement must coordinate sema/type inference with consumer call-frame, trace ownership, evaluation, and expansion behavior before recursive graphs are used in the tracker.
-- Add small synthetic IR self-reference/mutual-reference tests proving finite construction, shared definition handles, terminating graph walks, deterministic numbering/listings, and absence of a tracker-specific cycle rejection. These are architecture tests, not claims of recursive runtime execution.
+- Add small synthetic IR self-reference/mutual-reference tests proving finite construction, shared definition handles, terminating graph walks, deterministic numbering/emission, and absence of a tracker-specific cycle rejection. These are architecture tests, not claims of recursive runtime execution.
 
 ## Proposed deliverables and code layout
 
@@ -158,7 +159,6 @@ Expose or extract the existing host enum mapping header to a shared include loca
 | --- | --- |
 | `logic_tracker.gen.h` | Includes consumer `logic_expression.h`; declares generated entry points without redefining consumer types or defining globals in headers. |
 | `logic_tracker.gen.cpp` | Exactly one global definition each of `GetExpression(index_t)`, `uint64_t GetExpressionCount()`, and `GetLogicRoots()`; includes per-ID factories, adapters, and literal-backed metadata. |
-| `logic_tracker.manifest.json` | Deterministic debug-only node/root listing with counts and normalized source provenance; never loaded by the runtime and never used as a substitute for the root map. |
 
 The generated implementation includes consumer `rls_host.h` and matching SoH-generated `functions.gen.h` unconditionally. State clearly which includes and link implementations the consumer must supply. Host code must enforce the nonmutating-extern contract; generated adapters do not manage host state.
 
@@ -302,7 +302,7 @@ Depends on: `tracker-validation`.
 - Generate explicit typed value lambdas and structural conversion/match constructors compatible with the embedded ABI. Keep meaningful RLS names and correct escaping, including Unicode.
 - Enforce int32 representability of host enum/key constants and actual host integral/enum results before narrowing, using the real C++ declarations. Local preflight checks only known source values; unknown host ordinals must not silently truncate or become guessed numeric literals.
 - Emit each flattened chain directly as one `AndExpression`, `OrExpression`, or `ArithmeticExpression` with its ordered child-ID vector. Retain nested node references wherever the flattening policy requires a grouping/safety boundary.
-- Emit the deterministic debug manifest separately from runtime records, with normalized relative provenance and node/root counts; omit timestamps and absolute checkout paths.
+- Emit only the header and C++ implementation; retain provenance internally and omit timestamps and absolute checkout paths from generated artifacts.
 - Check generated empty, minimal, and representative artifacts structurally in RLS; defer compilation, public-signature compatibility, and two-translation-unit ODR checks to the real consumer project.
 - Close the emission-dependent Phase 5 gates: reject invalid graphs and all other compiler diagnostics before opening final artifacts, then generate directly into output streams. Exercise failing open/write/flush/publish paths. Carry unsuccessful CLI status checks into Phase 7 dispatch integration. Do not claim these gates passed based solely on diagnostic-only preflight tests.
 
@@ -310,16 +310,16 @@ Exit criteria: local artifact checks pass, every emitted ID/root is accounted fo
 
 #### Artifact generation (checkpoint 6a, revised with 6b)
 
-- [EmitArtifacts](../transpilers/soh_tracker/src/tracker_emission.h) is private and takes the const analyzed project, lowered graph, output writer, absolute source root, and optional external enum type bindings. Its preflight runs `ValidateGraph`, `NumberGraph`, and source-path normalization before opening any output. Generation retains only checked numbering and normalized node paths, not whole-artifact strings.
-- The header is intended for `logic_tracker.gen.h`, the implementation for `logic_tracker.gen.cpp`, and the optional deterministic listing for `logic_tracker.gen.txt`. The header reuses `logic_expression.h`; the implementation always includes `rls_host.h` and matching SoH `functions.gen.h`, even for empty graphs or projects without local enums. Generate that shared header from the same analyzed project and supply its include directory downstream.
+- [EmitArtifacts](../transpilers/soh_tracker/src/tracker_emission.h) is private and takes the const analyzed project, lowered graph, output writer, absolute source root, and optional external enum type bindings. Its preflight runs `ValidateGraph`, `NumberGraph`, and source-path normalization checks before opening any output. Generation retains only checked numbering, not normalized node-path storage or whole-artifact strings.
+- The two outputs are `logic_tracker.gen.h` and `logic_tracker.gen.cpp`. The header reuses `logic_expression.h`; the implementation always includes `rls_host.h` and matching SoH `functions.gen.h`, even for empty graphs or projects without local enums. Generate that shared header from the same analyzed project and supply its include directory downstream.
 - Factories construct one node per case using child IDs, with explicit vectors even when empty. Value lambdas defer scope reads and symbolic host-value checks until evaluation; no factory/registry initialization resolves children or evaluates host logic. String literals use fixed-width octal escapes for non-ASCII UTF-8 bytes and control characters, preserving byte identity without temporary backing storage.
 - The generated private `CheckedHostInt` handles actual enum underlying types and signed/unsigned integral widths, including Bool/character types, checks int32 representability, and throws `std::out_of_range` before narrowing. `GetHostEnumType` is shared by adapter, constant validation, and emission; unmapped external enums require explicit host type bindings even when used only as standalone constants. Consumer compilation/execution of these checks remains downstream.
-- Adapter definitions are emitted directly through `GenerateHostAdapter` in stable symbol order after adapter preflight; descriptor/root ordering comes from `NumberGraph`. The separate listing uses preflight-normalized source paths and records node construction, provenance, root identities, and counts without timestamps or absolute checkout paths. Runtime root records retain only the exact consumer key fields and expression ID.
+- Adapter definitions are emitted directly through `GenerateHostAdapter` in stable symbol order after adapter preflight; descriptor/root ordering comes from `NumberGraph`. Runtime root records retain only the exact consumer key fields and expression ID.
 
 #### Checked publication (checkpoint 6b)
 
 - [SohTrackerTranspiler::Transpile](../transpilers/soh_tracker/include/soh_tracker.h) and the namespace-level `Transpile` accept `(OutputWriter&, absoluteSourceRoot, span<const HostEnumBinding> = {})` after the project supplied to the class/free function. Public enum bindings carry only RLS enum and host C++ type names; the graph remains private.
-- Orchestration is `LowerRoots` -> `EmitArtifacts` preflight (`ValidateGraph`, `NumberGraph`, normalized paths) -> non-diagnostic `GenerateHeader`, `GenerateSource`, and `GenerateManifest`. The three fixed outputs are `logic_tracker.gen.h`, `logic_tracker.gen.cpp`, and `logic_tracker.gen.txt`. This user-approved validate-then-generate flow replaces the earlier render-everything-before-opening guarantee.
+- Orchestration is `LowerRoots` -> `EmitArtifacts` preflight (`ValidateGraph`, `NumberGraph`, source-path checks) -> non-diagnostic `GenerateHeader` and `GenerateSource`. The two fixed outputs are `logic_tracker.gen.h` and `logic_tracker.gen.cpp`. This user-approved validate-then-generate flow replaces the earlier render-everything-before-opening guarantee.
 - Writing follows the existing SoH pattern: `auto& stream = out.open(filename); stream << content;`. There is no whole-artifact buffer, tracker-specific write helper, stream-state checking, explicit flush, or exception-to-diagnostic conversion. Compiler errors return diagnostics exclusively from preflight; generation and writer exceptions propagate to the caller. The writer/caller is responsible for I/O checking and disk flushing/closing, so a returned diagnostic vector does not certify publication.
 - The shared `OutputWriter` interface remains open-only, as requested by the user; no backend completion hook is added. Callers own streams and must check disk flushing/closing separately. At checkpoint 6b the console writer and tests were unchanged; console-owned completion/error reporting is implemented in checkpoint 7a below.
 - Publication remains nontransactional. Source/graph/ABI/path diagnostics preserve existing files; allocation/programming and writer exceptions propagate but can leave partial files or previously completed artifacts once generation starts. Console completion/error reporting and tracker CLI status are covered by checkpoint 7a, not by backend preflight alone. Atomic multi-file replacement, rollback, and crash durability are outside this guarantee.
@@ -348,7 +348,7 @@ Exit criteria: documented CLI invocation generates the required artifacts, and e
 
 #### Golden acceptance (checkpoint 7b)
 
-- Explicitly configure tracker output in the existing SoH sample manifest and retain its header, implementation, and debug listing under `examples/soh/out_soh_tracker/`. Keep existing SoH/AP baselines unchanged.
+- Explicitly configure tracker output in the existing SoH sample manifest and retain only its header and implementation under `examples/soh/out_soh_tracker/`. Keep existing SoH/AP baselines unchanged.
 - Register tracker tests through `console_acceptance_tests` and `rls_add_gtest`, without CI workflow changes or local consumer compilation targets.
 - Compare tracker output against its golden directory independently, alongside the existing SoH/AP golden tests. Do not retain the cross-backend ordering test or AST snapshot helper; the user removed that coverage during review.
 - These checks establish local golden emission stability for the sample, not cross-backend nonmutation, exhaustive source semantics, consumer API compatibility, or runtime parity.
@@ -365,12 +365,12 @@ Depends on: `tracker-cli`.
 - Test all lowered node kinds, boundary conversions, parameter order/defaults, Condition forwarding/references/invocation, typed matches, reserved names, escaping, and deterministic output. Use analyzed-IR/API assertions, not snapshots alone.
 - Assert flattened node/child counts and operand order for all six operators. Cover long chains, both-sided logical nesting, mixed operators, duplicate operands, explicit right-nested arithmetic, and explicit conversion/other semantic boundaries. Require n-ary IR for dynamic left-associated division, including a potentially zero divisor before a later host query; do not gate flattening on constant/nonthrowing prefixes. Local tests verify the required graph structure; downstream runtime regression tests verify early division exceptions skip the later query and preserve trace/evaluation order.
 - Cover unknown/missing type and binding metadata, unsupported executable strings/lists/callables, duplicate ownership, invalid arities/operators, numeric/count/parameter overflows, and write errors.
-- Add finite self/mutual-reference IR tests for definition sharing, cycle-safe reachability/validation, deterministic emission/listings, and no tracker-specific recursion ban. Keep a source-level regression documenting the current sema cycle rejection separately; do not present it as a new backend restriction or as recursive execution coverage.
+- Add finite self/mutual-reference IR tests for definition sharing, cycle-safe reachability/validation, deterministic emission, and no tracker-specific recursion ban. Keep a source-level regression documenting the current sema cycle rejection separately; do not present it as a new backend restriction or as recursive execution coverage.
 - Record downstream checks for representative generated C++ against the real C++20 consumer interface, including two-translation-unit header inclusion and no duplicate generated entry points.
 - Run the smallest existing backend/CLI/project suites covering the changes, plus directly affected SoH/AP regression suites. Escalate only if targeted results reveal broader risk.
 - Do not claim compilation/API compatibility, runtime evaluation, trace, lifetime, rendering, or gameplay parity without checks against the actual consumer.
 
-Exit criteria: local compiler tests and generated-artifact assertions pass, samples/listings are reproducible, and the handoff records exact commands, counts, results, and remaining downstream gates.
+Exit criteria: local compiler tests and generated-artifact assertions pass, sample C++ artifacts are reproducible, and the handoff records exact commands, counts, results, and remaining downstream gates.
 
 ### 9. Documenting invocation and the downstream integration contract
 
@@ -408,7 +408,7 @@ The target and test names above are proposed for new tests; select the exact dis
 - Correct analyzed IR, required flattened/grouped structures, and complete roots/dependencies.
 - Finite cyclic-reference IR, cycle-safe compiler graph walks, and deterministic definition/reference emission without a new recursion ban.
 - Source diagnostics and checked graph/ABI limits.
-- Deterministic generated C++ and debug listings.
+- Deterministic generated C++.
 - C++20 constructor/signature/template compatibility against section 16.
 - CLI/manifest workflows, output errors, and unchanged ordinary backend artifacts.
 
@@ -430,4 +430,4 @@ The target and test names above are proposed for new tests; select the exact dis
 
 ## Completion standard
 
-The RLS implementation is complete only after the backend, local fixtures/tests, generated sample artifacts/listings, CLI workflow, and integration documentation are persistent and verified. End-to-end Shipwright tracker completion must not be claimed until its separate consumer gates pass.
+The RLS implementation is complete only after the backend, local fixtures/tests, generated sample C++ artifacts, CLI workflow, and integration documentation are persistent and verified. End-to-end Shipwright tracker completion must not be claimed until its separate consumer gates pass.

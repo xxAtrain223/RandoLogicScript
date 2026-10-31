@@ -60,9 +60,7 @@ protected:
 		ASSERT_TRUE(std::holds_alternative<Numbering>(numbered));
 		const auto& numbering = std::get<Numbering>(numbered);
 		EXPECT_EQ(occurrences(artifacts.source, "\tcase "), numbering.count.value);
-		EXPECT_EQ(occurrences(artifacts.manifest, "\nnode "), numbering.count.value);
 		EXPECT_EQ(occurrences(artifacts.source, "{LogicRootKey{"), graph.roots.size());
-		EXPECT_EQ(occurrences(artifacts.manifest, "\nroot "), graph.roots.size());
 		for (size_t i = 0; i < numbering.nodesById.size(); ++i) {
 			EXPECT_EQ(occurrences(artifacts.source, "\tcase " + std::to_string(i) + "U:"), 1);
 		}
@@ -85,7 +83,6 @@ TEST_F(SohTrackerEmission, EmptyGraphHasExplicitMapAndThrowingFactoryWithoutDedu
 	EXPECT_NE(artifacts.source.find("default: throw std::out_of_range("), std::string::npos);
 	EXPECT_EQ(artifacts.source.find("[] ="), std::string::npos);
 	EXPECT_NE(artifacts.source.find("#include \"functions.gen.h\""), std::string::npos);
-	EXPECT_EQ(artifacts.manifest, "nodes 0\nroots 0\n");
 	expectAccountedFor(artifacts);
 }
 
@@ -307,7 +304,8 @@ TEST_F(SohTrackerEmission, ArtifactsAreIdenticalAcrossRelocatedSourceRoots) {
 	const auto first = build(sourceRoot);
 	const auto second = build(sourceRoot / "relocated");
 	EXPECT_EQ(first, second);
-	EXPECT_EQ(first.manifest.find(sourceRoot.string()), std::string::npos);
+	EXPECT_EQ(first.header.find(sourceRoot.string()), std::string::npos);
+	EXPECT_EQ(first.source.find(sourceRoot.string()), std::string::npos);
 }
 
 TEST_F(SohTrackerEmission, GenerationUsesStableLocaleOnCallerStreams) {
@@ -322,7 +320,6 @@ TEST_F(SohTrackerEmission, GenerationUsesStableLocaleOnCallerStreams) {
 	test::MemoryWriter writer;
 	const std::locale grouped(std::locale::classic(), new GroupedNumbers);
 	writer.files["logic_tracker.gen.cpp"].imbue(grouped);
-	writer.files["logic_tracker.gen.txt"].imbue(grouped);
 	ASSERT_TRUE(EmitArtifacts(project, graph, writer, sourceRoot).empty());
 	EXPECT_EQ(writer.capture(), expected);
 }

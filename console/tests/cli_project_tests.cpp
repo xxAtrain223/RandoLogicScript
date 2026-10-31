@@ -77,7 +77,7 @@ TEST(ConsoleProject, ListsTrackerInHelp) {
     EXPECT_NE(readFile(log).find("soh_tracker"), std::string::npos);
 }
 
-TEST(ConsoleProject, TrackerUsesExplicitFileParentAsSourceRoot) {
+TEST(ConsoleProject, TrackerEmitsOnlyCppArtifactsForExplicitFile) {
     TemporaryDirectory directory;
     writeFile(directory.path() / "src" / "logic.rls", trackerSource);
     EXPECT_EQ(runConsoleFrom(directory.path(), "-t soh_tracker -o generated src/logic.rls",
@@ -85,13 +85,11 @@ TEST(ConsoleProject, TrackerUsesExplicitFileParentAsSourceRoot) {
     const auto output = directory.path() / "generated";
     EXPECT_TRUE(fs::exists(output / "logic_tracker.gen.h"));
     EXPECT_TRUE(fs::exists(output / "logic_tracker.gen.cpp"));
-    const auto listing = readFile(output / "logic_tracker.gen.txt");
-    EXPECT_NE(listing.find("logic.rls"), std::string::npos);
-    EXPECT_EQ(listing.find("src/logic.rls"), std::string::npos);
-    EXPECT_EQ(listing.find(directory.path().string()), std::string::npos);
+    EXPECT_EQ(std::distance(fs::directory_iterator(output), fs::directory_iterator{}), 2);
+    EXPECT_FALSE(fs::exists(output / "logic_tracker.gen.txt"));
 }
 
-TEST(ConsoleProject, TrackerUsesCommonSourceParentForExplicitInputs) {
+TEST(ConsoleProject, TrackerIncludesAllExplicitInputs) {
     TemporaryDirectory directory;
     writeFile(directory.path() / "src" / "logic.rls", trackerSource);
     writeFile(directory.path() / "shared" / "helper.rls",
@@ -99,9 +97,9 @@ TEST(ConsoleProject, TrackerUsesCommonSourceParentForExplicitInputs) {
     EXPECT_EQ(runConsoleFrom(directory.path(),
         "-t soh_tracker -o generated src shared/helper.rls",
         directory.path() / "multiple-tracker.log"), 0);
-    const auto listing = readFile(directory.path() / "generated" / "logic_tracker.gen.txt");
-    EXPECT_NE(listing.find("src/logic.rls"), std::string::npos);
-    EXPECT_NE(listing.find("shared/helper.rls"), std::string::npos);
+    const auto source = readFile(directory.path() / "generated" / "logic_tracker.gen.cpp");
+    EXPECT_NE(source.find("LogicRootKind::Location, \"RR_TEST\", \"RC_A\""), std::string::npos);
+    EXPECT_NE(source.find("LogicRootKind::Location, \"RR_OTHER\", \"RC_B\""), std::string::npos);
 }
 
 TEST(ConsoleProject, TrackerRunsOnlyWhenConfiguredOrSelected) {
@@ -125,9 +123,10 @@ TEST(ConsoleProject, TrackerRunsOnlyWhenConfiguredOrSelected) {
     ASSERT_EQ(runConsoleFrom(directory.path() / "src", "",
         directory.path() / "default-tracker.log"), 0)
         << readFile(directory.path() / "default-tracker.log");
-    const auto listing = readFile(
-        directory.path() / "generated" / "tracker" / "logic_tracker.gen.txt");
-    EXPECT_NE(listing.find("src/logic.rls"), std::string::npos);
+    const auto output = directory.path() / "generated" / "tracker";
+    EXPECT_TRUE(fs::exists(output / "logic_tracker.gen.h"));
+    EXPECT_TRUE(fs::exists(output / "logic_tracker.gen.cpp"));
+    EXPECT_EQ(std::distance(fs::directory_iterator(output), fs::directory_iterator{}), 2);
 }
 
 TEST(ConsoleProject, SelectsTrackerWithoutRunningOtherManifestTargets) {

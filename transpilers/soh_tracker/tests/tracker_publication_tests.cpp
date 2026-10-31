@@ -93,11 +93,10 @@ TEST_F(SohTrackerPublication, PublicApiWritesAllArtifacts) {
 	const auto& analyzedProject = project;
 	const auto diagnostics = SohTrackerTranspiler(analyzedProject).Transpile(writer, sourceRoot, bindings);
 	EXPECT_TRUE(diagnostics.empty());
-	EXPECT_EQ(writer.opens, 3);
-	ASSERT_EQ(writer.files.size(), 3);
+	EXPECT_EQ(writer.opens, 2);
+	ASSERT_EQ(writer.files.size(), 2);
 	EXPECT_EQ(writer.files.at("logic_tracker.gen.h").str(), expected.header);
 	EXPECT_EQ(writer.files.at("logic_tracker.gen.cpp").str(), expected.source);
-	EXPECT_EQ(writer.files.at("logic_tracker.gen.txt").str(), expected.manifest);
 }
 
 TEST_F(SohTrackerPublication, FreeApiSupportsEmptyProjectsAndOpenOnlyMemoryWriters) {
@@ -106,9 +105,9 @@ TEST_F(SohTrackerPublication, FreeApiSupportsEmptyProjectsAndOpenOnlyMemoryWrite
 		std::ostream& open(const std::string& name) override { return files[name]; }
 	} writer;
 	EXPECT_TRUE(Transpile(project, writer, sourceRoot).empty());
-	ASSERT_EQ(writer.files.size(), 3);
+	ASSERT_EQ(writer.files.size(), 2);
+	EXPECT_TRUE(writer.files.contains("logic_tracker.gen.h"));
 	EXPECT_NE(writer.files.at("logic_tracker.gen.cpp").str().find("return 0ULL;"), std::string::npos);
-	EXPECT_EQ(writer.files.at("logic_tracker.gen.txt").str(), "nodes 0\nroots 0\n");
 }
 
 TEST_F(SohTrackerPublication, LoweringAndPreflightErrorsNeverOpenOutputs) {
@@ -163,8 +162,8 @@ TEST_F(SohTrackerPublication, InvalidGraphsAndSourcePathsFailPreflightBeforeOpen
 TEST_F(SohTrackerPublication, PropagatesWriterExceptionsForEveryArtifact) {
 	analyze("region RR_TEST { locations { RC_A: true } }\n");
 	ASSERT_FALSE(HasFatalFailure());
-	const std::array<std::string, 3> filenames{
-		"logic_tracker.gen.h", "logic_tracker.gen.cpp", "logic_tracker.gen.txt"};
+	const std::array<std::string, 2> filenames{
+		"logic_tracker.gen.h", "logic_tracker.gen.cpp"};
 	for (const auto failure : {Failure::Open, Failure::Write}) {
 		for (size_t position = 0; position < filenames.size(); ++position) {
 			SCOPED_TRACE(static_cast<int>(failure));
@@ -201,8 +200,8 @@ TEST_F(SohTrackerPublication, WriterAndStreamsRemainOwnedByTheCaller) {
 	ASSERT_FALSE(HasFatalFailure());
 	MemoryWriter writer;
 	EXPECT_TRUE(Transpile(project, writer, sourceRoot).empty());
-	EXPECT_EQ(writer.opens, 3);
-	auto& stream = writer.files.at("logic_tracker.gen.txt");
+	EXPECT_EQ(writer.opens, 2);
+	auto& stream = writer.files.at("logic_tracker.gen.cpp");
 	const auto generated = stream.str();
 	stream << "caller-owned content\n";
 	EXPECT_EQ(stream.str(), generated + "caller-owned content\n");
