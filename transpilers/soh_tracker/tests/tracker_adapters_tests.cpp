@@ -96,7 +96,7 @@ TEST_F(SohTrackerAdapters, RendersBaselineEnumsWidthsAndOriginalCallbackArgument
 		std::string::npos);
 	EXPECT_EQ(spirit.find("auto arguments"), std::string::npos);
 	const auto& setting = named(adapters, "setting").definition;
-	EXPECT_NE(setting.find("return CheckedHostInt(::setting("), std::string::npos);
+	EXPECT_NE(setting.find("return CheckedHostInt(setting("), std::string::npos);
 	EXPECT_EQ(setting.find("uint8_t"), std::string::npos);
 	EXPECT_EQ(setting.find("RandomizerSettingKey::"), std::string::npos);
 	const auto& has = named(adapters, "has").definition;
@@ -153,7 +153,7 @@ TEST_F(SohTrackerAdapters, CoversEveryEmbeddedBaselineBindingAndDeduplicatesRepe
 	EXPECT_NE(named(adapters, "trick").definition.find("static_cast<RandomizerTrick>"), std::string::npos);
 	EXPECT_NE(named(adapters, "trial_skipped").definition.find("static_cast<TrialKey>"), std::string::npos);
 	for (const auto& name : integerQueries) {
-		EXPECT_NE(named(adapters, name).definition.find("return CheckedHostInt(::" + name + "())"),
+		EXPECT_NE(named(adapters, name).definition.find("return CheckedHostInt(" + name + "())"),
 			std::string::npos);
 	}
 }
@@ -170,7 +170,7 @@ TEST_F(SohTrackerAdapters, UsesAnalyzedCustomExternsWithoutRegistrationOrPrefixI
 	ASSERT_EQ(adapters.size(), 1);
 	EXPECT_EQ(adapters[0].symbol, "is_custom_adapter");
 	EXPECT_NE(adapters[0].definition.find(
-		"return static_cast<bool>(::is_custom(ToInt<int32_t>(arguments[0].Result)))"), std::string::npos);
+		"return is_custom(ToInt<int32_t>(arguments[0].Result))"), std::string::npos);
 }
 
 TEST_F(SohTrackerAdapters, SupportsCustomEnumsLocalEnumsAndEnumReturnsWithoutInventingValues) {
@@ -187,7 +187,7 @@ TEST_F(SohTrackerAdapters, SupportsCustomEnumsLocalEnumsAndEnumReturnsWithoutInv
 	ASSERT_TRUE(std::holds_alternative<std::vector<RenderedAdapter>>(result));
 	const auto& output = std::get<std::vector<RenderedAdapter>>(result)[0].definition;
 	EXPECT_NE(output.find("static_cast<Local>(ToInt<int32_t>(arguments[0].Result))"), std::string::npos);
-	EXPECT_NE(output.find("return CheckedHostInt(::convert("), std::string::npos);
+	EXPECT_NE(output.find("return CheckedHostInt(convert("), std::string::npos);
 }
 
 TEST_F(SohTrackerAdapters, GeneratesSynchronousCallbacksFromExternConditionTypes) {
@@ -198,7 +198,7 @@ TEST_F(SohTrackerAdapters, GeneratesSynchronousCallbacksFromExternConditionTypes
 	const auto inferred = RenderHostAdapters(graph);
 	ASSERT_TRUE(std::holds_alternative<std::vector<RenderedAdapter>>(inferred));
 	const auto& inferredOutput = std::get<std::vector<RenderedAdapter>>(inferred)[0].definition;
-	EXPECT_NE(inferredOutput.find("::custom(MakeConditionCallback(arguments[0]))"), std::string::npos);
+	EXPECT_NE(inferredOutput.find("custom(MakeConditionCallback(arguments[0]))"), std::string::npos);
 }
 
 TEST_F(SohTrackerAdapters, RequiresConditionObjectReturnsRatherThanCallbackReturns) {
@@ -209,7 +209,7 @@ TEST_F(SohTrackerAdapters, RequiresConditionObjectReturnsRatherThanCallbackRetur
 	const auto inferred = RenderHostAdapters(graph);
 	ASSERT_TRUE(std::holds_alternative<std::vector<RenderedAdapter>>(inferred));
 	EXPECT_NE(std::get<std::vector<RenderedAdapter>>(inferred)[0].definition.find(
-		"return condition_t{::custom()};"), std::string::npos);
+		"return condition_t{custom()};"), std::string::npos);
 }
 
 TEST_F(SohTrackerAdapters, NormalizesCustomIntegerReturnsFromExternDeclarations) {
@@ -220,7 +220,7 @@ TEST_F(SohTrackerAdapters, NormalizesCustomIntegerReturnsFromExternDeclarations)
 	const auto result = RenderHostAdapters(graph);
 	ASSERT_TRUE(std::holds_alternative<std::vector<RenderedAdapter>>(result));
 	EXPECT_NE(std::get<std::vector<RenderedAdapter>>(result)[0].definition.find(
-		"return CheckedHostInt(::custom(ToInt<int32_t>(arguments[0].Result)))"),
+		"return CheckedHostInt(custom(ToInt<int32_t>(arguments[0].Result)))"),
 		std::string::npos);
 }
 
@@ -251,7 +251,11 @@ TEST_F(SohTrackerAdapters, UsesDeclarationTypesEvenForFamiliarFunctionNames) {
 	const auto inferred = RenderHostAdapters(graph);
 	ASSERT_TRUE(std::holds_alternative<std::vector<RenderedAdapter>>(inferred));
 	EXPECT_NE(named(std::get<std::vector<RenderedAdapter>>(inferred), "setting").definition.find(
-		"return static_cast<bool>(::setting(ToBool(arguments[0].Result)))"), std::string::npos);
+		"return setting(ToBool(arguments[0].Result))"), std::string::npos);
+	const auto& isChild = named(std::get<std::vector<RenderedAdapter>>(inferred), "is_child").definition;
+	EXPECT_NE(isChild.find("is_child_adapter(std::span<EvalResult>)"), std::string::npos);
+	EXPECT_NE(isChild.find("return is_child();"), std::string::npos);
+	EXPECT_EQ(isChild.find("static_cast<bool>"), std::string::npos);
 }
 
 TEST_F(SohTrackerAdapters, RejectsInvalidCountsMissingDeclarationsAndRepresentations) {

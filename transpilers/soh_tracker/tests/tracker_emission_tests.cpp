@@ -62,11 +62,11 @@ protected:
 		EXPECT_EQ(occurrences(artifacts.source, "\tcase "), numbering.count.value);
 		EXPECT_EQ(occurrences(artifacts.source, "{LogicRootKey{"), graph.roots.size());
 		for (size_t i = 0; i < numbering.nodesById.size(); ++i) {
-			EXPECT_EQ(occurrences(artifacts.source, "\tcase " + std::to_string(i) + "U:"), 1);
+			EXPECT_EQ(occurrences(artifacts.source, "\tcase " + std::to_string(i) + ":"), 1);
 		}
 		for (const auto& root : graph.roots) {
 			const auto identity = "\"" + root.owner->key.text + "\", \"" + root.entry->name.text +
-				"\", 0U}, " + std::to_string(numbering.idsBySlot[root.expression.slot]->value) + "U}";
+				"\", 0}, " + std::to_string(numbering.idsBySlot[root.expression.slot]->value) + "}";
 			EXPECT_NE(artifacts.source.find(identity), std::string::npos) << identity;
 		}
 	}
@@ -78,7 +78,7 @@ TEST_F(SohTrackerEmission, EmptyGraphHasExplicitMapAndThrowingFactoryWithoutDedu
 	EXPECT_NE(artifacts.header.find("#include \"logic_expression.h\""), std::string::npos);
 	EXPECT_NE(artifacts.header.find("uint64_t GetExpressionCount();"), std::string::npos);
 	EXPECT_EQ(artifacts.header.find("struct LogicRoot"), std::string::npos);
-	EXPECT_NE(artifacts.source.find("return 0ULL;"), std::string::npos);
+	EXPECT_NE(artifacts.source.find("return 0;"), std::string::npos);
 	EXPECT_NE(artifacts.source.find("static const LogicRootMap roots{\n\t};"), std::string::npos);
 	EXPECT_NE(artifacts.source.find("default: throw std::out_of_range("), std::string::npos);
 	EXPECT_EQ(artifacts.source.find("[] ="), std::string::npos);
@@ -92,16 +92,16 @@ TEST_F(SohTrackerEmission, MinimalFactoriesAndRegistryNeverResolveOrEvaluateDesc
 	ASSERT_FALSE(HasFatalFailure());
 	const auto artifacts = render();
 	EXPECT_NE(artifacts.source.find(
-		"case 0U: return std::make_unique<ValueExpression>([](VariableScope&) -> value_t "
+		"case 0: return std::make_unique<ValueExpression>([](VariableScope&) -> value_t "
 		"{ return true; }, \"true\", false);"), std::string::npos);
-	EXPECT_NE(artifacts.source.find("return 1ULL;"), std::string::npos);
+	EXPECT_NE(artifacts.source.find("return 1;"), std::string::npos);
 	EXPECT_EQ(occurrences(artifacts.source, "LogicExpression* GetExpression(index_t index)"), 1);
 	EXPECT_EQ(occurrences(artifacts.source, "uint64_t GetExpressionCount()"), 1);
 	EXPECT_EQ(occurrences(artifacts.source, "const LogicRootMap& GetLogicRoots()"), 1);
 	EXPECT_NE(artifacts.source.find("static LogicExpressionCache cache(GetExpressionCount(), "
-		"rls_tracker_generated_detail::CreateExpression);"), std::string::npos);
+		"CreateExpression);"), std::string::npos);
 	const auto factory = artifacts.source.substr(artifacts.source.find("static std::unique_ptr"));
-	const auto factoryOnly = factory.substr(0, factory.find("} // namespace"));
+	const auto factoryOnly = factory.substr(0, factory.find("\nuint64_t GetExpressionCount()"));
 	EXPECT_EQ(factoryOnly.find("GetExpression("), std::string::npos);
 	EXPECT_EQ(factoryOnly.find("Evaluate("), std::string::npos);
 	const auto roots = artifacts.source.substr(artifacts.source.find("const LogicRootMap& GetLogicRoots()"));
@@ -167,8 +167,10 @@ TEST_F(SohTrackerEmission, UsesCheckedSymbolicHostValuesAndActualHostReturnTypes
 			std::string::npos) << symbol;
 	}
 	EXPECT_EQ(artifacts.source.find("RandomizerSettingKey::RSK_TEST"), std::string::npos);
-	EXPECT_NE(artifacts.source.find("return CheckedHostInt(::setting("), std::string::npos);
-	EXPECT_NE(artifacts.source.find("return CheckedHostInt(::custom("), std::string::npos);
+	EXPECT_NE(artifacts.source.find("return CheckedHostInt(setting("), std::string::npos);
+	EXPECT_NE(artifacts.source.find("return CheckedHostInt(custom("), std::string::npos);
+	EXPECT_NE(artifacts.source.find("return int32_t{0};"), std::string::npos);
+	EXPECT_EQ(artifacts.source.find("LL}"), std::string::npos);
 	EXPECT_NE(artifacts.source.find("MakeConditionCallback(arguments[1])"), std::string::npos);
 	EXPECT_NE(artifacts.source.find("std::underlying_type_t<T>"), std::string::npos);
 	EXPECT_NE(artifacts.source.find("std::conditional_t<std::is_signed_v<T>, intmax_t, uintmax_t>"),
@@ -230,7 +232,7 @@ TEST_F(SohTrackerEmission, EscapesRuntimeNamesAndUtf8WithoutTemporaryStringBacki
 	const auto artifacts = render();
 	const std::string escaped = "\"quote\\\"\\\\\\012\\011\\0019\\303\\251\"";
 	EXPECT_NE(artifacts.source.find("scope.get(" + escaped + ")"), std::string::npos);
-	EXPECT_NE(artifacts.source.find("uint8_t{0}, " + escaped), std::string::npos);
+	EXPECT_NE(artifacts.source.find("ParameterExpression>(0, " + escaped), std::string::npos);
 	EXPECT_EQ(artifacts.source.find("std::string("), std::string::npos);
 	expectAccountedFor(artifacts);
 }
@@ -385,7 +387,7 @@ TEST_F(SohTrackerEmission, EmitsAllSixFlattenedChainsWithOrderedIdsAndNoDescenda
 		constructor += "std::vector<index_t>{";
 		for (size_t i = 0; i < children->size(); ++i) {
 			if (i) constructor += ", ";
-			constructor += std::to_string(numbering.idsBySlot[(*children)[i].slot]->value) + "U";
+			constructor += std::to_string(numbering.idsBySlot[(*children)[i].slot]->value);
 		}
 		constructor += "})";
 		EXPECT_NE(artifacts.source.find(constructor), std::string::npos) << constructor;
@@ -407,7 +409,7 @@ TEST_F(SohTrackerEmission, SharesCallsAndRootsButRetainsArgumentAndRepeatedChild
 	lower();
 	ASSERT_FALSE(HasFatalFailure());
 	const auto artifacts = render();
-	EXPECT_NE(artifacts.source.find("return 8ULL;"), std::string::npos);
+	EXPECT_NE(artifacts.source.find("return 8;"), std::string::npos);
 	EXPECT_EQ(occurrences(artifacts.source, "std::make_unique<ExternFunctionCallExpression>"), 1);
 	EXPECT_EQ(occurrences(artifacts.source, "std::make_unique<FunctionCallExpression>"), 1);
 	EXPECT_EQ(occurrences(artifacts.source, "std::make_unique<ParameterExpression>"), 2);
@@ -424,7 +426,7 @@ TEST_F(SohTrackerEmission, SharesCallsAndRootsButRetainsArgumentAndRepeatedChild
 	EXPECT_EQ(numbering.idsBySlot[first.value.slot], numbering.idsBySlot[second.value.slot]);
 	const auto& children = std::get<Logical>(graph.nodes[graph.roots[2].expression.slot].payload).children;
 	ASSERT_EQ(children.size(), 2);
-	const auto id = std::to_string(numbering.idsBySlot[children[0].slot]->value) + "U";
+	const auto id = std::to_string(numbering.idsBySlot[children[0].slot]->value);
 	EXPECT_NE(artifacts.source.find("std::make_unique<AndExpression>(std::vector<index_t>{" +
 		id + ", " + id + "})"), std::string::npos);
 	EXPECT_EQ(graph.roots.size(), 3);
@@ -452,7 +454,7 @@ TEST_F(SohTrackerEmission, SharesBindingStructureAcrossHelpersWithoutMergingTheC
 	lower();
 	ASSERT_FALSE(HasFatalFailure());
 	const auto artifacts = render();
-	EXPECT_NE(artifacts.source.find("return 5ULL;"), std::string::npos);
+	EXPECT_NE(artifacts.source.find("return 5;"), std::string::npos);
 	EXPECT_EQ(occurrences(artifacts.source, "std::make_unique<FunctionCallExpression>"), 2);
 	EXPECT_EQ(occurrences(artifacts.source, "std::make_unique<ParameterExpression>"), 1);
 	EXPECT_EQ(occurrences(artifacts.source, "return scope.get(\"value\");"), 1);

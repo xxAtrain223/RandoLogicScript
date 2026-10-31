@@ -107,7 +107,7 @@ TEST_F(SohTrackerPublication, FreeApiSupportsEmptyProjectsAndOpenOnlyMemoryWrite
 	EXPECT_TRUE(Transpile(project, writer, sourceRoot).empty());
 	ASSERT_EQ(writer.files.size(), 2);
 	EXPECT_TRUE(writer.files.contains("logic_tracker.gen.h"));
-	EXPECT_NE(writer.files.at("logic_tracker.gen.cpp").str().find("return 0ULL;"), std::string::npos);
+	EXPECT_NE(writer.files.at("logic_tracker.gen.cpp").str().find("return 0;"), std::string::npos);
 }
 
 TEST_F(SohTrackerPublication, LoweringAndPreflightErrorsNeverOpenOutputs) {

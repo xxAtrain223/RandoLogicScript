@@ -404,7 +404,7 @@ TEST_F(SohTrackerCalls, RegistersSyntheticSelfAndMutualDefinitionsBeforeTheirBod
 		test::MemoryWriter writer;
 		ASSERT_TRUE(EmitArtifacts(project, graph, writer, sourceRoot).empty());
 		const auto artifacts = writer.capture();
-		EXPECT_NE(artifacts.source.find(mutual ? "return 2ULL;" : "return 1ULL;"), std::string::npos);
+		EXPECT_NE(artifacts.source.find(mutual ? "return 2;" : "return 1;"), std::string::npos);
 		test::MemoryWriter writerAgain;
 		ASSERT_TRUE(EmitArtifacts(project, graph, writerAgain, sourceRoot).empty());
 		EXPECT_EQ(artifacts, writerAgain.capture());

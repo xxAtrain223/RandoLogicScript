@@ -99,7 +99,7 @@ public:
 		: graph(graph), numbering(numbering), customEnums(customEnums) {}
 
 	std::string id(NodeHandle handle) const {
-		return std::to_string(numbering.idsBySlot.at(handle.slot).value().value) + "U";
+		return std::to_string(numbering.idsBySlot.at(handle.slot).value().value);
 	}
 
 	std::string node(const Node& descriptor) const {
@@ -114,7 +114,7 @@ public:
 						return text;
 					} else if constexpr (std::is_same_v<V, int32_t>) {
 						text = std::to_string(value);
-						return "int32_t{" + text + "LL}";
+						return "int32_t{" + text + "}";
 					} else if constexpr (std::is_same_v<V, ParameterRead>) {
 						text = value.declaration->name.text;
 						return "scope.get(" + literal(text) + ")";
@@ -162,8 +162,8 @@ public:
 				return construct("ExternFunctionCallExpression", declaration.name.text + "_adapter, " +
 					literal(declaration.name.text) + ", " + ids(payload.parameters));
 			} else if constexpr (std::is_same_v<T, Parameter>) {
-				return construct("ParameterExpression", "uint8_t{" + std::to_string(payload.position) +
-					"}, " + literal(payload.declaration->name.text) + ", " + id(payload.value));
+				return construct("ParameterExpression", std::to_string(payload.position) +
+					", " + literal(payload.declaration->name.text) + ", " + id(payload.value));
 			} else if constexpr (std::is_same_v<T, Conversion>) {
 				return construct("ConversionExpression<" + std::string(targetType(payload.target)) + ">",
 					id(payload.operand));
@@ -233,8 +233,6 @@ void GenerateSource(rls::OutputWriter& out, const Graph& graph, const Numbering&
 #include <utility>
 #include <vector>
 
-namespace rls_tracker_generated_detail {
-
 template <typename T>
 static int32_t CheckedHostInt(T value) {
 	if constexpr (std::is_enum_v<T>) {
@@ -267,20 +265,18 @@ static int32_t CheckedHostInt(T value) {
 	const Renderer renderer(graph, numbering, customEnums);
 	for (size_t i = 0; i < numbering.nodesById.size(); ++i) {
 		const auto& node = graph.nodes[numbering.nodesById[i].slot];
-		source << "\tcase " << i << "U: return " << renderer.node(node) << ";\n";
+		source << "\tcase " << i << ": return " << renderer.node(node) << ";\n";
 	}
 	source << R"(	default: throw std::out_of_range("Invalid tracker expression index.");
 	}
 }
 
-} // namespace rls_tracker_generated_detail
-
 uint64_t GetExpressionCount() {
-	return )" << numbering.count.value << R"(ULL;
+	return )" << numbering.count.value << R"(;
 }
 
 LogicExpression* GetExpression(index_t index) {
-	static LogicExpressionCache cache(GetExpressionCount(), rls_tracker_generated_detail::CreateExpression);
+	static LogicExpressionCache cache(GetExpressionCount(), CreateExpression);
 	return cache.GetExpression(index);
 }
 
@@ -291,7 +287,7 @@ const LogicRootMap& GetLogicRoots() {
 		const auto& root = graph.roots[slot];
 		source << "\t\t{LogicRootKey{LogicRootKind::" << rootKind(root.kind) << ", "
 			<< literal(root.owner->key.text) << ", " << literal(root.entry->name.text) << ", "
-			<< root.occurrence << "U}, " << renderer.id(root.expression) << "},\n";
+			<< root.occurrence << "}, " << renderer.id(root.expression) << "},\n";
 	}
 	source << R"(	};
 	return roots;
