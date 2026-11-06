@@ -135,7 +135,11 @@ public:
 							text = "here";
 							symbol = qualified("Region", value.region->key.text);
 						}
-						return "CheckedHostInt(" + symbol + ")";
+						std::string name = text;
+						if constexpr (std::is_same_v<V, HereValue>) {
+							name = value.region->key.text;
+						}
+						return "EnumValue{CheckedHostInt(" + symbol + "), " + literal(name) + "}";
 					}
 				}, payload.value);
 				const auto scope = std::holds_alternative<ParameterRead>(payload.value) ?

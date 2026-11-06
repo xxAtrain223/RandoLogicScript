@@ -155,9 +155,9 @@ TEST_F(SohTrackerEmission, MarksDeclaredEventConstantsWithoutGuessingPrefixes) {
 	ASSERT_FALSE(HasFatalFailure());
 	const auto artifacts = render();
 	EXPECT_NE(artifacts.source.find(
-		"return CheckedHostInt(LogicVal::State); }, \"State\", true);"), std::string::npos);
+		"return EnumValue{CheckedHostInt(LogicVal::State), \"State\"}; }, \"State\", true);"), std::string::npos);
 	EXPECT_NE(artifacts.source.find(
-		"return CheckedHostInt(RandomizerCheck::Check); }, \"Check\", false);"), std::string::npos);
+		"return EnumValue{CheckedHostInt(RandomizerCheck::Check), \"Check\"}; }, \"Check\", false);"), std::string::npos);
 	EXPECT_NE(artifacts.source.find("return true; }, \"true\", false);"), std::string::npos);
 	expectAccountedFor(artifacts);
 }
@@ -175,15 +175,15 @@ TEST_F(SohTrackerEmission, MarksExternEventConstantsButNotParametersOrOtherEnums
 	ASSERT_FALSE(HasFatalFailure());
 	const auto artifacts = render();
 	EXPECT_NE(artifacts.source.find(
-		"return CheckedHostInt(LogicVal::LOGIC_EXTERNAL); }, \"LOGIC_EXTERNAL\", true);"), std::string::npos);
+		"return EnumValue{CheckedHostInt(LogicVal::LOGIC_EXTERNAL), \"LOGIC_EXTERNAL\"}; }, \"LOGIC_EXTERNAL\", true);"), std::string::npos);
 	EXPECT_NE(artifacts.source.find(
 		"return scope.get(\"event\"); }, \"event\", false);"), std::string::npos);
 	EXPECT_NE(artifacts.source.find(
-		"return CheckedHostInt(RandomizerGet::RG_BOW); }, \"RG_BOW\", false);"), std::string::npos);
+		"return EnumValue{CheckedHostInt(RandomizerGet::RG_BOW), \"RG_BOW\"}; }, \"RG_BOW\", false);"), std::string::npos);
 	EXPECT_NE(artifacts.source.find(
-		"return CheckedHostInt(Other::OTHER_VALUE); }, \"OTHER_VALUE\", false);"), std::string::npos);
+		"return EnumValue{CheckedHostInt(Other::OTHER_VALUE), \"OTHER_VALUE\"}; }, \"OTHER_VALUE\", false);"), std::string::npos);
 	EXPECT_NE(artifacts.source.find(
-		"return CheckedHostInt(RandomizerRegion::RR_TEST); }, \"here\", false);"), std::string::npos);
+		"return EnumValue{CheckedHostInt(RandomizerRegion::RR_TEST), \"RR_TEST\"}; }, \"here\", false);"), std::string::npos);
 	expectAccountedFor(artifacts);
 }
 
@@ -204,7 +204,11 @@ TEST_F(SohTrackerEmission, UsesCheckedSymbolicHostValuesAndActualHostReturnTypes
 	const auto artifacts = render(mappings);
 	for (const auto* symbol : {"RSK_TEST", "HostCustom::CUSTOM_ONE", "RandomizerGet::RG_BOW",
 		"RandomizerRegion::RR_TEST", "LogicVal::EV_TEST", "RandomizerCheck::RC_A"}) {
-		EXPECT_NE(artifacts.source.find("return CheckedHostInt(" + std::string(symbol) + ");"),
+		const std::string qualifiedSymbol = symbol;
+		const auto member = qualifiedSymbol.substr(qualifiedSymbol.rfind("::") == std::string::npos ?
+			0 : qualifiedSymbol.rfind("::") + 2);
+		EXPECT_NE(artifacts.source.find("return EnumValue{CheckedHostInt(" + qualifiedSymbol +
+			"), \"" + member + "\"};"),
 			std::string::npos) << symbol;
 	}
 	EXPECT_EQ(artifacts.source.find("RandomizerSettingKey::RSK_TEST"), std::string::npos);
@@ -383,8 +387,9 @@ TEST_F(SohTrackerEmission, RequiresHostMappingsForStandaloneExternalConstantsWit
 		"Tracker enum 'Custom' is missing a supported host type mapping"), std::string::npos);
 	const std::vector<HostEnumBinding> mappings{{"Custom", "HostCustom"}};
 	const auto artifacts = render(mappings);
-	EXPECT_NE(artifacts.source.find("return CheckedHostInt(HostCustom::CUSTOM_ONE);"), std::string::npos);
-	EXPECT_EQ(artifacts.source.find("return CheckedHostInt(Custom::CUSTOM_ONE)"), std::string::npos);
+	EXPECT_NE(artifacts.source.find(
+		"return EnumValue{CheckedHostInt(HostCustom::CUSTOM_ONE), \"CUSTOM_ONE\"};"), std::string::npos);
+	EXPECT_EQ(artifacts.source.find("CheckedHostInt(Custom::CUSTOM_ONE)"), std::string::npos);
 }
 
 TEST_F(SohTrackerEmission, EmitsAllSixFlattenedChainsWithOrderedIdsAndNoDescendantResolution) {
