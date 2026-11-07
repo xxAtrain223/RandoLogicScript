@@ -8,9 +8,13 @@
 #include "sema.h"
 #include "tracker_lowering.h"
 #include "tracker_validation.h"
+#include "tracker_test_helpers.h"
 
 namespace rls::transpilers::soh_tracker::ir {
 namespace {
+
+using testing_helpers::NumberGraph;
+using testing_helpers::ValidateGraph;
 
 class SohTrackerLowering : public testing::Test {
 protected:

@@ -8,10 +8,14 @@
 #include "tracker_emission.h"
 #include "tracker_lowering.h"
 #include "tracker_validation.h"
+#include "tracker_test_helpers.h"
 #include "tracker_test_writer.h"
 
 namespace rls::transpilers::soh_tracker::ir {
 namespace {
+
+using testing_helpers::NumberGraph;
+using testing_helpers::ValidateGraph;
 
 class SohTrackerCalls : public testing::Test {
 protected:

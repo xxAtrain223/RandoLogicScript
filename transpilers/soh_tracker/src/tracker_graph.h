@@ -31,18 +31,23 @@ struct Numbering {
 	std::vector<size_t> rootsInOrder;
 };
 
-// Checks handles, arities, root identities/paths and ABI bounds without assigning IDs.
-std::vector<ast::Diagnostic> ValidateGraphStructure(
+struct GraphStructure {
+	std::vector<std::vector<NodeHandle>> edges;
+	std::vector<std::string> rootPaths;
+};
+
+std::variant<GraphStructure, std::vector<ast::Diagnostic>> InspectGraph(
 	const Graph& graph, const std::filesystem::path& sourceRoot);
 
-// Checks reference integrity throughout the graph; numbers only root-reachable nodes.
-// This is not the full target type/ABI validator.
+// The structure must come from inspecting this graph without subsequent mutation.
+// Numbers root-reachable occurrences before structural deduplication.
 std::variant<Numbering, std::vector<ast::Diagnostic>> NumberGraph(
-	const Graph& graph, const std::filesystem::path& sourceRoot);
+	const Graph& graph, const GraphStructure& structure);
 
 // Shares structurally identical descriptors after occurrence-specific validation.
 // Every reachable slot retains an ID, including aliases; the graph is not mutated.
+// The structure must come from inspecting this graph without subsequent mutation.
 std::variant<Numbering, std::vector<ast::Diagnostic>> NumberDistinctGraph(
-	const Graph& graph, const std::filesystem::path& sourceRoot);
+	const Graph& graph, const GraphStructure& structure);
 
 } // namespace rls::transpilers::soh_tracker::ir

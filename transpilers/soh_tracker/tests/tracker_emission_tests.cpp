@@ -10,9 +10,13 @@
 #include "tracker_graph.h"
 #include "tracker_lowering.h"
 #include "tracker_test_writer.h"
+#include "tracker_test_helpers.h"
 
 namespace rls::transpilers::soh_tracker::ir {
 namespace {
+
+using testing_helpers::NumberDistinctGraph;
+using testing_helpers::RenderHostAdapters;
 
 size_t occurrences(const std::string& text, std::string_view needle) {
 	size_t count = 0;
@@ -84,6 +88,32 @@ TEST_F(SohTrackerEmission, EmptyGraphHasExplicitMapAndThrowingFactoryWithoutDedu
 	EXPECT_EQ(artifacts.source.find("[] ="), std::string::npos);
 	EXPECT_NE(artifacts.source.find("#include \"functions.gen.h\""), std::string::npos);
 	expectAccountedFor(artifacts);
+}
+
+TEST_F(SohTrackerEmission, EmitsTheValidatedAdapterDefinitionsInSymbolOrder) {
+	parse(
+		"extern define zed() -> Bool\n"
+		"extern define alpha(value: Int) -> Bool\n"
+		"region RR_TEST { locations { RC_A: zed() and alpha(1) } }\n");
+	lower();
+	ASSERT_FALSE(HasFatalFailure());
+	const auto rendered = RenderHostAdapters(graph);
+	ASSERT_TRUE(std::holds_alternative<std::vector<RenderedAdapter>>(rendered));
+	const auto artifacts = render();
+	const auto& adapters = std::get<std::vector<RenderedAdapter>>(rendered);
+	ASSERT_EQ(adapters.size(), 2);
+	std::vector<RenderedAdapter> sorted = adapters;
+	std::sort(sorted.begin(), sorted.end(), [](const auto& a, const auto& b) {
+		return a.symbol < b.symbol;
+	});
+	size_t previous = 0;
+	for (const auto& adapter : sorted) {
+		const auto position = artifacts.source.find(adapter.definition);
+		ASSERT_NE(position, std::string::npos);
+		EXPECT_GE(position, previous);
+		EXPECT_EQ(occurrences(artifacts.source, adapter.definition), 1);
+		previous = position + adapter.definition.size();
+	}
 }
 
 TEST_F(SohTrackerEmission, MinimalFactoriesAndRegistryNeverResolveOrEvaluateDescendants) {

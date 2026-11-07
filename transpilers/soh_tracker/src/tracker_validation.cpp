@@ -10,19 +10,10 @@
 namespace rls::transpilers::soh_tracker::ir {
 namespace {
 
-bool sameRepresentation(const Representation& left, const Representation& right) {
-	if (const auto* integral = std::get_if<IntegralTarget>(&left)) {
-		const auto* other = std::get_if<IntegralTarget>(&right);
-		return other && *integral == *other;
-	}
-
-	return std::holds_alternative<ConditionTarget>(right);
-}
-
 bool sameType(const ValueType& left, const ValueType& right) {
 	// Shared runtime storage does not make distinct source types or enum identities interchangeable.
 	return left.sourceType == right.sourceType && left.enumInfo == right.enumInfo &&
-		sameRepresentation(left.representation, right.representation);
+		left.representation == right.representation;
 }
 
 bool validTarget(IntegralTarget target) {
@@ -102,7 +93,7 @@ std::optional<ast::Diagnostic> checkChainSources(const ast::Project& project,
 		const auto analyzed = GetValueType(project, *operand);
 		if (const auto* diagnostic = std::get_if<ast::Diagnostic>(&analyzed)) return *diagnostic;
 		const auto& sourceType = std::get<ValueType>(analyzed);
-		if (!sameRepresentation(sourceType.representation, target)) {
+		if (sourceType.representation != Representation{target}) {
 			// Only the operand's normalization may be transparent here. Never walk into
 			// calls or nested operators to find a replacement operand.
 			const auto* conversion = std::get_if<Conversion>(&child.payload);
@@ -122,12 +113,14 @@ std::optional<ast::Diagnostic> checkChainSources(const ast::Project& project,
 
 } // namespace
 
-std::vector<ast::Diagnostic> ValidateGraph(const ast::Project& project, const Graph& graph,
+std::variant<GraphStructure, std::vector<ast::Diagnostic>> PreflightGraph(
+	const ast::Project& project, const Graph& graph,
 	const std::filesystem::path& sourceRoot, std::span<const HostEnumBinding> customEnums)
 {
 	// Establish valid handles and required declaration pointers before dereferencing below.
-	auto diagnostics = ValidateGraphStructure(graph, sourceRoot);
-	if (!diagnostics.empty()) return diagnostics;
+	auto structure = InspectGraph(graph, sourceRoot);
+	if (const auto* errors = std::get_if<std::vector<ast::Diagnostic>>(&structure)) return *errors;
+	std::vector<ast::Diagnostic> diagnostics;
 
 	const auto error = [&](const ast::Span& span, std::string message) {
 		diagnostics.push_back({"", span, ast::DiagnosticLevel::Error, std::move(message)});
@@ -222,7 +215,7 @@ std::vector<ast::Diagnostic> ValidateGraph(const ast::Project& project, const Gr
 		// Operand boundaries check storage representation; declaration boundaries use sameType.
 		const auto require = [&](const std::optional<ValueType>& type, const Representation& expected,
 			std::string_view label) {
-			if (!type || !sameRepresentation(type->representation, expected)) {
+			if (!type || type->representation != expected) {
 				fail(std::string(label) + " has an incompatible representation (required coercion missing).");
 			}
 		};
@@ -519,7 +512,7 @@ std::vector<ast::Diagnostic> ValidateGraph(const ast::Project& project, const Gr
 		}
 
 		const auto& type = graph.nodes[root.expression.slot].valueType;
-		if (!type || !sameRepresentation(type->representation, IntegralTarget::Bool)) {
+		if (!type || type->representation != Representation{IntegralTarget::Bool}) {
 			error(root.provenance.span, "Tracker root '" + root.entry->name.text + "' requires a Bool result.");
 		}
 		const auto& expressions = graph.nodes[root.expression.slot].provenance.expressions;
@@ -559,7 +552,8 @@ std::vector<ast::Diagnostic> ValidateGraph(const ast::Project& project, const Gr
 	const auto adapterDiagnostics = ValidateHostAdapters(graph, customEnums);
 	diagnostics.insert(diagnostics.end(), adapterDiagnostics.begin(), adapterDiagnostics.end());
 
-	return diagnostics;
+	if (!diagnostics.empty()) return diagnostics;
+	return std::get<GraphStructure>(std::move(structure));
 }
 
 } // namespace rls::transpilers::soh_tracker::ir

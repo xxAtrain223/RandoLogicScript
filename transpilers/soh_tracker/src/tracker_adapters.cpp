@@ -107,6 +107,8 @@ std::vector<ast::Diagnostic> ValidateHostAdapters(const Graph& graph,
 	return diagnostics;
 }
 
+namespace {
+
 void GenerateHostAdapter(std::ostream& out, const HostAdapter& adapter,
 	std::span<const HostEnumBinding> customEnums)
 {
@@ -128,20 +130,19 @@ void GenerateHostAdapter(std::ostream& out, const HostAdapter& adapter,
 	out << ";\n}\n";
 }
 
-AdapterRenderingResult RenderHostAdapters(const Graph& graph,
+} // namespace
+
+std::vector<RenderedAdapter> RenderValidatedHostAdapters(const Graph& graph,
 	std::span<const HostEnumBinding> customEnums)
 {
-	auto diagnostics = ValidateHostAdapters(graph, customEnums);
-	if (!diagnostics.empty()) return diagnostics;
-
 	std::vector<RenderedAdapter> rendered;
-	for (size_t slot = 0; slot < graph.adapters.size(); ++slot) {
-		const auto& adapter = graph.adapters[slot];
+	rendered.reserve(graph.adapters.size());
+	for (const auto& adapter : graph.adapters) {
 		const auto& declaration = *adapter.declaration;
 		const auto symbol = declaration.name.text + "_adapter";
 		std::ostringstream out;
 		GenerateHostAdapter(out, adapter, customEnums);
-		rendered.push_back({AdapterHandle{slot}, symbol, out.str()});
+		rendered.push_back({symbol, out.str()});
 	}
 	return rendered;
 }

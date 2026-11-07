@@ -37,7 +37,9 @@ struct AdapterHandle {
 };
 
 enum class IntegralTarget { Bool, Int8, Int16, Int32, UInt8, UInt16, UInt32 };
-struct ConditionTarget {};
+struct ConditionTarget {
+	bool operator==(const ConditionTarget&) const = default;
+};
 using Representation = std::variant<IntegralTarget, ConditionTarget>;
 
 struct ValueType {

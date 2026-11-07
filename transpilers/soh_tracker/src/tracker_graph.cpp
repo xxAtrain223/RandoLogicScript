@@ -4,6 +4,7 @@
 #include <limits>
 #include <numeric>
 #include <set>
+#include <span>
 #include <tuple>
 #include <type_traits>
 #include <unordered_map>
@@ -256,14 +257,7 @@ std::variant<std::vector<OrderedSource>, std::vector<ast::Diagnostic>> OrderSour
 	return ordered;
 }
 
-namespace {
-
-struct GraphStructure {
-	std::vector<std::vector<NodeHandle>> edges;
-	std::vector<std::string> rootPaths;
-};
-
-std::variant<GraphStructure, std::vector<ast::Diagnostic>> inspectGraph(
+std::variant<GraphStructure, std::vector<ast::Diagnostic>> InspectGraph(
 	const Graph& graph, const std::filesystem::path& sourceRoot)
 {
 	if (!sourceRoot.is_absolute()) {
@@ -338,26 +332,10 @@ std::variant<GraphStructure, std::vector<ast::Diagnostic>> inspectGraph(
 	return GraphStructure{std::move(edges), std::move(rootPaths)};
 }
 
-} // namespace
-
-std::vector<ast::Diagnostic> ValidateGraphStructure(
-	const Graph& graph, const std::filesystem::path& sourceRoot)
-{
-	auto structure = inspectGraph(graph, sourceRoot);
-	if (const auto* diagnostics = std::get_if<std::vector<ast::Diagnostic>>(&structure)) {
-		return *diagnostics;
-	}
-	return {};
-}
-
 std::variant<Numbering, std::vector<ast::Diagnostic>> NumberGraph(
-	const Graph& graph, const std::filesystem::path& sourceRoot)
+	const Graph& graph, const GraphStructure& structure)
 {
-	auto inspected = inspectGraph(graph, sourceRoot);
-	if (const auto* diagnostics = std::get_if<std::vector<ast::Diagnostic>>(&inspected)) {
-		return *diagnostics;
-	}
-	const auto& [edges, rootPaths] = std::get<GraphStructure>(inspected);
+	const auto& [edges, rootPaths] = structure;
 
 	Numbering numbering{NodeCount{0}, {}, std::vector<std::optional<NodeId>>(graph.nodes.size()), {}};
 	numbering.rootsInOrder.resize(graph.roots.size());
@@ -402,26 +380,21 @@ std::variant<Numbering, std::vector<ast::Diagnostic>> NumberGraph(
 }
 
 std::variant<Numbering, std::vector<ast::Diagnostic>> NumberDistinctGraph(
-	const Graph& graph, const std::filesystem::path& sourceRoot)
+	const Graph& graph, const GraphStructure& structure)
 {
-	auto numbered = NumberGraph(graph, sourceRoot);
+	auto numbered = NumberGraph(graph, structure);
 	if (const auto* diagnostics = std::get_if<std::vector<ast::Diagnostic>>(&numbered)) {
 		return *diagnostics;
 	}
 	const auto& occurrences = std::get<Numbering>(numbered);
-	std::vector<ast::Diagnostic> diagnostics;
-	std::vector<std::vector<NodeHandle>> dependencies(graph.nodes.size());
-	for (const auto handle : occurrences.nodesById) {
-		auto& children = dependencies[handle.slot];
-		children = references(graph, graph.nodes[handle.slot], diagnostics);
-		// Definition identity already implies its body. Excluding that implicit edge
-		// also keeps self/mutual helper references finite without inlining them.
+	const auto dependencies = [&](NodeHandle handle) {
+		std::span<const NodeHandle> children = structure.edges[handle.slot];
+		// A helper's identity implies its body; exclude that edge from structural keys.
 		if (std::holds_alternative<HelperCall>(graph.nodes[handle.slot].payload)) {
-			children.pop_back();
+			children = children.first(children.size() - 1);
 		}
-	}
-	if (!diagnostics.empty()) return diagnostics;
-
+		return children;
+	};
 	std::unordered_map<NodeKey, size_t, NodeKeyHash> interned;
 	std::vector<std::optional<size_t>> classes(graph.nodes.size());
 	std::vector<bool> active(graph.nodes.size(), false);
@@ -437,7 +410,7 @@ std::variant<Numbering, std::vector<ast::Diagnostic>> NumberDistinctGraph(
 		while (!pending.empty()) {
 			auto& frame = pending.back();
 			const auto current = frame.handle;
-			const auto& children = dependencies[current.slot];
+			const auto children = dependencies(current);
 			if (frame.nextChild < children.size()) {
 				const auto child = children[frame.nextChild++];
 				if (classes[child.slot]) continue;

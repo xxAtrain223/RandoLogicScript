@@ -7,9 +7,14 @@
 
 #include "parser.h"
 #include "tracker_graph.h"
+#include "tracker_test_helpers.h"
 
 namespace rls::transpilers::soh_tracker::ir {
 namespace {
+
+using testing_helpers::NumberDistinctGraph;
+using testing_helpers::NumberGraph;
+using testing_helpers::ValidateGraphStructure;
 
 class SohTrackerGraph : public testing::Test {
 protected:
@@ -82,6 +87,29 @@ TEST_F(SohTrackerGraph, ValidatesStructureIndependentlyOfNumbering) {
 	EXPECT_TRUE(diagnostics.empty());
 	std::get<Logical>(graph.nodes[2].payload).children[1] = NodeHandle{99};
 	expectError(ValidateGraphStructure(graph, sourceRoot), "invalid node handle");
+}
+
+TEST_F(SohTrackerGraph, ReusesInspectedStructureForDistinctNumbering) {
+	Graph graph;
+	graph.nodes = {node(Value{true}), node(Value{true}),
+		node(Logical{LogicalOperator::And, {{0}, {1}}}), node(Value{false})};
+	graph.roots = {root({2}, second), root({1}, first)};
+	const auto inspected = InspectGraph(graph, sourceRoot);
+	ASSERT_TRUE(std::holds_alternative<GraphStructure>(inspected));
+	const auto reused = ir::NumberDistinctGraph(graph, std::get<GraphStructure>(inspected));
+	ASSERT_TRUE(std::holds_alternative<Numbering>(reused));
+	const auto& numbering = std::get<Numbering>(reused);
+	EXPECT_EQ(numbering.count, (NodeCount{2}));
+	EXPECT_EQ(numbering.nodesById, (std::vector<NodeHandle>{{1}, {2}}));
+	EXPECT_EQ(numbering.idsBySlot[0], numbering.idsBySlot[1]);
+	EXPECT_EQ(numbering.idsBySlot[2], (NodeId{1}));
+	EXPECT_EQ(numbering.rootsInOrder, (std::vector<size_t>{1, 0}));
+	EXPECT_FALSE(numbering.idsBySlot[3]);
+
+	std::get<Logical>(graph.nodes[2].payload).children[1] = NodeHandle{99};
+	const auto invalid = InspectGraph(graph, sourceRoot);
+	ASSERT_TRUE(std::holds_alternative<std::vector<ast::Diagnostic>>(invalid));
+	expectError(std::get<std::vector<ast::Diagnostic>>(invalid), "invalid node handle");
 }
 
 TEST_F(SohTrackerGraph, NormalizesRelativeAndAbsolutePathsWithoutFilesystemAccess) {

@@ -7,9 +7,14 @@
 #include "sema.h"
 #include "tracker_lowering.h"
 #include "tracker_validation.h"
+#include "tracker_test_helpers.h"
 
 namespace rls::transpilers::soh_tracker::ir {
 namespace {
+
+using testing_helpers::NumberGraph;
+using testing_helpers::RenderHostAdapters;
+using testing_helpers::ValidateGraph;
 
 class SohTrackerValidation : public testing::Test {
 protected:
@@ -94,7 +99,9 @@ TEST_F(SohTrackerValidation, ValidatesAllOrdinaryPayloadsBeforeSeparateNumbering
 	const auto& adapters = std::get<std::vector<RenderedAdapter>>(rendering);
 	ASSERT_EQ(adapters.size(), 2);
 	for (const auto& adapter : adapters) {
-		EXPECT_EQ(adapter.symbol, graph.adapters[adapter.handle.slot].declaration->name.text + "_adapter");
+		EXPECT_TRUE(std::any_of(graph.adapters.begin(), graph.adapters.end(), [&](const HostAdapter& host) {
+			return adapter.symbol == host.declaration->name.text + "_adapter";
+		}));
 		EXPECT_FALSE(adapter.definition.empty());
 	}
 }

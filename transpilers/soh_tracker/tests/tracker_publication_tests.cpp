@@ -11,6 +11,7 @@
 #include "tracker_emission.h"
 #include "tracker_lowering.h"
 #include "tracker_test_writer.h"
+#include "tracker_test_helpers.h"
 
 namespace rls::transpilers::soh_tracker {
 namespace {
@@ -145,7 +146,7 @@ TEST_F(SohTrackerPublication, InvalidGraphsAndSourcePathsFailPreflightBeforeOpen
 		if (pathError) {
 			// Graph validation succeeds, but emission preflight must reject the missing path.
 			graph.nodes[0].provenance.span.file.clear();
-			ASSERT_TRUE(ir::ValidateGraph(project, graph, sourceRoot).empty());
+			ASSERT_TRUE(ir::testing_helpers::ValidateGraph(project, graph, sourceRoot).empty());
 		} else {
 			graph.nodes.push_back({ir::Not{ir::NodeHandle{999}}, graph.nodes[0].valueType,
 				graph.nodes[0].provenance});
@@ -185,7 +186,7 @@ TEST_F(SohTrackerPublication, PreflightChecksAllReachableNodePathsBeforeGenerati
 	ASSERT_EQ(children.size(), 2);
 	graph.nodes[children[0].slot].provenance.span.file.clear();
 	graph.nodes[children[1].slot].provenance.span.file = sourceRoot.string();
-	ASSERT_TRUE(ir::ValidateGraph(project, graph, sourceRoot).empty());
+	ASSERT_TRUE(ir::testing_helpers::ValidateGraph(project, graph, sourceRoot).empty());
 	MemoryWriter writer;
 	writer.files["logic_tracker.gen.h"] << "prior successful artifact";
 	const auto diagnostics = ir::EmitArtifacts(project, graph, writer, sourceRoot);

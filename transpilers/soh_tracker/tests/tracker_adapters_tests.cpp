@@ -6,9 +6,13 @@
 #include "sema.h"
 #include "tracker_adapters.h"
 #include "tracker_lowering.h"
+#include "tracker_test_helpers.h"
 
 namespace rls::transpilers::soh_tracker::ir {
 namespace {
+
+using testing_helpers::AdapterRenderingResult;
+using testing_helpers::RenderHostAdapters;
 
 class SohTrackerAdapters : public testing::Test {
 protected:
@@ -39,7 +43,7 @@ protected:
 	{
 		const auto found = std::find_if(adapters.begin(), adapters.end(),
 			[&](const RenderedAdapter& adapter) {
-				return graph.adapters[adapter.handle.slot].declaration->name.text == name;
+				return adapter.symbol == std::string(name) + "_adapter";
 			});
 		EXPECT_NE(found, adapters.end());
 		return adapters.at(static_cast<size_t>(found - adapters.begin()));

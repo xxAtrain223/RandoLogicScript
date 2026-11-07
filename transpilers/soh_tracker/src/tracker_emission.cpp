@@ -224,7 +224,7 @@ const LogicRootMap& GetLogicRoots();
 }
 
 void GenerateSource(rls::OutputWriter& out, const Graph& graph, const Numbering& numbering,
-	std::span<const HostEnumBinding> customEnums)
+	std::span<const HostEnumBinding> customEnums, std::vector<RenderedAdapter> adapters)
 {
 	auto& source = out.open("logic_tracker.gen.cpp");
 	source.imbue(std::locale::classic());
@@ -257,14 +257,11 @@ static int32_t CheckedHostInt(T value) {
 }
 
 )";
-	std::vector<const HostAdapter*> adapters;
-	for (const auto& adapter : graph.adapters) adapters.push_back(&adapter);
-	std::sort(adapters.begin(), adapters.end(), [](const HostAdapter* a, const HostAdapter* b) {
-		return a->declaration->name.text + "_adapter" < b->declaration->name.text + "_adapter";
+	std::sort(adapters.begin(), adapters.end(), [](const RenderedAdapter& a, const RenderedAdapter& b) {
+		return a.symbol < b.symbol;
 	});
-	for (const auto* adapter : adapters) {
-		GenerateHostAdapter(source, *adapter, customEnums);
-		source << "\n";
+	for (const auto& adapter : adapters) {
+		source << adapter.definition << "\n";
 	}
 	source << R"(static std::unique_ptr<LogicExpression> CreateExpression(index_t index) {
 	switch (index) {
@@ -308,11 +305,12 @@ std::vector<ast::Diagnostic> EmitArtifacts(const ast::Project& project, const Gr
 	rls::OutputWriter& out, const std::filesystem::path& sourceRoot,
 	std::span<const HostEnumBinding> customEnums)
 {
-	auto diagnostics = ValidateGraph(project, graph, sourceRoot, customEnums);
-	if (!diagnostics.empty()) return diagnostics;
-	auto numbered = NumberDistinctGraph(graph, sourceRoot);
+	auto preflight = PreflightGraph(project, graph, sourceRoot, customEnums);
+	if (const auto* errors = std::get_if<std::vector<ast::Diagnostic>>(&preflight)) return *errors;
+	auto numbered = NumberDistinctGraph(graph, std::get<GraphStructure>(preflight));
 	if (const auto* errors = std::get_if<std::vector<ast::Diagnostic>>(&numbered)) return *errors;
 	const auto& numbering = std::get<Numbering>(numbered);
+	std::vector<ast::Diagnostic> diagnostics;
 	for (size_t slot = 0; slot < graph.nodes.size(); ++slot) {
 		if (!numbering.idsBySlot[slot]) continue;
 		auto path = NormalizeSourcePath(graph.nodes[slot].provenance.span, sourceRoot);
@@ -322,8 +320,9 @@ std::vector<ast::Diagnostic> EmitArtifacts(const ast::Project& project, const Gr
 	}
 	if (!diagnostics.empty()) return diagnostics;
 
+	auto adapters = RenderValidatedHostAdapters(graph, customEnums);
 	GenerateHeader(out);
-	GenerateSource(out, graph, numbering, customEnums);
+	GenerateSource(out, graph, numbering, customEnums, std::move(adapters));
 	return diagnostics;
 }
 
