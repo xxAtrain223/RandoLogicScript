@@ -1,3 +1,5 @@
+add_subdirectory(shared)
 add_subdirectory(soh)
+add_subdirectory(soh_tracker)
 add_subdirectory(ap)
 add_subdirectory(soh_ap)

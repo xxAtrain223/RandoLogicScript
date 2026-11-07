@@ -82,6 +82,7 @@ rls::ast::File Parse(T&& in, [[maybe_unused]] ParseMode mode) {
 
 		std::vector<ast::Diagnostic> buildDiags;
 		file = buildFile(*root, buildDiags);
+		file.path = std::string(in.source());
 		file.diagnostics.insert(file.diagnostics.end(),
 			std::make_move_iterator(buildDiags.begin()),
 			std::make_move_iterator(buildDiags.end()));

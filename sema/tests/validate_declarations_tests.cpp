@@ -1,6 +1,7 @@
 #include <gtest/gtest.h>
 
 #include <algorithm>
+#include <limits>
 
 #include "ast.h"
 #include "parser.h"
@@ -853,6 +854,56 @@ TEST(ValidateDeclarations, EnumDuplicateMemberName) {
 
 	ASSERT_EQ(countErrors(diags), 1u);
 	EXPECT_NE(diags[0].message.find("duplicate enum member 'RG_A'"), std::string::npos);
+}
+
+TEST(ValidateDeclarations, AcceptsMaximumEnumValueWithoutIncrementOverflow) {
+	const auto maximum = std::numeric_limits<int>::max();
+	auto [project, diags] = validateFromSource("enum Limit { Highest = " + std::to_string(maximum) + " }\n");
+	ASSERT_TRUE(project.files[0].diagnostics.empty());
+	EXPECT_EQ(countErrors(diags), 0u);
+	const auto& member = std::get<EnumMemberInfo>(project.EnumInfos.at("Limit").entries[0]);
+	EXPECT_EQ(member.value, maximum);
+}
+
+TEST(ValidateDeclarations, DiagnosesImplicitEnumOverflowWithoutWrappedValues) {
+	const auto maximum = std::numeric_limits<int>::max();
+	auto [project, diags] = validateFromSource(
+		"enum Limit {\n"
+		"    Highest = " + std::to_string(maximum) + ",\n"
+		"    Overflow,\n"
+		"    StillOverflow,\n"
+		"    Reset = 0,\n"
+		"    Next\n"
+		"}\n");
+	ASSERT_TRUE(project.files[0].diagnostics.empty());
+	ASSERT_EQ(countErrors(diags), 2u);
+	for (const auto& diagnostic : diags) {
+		if (diagnostic.level != DiagnosticLevel::Error) continue;
+		EXPECT_EQ(diagnostic.code, "RLS-V021");
+		EXPECT_NE(diagnostic.message.find("exceeds the Int value range"), std::string::npos);
+		EXPECT_NE(diagnostic.message.find("Limit"), std::string::npos);
+		EXPECT_GT(diagnostic.span.start.line, 0u);
+	}
+	const auto& entries = project.EnumInfos.at("Limit").entries;
+	ASSERT_EQ(entries.size(), 5);
+	EXPECT_EQ(std::get<EnumMemberInfo>(entries[0]).value, maximum);
+	EXPECT_FALSE(std::get<EnumMemberInfo>(entries[1]).value);
+	EXPECT_FALSE(std::get<EnumMemberInfo>(entries[2]).value);
+	EXPECT_EQ(std::get<EnumMemberInfo>(entries[3]).value, 0);
+	EXPECT_EQ(std::get<EnumMemberInfo>(entries[4]).value, 1);
+}
+
+TEST(ValidateDeclarations, AllowsExplicitResetFromMaximumToMinimumEnumValue) {
+	const auto minimum = std::numeric_limits<int>::min();
+	auto [project, diags] = validateFromSource(
+		"enum Limit { Highest = " + std::to_string(std::numeric_limits<int>::max()) +
+		", Lowest = " + std::to_string(minimum) + ", Next }\n");
+	ASSERT_TRUE(project.files[0].diagnostics.empty());
+	EXPECT_EQ(countErrors(diags), 0u);
+	const auto& entries = project.EnumInfos.at("Limit").entries;
+	ASSERT_EQ(entries.size(), 3);
+	EXPECT_EQ(std::get<EnumMemberInfo>(entries[1]).value, minimum);
+	EXPECT_EQ(std::get<EnumMemberInfo>(entries[2]).value, minimum + 1);
 }
 
 TEST(ValidateDeclarations, EnumDuplicateComputedValue) {

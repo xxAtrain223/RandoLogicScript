@@ -1005,12 +1005,18 @@ struct ExprResolver {
 
 		// --- Arm bodies: resolve and unify types -----------------------
 		T bodyType = T::Error;
+		std::optional<std::string> bodyEnumIdentity;
 		for (auto& arm : node.arms) {
 			auto armType = resolveExpr(*arm.body);
 			if (armType == T::Error) continue;
 
 			if (bodyType == T::Error) {
 				bodyType = armType;
+				if (armType == T::Enum) {
+					if (const auto identity = project.getEnumType(arm.body.get())) {
+						bodyEnumIdentity = std::string(*identity);
+					}
+				}
 			} else if (armType != bodyType) {
 				if (isBoolCompatible(armType) && isBoolCompatible(bodyType)) {
 					diags.push_back(diagnostics::MatchArmImplicitBool(
@@ -1020,9 +1026,18 @@ struct ExprResolver {
 					diags.push_back(diagnostics::MatchArmTypeMismatch(
 						arm.body->span, typeName(armType), typeName(bodyType)));
 				}
+			} else if (armType == T::Enum && bodyEnumIdentity) {
+				if (const auto identity = project.getEnumType(arm.body.get());
+					identity && *identity != *bodyEnumIdentity) {
+					diags.push_back(diagnostics::MatchArmTypeMismatch(
+						arm.body->span, *identity, *bodyEnumIdentity));
+				}
 			}
 		}
 
+		if (bodyType == T::Enum && bodyEnumIdentity) {
+			project.setEnumType(&expr, *bodyEnumIdentity);
+		}
 		return bodyType;
 	}
 };

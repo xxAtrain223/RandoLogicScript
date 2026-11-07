@@ -149,6 +149,21 @@ TEST(ProjectManifest, AcceptsTranspilerNamesWithoutKnowingImplementations) {
     EXPECT_EQ(result.config->transpilerOutputs[0].first, "custom-target");
 }
 
+TEST(ProjectManifest, AcceptsTrackerWithoutSpecialTargetConfiguration) {
+    TemporaryDirectory directory;
+    writeFile(directory.path() / "rls.json", R"({
+        "version": 1,
+        "sources": ["src"],
+        "transpilers": { "soh_tracker": { "output": "generated/tracker" } }
+    })");
+    const auto result = rls::project::LoadManifest(directory.path() / "rls.json");
+    ASSERT_TRUE(result.config.has_value()) << result.error;
+    ASSERT_EQ(result.config->transpilerOutputs.size(), 1);
+    EXPECT_EQ(result.config->transpilerOutputs[0].first, "soh_tracker");
+    EXPECT_EQ(result.config->transpilerOutputs[0].second,
+        fs::weakly_canonical(directory.path() / "generated" / "tracker"));
+}
+
 TEST(ProjectManifest, CollectsDeterministicSourcesWithConfiguredAndDefaultExclusions) {
     TemporaryDirectory directory;
     writeFile(directory.path() / "rls.json", R"({

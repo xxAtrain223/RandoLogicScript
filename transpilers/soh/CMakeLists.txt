@@ -18,6 +18,7 @@ add_library(soh STATIC ${soh_sources})
 target_include_directories(soh PUBLIC include)
 target_include_directories(soh PRIVATE "${CMAKE_CURRENT_BINARY_DIR}/generated")
 target_link_libraries(soh PUBLIC ast)
+target_link_libraries(soh PRIVATE rls_soh_host_mappings)
 
 if(BUILD_TESTING)
     file(GLOB soh_test_sources CONFIGURE_DEPENDS

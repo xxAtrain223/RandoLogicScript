@@ -10,14 +10,14 @@ RandoLogicScript [options] [files/folders...]
 
 ### Options
 
-| Option                    | Description                                                   |
-| ------------------------- | ------------------------------------------------------------- |
-| `-p, --project <path>`    | Load an `rls.json` manifest or a directory containing one.   |
-| `-t, --transpiler <name>` | Transpiler to use, must be followed by `-o`. May be repeated. |
-| `-o, --output <dir>`      | Output directory for the preceding transpiler.                |
-| `-h, --help`              | Show help message.                                            |
+| Option                    | Description                                                                  |
+| ------------------------- | ---------------------------------------------------------------------------- |
+| `-p, --project <path>`    | Load an `rls.json` manifest or a directory containing one.                   |
+| `-t, --transpiler <name>` | Select a configured manifest transpiler, or pair with `-o`. May be repeated. |
+| `-o, --output <dir>`      | Output directory for the preceding transpiler.                               |
+| `-h, --help`              | Show help message.                                                           |
 
-Each `-t` must be paired with an `-o`:
+With explicit inputs, each `-t` must be paired with an `-o`:
 
 ```
 RandoLogicScript -t soh -o out/soh/ src/
@@ -42,7 +42,7 @@ An `rls.json` file describes a project rooted at the directory containing the ma
 	"exclude": ["generated/**"],
 	"transpilers": {
 		"soh": { "output": "generated/soh" },
-		"ap": { "output": "generated/ap" }
+		"soh_ap": { "output": "generated/ap" }
 	}
 }
 ```
@@ -63,10 +63,11 @@ Manifest transpiler outputs are used by default. Each command-line `-t <name> -o
 
 ### Available Transpilers
 
-| Name         | Target                 |
-| ------------ | ---------------------- |
-| `soh`        | C++ for Shipwright     |
-| `soh_ap`     | Python for Archipelago |
+| Name          | Target                          |
+| ------------- | ------------------------------- |
+| `soh`         | C++ for Shipwright              |
+| `soh_ap`      | Python for Archipelago          |
+| `soh_tracker` | C++20 logic-tracker descriptors |
 
 ## Docs
 

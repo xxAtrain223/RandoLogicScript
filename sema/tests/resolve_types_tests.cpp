@@ -1611,6 +1611,45 @@ TEST(ResolveTypes, MatchArmBodyTypeMismatch) {
 		std::string::npos);
 }
 
+TEST(ResolveTypes, MatchRetainsEnumResultIdentityThroughNestedExpressions) {
+	auto [project, diags] = resolveFromSource(
+		"enum Mode { First, Second }\n"
+		"define choose(x: Mode):\n"
+		"    match x {\n"
+		"        First: Mode.First\n"
+		"        _: match x { Second: Mode.Second\n"
+		"        }\n"
+		"    }\n"
+		"define use(x: Mode): true ? choose(x) : Mode.Second\n");
+	for (const auto& diagnostic : project.files.front().diagnostics) {
+		ASSERT_NE(diagnostic.level, DiagnosticLevel::Error) << diagnostic.message;
+	}
+	ASSERT_EQ(countErrors(diags), 0u);
+	const auto* body = project.DefineDecls.at("choose")->body.get();
+	EXPECT_EQ(project.getType(body), Type::Enum);
+	ASSERT_TRUE(project.getEnumType(body).has_value());
+	EXPECT_EQ(*project.getEnumType(body), "Mode");
+	const auto* use = project.DefineDecls.at("use")->body.get();
+	ASSERT_TRUE(project.getEnumType(use).has_value());
+	EXPECT_EQ(*project.getEnumType(use), "Mode");
+}
+
+TEST(ResolveTypes, MatchRejectsDifferentResultEnumIdentities) {
+	auto [project, diags] = resolveFromSource(
+		"enum Color { Red }\n"
+		"enum Fruit { Apple }\n"
+		"define choose(x: Color):\n"
+		"    match x { Red: Color.Red\n"
+		"              _: Fruit.Apple\n"
+		"    }\n");
+	for (const auto& diagnostic : project.files.front().diagnostics) {
+		ASSERT_NE(diagnostic.level, DiagnosticLevel::Error) << diagnostic.message;
+	}
+	ASSERT_EQ(countErrors(diags), 1u);
+	EXPECT_NE(diags[0].message.find("Fruit"), std::string::npos);
+	EXPECT_NE(diags[0].message.find("Color"), std::string::npos);
+}
+
 TEST(ResolveTypes, MatchDiscriminantTyped) {
 	// Discriminant 'd' is Distance; patterns are Distance — OK.
 	auto [project, diags] = resolveFromSource(
@@ -1967,4 +2006,3 @@ TEST(ResolveTypes, DefineParamUsedInExpression) {
 	EXPECT_TRUE(diags.empty());
 	EXPECT_EQ(project.getType(project.DefineDecls.at("foo")->body.get()), Type::Bool);
 }
-

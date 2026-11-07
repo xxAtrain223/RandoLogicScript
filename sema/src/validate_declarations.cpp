@@ -4,6 +4,7 @@
 
 #include <algorithm>
 #include <fmt/format.h>
+#include <limits>
 #include <queue>
 #include <set>
 #include <unordered_map>
@@ -32,7 +33,7 @@ static void checkEnumDeclarations(
 			std::vector<ast::EnumEntryInfo> normalized;
 			normalized.reserve(info.entries.size());
 
-			int nextValue = 0;
+			std::optional<int> nextValue = 0;
 			for (const auto& entry : info.entries) {
 				if (std::holds_alternative<ast::EnumPatternInfo>(entry)) {
 					const auto& pattern = std::get<ast::EnumPatternInfo>(entry);
@@ -48,6 +49,10 @@ static void checkEnumDeclarations(
 
 				if (member.value.has_value()) {
 					nextValue = *member.value;
+				} else if (!nextValue) {
+					diags.push_back(diagnostics::EnumValueOutOfRange(member.span, member.name.text, enumName));
+					normalized.emplace_back(std::move(member));
+					continue;
 				} else {
 					member.value = nextValue;
 				}
@@ -56,7 +61,10 @@ static void checkEnumDeclarations(
 					diags.push_back(diagnostics::EnumDuplicateValue(member.span, *member.value, enumName));
 				}
 
-				nextValue = *member.value + 1;
+				// INT_MAX is valid as a final value or before an explicit reset.
+				// Only a subsequent implicit member needs an overflow diagnostic.
+				nextValue = *member.value == std::numeric_limits<int>::max() ?
+					std::nullopt : std::optional<int>{*member.value + 1};
 				normalized.emplace_back(std::move(member));
 			}
 

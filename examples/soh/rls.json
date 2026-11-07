@@ -7,6 +7,9 @@
         },
         "soh_ap": {
             "output": "out_soh_ap/"
+        },
+        "soh_tracker": {
+            "output": "out_soh_tracker/"
         }
     }
 }
