@@ -1312,6 +1312,49 @@ TEST(ResolveTypes, DefineCallMissingRequiredNamedArg) {
 
 // -- Define ordering (Step 7) -------------------------------------------------
 
+TEST(ResolveTypes, DefineReturnAnnotations) {
+	auto [project, diags] = resolveFromSource(
+		"define identity(value) -> Item: value\n"
+		"define count() -> Int: 42\n"
+		"define truth() -> Bool: true\n"
+		"define use() -> Bool: has(identity(RG_HOOKSHOT)) and truth()\n");
+	EXPECT_TRUE(diags.empty());
+	const auto* identity = project.DefineDecls.at("identity");
+	EXPECT_EQ(project.getType(&identity->params[0]), Type::Enum);
+	EXPECT_EQ(project.getEnumType(&identity->params[0]), "Item");
+	EXPECT_EQ(project.getEnumType(identity->body.get()), "Item");
+	EXPECT_EQ(project.getType(project.DefineDecls.at("use")->body.get()), Type::Bool);
+}
+
+TEST(ResolveTypes, DefineReturnAnnotationMismatch) {
+	auto [project, diags] = resolveFromSource(
+		"define bad() -> Bool: 1\n"
+		"define wrong_enum() -> Item: RE_STALFOS\n"
+		"define missing() -> Missing: true\n");
+	bool typeMismatch = false, enumMismatch = false, unknown = false;
+	for (const auto& diag : diags) {
+		if (diag.code == "RLS-T043" && diag.message.find("bad") != std::string::npos
+			&& diag.message.find("Bool") != std::string::npos && diag.message.find("Int") != std::string::npos)
+			typeMismatch = true;
+		if (diag.code == "RLS-T043" && diag.message.find("Item") != std::string::npos
+			&& diag.message.find("Enemy") != std::string::npos)
+			enumMismatch = true;
+		if (diag.code == "RLS-T042" && diag.message.find("Missing") != std::string::npos)
+			unknown = true;
+	}
+	EXPECT_TRUE(typeMismatch);
+	EXPECT_TRUE(enumMismatch);
+	EXPECT_TRUE(unknown);
+}
+
+TEST(ResolveTypes, AnnotatedReturnDoesNotPermitRecursiveDefinitionsYet) {
+	auto [project, diags] = resolveFromSource(
+		"define recurse() -> Bool: recurse()\n");
+	EXPECT_TRUE(std::any_of(diags.begin(), diags.end(), [](const auto& diag) {
+		return diag.code == "RLS-T039";
+	}));
+}
+
 TEST(ResolveTypes, DefineOrderingCalleeFirst) {
 	// Topo sort ensures bar is resolved before foo regardless of decl order.
 	auto [project, diags] = resolveFromSource(

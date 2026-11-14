@@ -550,10 +550,11 @@ struct ExtendRegionDecl {
 		  span(span) {}
 };
 
-/// `define name(params): body`
+/// `define name(params) -> Type: body` (return annotation optional)
 struct DefineDecl {
 	Name name;
 	std::vector<Param> params;
+	std::optional<TypeRef> returnType;
 	ExprPtr body;
 	Span span;
 
@@ -564,6 +565,19 @@ struct DefineDecl {
 		Span span = {})
 		: name(std::move(name)),
 		  params(std::move(params)),
+		  returnType(std::nullopt),
+		  body(std::move(body)),
+		  span(span) {}
+
+	DefineDecl(
+		Name name,
+		std::vector<Param> params,
+		std::optional<TypeRef> returnType,
+		ExprPtr body,
+		Span span = {})
+		: name(std::move(name)),
+		  params(std::move(params)),
+		  returnType(std::move(returnType)),
 		  body(std::move(body)),
 		  span(span) {}
 };

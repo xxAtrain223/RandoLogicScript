@@ -365,6 +365,17 @@ define spirit_east_to_switch():
 
 These are **pure** - no side effects, no mutation. The transpiler always generates them as callable functions (never inlined). For the C++ target, each `define` generates both a function (for the solver) and a named expression tree node (for the logic tracker, so users can see `spirit_explosive_key_logic()` as a collapsible node and drill into its children). For Python/Archipelago, they become Python functions.
 
+Parameters and return types may be annotated. A return annotation is optional;
+without one, the body determines the return type. With one, the body must have
+the declared type (and the same enum identity for a named enum); implicit
+argument conversions do not apply to the return value. Return annotations do
+not currently enable recursive function definitions.
+
+```rls
+define has_item(item: Item) -> Bool: has(item)
+define identity(item: Item) -> Item: item
+```
+
 ### 4.5 Ternary / Conditional Expressions
 
 ```rls
@@ -862,7 +873,7 @@ entry         = IDENT ":" expr ;
 
 list_literal  = "[" (expr ("," expr)*)? "]" ;
 
-define        = "define" IDENT "(" params? ")" ":" expr ;
+define        = "define" IDENT "(" params? ")" ("->" type)? ":" expr ;
 extern_define = "extern" "define" IDENT "(" params? ")" "->" type ;
 
 enum_decl        = "enum" IDENT "{" enum_member_list? "}" ;

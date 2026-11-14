@@ -2,6 +2,19 @@
 
 using namespace rls::transpilers::soh_tests;
 
+TEST(SohSolverTests, GenerateAnnotatedFunctionSignatures) {
+	const auto project = resolveFromSource(
+		"enum Color { RED }\n"
+		"define identity(value) -> Color: value\n"
+		"define enabled() -> Bool: true\n");
+	MemoryWriter out;
+	rls::transpilers::soh::SohTranspiler(project).GenerateFunctionDefinitionsHeader(out);
+	rls::transpilers::soh::SohTranspiler(project).GenerateFunctionDefinitionsSource(out);
+	EXPECT_NE(out.content("functions.gen.h").find("Color identity(const Color value);"), std::string::npos);
+	EXPECT_NE(out.content("functions.gen.h").find("bool enabled();"), std::string::npos);
+	EXPECT_NE(out.content("functions.gen.cpp").find("return value;"), std::string::npos);
+}
+
 TEST(SohSolverTests, GenerateFunctionSimpleDefinitions) {
 	const auto project = resolveFromSource(
 		"define invert(value: Bool):\n"

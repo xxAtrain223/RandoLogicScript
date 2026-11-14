@@ -1251,7 +1251,30 @@ std::vector<ast::Diagnostic> resolveTypes(ast::Project& project) {
 			}
 		}
 		ExprResolver resolver{project, scope, enumScope, diags};
-		resolver.resolveExpr(*decl->body);
+		std::optional<ResolvedTypeAnnotation> returnAnnotation;
+		if (decl->returnType) {
+			returnAnnotation = resolveTypeAnnotation(project, decl->returnType->name.text);
+			if (!returnAnnotation) {
+				diags.push_back(diagnostics::UnknownReturnTypeAnnotation(
+					decl->returnType->name.span, decl->returnType->name.text, name));
+			} else if (resolver.inferUntypedParamIdentifier(*decl->body, returnAnnotation->type)
+				&& returnAnnotation->enumName) {
+				const auto& identifier = std::get<ast::Identifier>(decl->body->node);
+				enumScope[identifier.name.text] = std::string(*returnAnnotation->enumName);
+				project.setEnumType(decl->body.get(), std::string(*returnAnnotation->enumName));
+			}
+		}
+		const auto bodyType = resolver.resolveExpr(*decl->body);
+		if (returnAnnotation && bodyType != ast::Type::Error) {
+			const auto bodyEnum = project.getEnumType(decl->body.get());
+			const bool enumMismatch = returnAnnotation->enumName
+				&& (!bodyEnum || *bodyEnum != *returnAnnotation->enumName);
+			if (bodyType != returnAnnotation->type || enumMismatch) {
+				const auto expected = returnAnnotation->enumName.value_or(typeName(returnAnnotation->type));
+				const auto actual = bodyEnum.value_or(typeName(bodyType));
+				diags.push_back(diagnostics::ReturnTypeMismatch(decl->body->span, name, expected, actual));
+			}
+		}
 
 		for (const auto& param : decl->params) {
 			if (project.getType(&param).has_value()) {

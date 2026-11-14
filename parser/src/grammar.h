@@ -579,15 +579,17 @@ struct extend_decl : seq<
 
 // -- Define -------------------------------------------------------------------
 
-/// define = "define" IDENT "(" params? ")" ":" expr
+struct return_type_delimiter : arrow {};
+struct return_type_name : type {};
+struct return_type_annotation : seq<return_type_delimiter, required<_, return_type_name>> {};
+
+/// define = "define" IDENT "(" params? ")" ("->" type)? ":" expr
 struct define_decl : seq<
 	kw<kw_define>, required<_, ident, _,
 	open_paren, _, opt<params>, _, close_paren, _,
+	opt<seq<return_type_annotation, _>>,
 	colon, _, expr>
 > {};
-
-struct return_type_delimiter : arrow {};
-struct return_type_name : type {};
 
 /// extern define = "extern" "define" IDENT "(" params? ")" "->" type
 struct extern_define_decl : seq<

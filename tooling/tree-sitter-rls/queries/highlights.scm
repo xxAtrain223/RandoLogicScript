@@ -44,6 +44,7 @@
 (extern_define_declaration name: (identifier) @function)
 (parameter name: (identifier) @variable.parameter)
 (parameter type: (identifier) @type)
+(define_declaration return_type: (identifier) @type)
 (extern_define_declaration return_type: (identifier) @type)
 (enum_member name: (identifier) @constant)
 (glob_pattern) @constant

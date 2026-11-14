@@ -3,6 +3,7 @@ enum Color { RED, GREEN = 3 }
 extern enum Item { RG_HOOKSHOT, RG_*, *_KEY }
 
 extern define has(item: Item) -> bool
+define identity(item: Item) -> Item: item
 define can_enter(item: Item, distance = ED_CLOSE):
     match item {
         RG_HOOKSHOT: has(item) and distance >= 2

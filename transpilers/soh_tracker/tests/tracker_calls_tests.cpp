@@ -117,6 +117,21 @@ TEST_F(SohTrackerCalls, UsesSemaOrderAndDefaultsWithDistinctCallAndArgumentOccur
 	expectFullyReachable();
 }
 
+TEST_F(SohTrackerCalls, LowersAnnotatedReturnAndInferredParameter) {
+	parse(
+		"extern enum Item { RG_* }\n"
+		"define identity(item) -> Item: item\n"
+		"region RR_TEST { locations { RC_TEST: identity(RG_BOW) == RG_BOW } }\n");
+	ASSERT_FALSE(HasFatalFailure());
+	analyze();
+	ASSERT_FALSE(HasFatalFailure());
+	ASSERT_TRUE(lower());
+	ASSERT_EQ(graph.helpers.size(), 1);
+	expectFullyReachable();
+	test::MemoryWriter writer;
+	EXPECT_TRUE(EmitArtifacts(project, graph, writer, sourceRoot).empty());
+}
+
 TEST_F(SohTrackerCalls, KeepsArgumentsInCallerScopeAndBodiesInDeclarationScope) {
 	parse(
 		"define inner(value: Bool): value\n"

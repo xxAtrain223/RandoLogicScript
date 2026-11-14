@@ -27,6 +27,11 @@ static std::string generateFunctions(const std::string& source) {
 }
 
 // The bundle receiver leads the parameter list, ahead of the RLS parameters.
+TEST(SohApFunctionSignatures, AnnotatedReturnAndInferredParameter) {
+	const auto output = generateFunctions("define identity(item) -> Item: item\n");
+	EXPECT_NE(output.find("def identity(bundle, item: Items) -> Items:"), std::string::npos) << output;
+}
+
 TEST(SohApFunctionSignatures, BundleIsFirstParameter) {
 	EXPECT_NE(generateFunctions(
 		"define needs(item: Item):\n"

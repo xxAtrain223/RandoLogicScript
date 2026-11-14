@@ -133,6 +133,14 @@ inline ast::Diagnostic DefineCycle(ast::Span span, std::string_view names) {
 inline ast::Diagnostic UnknownParameterTypeAnnotation(ast::Span span, std::string_view type, std::string_view parameter) {
 	return {"RLS-T040", std::move(span), ast::DiagnosticLevel::Error, fmt::format("unknown type annotation '{}' for parameter '{}'", type, parameter)};
 }
+inline ast::Diagnostic UnknownReturnTypeAnnotation(ast::Span span, std::string_view type, std::string_view function) {
+	return {"RLS-T042", std::move(span), ast::DiagnosticLevel::Error,
+		fmt::format("unknown return type annotation '{}' for function '{}'", type, function)};
+}
+inline ast::Diagnostic ReturnTypeMismatch(ast::Span span, std::string_view function, std::string_view expected, std::string_view actual) {
+	return {"RLS-T043", std::move(span), ast::DiagnosticLevel::Error,
+		fmt::format("function '{}' declares return type {} but its body has type {}", function, expected, actual)};
+}
 
 inline ast::Diagnostic UnknownExtensionTarget(ast::Span span, std::string_view regionName) {
 	return {"RLS-V001", std::move(span), ast::DiagnosticLevel::Error,

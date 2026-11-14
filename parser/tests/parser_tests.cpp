@@ -1092,6 +1092,13 @@ TEST(SourceIndexTests, ReportsRecoveredFunctionTypePositions) {
 	EXPECT_TRUE(blankReturn.sourceIndex.typePositionAt(
 		positionAtEnd(blankReturnSource)));
 
+	const std::string blankDefineReturnSource = "define choose() -> ";
+	const auto blankDefineReturn = rls::parser::ParseStringWithIndex(
+		blankDefineReturnSource, "blank-define-return-type.rls",
+		rls::parser::ParseMode::Editor);
+	EXPECT_TRUE(blankDefineReturn.sourceIndex.typePositionAt(
+		positionAtEnd(blankDefineReturnSource)));
+
 	const std::string defaultSource =
 		"define choose(value = true ? false : tru";
 	const auto defaultExpression = rls::parser::ParseStringWithIndex(
@@ -1378,6 +1385,16 @@ TEST(ParseDefine, ParamWithTypeAndDefault) {
 	EXPECT_EQ(*def.params[0].type, "int");
 	ASSERT_NE(def.params[0].defaultValue, nullptr);
 	EXPECT_EQ(std::get<IntLiteral>(def.params[0].defaultValue->node).value, 0);
+}
+
+TEST(ParseDefine, ReturnTypeAnnotation) {
+	const auto& decl = parseDecl("define identity(x: Item) -> Item: x");
+	const auto& def = std::get<DefineDecl>(decl);
+	ASSERT_TRUE(def.returnType);
+	EXPECT_EQ(*def.returnType, "Item");
+	EXPECT_EQ(def.returnType->name.span.start.column, 29u);
+	EXPECT_EQ(def.returnType->name.span.end.column, 33u);
+	ASSERT_TRUE(std::holds_alternative<Identifier>(def.body->node));
 }
 
 TEST(ParseDefine, ComplexBody) {
