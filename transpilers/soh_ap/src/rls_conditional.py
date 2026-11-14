@@ -30,7 +30,7 @@ from typing_extensions import override
 from rule_builder.rules import NestedRule, Rule
 
 if TYPE_CHECKING:
-    from . import SohWorld
+    from .. import SohWorld
     from .enums_gen import Regions
 
 

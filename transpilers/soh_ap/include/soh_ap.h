@@ -12,6 +12,9 @@
 
 namespace rls::transpilers::soh_ap {
 
+// First line of every generated file; names the RLS commit when RLS_REVISION is set in the environment.
+std::string generatedHeader();
+
 // Ship of Harkinian (SoH) AP transpiler. Supplies the SoH/oot_soh world bindings
 // on top of the generic ApTranspiler: enum-class prefixes, host-call rewrites
 // (has/flag/trick/check_price), world special cases (wallet capacity, triforce

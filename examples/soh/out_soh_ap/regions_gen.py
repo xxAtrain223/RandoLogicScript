@@ -29,7 +29,7 @@ from .functions_gen import (
     has_fire_source,
     has_fire_source_with_torch,
 )
-from .LogicHelpers import (
+from ..LogicHelpers import (
     RSK_FOREST,
     RSK_GERUDO_FORTRESS,
     RSK_KAK_GATE,
@@ -64,7 +64,7 @@ from .LogicHelpers import (
 from .rls_conditional import rls_conditional
 
 if TYPE_CHECKING:
-    from . import SohWorld
+    from .. import SohWorld
 
 def set_region_rules(world: "SohWorld") -> None:
     # Adult Spawn
