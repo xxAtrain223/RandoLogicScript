@@ -176,7 +176,8 @@ void SohApTranspiler::writeEnums(rls::OutputWriter& out) const {
 
 	source
 		<< generatedHeader()
-		<< "from enum import StrEnum, IntEnum, auto\n";
+		<< "from enum import StrEnum, IntEnum, auto\n"
+		<< "from ..gen.Ship.ship_data_gen import Scene\n";
 
 	// == Enums materialized from the region declarations ======================
 	// Region and Event are extern enums: RLS knows them only as glob patterns, but this project
@@ -231,7 +232,7 @@ void SohApTranspiler::writeEnums(rls::OutputWriter& out) const {
 	// region declares it and the walk above never produces it. It is always emitted: this is the
 	// SoH target, and the sentinel is part of its host ABI rather than of any one project.
 	regions.push_back("RR_NONE = \"None\"");
-	regionScenes.emplace_back("RR_NONE", "");
+	regionScenes.emplace_back("RR_NONE", "SCENE_ID_MAX");
 	regionQuests.emplace_back("RR_NONE", "");
 	regionTimes.emplace_back("RR_NONE", "False");
 
@@ -245,9 +246,9 @@ void SohApTranspiler::writeEnums(rls::OutputWriter& out) const {
 	// Which scene each region sits in. The host needs this to answer is_mq()/is_vanilla():
 	// a rule's region identifies its dungeon only via the scene -- RR_GANONS_TOWER_ENTRYWAY is
 	// SCENE_INSIDE_GANONS_CASTLE, so it follows Ganon's Castle, which no name rule would get right.
-	source << "\nREGION_SCENE: dict[Regions, str] = {\n";
+	source << "\nREGION_SCENE: dict[Regions, Scene] = {\n";
 	for (const auto& [regionKey, scene] : regionScenes) {
-		source << "    Regions." << regionKey << ": " << pyString(scene) << ",\n";
+		source << "    Regions." << regionKey << ": Scene." << (scene.empty() ? "SCENE_ID_MAX" : scene) << ",\n";
 	}
 	source << "}\n";
 
