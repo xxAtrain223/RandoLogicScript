@@ -82,19 +82,14 @@ std::string nodeType(const rls::ast::Project& p, const T* node) {
 }
 
 std::string functionSignature(
-	const SohTranspiler& transpiler,
 	const rls::ast::Project& p,
-	const rls::ast::DefineDecl* decl,
-    const bool includeDefaults)
+	const rls::ast::DefineDecl* decl)
 {
     std::ostringstream sig;
     sig << nodeType(p, decl->body.get()) << " " << decl->name.text << "(";
     for (int i = 0; i < decl->params.size(); i++) {
         const auto& param = decl->params[i];
         sig << "const " << nodeType(p, &param) << " " << param.name.text;
-        if (includeDefaults && param.defaultValue != nullptr) {
-			sig << " = " + transpiler.GenerateExpression(param.defaultValue);
-        }
         if (i < decl->params.size() - 1) {
             sig << ", ";
         }
@@ -121,7 +116,7 @@ void SohTranspiler::GenerateFunctionDefinitionsHeader(rls::OutputWriter& out) co
     }
 
     for (const auto& [name, decl] : project.DefineDecls) {
-        header << functionSignature(*this, project, decl, true) << ";\n";
+        header << functionSignature(project, decl) << ";\n";
     }
 }
 
@@ -135,7 +130,7 @@ void SohTranspiler::GenerateFunctionDefinitionsSource(rls::OutputWriter& out) co
     for (const auto& [name, decl] : project.DefineDecls) {
         source << "\n";
         
-        source << functionSignature(*this, project, decl, false) << " {\n";
+        source << functionSignature(project, decl) << " {\n";
 		source << "    return " << GenerateExpression(decl->body) << ";\n";
         source << "}\n";
     }

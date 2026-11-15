@@ -50,7 +50,7 @@ def call_gossip_fairy(bundle) -> bool:
 def call_gossip_fairy_except_suns(bundle) -> bool:
     return can_use(bundle, Items.RG_ZELDAS_LULLABY) | can_use(bundle, Items.RG_EPONAS_SONG) | can_use(bundle, Items.RG_SONG_OF_TIME)
 
-def can_avoid(bundle, e: Enemies, grounded: bool = False, quantity: int = 1) -> bool:
+def can_avoid(bundle, e: Enemies, grounded: bool, quantity: int) -> bool:
     return can_kill(bundle, e, EnemyDistance.ED_CLOSE, True, quantity, False, False) | rls_match_rule((lambda e=e: e == Enemies.RE_GOLD_SKULLTULA), (lambda: True_()), False)
 
 def can_break_lower_beehives(bundle) -> bool:
@@ -71,13 +71,13 @@ def can_get_deku_baba_nuts(bundle) -> bool:
 def can_get_deku_baba_sticks(bundle) -> bool:
     return can_use_sword(bundle) | can_use(bundle, Items.RG_BOOMERANG)
 
-def can_get_drop(bundle, e: Enemies, distance: EnemyDistance = EnemyDistance.ED_CLOSE, above_link: bool = False) -> bool:
+def can_get_drop(bundle, e: Enemies, distance: EnemyDistance, above_link: bool) -> bool:
     return can_kill(bundle, e, distance, True, 1, False, False) & (True_() if distance_to_int(bundle, distance) <= distance_to_int(bundle, EnemyDistance.ED_MASTER_SWORD_JUMPSLASH) else rls_match_rule((lambda e=e: e == Enemies.RE_GOLD_SKULLTULA), (lambda: _can_get_drop_gold_skulltula(bundle, distance)), False, (lambda e=e: e == Enemies.RE_KEESE or e == Enemies.RE_FIRE_KEESE or e == Enemies.RE_GUAY), (lambda: True_()), False, (lambda: True), (lambda: True_() if above_link else can_use(bundle, Items.RG_BOOMERANG) if distance_to_int(bundle, distance) <= distance_to_int(bundle, EnemyDistance.ED_BOOMERANG) else False_()), False))
 
 def can_get_night_time_gs(bundle) -> bool:
     return at_night(bundle) & (can_use(bundle, Items.RG_SUNS_SONG) | True_(options=[OptionFilter(RSK_SKULLS_SUNS_SONG, False)]))
 
-def can_ground_jump(bundle, hasBombflower: bool = False) -> bool:
+def can_ground_jump(bundle, hasBombflower: bool) -> bool:
     return can_do_trick(bundle, Tricks.RT_GROUND_JUMP) & can_standing_shield(bundle) & (can_use(bundle, Items.RG_BOMB_BAG) | (has_item(bundle, Items.RG_GORONS_BRACELET) if hasBombflower else False_()))
 
 def can_hit_eye_targets(bundle) -> bool:
@@ -89,13 +89,13 @@ def can_jumpslash(bundle) -> bool:
 def can_jumpslash_except_hammer(bundle) -> bool:
     return can_use(bundle, Items.RG_STICKS) | can_use_sword(bundle)
 
-def can_kill(bundle, e: Enemies, distance: EnemyDistance = EnemyDistance.ED_CLOSE, wall_or_floor: bool = True, quantity: int = 1, timer: bool = False, in_water: bool = False) -> bool:
+def can_kill(bundle, e: Enemies, distance: EnemyDistance, wall_or_floor: bool, quantity: int, timer: bool, in_water: bool) -> bool:
     return rls_match_rule((lambda e=e: e == Enemies.RE_GOLD_SKULLTULA), (lambda: _can_kill_gold_skulltula(bundle, distance, wall_or_floor)), False)
 
 def can_open_storms_grotto(bundle) -> bool:
     return can_use(bundle, Items.RG_SONG_OF_STORMS) & (has_item(bundle, Items.RG_STONE_OF_AGONY) | can_do_trick(bundle, Tricks.RT_GROTTOS_WITHOUT_AGONY))
 
-def can_pass(bundle, e: Enemies, distance: EnemyDistance = EnemyDistance.ED_CLOSE, wall_or_floor: bool = True) -> bool:
+def can_pass(bundle, e: Enemies, distance: EnemyDistance, wall_or_floor: bool) -> bool:
     return can_kill(bundle, e, distance, wall_or_floor, 1, False, False) | rls_match_rule((lambda e=e: e == Enemies.RE_GOLD_SKULLTULA), (lambda: True_()), False)
 
 def can_reflect_nuts(bundle) -> bool:

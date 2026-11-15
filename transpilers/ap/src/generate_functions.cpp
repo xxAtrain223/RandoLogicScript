@@ -41,12 +41,6 @@ void ApTranspiler::GenerateFunctionDefinitionsSource(rls::OutputWriter& out) con
 			}
 			needComma = true;
 			sig << param.name << ": " << typeName(&param);
-			if (param.defaultValue != nullptr) {
-				// A default binds to the parameter exactly like a call argument: a Condition
-				// default is thunked, a value default uses Python True/False, not True_()/
-				// False_(). Reuse the call-argument path so the two stay consistent.
-				sig << " = " + GenerateCallArgument(param.defaultValue.get(), project.getType(&param));
-			}
 		}
 		sig << ") -> " << typeName(decl->body.get());
 

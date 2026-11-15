@@ -129,7 +129,7 @@ TEST(SohSolverTests, GenerateFunctionWithDefaultParam) {
 		"#include \"rls_match.h\"\n"
 		"#include \"rls_host.h\"\n"
 		"\n"
-		"int double(const int a = 2);\n"
+		"int double(const int a);\n"
 	);
 
 	EXPECT_EQ(out.content("functions.gen.cpp"),
@@ -141,6 +141,23 @@ TEST(SohSolverTests, GenerateFunctionWithDefaultParam) {
 		"    return a * 2;\n"
 		"}\n"
 	);
+}
+
+TEST(SohSolverTests, RecursiveDefaultsAreExpandedOnlyAtCallSites) {
+	const auto project = resolveFromSource(
+		"define first(n: Int = first(0)) -> Int: n <= 1 ? 1 : first()\n"
+		"define second(n: Int = third(0)) -> Int: n\n"
+		"define third(n: Int = second(0)) -> Int: n\n"
+		"define caller(): first() + second() + third()\n");
+	MemoryWriter out;
+	rls::transpilers::soh::SohTranspiler(project).GenerateFunctionDefinitionsHeader(out);
+	rls::transpilers::soh::SohTranspiler(project).GenerateFunctionDefinitionsSource(out);
+	for (const auto* name : {"first", "second", "third"}) {
+		EXPECT_NE(out.content("functions.gen.h").find(std::string("int ") + name + "(const int n);"), std::string::npos);
+	}
+	EXPECT_NE(out.content("functions.gen.cpp").find("return n <= 1 ? 1 : first(first(0));"), std::string::npos);
+	EXPECT_NE(out.content("functions.gen.cpp").find("return first(first(0)) + second(third(0)) + third(second(0));"),
+		std::string::npos);
 }
 
 TEST(SohSolverTests, GenerateFunctionHeaderEmitsNormalEnumDefinition) {
@@ -236,7 +253,7 @@ TEST(SohSolverTests, GenerateFunctionWithEnumParamType) {
 		"    GREEN = 1\n"
 		"};\n"
 		"\n"
-		"bool accepts_color(const Color c = Color::RED);\n"
+		"bool accepts_color(const Color c);\n"
 	);
 }
 

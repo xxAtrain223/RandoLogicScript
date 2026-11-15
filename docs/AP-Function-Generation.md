@@ -100,7 +100,10 @@ and `bottle_count() >= 1` are all `Bool`, yet they are R, V, and RV respectively
 Classification is the keystone the rest of the design rests on. It is
 implemented as `ApTranspiler::ClassifyExpression` → `{Rule, BuildTime, Runtime}`
 (`classify_expression.cpp`), pure analysis over the resolved AST, and pinned by
-`ApClassify.*`.
+`ApClassify.*`. User-defined function classes start at BuildTime and propagate
+Rule/Runtime dependencies to a fixed point. Recursion alone does not make a
+function a Rule: pure recursive integer and boolean-value helpers remain
+build-time values.
 
 ---
 
@@ -275,12 +278,15 @@ choice and owns a divergent set of host helpers deliberately.
   `SohApFunctionSignatures.*`.
 - `Condition` parameters lower as a thunk on the way in and `cond(bundle)` on
   invoke (`ApCallables` / `SohApCallables`).
-- Default-valued params land in the right class: the default binds like a call
-  argument, so it is rendered via `GenerateCallArgument` — a value (Bool) default
+- Defaults are expanded at RLS call sites, not emitted in generated function
+  signatures. This avoids evaluating self-references or the bundle receiver
+  during Python module initialization. Handwritten callers of generated helpers
+  must supply every parameter. Each default is rendered via
+  `GenerateCallArgument` — a value (Bool) default
   emits Python `True`/`False` (not the `True_()`/`False_()` rule literals), an enum
   default carries its `renderEnumValue` prefix, and a Condition default is thunked.
-  Pinned by `SohApFunctionSignatures.{BoolParamDefaultUsesPythonLiteral,
-  EnumParamDefaultIsPrefixed}`.
+  Pinned by `SohApFunctionSignatures.{BoolDefaultIsSuppliedAtCallSite,
+  EnumDefaultIsSuppliedAtCallSite,RecursiveDefaultsAreExpandedOnlyAtCallSites}`.
 - **Limitation:** the return annotation is `pythonTypeName(bodyType)`, so a
   rule-valued body whose RLS type is `Bool` annotates as `-> bool` rather than
   `-> Rule`. Harmless at runtime (Python does not enforce annotations) but
