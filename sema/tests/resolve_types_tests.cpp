@@ -1347,11 +1347,138 @@ TEST(ResolveTypes, DefineReturnAnnotationMismatch) {
 	EXPECT_TRUE(unknown);
 }
 
-TEST(ResolveTypes, AnnotatedReturnDoesNotPermitRecursiveDefinitionsYet) {
+TEST(ResolveTypes, AnnotatedSelfRecursionUsesDeclaredReturnType) {
 	auto [project, diags] = resolveFromSource(
 		"define recurse() -> Bool: recurse()\n");
+	EXPECT_TRUE(diags.empty());
+	EXPECT_EQ(project.getType(project.DefineDecls.at("recurse")->body.get()), Type::Bool);
+}
+
+TEST(ResolveTypes, DeclaredReturnTypesAreUsedConsistentlyWithAndWithoutRecursion) {
+	for (const auto* recursion : {"", "define unrelated() -> Bool: unrelated()\n"}) {
+		SCOPED_TRACE(recursion);
+		auto [project, diags] = resolveFromSource(
+			std::string(recursion) +
+			"define wrong_item() -> Item: RE_STALFOS\n"
+			"define wrong_bool() -> Bool: \"text\"\n"
+			"define caller(): has(wrong_item()) and any_age(wrong_bool)\n"
+			"extern define defaulted(flag = wrong_bool()) -> Bool\n"
+			"region RR_TEST { locations { TEST_LOC: wrong_bool() } }\n"
+			"extend region RR_TEST { locations { OTHER_LOC: wrong_bool() } }\n");
+		ASSERT_EQ(diags.size(), 2u);
+		for (const auto& diag : diags) EXPECT_EQ(diag.code, "RLS-T043");
+
+		const auto& binary = std::get<BinaryExpr>(project.DefineDecls.at("caller")->body->node);
+		const auto& itemCall = std::get<CallExpr>(binary.left->node);
+		EXPECT_EQ(project.getType(itemCall.args[0].value.get()), Type::Enum);
+		EXPECT_EQ(project.getEnumType(itemCall.args[0].value.get()), "Item");
+		const auto& conditionCall = std::get<CallExpr>(binary.right->node);
+		EXPECT_EQ(project.getType(conditionCall.args[0].value.get()), Type::Condition);
+		EXPECT_EQ(std::get<Identifier>(conditionCall.args[0].value->node).kind,
+			IdentifierKind::FunctionRef);
+		const auto& param = project.ExternDefineDecls.at("defaulted")->params[0];
+		EXPECT_EQ(project.getType(&param), Type::Bool);
+		EXPECT_EQ(project.getType(param.defaultValue.get()), Type::Bool);
+		EXPECT_EQ(project.getType(findRegionEntry(project)), Type::Bool);
+		const auto* extension = project.ExtendRegionDecls.at("RR_TEST")[0];
+		EXPECT_EQ(project.getType(extension->sections[0].entries[0].condition.get()), Type::Bool);
+	}
+}
+
+TEST(ResolveTypes, FullyAnnotatedRecursiveCallsValidateParametersAndDefaults) {
+	auto [project, diags] = resolveFromSource(
+		"define first(n: Int = second(1)) -> Int: second(false)\n"
+		"define second(n: Int) -> Int: first(n)\n");
+	ASSERT_EQ(countErrors(diags), 1u);
+	EXPECT_NE(diags[0].message.find("argument"), std::string::npos);
+	for (const auto* name : {"first", "second"}) {
+		const auto* decl = project.DefineDecls.at(name);
+		EXPECT_EQ(project.getType(decl->body.get()), Type::Int);
+		EXPECT_EQ(project.getType(&decl->params[0]), Type::Int);
+	}
+	const auto* first = project.DefineDecls.at("first");
+	EXPECT_EQ(project.getType(first->params[0].defaultValue.get()), Type::Int);
+}
+
+TEST(ResolveTypes, AnnotatedRecursionStillInfersAndChecksParameters) {
+	auto [project, diags] = resolveFromSource(
+		"define recurse(n) -> Bool: n <= 0 ? true : recurse(false)\n");
+	EXPECT_EQ(countErrors(diags), 1u);
+	EXPECT_EQ(project.getType(&project.DefineDecls.at("recurse")->params[0]), Type::Int);
+}
+
+TEST(ResolveTypes, IndependentRecursiveComponentsResolveDespiteUninferableCycle) {
+	auto [project, diags] = resolveFromSource(
+		"define stuck(): stuck()\n"
+		"define good(n): n == 0 ? true : good(n - 1)\n"
+		"define caller(): good(1)\n");
+	ASSERT_EQ(countErrors(diags), 1u);
+	EXPECT_NE(diags[0].message.find("stuck"), std::string::npos);
+	EXPECT_EQ(project.getType(project.DefineDecls.at("good")->body.get()), Type::Bool);
+	EXPECT_EQ(project.getType(project.DefineDecls.at("caller")->body.get()), Type::Bool);
+	EXPECT_EQ(project.getType(&project.DefineDecls.at("good")->params[0]), Type::Int);
+}
+
+TEST(ResolveTypes, RecursiveComponentChecksPreviouslyResolvedCalleeParameters) {
+	auto [project, diags] = resolveFromSource(
+		"define base(value): value + 1\n"
+		"define first(n: Int): n == 0 ? base(false) : second(n - 1)\n"
+		"define second(n: Int): first(n)\n");
+	ASSERT_EQ(countErrors(diags), 1u);
+	EXPECT_NE(diags[0].message.find("argument"), std::string::npos);
+	EXPECT_EQ(project.getType(&project.DefineDecls.at("base")->params[0]), Type::Int);
+	EXPECT_EQ(project.getType(project.DefineDecls.at("first")->body.get()), Type::Int);
+	EXPECT_EQ(project.getType(project.DefineDecls.at("second")->body.get()), Type::Int);
+}
+
+TEST(ResolveTypes, AnnotationResolvesMutuallyRecursiveReturnTypes) {
+	auto [project, diags] = resolveFromSource(
+		"define first(n: Int) -> Int: second(n)\n"
+		"define second(n: Int): first(n)\n"
+		"region RR_TEST { locations { TEST_LOC: first(1) == 1 } }\n");
+	EXPECT_TRUE(diags.empty());
+	EXPECT_EQ(project.getType(project.DefineDecls.at("first")->body.get()), Type::Int);
+	EXPECT_EQ(project.getType(project.DefineDecls.at("second")->body.get()), Type::Int);
+}
+
+TEST(ResolveTypes, AnnotationPreservesRecursiveEnumIdentity) {
+	auto [project, diags] = resolveFromSource(
+		"define first() -> Item: second()\n"
+		"define second(): first()\n");
+	EXPECT_TRUE(diags.empty());
+	for (const auto* name : {"first", "second"}) {
+		const auto* body = project.DefineDecls.at(name)->body.get();
+		EXPECT_EQ(project.getType(body), Type::Enum);
+		EXPECT_EQ(project.getEnumType(body), "Item");
+	}
+}
+
+TEST(ResolveTypes, RecursiveReturnAnnotationsAreCheckedAgainstBodies) {
+	auto [project, diags] = resolveFromSource(
+		"define first() -> Item: second()\n"
+		"define second() -> Enemy: first()\n"
+		"define bad() -> Int: bad() == 0\n");
+	size_t mismatches = 0;
+	for (const auto& diag : diags) {
+		if (diag.code == "RLS-T043") ++mismatches;
+	}
+	EXPECT_EQ(mismatches, 3u);
+}
+
+TEST(ResolveTypes, AnnotatedRecursiveReferenceIsCondition) {
+	auto [project, diags] = resolveFromSource(
+		"define first() -> Bool: any_age(first)\n");
+	EXPECT_TRUE(diags.empty());
+	const auto* body = project.DefineDecls.at("first")->body.get();
+	const auto& call = std::get<CallExpr>(body->node);
+	EXPECT_EQ(project.getType(call.args[0].value.get()), Type::Condition);
+	EXPECT_EQ(std::get<Identifier>(call.args[0].value->node).kind, IdentifierKind::FunctionRef);
+}
+
+TEST(ResolveTypes, InvalidRecursiveReturnAnnotationIsDiagnosed) {
+	auto [project, diags] = resolveFromSource("define bad() -> Missing: bad()\n");
 	EXPECT_TRUE(std::any_of(diags.begin(), diags.end(), [](const auto& diag) {
-		return diag.code == "RLS-T039";
+		return diag.code == "RLS-T042";
 	}));
 }
 
@@ -1399,8 +1526,7 @@ TEST(ResolveTypes, DefineOrderingIndependentDefines) {
 	EXPECT_EQ(project.getType(project.DefineDecls.at("bar")->body.get()), Type::Int);
 }
 
-TEST(ResolveTypes, DefineCycleDetected) {
-	// Mutual recursion foo ↔ bar → cycle error.
+TEST(ResolveTypes, RecursiveReturnTypeRequiresEvidence) {
 	auto [project, diags] = resolveFromSource(
 		"define foo(): bar()\n"
 		"define bar(): foo()\n"
@@ -1410,17 +1536,102 @@ TEST(ResolveTypes, DefineCycleDetected) {
 		"    locations { TEST_LOC: true }\n"
 		"}\n");
 	EXPECT_GE(countErrors(diags), 1u);
-	bool foundCycle = false;
+	bool foundInferenceError = false;
 	for (const auto& d : diags) {
 		if (d.level == DiagnosticLevel::Error
-			&& d.message.find("cycle") != std::string::npos) {
-			foundCycle = true;
-			// The message should name the involved defines.
-			EXPECT_NE(d.message.find("foo"), std::string::npos);
-			EXPECT_NE(d.message.find("bar"), std::string::npos);
+			&& d.message.find("cannot infer return type") != std::string::npos) {
+			foundInferenceError = true;
 		}
 	}
-	EXPECT_TRUE(foundCycle);
+	EXPECT_TRUE(foundInferenceError);
+}
+
+TEST(ResolveTypes, RecursiveFunctionsResolveCallsAndParameters) {
+	auto [project, diags] = resolveFromSource(
+		"define first(n: Int): n == 0 ? true : second(n - 1)\n"
+		"define second(n: Int): first(n)\n"
+		"region RR_TEST { locations { TEST_LOC: second(2) } }\n");
+	EXPECT_TRUE(diags.empty());
+	for (const auto* name : {"first", "second"}) {
+		const auto* decl = project.DefineDecls.at(name);
+		EXPECT_EQ(project.getType(decl->body.get()), Type::Bool);
+		EXPECT_EQ(project.getType(&decl->params[0]), Type::Int);
+	}
+	EXPECT_EQ(project.getType(findRegionEntry(project)), Type::Bool);
+}
+
+TEST(ResolveTypes, RecursiveCallsAreTypeChecked) {
+	auto [project, diags] = resolveFromSource(
+		"define recurse(n: Int): n == 0 ? 1 : recurse(true)\n");
+	EXPECT_GT(countErrors(diags), 0u);
+}
+
+TEST(ResolveTypes, RecursiveBranchesAreTypeChecked) {
+	auto [project, diags] = resolveFromSource(
+		"define first(): true ? \"text\" : second()\n"
+		"define second(): first() + 1\n");
+	EXPECT_GT(countErrors(diags), 0u);
+}
+
+TEST(ResolveTypes, SelfRecursiveEnumReturnPreservesIdentity) {
+	auto [project, diags] = resolveFromSource(
+		"define pick(n: Int): n == 0 ? RG_HOOKSHOT : pick(n - 1)\n");
+	EXPECT_TRUE(diags.empty());
+	const auto* body = project.DefineDecls.at("pick")->body.get();
+	EXPECT_EQ(project.getType(body), Type::Enum);
+	EXPECT_EQ(project.getEnumType(body), "Item");
+	const auto& ternary = std::get<TernaryExpr>(body->node);
+	EXPECT_EQ(project.getEnumType(ternary.elseBranch.get()), "Item");
+}
+
+TEST(ResolveTypes, RecursiveEnumBaseInElseBranchPreservesIdentity) {
+	auto [project, diags] = resolveFromSource(
+		"define pick(n: Int): n > 0 ? pick(n - 1) : RG_HOOKSHOT\n");
+	EXPECT_TRUE(diags.empty());
+	const auto* body = project.DefineDecls.at("pick")->body.get();
+	EXPECT_EQ(project.getEnumType(body), "Item");
+	const auto& ternary = std::get<TernaryExpr>(body->node);
+	EXPECT_EQ(project.getEnumType(ternary.thenBranch.get()), "Item");
+}
+
+TEST(ResolveTypes, RecursiveParameterInferenceValidatesEarlierCalls) {
+	auto [project, diags] = resolveFromSource(
+		"define recurse(n): n <= 0 ? true : recurse(false)\n");
+	EXPECT_GT(countErrors(diags), 0u);
+	EXPECT_EQ(project.getType(&project.DefineDecls.at("recurse")->params[0]), Type::Int);
+}
+
+TEST(ResolveTypes, RecursiveFunctionReferenceIsResolvedAsCondition) {
+	auto [project, diags] = resolveFromSource(
+		"define recurse(): any_age(recurse) or true\n");
+	EXPECT_TRUE(diags.empty());
+	const auto* body = project.DefineDecls.at("recurse")->body.get();
+	const auto& binary = std::get<BinaryExpr>(body->node);
+	const auto& call = std::get<CallExpr>(binary.left->node);
+	EXPECT_EQ(project.getType(call.args[0].value.get()), Type::Condition);
+	EXPECT_EQ(std::get<Identifier>(call.args[0].value->node).kind, IdentifierKind::FunctionRef);
+}
+
+TEST(ResolveTypes, ParameterShadowingDoesNotCreateRecursion) {
+	auto [project, diags] = resolveFromSource(
+		"define recurse(recurse: Bool): recurse\n");
+	EXPECT_TRUE(diags.empty());
+	EXPECT_EQ(project.getType(project.DefineDecls.at("recurse")->body.get()), Type::Bool);
+}
+
+TEST(ResolveTypes, RecursiveDefaultExpansionIsDiagnosed) {
+	auto [project, diags] = resolveFromSource(
+		"define first(n: Int = second()): n\n"
+		"define second(n: Int = first()): n\n");
+	EXPECT_TRUE(std::any_of(diags.begin(), diags.end(), [](const auto& diag) {
+		return diag.code == "RLS-T041";
+	}));
+}
+
+TEST(ResolveTypes, ExplicitArgumentBreaksRecursiveDefaultExpansion) {
+	auto [project, diags] = resolveFromSource(
+		"define first(n: Int = first(1)): n\n");
+	EXPECT_TRUE(diags.empty());
 }
 
 TEST(ResolveTypes, DefineOrderingDefaultValueDep) {

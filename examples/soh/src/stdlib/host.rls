@@ -29,7 +29,6 @@ enum WaterLevel {
 }
 
 extern define has(item: Item) -> Bool
-extern define can_use(item: Item) -> Bool
 extern define flag(key: Event) -> Bool
 extern define setting(key: Setting) -> Int
 extern define trick(key: Trick) -> Bool
@@ -49,3 +48,4 @@ extern define spirit_shared(
     first_region: Region, first_condition: Condition, any_age: Bool = false,
     second_region: Region = RR_NONE, second_condition: Condition = false,
     third_region: Region = RR_NONE, third_condition: Condition = false) -> Bool
+extern define bombchus_enabled() -> Bool

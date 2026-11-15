@@ -82,3 +82,103 @@ define can_shield():
 
 define can_standing_shield():
 	can_use(RG_MIRROR_SHIELD) or (is_adult() and has(RG_HYLIAN_SHIELD)) or can_use(RG_DEKU_SHIELD)
+
+define bombchu_refill():
+	flag(LOGIC_BUY_BOMBCHUS) or flag(LOGIC_COULD_PLAY_BOWLING) or flag(LOGIC_CARPET_MERCHANT) or
+	setting(RSK_ENABLE_BOMBCHU_DROPS) is RO_AMMO_DROPS_ON
+
+define can_use(item: Item):
+	has(item) and
+	match item {
+		# Magic items
+		RG_MAGIC_SINGLE:  true # AmmoCanDrop or (has_bottle() and flag(LOGIC_BUY_MAGIC_POTION))
+		RG_DINS_FIRE or
+		RG_FARORES_WIND or
+		RG_NAYRUS_LOVE or
+		RG_LENS_OF_TRUTH: can_use(RG_MAGIC_SINGLE)
+		RG_FIRE_ARROWS or
+		RG_ICE_ARROWS or
+		RG_LIGHT_ARROWS:  can_use(RG_MAGIC_SINGLE) and can_use(RG_FAIRY_BOW)
+
+		# Adult items
+		# TODO: Uncomment those if we ever implement more item usability settings
+		RG_FAIRY_BOW:        is_adult() # or BowAsChild and (AmmoCanDrop or flag(LOGIC_BUY_ARROW))
+		RG_MEGATON_HAMMER:   is_adult() # or HammerAsChild
+		RG_IRON_BOOTS:       is_adult() # or IronBootsAsChild
+		RG_HOVER_BOOTS:      is_adult() # or HoverBootsAsChild
+		RG_HOOKSHOT or
+		RG_LONGSHOT:         is_adult() # or HookshotAsChild
+		RG_GORON_TUNIC:      is_adult() # or GoronTunicAsChild
+		RG_ZORA_TUNIC:       is_adult() # or ZoraTunicAsChild
+		RG_MIRROR_SHIELD:    is_adult() # or MirrorShieldAsChild
+		RG_MASTER_SWORD:     is_adult() # or MasterSwordAsChild
+		RG_GIANTS_KNIFE or
+		RG_BIGGORON_SWORD:   is_adult() # or BiggoronSwordAsChild
+		RG_SILVER_GAUNTLETS or
+		RG_GOLDEN_GAUNTLETS: is_adult()
+
+		# Adult Trade
+		RG_POCKET_EGG or
+		RG_COJIRO or
+		RG_ODD_MUSHROOM or
+		RG_ODD_POTION or
+		RG_POACHERS_SAW or
+		RG_BROKEN_SWORD or
+		RG_PRESCRIPTION or
+		RG_EYEBALL_FROG or
+		RG_EYEDROPS or
+		RG_CLAIM_CHECK: is_adult()
+
+		# Child items
+		RG_FAIRY_SLINGSHOT:        is_child() # or SlingshotAsAdult and (AmmoCanDrop or flag(LOGIC_LOGIC_BUY_SEED))
+		RG_BOOMERANG:              is_child() # or BoomerangAsAdult
+		RG_KOKIRI_SWORD:           is_child() # or KokiriSwordAsAdult
+		RG_NUTS:                   flag(LOGIC_NUT_ACCESS)
+		RG_STICKS:                 is_child() and # or StickAsAdult
+		                           flag(LOGIC_STICK_ACCESS)
+		RG_DEKU_SHIELD:            is_child() # or DekuShieldAsAdult
+		RG_PROGRESSIVE_BOMB_BAG or
+		RG_BOMB_BAG:               true # AmmoCanDrop or flag(LOGIC_BUY_BOMB)
+		RG_PROGRESSIVE_BOMBCHU_BAG or
+		RG_BOMBCHU_5 or
+		RG_BOMBCHU_10 or
+		RG_BOMBCHU_20:             bombchu_refill() and bombchus_enabled()
+		RG_WEIRD_EGG or
+		RG_RUTOS_LETTER:           is_child()
+		RG_MAGIC_BEAN:             is_child()
+		RG_SKULL_MASK or
+		RG_MASK_OF_TRUTH:          is_child()
+
+		# Songs
+		RG_ZELDAS_LULLABY or
+		RG_EPONAS_SONG or
+		RG_PRELUDE_OF_LIGHT:   has(RG_FAIRY_OCARINA) and has(RG_OCARINA_C_LEFT_BUTTON) and
+		                       has(RG_OCARINA_C_RIGHT_BUTTON) and has(RG_OCARINA_C_UP_BUTTON)
+		RG_SARIAS_SONG:        has(RG_FAIRY_OCARINA) and has(RG_OCARINA_C_LEFT_BUTTON) and
+		                       has(RG_OCARINA_C_RIGHT_BUTTON) and has(RG_OCARINA_C_DOWN_BUTTON)
+		RG_SUNS_SONG:          has(RG_FAIRY_OCARINA) and has(RG_OCARINA_C_RIGHT_BUTTON) and
+		                       has(RG_OCARINA_C_UP_BUTTON) and has(RG_OCARINA_C_DOWN_BUTTON)
+		RG_SONG_OF_TIME or
+		RG_BOLERO_OF_FIRE or
+		RG_REQUIEM_OF_SPIRIT:  has(RG_FAIRY_OCARINA) and has(RG_OCARINA_A_BUTTON) and
+		                       has(RG_OCARINA_C_RIGHT_BUTTON) and has(RG_OCARINA_C_DOWN_BUTTON)
+		RG_SONG_OF_STORMS:     has(RG_FAIRY_OCARINA) and has(RG_OCARINA_A_BUTTON) and
+			                   has(RG_OCARINA_C_UP_BUTTON) and has(RG_OCARINA_C_DOWN_BUTTON)
+		RG_MINUET_OF_FOREST:   has(RG_FAIRY_OCARINA) and has(RG_OCARINA_A_BUTTON) and has(RG_OCARINA_C_LEFT_BUTTON) and
+		                       has(RG_OCARINA_C_RIGHT_BUTTON) and has(RG_OCARINA_C_UP_BUTTON)
+		RG_SERENADE_OF_WATER or
+		RG_NOCTURNE_OF_SHADOW: has(RG_FAIRY_OCARINA) and has(RG_OCARINA_A_BUTTON) and has(RG_OCARINA_C_LEFT_BUTTON) and
+		                       has(RG_OCARINA_C_RIGHT_BUTTON) and has(RG_OCARINA_C_DOWN_BUTTON)
+
+		# Misc. Items
+		RG_FISHING_POLE: has(RG_CHILD_WALLET) # as long as you have enough rubies
+		RG_CRAWL:        is_child()
+
+		# Bottle Items
+		RG_BOTTLE_WITH_BUGS:      flag(LOGIC_BUG_ACCESS)
+		RG_BOTTLE_WITH_FISH:      flag(LOGIC_FISH_ACCESS)
+		RG_BOTTLE_WITH_BLUE_FIRE: flag(LOGIC_BLUE_FIRE_ACCESS)
+		RG_BOTTLE_WITH_FAIRY:     flag(LOGIC_FAIRY_ACCESS)
+
+		_: true
+	}

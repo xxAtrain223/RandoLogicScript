@@ -23,6 +23,7 @@ enum class WaterLevel : int {
 bool _can_get_drop_gold_skulltula(const EnemyDistance distance);
 bool _can_kill_gold_skulltula(const EnemyDistance distance, const bool wall_or_floor);
 bool blast_or_smash();
+bool bombchu_refill();
 bool call_gossip_fairy();
 bool call_gossip_fairy_except_suns();
 bool can_avoid(const RandomizerEnemy e, const bool grounded = false, const int quantity = 1);
@@ -45,6 +46,7 @@ bool can_reflect_nuts();
 bool can_shield();
 bool can_spawn_soil_skull(const RandomizerGet bean);
 bool can_standing_shield();
+bool can_use(const RandomizerGet item);
 bool can_use_sword();
 int distance_to_int(const EnemyDistance distance);
 bool has_bottle();

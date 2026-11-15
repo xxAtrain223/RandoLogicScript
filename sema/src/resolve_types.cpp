@@ -125,6 +125,13 @@ using Scope = std::unordered_map<std::string, std::optional<ast::Type>>;
 /// Maps parameter names to enum identity when parameter type is Enum.
 using EnumIdentityScope = std::unordered_map<std::string, std::optional<std::string>>;
 
+struct DefineType {
+	ast::Type type;
+	std::optional<std::string> enumName;
+	bool operator==(const DefineType&) const = default;
+};
+using DefineTypes = std::unordered_map<std::string, DefineType>;
+
 // == Step 3: Bottom-up expression typing =====================================
 
 /// Visitor that resolves and type-checks all expression nodes.
@@ -136,8 +143,23 @@ struct ExprResolver {
 	EnumIdentityScope& enumScope;
 	std::vector<ast::Diagnostic>& diags;
 	std::optional<ast::Name> currentRegion; // Set when resolving region/extend-region entries.
+	const DefineTypes* defineTypes = nullptr;
 
 	using T = ast::Type;
+
+	std::optional<DefineType> getDefineType(const ast::DefineDecl& def) const {
+		if (defineTypes) {
+			if (auto hint = defineTypes->find(def.name.text); hint != defineTypes->end()) {
+				return hint->second;
+			}
+		}
+		if (auto type = project.getType(def.body.get())) {
+			auto identity = project.getEnumType(def.body.get());
+			return DefineType{*type,
+				identity ? std::optional<std::string>(*identity) : std::nullopt};
+		}
+		return std::nullopt;
+	}
 
 	struct ArgBindingResult {
 		std::vector<std::optional<size_t>> argToParam;
@@ -213,15 +235,15 @@ struct ExprResolver {
 				return ast::Type::Error;
 			}
 
-			auto bodyType = project.getType(def->body.get());
+			auto bodyType = getDefineType(*def);
 			if (!bodyType.has_value()) {
 				diags.push_back(diagnostics::FunctionReferenceTypeUnavailable(expr.span, node.name.text));
 				return ast::Type::Error;
 			}
 
 			// TODO: Bool-Return-Type Constraint — only () -> Bool functions become Condition.
-			if (*bodyType != ast::Type::Bool) {
-				diags.push_back(diagnostics::FunctionCannotBeCondition(expr.span, node.name.text, typeName(*bodyType)));
+			if (bodyType->type != ast::Type::Bool) {
+				diags.push_back(diagnostics::FunctionCannotBeCondition(expr.span, node.name.text, typeName(bodyType->type)));
 				return ast::Type::Error;
 			}
 
@@ -432,8 +454,16 @@ struct ExprResolver {
 		}
 
 		// Determine result type from branches.
-		if (thenType == T::Error) return elseType == T::Error ? T::Error : elseType;
-		if (elseType == T::Error) return thenType;
+		if (thenType == T::Error || elseType == T::Error) {
+			const auto& knownBranch = thenType == T::Error ? node.elseBranch : node.thenBranch;
+			const auto knownType = thenType == T::Error ? elseType : thenType;
+			if (knownType == T::Enum) {
+				if (auto identity = project.getEnumType(knownBranch.get())) {
+					project.setEnumType(&expr, std::string(*identity));
+				}
+			}
+			return knownType;
+		}
 
 		if (thenType == elseType) {
 			if (thenType == T::Enum) {
@@ -443,8 +473,8 @@ struct ExprResolver {
 					diags.push_back(diagnostics::TernaryEnumMismatch(expr.span, *thenEnum, *elseEnum));
 					return T::Error;
 				}
-				if (thenEnum.has_value()) {
-					project.setEnumType(&expr, std::string(*thenEnum));
+				if (thenEnum.has_value() || elseEnum.has_value()) {
+					project.setEnumType(&expr, std::string(thenEnum ? *thenEnum : *elseEnum));
 				}
 			}
 			return thenType;
@@ -825,14 +855,11 @@ struct ExprResolver {
 						[&](size_t i) { return def.params[i].defaultValue.get(); }));
 			}
 
-			// Return the define's body type if available.
-			if (auto bodyType = project.getType(def.body.get())) {
-				if (*bodyType == T::Enum) {
-					if (auto enumName = project.getEnumType(def.body.get()); enumName.has_value()) {
-						project.setEnumType(&expr, std::string(*enumName));
-					}
+			if (auto returnType = getDefineType(def)) {
+				if (returnType->enumName) {
+					project.setEnumType(&expr, *returnType->enumName);
 				}
-				return *bodyType;
+				return returnType->type;
 			}
 			// Body not yet resolved — proper ordering in Step 7.
 			return T::Error;
@@ -1091,53 +1118,61 @@ static void collectDefineCalls(
 	}, expr.node);
 }
 
-/// DFS helper for topological sort. Post-order traversal ensures callees
-/// appear before callers in the output.
-/// When a back edge is found, extracts the cycle from the path stack.
+struct DefineComponent {
+	std::vector<std::string> names;
+	bool recursive;
+};
+
+/// Tarjan traversal puts callee components before their callers.
 static void topoSortDfs(
 	const std::string& name,
 	const std::unordered_map<std::string, std::unordered_set<std::string>>& callees,
-	std::unordered_map<std::string, int>& marks,
-	std::vector<std::string>& order,
-	std::vector<std::string>& path,
-	std::vector<std::vector<std::string>>& cycles)
+	std::unordered_map<std::string, int>& indices,
+	std::unordered_map<std::string, int>& lowlinks,
+	std::unordered_set<std::string>& onStack,
+	int& nextIndex,
+	std::vector<DefineComponent>& order,
+	std::vector<std::string>& stack)
 {
-	if (marks[name] == 2) return;       // Perm — already processed
-	if (marks[name] == 1) {             // Temp — back edge = cycle
-		// Extract just the cycle portion from the path.
-		std::vector<std::string> cycle;
-		for (auto it = path.rbegin(); it != path.rend(); ++it) {
-			cycle.push_back(*it);
-			if (*it == name) break;
-		}
-		std::reverse(cycle.begin(), cycle.end());
-		cycles.push_back(std::move(cycle));
-		return;
-	}
-	marks[name] = 1;
-	path.push_back(name);
+	indices[name] = lowlinks[name] = nextIndex++;
+	stack.push_back(name);
+	onStack.insert(name);
 	if (auto it = callees.find(name); it != callees.end()) {
 		for (const auto& callee : it->second) {
-			topoSortDfs(callee, callees, marks, order, path, cycles);
+			if (!indices.contains(callee)) {
+				topoSortDfs(callee, callees, indices, lowlinks, onStack, nextIndex,
+					order, stack);
+				lowlinks[name] = std::min(lowlinks[name], lowlinks[callee]);
+			} else if (onStack.contains(callee)) {
+				lowlinks[name] = std::min(lowlinks[name], indices[callee]);
+			}
 		}
 	}
-	path.pop_back();
-	marks[name] = 2;
-	order.push_back(name);
+	if (lowlinks[name] != indices[name]) return;
+	std::vector<std::string> component;
+	do {
+		component.push_back(stack.back());
+		onStack.erase(stack.back());
+		stack.pop_back();
+	} while (component.back() != name);
+	const auto it = callees.find(name);
+	const bool recursive = component.size() > 1
+		|| (it != callees.end() && it->second.contains(name));
+	order.push_back({std::move(component), recursive});
 }
 
 /// Topologically sort defines by their call graph.
-/// Returns define names in dependency order: callees before callers.
-/// Emits an error diagnostic if a cycle is detected.
-static std::vector<std::string> topoSortDefines(
-	const std::map<std::string, const ast::DefineDecl*>& defines,
-	std::vector<ast::Diagnostic>& diags)
+/// Returns components in dependency order: callees before callers.
+static std::vector<DefineComponent> topoSortDefines(
+	const std::map<std::string, const ast::DefineDecl*>& defines)
 {
 	// Build call graph: name → set of defines it calls.
 	std::unordered_map<std::string, std::unordered_set<std::string>> callees;
 	for (const auto& [name, decl] : defines) {
 		auto& calls = callees[name];
-		collectDefineCalls(*decl->body, defines, calls);
+		auto visibleDefines = defines;
+		for (const auto& param : decl->params) visibleDefines.erase(param.name.text);
+		collectDefineCalls(*decl->body, visibleDefines, calls);
 		for (const auto& param : decl->params) {
 			if (param.defaultValue) {
 				collectDefineCalls(*param.defaultValue, defines, calls);
@@ -1145,30 +1180,16 @@ static std::vector<std::string> topoSortDefines(
 		}
 	}
 
-	// DFS-based topological sort with cycle detection.
-	std::unordered_map<std::string, int> marks;
+	std::unordered_map<std::string, int> indices, lowlinks;
+	std::unordered_set<std::string> onStack;
+	int nextIndex = 0;
+	std::vector<DefineComponent> order;
+	std::vector<std::string> stack;
 	for (const auto& [name, _] : defines) {
-		marks[name] = 0;
-	}
-
-	std::vector<std::string> order;
-	std::vector<std::string> path;
-	std::vector<std::vector<std::string>> cycles;
-	for (const auto& [name, _] : defines) {
-		if (marks[name] == 0) {
-			topoSortDfs(name, callees, marks, order, path, cycles);
+		if (!indices.contains(name)) {
+			topoSortDfs(name, callees, indices, lowlinks, onStack, nextIndex,
+				order, stack);
 		}
-	}
-
-	for (const auto& cycle : cycles) {
-		std::string names = cycle.front();
-		for (size_t i = 1; i < cycle.size(); ++i) {
-			names += " -> ";
-			names += cycle[i];
-		}
-		names += " -> ";
-		names += cycle.front();
-		diags.push_back(diagnostics::DefineCycle({}, names));
 	}
 
 	return order;
@@ -1176,12 +1197,8 @@ static std::vector<std::string> topoSortDefines(
 
 // == Top-level walk ===========================================================
 
-std::vector<ast::Diagnostic> resolveTypes(ast::Project& project) {
-	std::vector<ast::Diagnostic> diags;
-
-	// Resolve define bodies in dependency order (callees first).
-	auto defineOrder = topoSortDefines(project.DefineDecls, diags);
-
+static void resolveDefines(ast::Project& project, const std::vector<std::string>& defineOrder,
+	std::vector<ast::Diagnostic>& diags, const DefineTypes* defineTypes) {
 	for (const auto& name : defineOrder) {
 		const auto* decl = project.DefineDecls.at(name);
 		Scope scope;
@@ -1206,6 +1223,7 @@ std::vector<ast::Diagnostic> resolveTypes(ast::Project& project) {
 				Scope noScope;
 				EnumIdentityScope noEnumScope;
 				ExprResolver defaultResolver{project, noScope, noEnumScope, diags};
+				defaultResolver.defineTypes = defineTypes;
 				auto resolvedDefaultType =
 					defaultResolver.resolveExpr(*param.defaultValue);
 				if (resolvedDefaultType != ast::Type::Error) {
@@ -1246,11 +1264,16 @@ std::vector<ast::Diagnostic> resolveTypes(ast::Project& project) {
 			} else {
 				// No annotation, no default — type unknown
 				// until body-usage inference.
-				scope[param.name.text] = std::nullopt;
-				enumScope[param.name.text] = std::nullopt;
+				scope[param.name.text] = project.getType(&param);
+				if (auto identity = project.getEnumType(&param)) {
+					enumScope[param.name.text] = std::string(*identity);
+				} else {
+					enumScope[param.name.text] = std::nullopt;
+				}
 			}
 		}
 		ExprResolver resolver{project, scope, enumScope, diags};
+		resolver.defineTypes = defineTypes;
 		std::optional<ResolvedTypeAnnotation> returnAnnotation;
 		if (decl->returnType) {
 			returnAnnotation = resolveTypeAnnotation(project, decl->returnType->name.text);
@@ -1293,6 +1316,161 @@ std::vector<ast::Diagnostic> resolveTypes(ast::Project& project) {
 			}
 		}
 	}
+}
+
+static void checkDefaultExpansion(const ast::Project& project, const ast::Expr& expr,
+	std::unordered_map<const ast::Expr*, int>& marks, std::vector<ast::Diagnostic>& diags)
+{
+	auto& mark = marks[&expr];
+	if (mark == 2) return;
+	if (mark == 1) {
+		diags.push_back(diagnostics::RecursiveDefaultArgument(expr.span));
+		return;
+	}
+	mark = 1;
+	auto visit = [&](const ast::Expr& child) { checkDefaultExpansion(project, child, marks, diags); };
+	std::visit([&](const auto& node) {
+		using N = std::decay_t<decltype(node)>;
+		if constexpr (std::is_same_v<N, ast::UnaryExpr>) {
+			visit(*node.operand);
+		} else if constexpr (std::is_same_v<N, ast::BinaryExpr>) {
+			visit(*node.left);
+			visit(*node.right);
+		} else if constexpr (std::is_same_v<N, ast::TernaryExpr>) {
+			visit(*node.condition);
+			visit(*node.thenBranch);
+			visit(*node.elseBranch);
+		} else if constexpr (std::is_same_v<N, ast::CallExpr>) {
+			if (const auto* args = project.getResolvedCallArgs(&node)) {
+				for (const auto* arg : *args) if (arg) visit(*arg);
+			} else {
+				for (const auto& arg : node.args) visit(*arg.value);
+			}
+		} else if constexpr (std::is_same_v<N, ast::InvokeExpr>) {
+			visit(*node.callee);
+		} else if constexpr (std::is_same_v<N, ast::MatchExpr>) {
+			visit(*node.discriminant);
+			for (const auto& arm : node.arms) {
+				for (const auto& pattern : arm.patterns) visit(*pattern);
+				visit(*arm.body);
+			}
+		} else if constexpr (std::is_same_v<N, ast::ListExpr>) {
+			for (const auto& element : node.elements) visit(*element);
+		}
+	}, expr.node);
+	marks[&expr] = 2;
+}
+
+std::vector<ast::Diagnostic> resolveTypes(ast::Project& project) {
+	std::vector<ast::Diagnostic> diags;
+
+	auto components = topoSortDefines(project.DefineDecls);
+	DefineTypes annotatedTypes;
+	std::unordered_map<const ast::Param*, DefineType> parameterTypes;
+	for (const auto& [name, decl] : project.DefineDecls) {
+		if (decl->returnType) {
+			if (auto annotation = resolveTypeAnnotation(project, decl->returnType->name.text)) {
+				annotatedTypes.emplace(name, DefineType{annotation->type,
+					annotation->enumName ? std::optional<std::string>(*annotation->enumName) : std::nullopt});
+			}
+		}
+		for (const auto& param : decl->params) {
+			if (!param.type) continue;
+			if (auto annotation = resolveTypeAnnotation(project, param.type->name.text)) {
+				parameterTypes.emplace(&param, DefineType{annotation->type,
+					annotation->enumName ? std::optional<std::string>(*annotation->enumName) : std::nullopt});
+				project.setType(&param, annotation->type);
+				if (annotation->enumName) project.setEnumType(&param, std::string(*annotation->enumName));
+			}
+		}
+	}
+	DefineTypes defineTypes = annotatedTypes;
+	for (const auto& component : components) {
+		bool fullyAnnotated = true;
+		size_t parameterCount = 0;
+		for (const auto& name : component.names) {
+			fullyAnnotated &= annotatedTypes.contains(name);
+			for (const auto& param : project.DefineDecls.at(name)->params) {
+				++parameterCount;
+				auto it = parameterTypes.find(&param);
+				fullyAnnotated &= it != parameterTypes.end()
+					&& (it->second.type != ast::Type::Enum || it->second.enumName.has_value());
+			}
+		}
+		bool converged = false;
+		// Only recursive components with missing signature facts need repeated
+		// inference. The final pass still checks every body and argument.
+		for (size_t pass = 0; component.recursive && !fullyAnnotated
+			&& pass <= (component.names.size() + parameterCount) * 2 + 1; ++pass) {
+			ast::Project scratch;
+			scratch.DefineDecls = project.DefineDecls;
+			scratch.ExternDefineDecls = project.ExternDefineDecls;
+			scratch.EnumInfos = project.EnumInfos;
+			scratch.RegionDecls = project.RegionDecls;
+			scratch.EventDecls = project.EventDecls;
+			scratch.LocationDecls = project.LocationDecls;
+			for (const auto& [param, type] : parameterTypes) {
+				scratch.setType(param, type.type);
+				if (type.enumName) scratch.setEnumType(param, *type.enumName);
+			}
+			std::vector<ast::Diagnostic> ignored;
+			resolveDefines(scratch, component.names, ignored, &defineTypes);
+			DefineTypes nextTypes = defineTypes;
+			auto nextParams = parameterTypes;
+			for (const auto& name : component.names) {
+				const auto* decl = project.DefineDecls.at(name);
+				if (!annotatedTypes.contains(name)) nextTypes.erase(name);
+				if (auto type = scratch.getType(decl->body.get()); type && *type != ast::Type::Error) {
+					auto identity = scratch.getEnumType(decl->body.get());
+					nextTypes.emplace(name, DefineType{*type,
+						identity ? std::optional<std::string>(*identity) : std::nullopt});
+				}
+				for (const auto& param : decl->params) {
+					if (auto type = scratch.getType(&param); type && *type != ast::Type::Error) {
+						auto identity = scratch.getEnumType(&param);
+						nextParams.insert_or_assign(&param, DefineType{*type,
+							identity ? std::optional<std::string>(*identity) : std::nullopt});
+					}
+				}
+			}
+			if (nextTypes == defineTypes && nextParams == parameterTypes) {
+				converged = true;
+				break;
+			}
+			defineTypes = std::move(nextTypes);
+			parameterTypes = std::move(nextParams);
+		}
+		for (const auto& name : component.names) {
+			const auto* decl = project.DefineDecls.at(name);
+			for (const auto& param : decl->params) {
+				if (auto it = parameterTypes.find(&param); it != parameterTypes.end()) {
+					project.setType(&param, it->second.type);
+					if (it->second.enumName) project.setEnumType(&param, *it->second.enumName);
+				}
+			}
+			if (component.recursive && !fullyAnnotated
+				&& (!converged || !defineTypes.contains(name))) {
+				diags.push_back(diagnostics::RecursiveReturnTypeUnavailable(
+					decl->span, name));
+			}
+		}
+		resolveDefines(project, component.names, diags, &defineTypes);
+		for (const auto& name : component.names) {
+			const auto* decl = project.DefineDecls.at(name);
+			if (auto type = project.getType(decl->body.get()); type && *type != ast::Type::Error) {
+				auto identity = project.getEnumType(decl->body.get());
+				defineTypes.emplace(name, DefineType{*type,
+					identity ? std::optional<std::string>(*identity) : std::nullopt});
+			}
+			for (const auto& param : decl->params) {
+				if (auto type = project.getType(&param); type && *type != ast::Type::Error) {
+					auto identity = project.getEnumType(&param);
+					parameterTypes.insert_or_assign(&param, DefineType{*type,
+						identity ? std::optional<std::string>(*identity) : std::nullopt});
+				}
+			}
+		}
+	}
 
 	// Resolve extern define parameter annotations/defaults.
 	for (const auto& [name, decl] : project.ExternDefineDecls) {
@@ -1315,6 +1493,7 @@ std::vector<ast::Diagnostic> resolveTypes(ast::Project& project) {
 				Scope noScope;
 				EnumIdentityScope noEnumScope;
 				ExprResolver defaultResolver{project, noScope, noEnumScope, diags};
+				defaultResolver.defineTypes = &defineTypes;
 				auto resolvedDefaultType =
 					defaultResolver.resolveExpr(*param.defaultValue);
 				if (resolvedDefaultType != ast::Type::Error) {
@@ -1343,12 +1522,26 @@ std::vector<ast::Diagnostic> resolveTypes(ast::Project& project) {
 		}
 	}
 
+	std::unordered_map<const ast::Expr*, int> defaultMarks;
+	auto checkDefaults = [&](const auto& declarations) {
+		for (const auto& [name, decl] : declarations) {
+			for (const auto& param : decl->params) {
+				if (param.defaultValue) {
+					checkDefaultExpansion(project, *param.defaultValue, defaultMarks, diags);
+				}
+			}
+		}
+	};
+	checkDefaults(project.DefineDecls);
+	checkDefaults(project.ExternDefineDecls);
+
 	// Resolve region entry conditions.
 	{
 		for (auto& [name, decl] : project.RegionDecls) {
 			Scope regionScope;
 			EnumIdentityScope regionEnumScope;
 			ExprResolver resolver{project, regionScope, regionEnumScope, diags};
+			resolver.defineTypes = &defineTypes;
 			resolver.currentRegion = decl->key;
 			for (auto& data : decl->body.data) {
 				resolver.resolveExpr(*data.value);
@@ -1368,6 +1561,7 @@ std::vector<ast::Diagnostic> resolveTypes(ast::Project& project) {
 				Scope extendScope;
 				EnumIdentityScope extendEnumScope;
 				ExprResolver resolver{project, extendScope, extendEnumScope, diags};
+				resolver.defineTypes = &defineTypes;
 				resolver.currentRegion = ast::Name(name);
 				for (const auto& section : decl->sections) {
 					for (const auto& entry : section.entries) {

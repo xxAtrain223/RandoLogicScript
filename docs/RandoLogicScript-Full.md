@@ -368,13 +368,29 @@ These are **pure** - no side effects, no mutation. The transpiler always generat
 Parameters and return types may be annotated. A return annotation is optional;
 without one, the body determines the return type. With one, the body must have
 the declared type (and the same enum identity for a named enum); implicit
-argument conversions do not apply to the return value. Return annotations do
-not currently enable recursive function definitions.
+argument conversions do not apply to the return value.
+Calls and function references use the declared return type when present,
+including outside recursive definitions; the body is checked independently
+against that declaration.
 
 ```rls
 define has_item(item: Item) -> Bool: has(item)
 define identity(item: Item) -> Item: item
 ```
+
+Functions may call themselves or each other. Their return types must be inferable
+from their expressions or declared with a return annotation:
+
+```rls
+define countdown(n: Int) -> Bool:
+    n <= 0 ? true : countdown(n - 1)
+```
+
+Recursive calls are evaluated at runtime; authors must provide a terminating
+case. A cycle without enough return type information is an error. An annotation
+can supply that information, but does not guarantee termination.
+Omitted default arguments must not recursively expand into themselves; pass an
+explicit argument to break such a default-argument cycle.
 
 ### 4.5 Ternary / Conditional Expressions
 

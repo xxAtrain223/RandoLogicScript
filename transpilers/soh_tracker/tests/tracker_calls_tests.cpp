@@ -395,7 +395,7 @@ TEST_F(SohTrackerCalls, RegistersSyntheticSelfAndMutualDefinitionsBeforeTheirBod
 			(mutual ? "define second(): first()\n" : "") +
 			"region RR_TEST { locations { RC_TEST: first() } }\n");
 		ASSERT_FALSE(HasFatalFailure());
-		// Sema still rejects recursion. Supply established facts only for this architecture fixture.
+		// Supply established facts for recursion without a type-inference base case.
 		for (const auto& declaration : project.files[0].declarations) {
 			if (const auto* helper = std::get_if<ast::DefineDecl>(&declaration)) {
 				project.DefineDecls.emplace(helper->name.text, helper);
@@ -428,6 +428,73 @@ TEST_F(SohTrackerCalls, RegistersSyntheticSelfAndMutualDefinitionsBeforeTheirBod
 		ASSERT_TRUE(EmitArtifacts(project, graph, writerAgain, sourceRoot).empty());
 		EXPECT_EQ(artifacts, writerAgain.capture());
 	}
+}
+
+TEST_F(SohTrackerCalls, LowersAnalyzedSelfAndMutualRecursion) {
+	for (const bool mutual : {false, true}) {
+		SCOPED_TRACE(mutual);
+		project = {};
+		graph = {};
+		parse(std::string("define first(n: Int): n <= 0 ? true : ") +
+			(mutual ? "second(n - 1)\n" : "first(n - 1)\n") +
+			(mutual ? "define second(n: Int): first(n)\n" : "") +
+			"region RR_TEST { locations { RC_TEST: first(2) } }\n");
+		ASSERT_FALSE(HasFatalFailure());
+		analyze();
+		ASSERT_FALSE(HasFatalFailure());
+		ASSERT_TRUE(lower());
+		EXPECT_EQ(graph.helpers.size(), mutual ? 2 : 1);
+		expectFullyReachable();
+		test::MemoryWriter writer;
+		EXPECT_TRUE(EmitArtifacts(project, graph, writer, sourceRoot).empty());
+	}
+}
+
+TEST_F(SohTrackerCalls, LowersMutualRecursionWithAnnotatedReturnType) {
+	parse(
+		"define first(n: Int) -> Bool: second(n)\n"
+		"define second(n: Int): first(n)\n"
+		"region RR_TEST { locations { RC_TEST: first(2) } }\n");
+	ASSERT_FALSE(HasFatalFailure());
+	analyze();
+	ASSERT_FALSE(HasFatalFailure());
+	ASSERT_TRUE(lower());
+	EXPECT_EQ(graph.helpers.size(), 2);
+	expectFullyReachable();
+	test::MemoryWriter writer;
+	EXPECT_TRUE(EmitArtifacts(project, graph, writer, sourceRoot).empty());
+}
+
+TEST_F(SohTrackerCalls, LowersRecursiveCallsInsideMatchArms) {
+	parse(
+		"extern enum Item { RG_* }\n"
+		"extern define has(item: Item) -> Bool\n"
+		"define can_use(item: Item): has(item) and match item {\n"
+		"  RG_MAGIC: true\n"
+		"  RG_SPELL: can_use(RG_MAGIC)\n"
+		"  _: true\n"
+		"}\n"
+		"region RR_TEST { locations { RC_TEST: can_use(RG_SPELL) } }\n");
+	ASSERT_FALSE(HasFatalFailure());
+	analyze();
+	ASSERT_FALSE(HasFatalFailure());
+	ASSERT_TRUE(lower());
+	ASSERT_EQ(graph.helpers.size(), 1);
+	expectFullyReachable();
+	test::MemoryWriter writer;
+	EXPECT_TRUE(EmitArtifacts(project, graph, writer, sourceRoot).empty());
+}
+
+TEST_F(SohTrackerCalls, LowersExplicitlyTerminatedRecursiveDefaultExpansion) {
+	parse(
+		"define first(n: Int = first(0)): n <= 0 ? 1 : first()\n"
+		"region RR_TEST { locations { RC_TEST: first() == 1 } }\n");
+	ASSERT_FALSE(HasFatalFailure());
+	analyze();
+	ASSERT_FALSE(HasFatalFailure());
+	ASSERT_TRUE(lower());
+	EXPECT_EQ(graph.helpers.size(), 1);
+	expectFullyReachable();
 }
 
 TEST_F(SohTrackerCalls, ChecksTheExactParameterPositionLimitDuringLowering) {

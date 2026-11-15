@@ -3,7 +3,9 @@
 # Any logic changes should be handled in RLS and/or the soh_ap transpiler
 from typing import TYPE_CHECKING
 
+from .enums_gen import Events
 from ..LogicHelpers import (
+    RSK_ENABLE_BOMBCHU_DROPS,
     RSK_SKULLS_SUNS_SONG,
     RSK_SLINGBOW_BREAK_BEEHIVES,
     Enemies,
@@ -11,11 +13,12 @@ from ..LogicHelpers import (
     False_,
     Items,
     OptionFilter,
+    RandomizerSettingKey,
     Tricks,
     True_,
     at_night,
+    bombchus_enabled,
     can_do_trick,
-    can_use,
     has_bottle_count,
     has_item,
     is_adult,
@@ -37,6 +40,9 @@ def _can_kill_gold_skulltula(bundle, distance: EnemyDistance, wall_or_floor: boo
 
 def blast_or_smash(bundle) -> bool:
     return has_explosives(bundle) | can_use(bundle, Items.RG_MEGATON_HAMMER)
+
+def bombchu_refill(bundle) -> bool:
+    return has_item(bundle, Events.LOGIC_BUY_BOMBCHUS) | has_item(bundle, Events.LOGIC_COULD_PLAY_BOWLING) | has_item(bundle, Events.LOGIC_CARPET_MERCHANT) | True_(options=[OptionFilter(RSK_ENABLE_BOMBCHU_DROPS, RandomizerSettingKey.RO_AMMO_DROPS_ON)])
 
 def call_gossip_fairy(bundle) -> bool:
     return call_gossip_fairy_except_suns(bundle) | can_use(bundle, Items.RG_SUNS_SONG)
@@ -103,6 +109,9 @@ def can_spawn_soil_skull(bundle, bean: Items) -> bool:
 
 def can_standing_shield(bundle) -> bool:
     return can_use(bundle, Items.RG_MIRROR_SHIELD) | is_adult(bundle) & has_item(bundle, Items.RG_HYLIAN_SHIELD) | can_use(bundle, Items.RG_DEKU_SHIELD)
+
+def can_use(bundle, item: Items) -> bool:
+    return has_item(bundle, item) & rls_match_rule((lambda item=item: item == Items.RG_MAGIC_SINGLE), (lambda: True_()), False, (lambda item=item: item == Items.RG_DINS_FIRE or item == Items.RG_FARORES_WIND or item == Items.RG_NAYRUS_LOVE or item == Items.RG_LENS_OF_TRUTH), (lambda: can_use(bundle, Items.RG_MAGIC_SINGLE)), False, (lambda item=item: item == Items.RG_FIRE_ARROWS or item == Items.RG_ICE_ARROWS or item == Items.RG_LIGHT_ARROWS), (lambda: can_use(bundle, Items.RG_MAGIC_SINGLE) & can_use(bundle, Items.RG_FAIRY_BOW)), False, (lambda item=item: item == Items.RG_FAIRY_BOW), (lambda: is_adult(bundle)), False, (lambda item=item: item == Items.RG_MEGATON_HAMMER), (lambda: is_adult(bundle)), False, (lambda item=item: item == Items.RG_IRON_BOOTS), (lambda: is_adult(bundle)), False, (lambda item=item: item == Items.RG_HOVER_BOOTS), (lambda: is_adult(bundle)), False, (lambda item=item: item == Items.RG_HOOKSHOT or item == Items.RG_LONGSHOT), (lambda: is_adult(bundle)), False, (lambda item=item: item == Items.RG_GORON_TUNIC), (lambda: is_adult(bundle)), False, (lambda item=item: item == Items.RG_ZORA_TUNIC), (lambda: is_adult(bundle)), False, (lambda item=item: item == Items.RG_MIRROR_SHIELD), (lambda: is_adult(bundle)), False, (lambda item=item: item == Items.RG_MASTER_SWORD), (lambda: is_adult(bundle)), False, (lambda item=item: item == Items.RG_GIANTS_KNIFE or item == Items.RG_BIGGORON_SWORD), (lambda: is_adult(bundle)), False, (lambda item=item: item == Items.RG_SILVER_GAUNTLETS or item == Items.RG_GOLDEN_GAUNTLETS), (lambda: is_adult(bundle)), False, (lambda item=item: item == Items.RG_POCKET_EGG or item == Items.RG_COJIRO or item == Items.RG_ODD_MUSHROOM or item == Items.RG_ODD_POTION or item == Items.RG_POACHERS_SAW or item == Items.RG_BROKEN_SWORD or item == Items.RG_PRESCRIPTION or item == Items.RG_EYEBALL_FROG or item == Items.RG_EYEDROPS or item == Items.RG_CLAIM_CHECK), (lambda: is_adult(bundle)), False, (lambda item=item: item == Items.RG_FAIRY_SLINGSHOT), (lambda: is_child(bundle)), False, (lambda item=item: item == Items.RG_BOOMERANG), (lambda: is_child(bundle)), False, (lambda item=item: item == Items.RG_KOKIRI_SWORD), (lambda: is_child(bundle)), False, (lambda item=item: item == Items.RG_NUTS), (lambda: has_item(bundle, Events.LOGIC_NUT_ACCESS)), False, (lambda item=item: item == Items.RG_STICKS), (lambda: is_child(bundle) & has_item(bundle, Events.LOGIC_STICK_ACCESS)), False, (lambda item=item: item == Items.RG_DEKU_SHIELD), (lambda: is_child(bundle)), False, (lambda item=item: item == Items.RG_PROGRESSIVE_BOMB_BAG or item == Items.RG_BOMB_BAG), (lambda: True_()), False, (lambda item=item: item == Items.RG_PROGRESSIVE_BOMBCHU_BAG or item == Items.RG_BOMBCHU_5 or item == Items.RG_BOMBCHU_10 or item == Items.RG_BOMBCHU_20), (lambda: bombchu_refill(bundle) & bombchus_enabled(bundle)), False, (lambda item=item: item == Items.RG_WEIRD_EGG or item == Items.RG_RUTOS_LETTER), (lambda: is_child(bundle)), False, (lambda item=item: item == Items.RG_MAGIC_BEAN), (lambda: is_child(bundle)), False, (lambda item=item: item == Items.RG_SKULL_MASK or item == Items.RG_MASK_OF_TRUTH), (lambda: is_child(bundle)), False, (lambda item=item: item == Items.RG_ZELDAS_LULLABY or item == Items.RG_EPONAS_SONG or item == Items.RG_PRELUDE_OF_LIGHT), (lambda: has_item(bundle, Items.RG_FAIRY_OCARINA) & has_item(bundle, Items.RG_OCARINA_C_LEFT_BUTTON) & has_item(bundle, Items.RG_OCARINA_C_RIGHT_BUTTON) & has_item(bundle, Items.RG_OCARINA_C_UP_BUTTON)), False, (lambda item=item: item == Items.RG_SARIAS_SONG), (lambda: has_item(bundle, Items.RG_FAIRY_OCARINA) & has_item(bundle, Items.RG_OCARINA_C_LEFT_BUTTON) & has_item(bundle, Items.RG_OCARINA_C_RIGHT_BUTTON) & has_item(bundle, Items.RG_OCARINA_C_DOWN_BUTTON)), False, (lambda item=item: item == Items.RG_SUNS_SONG), (lambda: has_item(bundle, Items.RG_FAIRY_OCARINA) & has_item(bundle, Items.RG_OCARINA_C_RIGHT_BUTTON) & has_item(bundle, Items.RG_OCARINA_C_UP_BUTTON) & has_item(bundle, Items.RG_OCARINA_C_DOWN_BUTTON)), False, (lambda item=item: item == Items.RG_SONG_OF_TIME or item == Items.RG_BOLERO_OF_FIRE or item == Items.RG_REQUIEM_OF_SPIRIT), (lambda: has_item(bundle, Items.RG_FAIRY_OCARINA) & has_item(bundle, Items.RG_OCARINA_A_BUTTON) & has_item(bundle, Items.RG_OCARINA_C_RIGHT_BUTTON) & has_item(bundle, Items.RG_OCARINA_C_DOWN_BUTTON)), False, (lambda item=item: item == Items.RG_SONG_OF_STORMS), (lambda: has_item(bundle, Items.RG_FAIRY_OCARINA) & has_item(bundle, Items.RG_OCARINA_A_BUTTON) & has_item(bundle, Items.RG_OCARINA_C_UP_BUTTON) & has_item(bundle, Items.RG_OCARINA_C_DOWN_BUTTON)), False, (lambda item=item: item == Items.RG_MINUET_OF_FOREST), (lambda: has_item(bundle, Items.RG_FAIRY_OCARINA) & has_item(bundle, Items.RG_OCARINA_A_BUTTON) & has_item(bundle, Items.RG_OCARINA_C_LEFT_BUTTON) & has_item(bundle, Items.RG_OCARINA_C_RIGHT_BUTTON) & has_item(bundle, Items.RG_OCARINA_C_UP_BUTTON)), False, (lambda item=item: item == Items.RG_SERENADE_OF_WATER or item == Items.RG_NOCTURNE_OF_SHADOW), (lambda: has_item(bundle, Items.RG_FAIRY_OCARINA) & has_item(bundle, Items.RG_OCARINA_A_BUTTON) & has_item(bundle, Items.RG_OCARINA_C_LEFT_BUTTON) & has_item(bundle, Items.RG_OCARINA_C_RIGHT_BUTTON) & has_item(bundle, Items.RG_OCARINA_C_DOWN_BUTTON)), False, (lambda item=item: item == Items.RG_FISHING_POLE), (lambda: has_item(bundle, Items.RG_CHILD_WALLET)), False, (lambda item=item: item == Items.RG_CRAWL), (lambda: is_child(bundle)), False, (lambda item=item: item == Items.RG_BOTTLE_WITH_BUGS), (lambda: has_item(bundle, Events.LOGIC_BUG_ACCESS)), False, (lambda item=item: item == Items.RG_BOTTLE_WITH_FISH), (lambda: has_item(bundle, Events.LOGIC_FISH_ACCESS)), False, (lambda item=item: item == Items.RG_BOTTLE_WITH_BLUE_FIRE), (lambda: has_item(bundle, Events.LOGIC_BLUE_FIRE_ACCESS)), False, (lambda item=item: item == Items.RG_BOTTLE_WITH_FAIRY), (lambda: has_item(bundle, Events.LOGIC_FAIRY_ACCESS)), False, (lambda: True), (lambda: True_()), False)
 
 def can_use_sword(bundle) -> bool:
     return can_use(bundle, Items.RG_KOKIRI_SWORD) | can_use(bundle, Items.RG_MASTER_SWORD) | can_use(bundle, Items.RG_BIGGORON_SWORD)

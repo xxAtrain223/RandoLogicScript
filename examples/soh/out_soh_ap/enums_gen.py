@@ -66,7 +66,11 @@ class Events(StrEnum):
     @staticmethod
     def _generate_next_value_(name, start, count, last_values):
         return name.replace("LOGIC_", "").replace("_", " ").title()
+    LOGIC_BLUE_FIRE_ACCESS = auto()
     LOGIC_BUG_ACCESS = auto()
+    LOGIC_BUY_BOMBCHUS = auto()
+    LOGIC_CARPET_MERCHANT = auto()
+    LOGIC_COULD_PLAY_BOWLING = auto()
     LOGIC_DEKU_TREE_1F_BROKE_WEB = auto()
     LOGIC_DEKU_TREE_B1_BROKE_WEB = auto()
     LOGIC_DEKU_TREE_CLEAR = auto()
