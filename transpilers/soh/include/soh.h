@@ -12,7 +12,6 @@ public:
 	std::vector<rls::ast::Diagnostic> Validate() const;
 	std::vector<rls::ast::Diagnostic> Transpile(rls::OutputWriter& out) const;
 
-	void GenerateRuntimeHeaders(rls::OutputWriter& out) const;
 	void GenerateFunctionDefinitionsHeader(rls::OutputWriter& out) const;
 	void GenerateFunctionDefinitionsSource(rls::OutputWriter& out) const;
 	void GenerateRegionsHeader(rls::OutputWriter& out) const;

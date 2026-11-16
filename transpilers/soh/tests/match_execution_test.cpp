@@ -3,10 +3,7 @@
 #include <array>
 #include <functional>
 #include <type_traits>
-#include <utility>
 #include <vector>
-
-#include "rls_match.h"
 
 namespace {
 
@@ -75,13 +72,6 @@ TEST_F(SohMatchExecution, ChainAllEntriesAndBooleanCombinations) {
             EXPECT_EQ(actual, expected);
             EXPECT_EQ(actualCalls, expectedCalls);
 
-            evaluation.calls.clear();
-            const bool reference = rls::match(
-                [&] { return d == Dispatch::FIRST; }, [&] { return probe(0); }, true,
-                [&] { return d == Dispatch::MIDDLE; }, [&] { return probe(1); }, true,
-                [&] { return d == Dispatch::LAST; }, [&] { return probe(2); }, false);
-            EXPECT_EQ(actual, reference);
-            EXPECT_EQ(actualCalls, evaluation.calls);
         }
     }
 }

@@ -4,7 +4,6 @@
 #include <functional>
 #include "soh/Enhancements/randomizer/location_access.h"
 #include "soh/Enhancements/randomizer/entrance.h"
-#include "rls_match.h"
 #include "rls_host.h"
 
 enum class TimePasses : int {
