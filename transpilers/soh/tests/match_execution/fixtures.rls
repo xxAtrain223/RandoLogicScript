@@ -1,5 +1,6 @@
 enum Dispatch { FIRST, MIDDLE, LAST, OTHER }
 enum Result { ZERO, VALUE, ALTERNATE }
+enum Numeric { NEGATIVE = -7, POSITIVE = 42 }
 extern enum Alias { ALIAS_FIRST, ALIAS_SECOND, ALIAS_OTHER }
 extern define probe(index: Int) -> Bool
 extern define probe_int(index: Int) -> Int
@@ -105,3 +106,9 @@ define integer_composed(d: Dispatch, gate: Bool):
 
 define single_integer(d: Dispatch):
     match d { FIRST: probe_int(0) }
+
+define numeric_switch(d: Numeric):
+    match d {
+        NEGATIVE: probe_int(0) or
+        POSITIVE: probe_int(1)
+    }

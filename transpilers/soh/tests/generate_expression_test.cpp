@@ -210,13 +210,14 @@ TEST(SohExpressions, IntsDecayToBoolExplicitly) {
 		"    }\n",
 		"test")),
 		"([&]() -> bool {\n"
-		"    if (distance == EnemyDistance::ED_CLOSE) {\n"
-		"        return 1 != 0;\n"
+		"    switch (distance) {\n"
+		"        case EnemyDistance::ED_CLOSE: {\n"
+		"            return 1 != 0;\n"
+		"        }\n"
+		"        default: {\n"
+		"            return false;\n"
+		"        }\n"
 		"    }\n"
-		"    if (true) {\n"
-		"        return false;\n"
-		"    }\n"
-		"    return bool{};\n"
 		"}())");
 }
 
@@ -728,10 +729,12 @@ TEST(SohExpressions, MatchSingleArm) {
 		"test");
 	EXPECT_EQ(GenerateExpression(expr),
 		"([&]() -> bool {\n"
-		"    if (distance == EnemyDistance::ED_CLOSE) {\n"
-		"        return can_use(RandomizerGet::RG_KOKIRI_SWORD);\n"
+		"    switch (distance) {\n"
+		"        case EnemyDistance::ED_CLOSE: {\n"
+		"            return can_use(RandomizerGet::RG_KOKIRI_SWORD);\n"
+		"        }\n"
+		"        default: return bool{};\n"
 		"    }\n"
-		"    return bool{};\n"
 		"}())");
 }
 
@@ -810,13 +813,14 @@ TEST(SohExpressions, MatchDefaultArm) {
 		"test");
 	EXPECT_EQ(GenerateExpression(expr),
 		"([&]() -> bool {\n"
-		"    if (distance == EnemyDistance::ED_CLOSE) {\n"
-		"        return can_use(RandomizerGet::RG_KOKIRI_SWORD);\n"
+		"    switch (distance) {\n"
+		"        case EnemyDistance::ED_CLOSE: {\n"
+		"            return can_use(RandomizerGet::RG_KOKIRI_SWORD);\n"
+		"        }\n"
+		"        default: {\n"
+		"            return can_use(RandomizerGet::RG_FAIRY_BOW);\n"
+		"        }\n"
 		"    }\n"
-		"    if (true) {\n"
-		"        return can_use(RandomizerGet::RG_FAIRY_BOW);\n"
-		"    }\n"
-		"    return bool{};\n"
 		"}())");
 }
 
@@ -867,13 +871,15 @@ TEST(SohExpressions, MatchUsesResolvedIntegerAndHostEnumResultTypes) {
 
 TEST(SohExpressions, MatchEmitsEachContinuationBodyOnce) {
     const auto expr = sourceToExpression(
-        "define test(d: Distance):\n"
+        "enum Reach { CLOSE, HOOKSHOT, FAR }\n"
+        "define test(d: Reach):\n"
         "    match d {\n"
-        "        ED_CLOSE: can_use(RG_KOKIRI_SWORD) or\n"
-        "        ED_HOOKSHOT: can_use(RG_HOOKSHOT) or\n"
-        "        ED_FAR: can_use(RG_FAIRY_BOW)\n"
+        "        CLOSE: can_use(RG_KOKIRI_SWORD) or\n"
+        "        HOOKSHOT: can_use(RG_HOOKSHOT) or\n"
+        "        FAR: can_use(RG_FAIRY_BOW)\n"
         "    }\n", "test");
     const auto code = GenerateExpression(expr);
+    EXPECT_NE(code.find("switch (d)"), std::string::npos);
     for (const auto* body : {"can_use(RandomizerGet::RG_KOKIRI_SWORD)",
                             "can_use(RandomizerGet::RG_HOOKSHOT)",
                             "can_use(RandomizerGet::RG_FAIRY_BOW)"}) {
@@ -881,4 +887,54 @@ TEST(SohExpressions, MatchEmitsEachContinuationBodyOnce) {
         ASSERT_NE(position, std::string::npos);
         EXPECT_EQ(code.find(body, position + 1), std::string::npos);
     }
+}
+
+TEST(SohExpressions, MatchSwitchGroupsCasesAndFallsThroughToWildcard) {
+    const auto expr = sourceToExpression(
+        "enum Mode { FIRST = -7, SECOND = 42 }\n"
+        "define test(d: Mode):\n"
+        "    match d {\n"
+        "        FIRST or SECOND: 0 or\n"
+        "        _: -7\n"
+        "    }\n", "test");
+    EXPECT_EQ(GenerateExpression(expr),
+        "([&]() -> int {\n"
+        "    switch (d) {\n"
+        "        case Mode::FIRST:\n"
+        "        case Mode::SECOND: {\n"
+        "            const int rls_match_result = 0;\n"
+        "            if (static_cast<bool>(rls_match_result)) return rls_match_result;\n"
+        "        }\n"
+        "        [[fallthrough]];\n"
+        "        default: {\n"
+        "            return -7;\n"
+        "        }\n"
+        "    }\n"
+        "}())");
+}
+
+TEST(SohExpressions, MatchKeepsOrderedFallbackForUnprovenCases) {
+    for (const auto& source : {
+        "enum Mode { FIRST, SECOND }\n"
+        "define test(d: Mode): match d { FIRST: false or\n FIRST: true }\n",
+        "enum Mode { FIRST, SECOND }\n"
+        "define test(d: Mode, pattern: Mode): match d { pattern: false or\n FIRST: true }\n",
+        "extern enum Alias { ONE, TWO }\n"
+        "define test(d: Alias): match d { ONE: false or\n TWO: true }\n",
+        "define test(d: Distance): match d { ED_CLOSE: false or\n ED_FAR: true }\n"}) {
+        const auto code = GenerateExpression(sourceToExpression(source, "test"));
+        EXPECT_EQ(code.find("switch ("), std::string::npos) << source;
+        EXPECT_NE(code.find("rls_match_active ||"), std::string::npos) << source;
+    }
+}
+
+TEST(SohExpressions, MatchNonFinalWildcardUsesOrderedLowerLevelFallback) {
+    auto expr = sourceToExpression(
+        "enum Mode { FIRST }\n"
+        "define test(d: Mode): match d { FIRST: true\n _: false }\n", "test");
+    auto& arms = std::get<rls::ast::MatchExpr>(expr.expr->node).arms;
+    std::swap(arms[0], arms[1]);
+    const auto code = GenerateExpression(expr);
+    EXPECT_EQ(code.find("switch ("), std::string::npos);
+    EXPECT_LT(code.find("if (true)"), code.find("if (d == Mode::FIRST)"));
 }

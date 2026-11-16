@@ -12,6 +12,7 @@ namespace {
 
 enum class Dispatch { FIRST, MIDDLE, LAST, OTHER };
 enum class Result { ZERO, VALUE, ALTERNATE };
+enum class Numeric { NEGATIVE = -7, POSITIVE = 42 };
 enum class Alias { ALIAS_FIRST = 1, ALIAS_SECOND = 1, ALIAS_OTHER = 2 };
 
 struct Evaluation {
@@ -220,6 +221,21 @@ TEST_F(SohMatchExecution, IntegerMatchCompositionAndSingleArm) {
     evaluation.calls.clear();
     EXPECT_EQ(generated::single_integer(Dispatch::OTHER), 0);
     EXPECT_TRUE(evaluation.calls.empty());
+}
+
+TEST_F(SohMatchExecution, SwitchUsesResolvedNegativeAndExplicitCaseValues) {
+    evaluation.values = {0, -7, 0};
+    EXPECT_EQ(generated::numeric_switch(Numeric::NEGATIVE), -7);
+    EXPECT_EQ(evaluation.calls, (std::vector<int>{0, 1}));
+    evaluation.calls.clear();
+    EXPECT_EQ(generated::numeric_switch(Numeric::POSITIVE), -7);
+    EXPECT_EQ(evaluation.calls, (std::vector<int>{1}));
+    evaluation.calls.clear();
+    EXPECT_EQ(generated::numeric_switch(static_cast<Numeric>(99)), 0);
+    EXPECT_TRUE(evaluation.calls.empty());
+    evaluation.values[0] = 42;
+    EXPECT_EQ(generated::numeric_switch(Numeric::NEGATIVE), 42);
+    EXPECT_EQ(evaluation.calls, (std::vector<int>{0}));
 }
 
 } // namespace
