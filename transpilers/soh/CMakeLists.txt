@@ -28,4 +28,22 @@ if(BUILD_TESTING)
     rls_add_gtest(soh_tests ${soh_test_sources})
     target_link_libraries(soh_tests PRIVATE soh sema)
     target_include_directories(soh_tests PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/src")
+
+    add_executable(soh_match_fixture_generator
+        tests/match_execution/generate_fixtures.cpp)
+    target_link_libraries(soh_match_fixture_generator PRIVATE soh sema)
+
+    set(match_fixture_header
+        "${CMAKE_CURRENT_BINARY_DIR}/generated/match_execution_fixtures.h")
+    add_custom_command(
+        OUTPUT "${match_fixture_header}"
+        COMMAND soh_match_fixture_generator
+            "${CMAKE_CURRENT_SOURCE_DIR}/tests/match_execution/fixtures.rls"
+            "${match_fixture_header}"
+        DEPENDS soh_match_fixture_generator
+            "${CMAKE_CURRENT_SOURCE_DIR}/tests/match_execution/fixtures.rls"
+        VERBATIM
+    )
+    target_sources(soh_tests PRIVATE "${match_fixture_header}")
+    target_include_directories(soh_tests PRIVATE "${CMAKE_CURRENT_BINARY_DIR}/generated")
 endif()
