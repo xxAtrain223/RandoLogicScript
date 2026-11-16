@@ -194,4 +194,32 @@ TEST_F(SohMatchExecution, CompositionPreservesOuterLazinessAndNestedCaptures) {
     EXPECT_EQ(evaluation.conditionCalls, 1);
 }
 
+TEST_F(SohMatchExecution, LocalsDoNotShadowParametersOrNestedContinuation) {
+    evaluation.values = {0, 0, 42};
+    EXPECT_EQ(generated::collision(Dispatch::FIRST, 7), 7);
+    EXPECT_TRUE(evaluation.calls.empty());
+    EXPECT_EQ(generated::collision(Dispatch::FIRST, 0), 42);
+    EXPECT_EQ(evaluation.calls, (std::vector<int>{1, 2}));
+    evaluation.calls.clear();
+    EXPECT_EQ(generated::collision(Dispatch::OTHER, 0), 42);
+    EXPECT_EQ(evaluation.calls, (std::vector<int>{2}));
+}
+
+TEST_F(SohMatchExecution, IntegerMatchCompositionAndSingleArm) {
+    evaluation.values = {-7, 0, 0};
+    EXPECT_TRUE(generated::integer_composed(Dispatch::FIRST, true));
+    EXPECT_TRUE(evaluation.calls.empty());
+    EXPECT_TRUE(generated::integer_composed(Dispatch::FIRST, false));
+    EXPECT_EQ(evaluation.calls, (std::vector<int>{0}));
+    evaluation.calls.clear();
+    EXPECT_FALSE(generated::integer_composed(Dispatch::OTHER, false));
+    EXPECT_EQ(evaluation.calls, (std::vector<int>{1}));
+    evaluation.calls.clear();
+    EXPECT_EQ(generated::single_integer(Dispatch::FIRST), -7);
+    EXPECT_EQ(evaluation.calls, (std::vector<int>{0}));
+    evaluation.calls.clear();
+    EXPECT_EQ(generated::single_integer(Dispatch::OTHER), 0);
+    EXPECT_TRUE(evaluation.calls.empty());
+}
+
 } // namespace

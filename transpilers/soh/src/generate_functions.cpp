@@ -1,9 +1,7 @@
 #include "soh.h"
-#include "soh/enum_mappings.h"
+#include "cpp_type.h"
 
 #include <sstream>
-
-using AT = rls::ast::Type;
 
 namespace rls::transpilers::soh {
 
@@ -44,42 +42,7 @@ bool hasNormalEnums(const rls::ast::Project& project) {
     return false;
 }
 
-template <typename T>
-std::string enumNodeType(const rls::ast::Project& p, const T* node) {
-    auto enumType = p.getEnumType(node);
-    if (!enumType.has_value()) {
-        return "int";
-    }
-
-    if (const auto* mapping = findHostEnumMapping(*enumType)) {
-        return std::string(mapping->cppType);
-    }
-
-    // User/extern enums currently map directly to their enum name.
-    return std::string(*enumType);
-}
-
 } // namespace
-
-template <typename T>
-std::string nodeType(const rls::ast::Project& p, const T* node) {
-    const auto type = p.getType(node);
-    if (!type.has_value()) {
-        return "missing_type";
-    }
-
-    switch (type.value()) {
-        case AT::Bool: return "bool";
-        case AT::Int: return "int";
-        case AT::Callable: return "std::function<bool()>";
-        case AT::Condition: return "std::function<bool()>";
-        case AT::Enum: return enumNodeType(p, node);
-		case AT::Region: return "RandomizerRegion";
-		case AT::Event: return "LogicVal";
-		case AT::Location: return "RandomizerCheck";
-        default: return "unsupported_type";
-    }
-}
 
 std::string functionSignature(
 	const rls::ast::Project& p,

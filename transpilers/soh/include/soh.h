@@ -40,9 +40,9 @@ private:
 	std::string GenerateCallArgument(const rls::ast::Expr* argExpr, std::optional<rls::ast::Type> paramType, std::optional<std::string> paramEnumCppType) const;
 	std::string GenerateExpression(const rls::ast::MemberExpr& node) const;
 	std::string GenerateExpression(const rls::ast::HereRef& node) const;
-	std::string GenerateExpression(const rls::ast::MatchExpr& node) const;
+	std::string GenerateExpression(const rls::ast::MatchExpr& node, const rls::ast::Expr& expr) const;
 	std::string GenerateExpression(const rls::ast::ListExpr& node) const;
-	std::string GenerateExpression(const rls::ast::Expr::Variant& node) const;
+	std::string GenerateExpression(const rls::ast::Expr* expr) const;
 	void WriteRegionsSource(rls::OutputWriter& out) const;
 
 	const rls::ast::Project& project;

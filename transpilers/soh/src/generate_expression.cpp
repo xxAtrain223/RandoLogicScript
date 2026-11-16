@@ -1,9 +1,12 @@
 #include "soh.h"
+#include "cpp_type.h"
 #include "soh/enum_mappings.h"
 
 #include <algorithm>
 #include <optional>
 #include <sstream>
+#include <stdexcept>
+#include <type_traits>
 
 namespace rls::transpilers::soh {
 
@@ -28,6 +31,28 @@ std::string qualifyEnumValue(std::string_view enumName, std::string_view valueNa
         return std::string(valueName);
     }
     return std::string(enumName) + "::" + std::string(valueName);
+}
+
+struct MatchArmCode {
+    std::string condition;
+    std::string body;
+    bool fallthrough;
+};
+
+std::string matchLocalName(std::string name, std::string_view armCode) {
+    while (armCode.find(name) != std::string_view::npos) {
+        name += "_";
+    }
+    return name;
+}
+
+std::string indentMatchBody(std::string code) {
+    size_t newline = code.find('\n');
+    while (newline != std::string::npos) {
+        code.insert(newline + 1, "        ");
+        newline = code.find('\n', newline + 9);
+    }
+    return code;
 }
 
 } // namespace
@@ -277,14 +302,14 @@ std::string SohTranspiler::GenerateCallArgument(
             id != nullptr && id->kind == rls::ast::IdentifierKind::Parameter) {
             return id->name.text;
         }
-        return GenerateExpression(argExpr->node);
+        return GenerateExpression(argExpr);
     }
 
     if (emitConditionThunk) {
         return "[]{return " + GenerateBoolExpression(argExpr) + ";}";
     }
 
-    const auto argCode = GenerateExpression(argExpr->node);
+    const auto argCode = GenerateExpression(argExpr);
     if (!paramType.has_value() || !argType.has_value()) {
         return argCode;
     }
@@ -342,46 +367,63 @@ std::string SohTranspiler::GenerateExpression(const rls::ast::HereRef& node) con
     return "RandomizerRegion::" + node.resolvedRegion.text;
 }
 
-std::string SohTranspiler::GenerateExpression(const rls::ast::MatchExpr& node) const {
-	std::ostringstream oss;
-	oss << "rls::match(";
-    const bool hasBoolArm = std::ranges::any_of(node.arms, [&](const auto& arm) {
-        return project.getType(arm.body.get()) == rls::ast::Type::Bool;
-    });
-    const bool hasIntArm = std::ranges::any_of(node.arms, [&](const auto& arm) {
-        return project.getType(arm.body.get()) == rls::ast::Type::Int;
-    });
-    const bool decayArmBodiesToBool = hasBoolArm && hasIntArm;
+std::string SohTranspiler::GenerateExpression(
+    const rls::ast::MatchExpr& node, const rls::ast::Expr& expr) const
+{
+    const auto resultType = project.getType(&expr);
+    const auto cppType = nodeType(project, &expr);
+    if (!resultType || cppType == "missing_type" || cppType == "unsupported_type"
+        || (*resultType == rls::ast::Type::Enum && !project.getEnumType(&expr))) {
+        throw std::logic_error("SoH match lowering requires a supported resolved result type");
+    }
 
-	for (size_t i = 0; i < node.arms.size(); i++) {
-		const auto& arm = node.arms[i];
-
-		if (i > 0) oss << ", ";
-
-		// Condition lambda: [&]{ return discriminant == P1 || discriminant == P2; }
+    std::vector<MatchArmCode> arms;
+    std::string armCode;
+    for (size_t index = 0; index < node.arms.size(); ++index) {
+        const auto& arm = node.arms[index];
+        std::ostringstream condition;
         if (arm.isDefault) {
-            oss << "[&]{return true;}, ";
+            condition << "true";
         } else {
-            oss << "[&]{return ";
-            for (size_t j = 0; j < arm.patterns.size(); j++) {
-                if (j > 0) oss << " || ";
-                oss << GenerateExpression(node.discriminant) << " == "
-                    << GenerateExpression(arm.patterns[j]);
+            for (size_t pattern = 0; pattern < arm.patterns.size(); ++pattern) {
+                if (pattern != 0) condition << " || ";
+                condition << GenerateExpression(node.discriminant) << " == "
+                          << GenerateExpression(arm.patterns[pattern]);
             }
-            oss << ";}, ";
         }
+        auto body = *resultType == rls::ast::Type::Bool
+            ? GenerateBoolExpression(arm.body) : GenerateExpression(arm.body);
+        armCode += condition.str() + "\n" + body + "\n";
+        arms.push_back({condition.str(), std::move(body),
+            arm.fallthrough && index + 1 < node.arms.size()});
+    }
 
-		// Body lambda: [&]{ return <body_expression>; }
-        oss << "[&]{return "
-            << (decayArmBodiesToBool ? GenerateBoolExpression(arm.body) : GenerateExpression(arm.body))
-            << ";}, ";
-
-		// Fallthrough flag
-		oss << (arm.fallthrough ? "true" : "false");
-	}
-
-	oss << ")";
-	return oss.str();
+    const bool hasContinuation = std::ranges::any_of(arms, [](const auto& arm) {
+        return arm.fallthrough;
+    });
+    const auto activeName = matchLocalName("rls_match_active", armCode);
+    const auto resultName = matchLocalName("rls_match_result", armCode);
+    std::ostringstream output;
+    output << "([&]() -> " << cppType << " {\n";
+    if (hasContinuation) {
+        output << "    bool " << activeName << " = false;\n";
+    }
+    for (const auto& arm : arms) {
+        output << "    if (";
+        if (hasContinuation) output << activeName << " || ";
+        output << arm.condition << ") {\n";
+        const auto body = indentMatchBody(arm.body);
+        if (arm.fallthrough) {
+            output << "        const " << cppType << " " << resultName << " = " << body << ";\n"
+                   << "        if (static_cast<bool>(" << resultName << ")) return " << resultName << ";\n"
+                   << "        " << activeName << " = true;\n";
+        } else {
+            output << "        return " << body << ";\n";
+        }
+        output << "    }\n";
+    }
+    output << "    return " << cppType << "{};\n}())";
+    return output.str();
 }
 
 std::string SohTranspiler::GenerateExpression(const rls::ast::ListExpr& node) const {
@@ -397,14 +439,18 @@ std::string SohTranspiler::GenerateExpression(const rls::ast::ListExpr& node) co
     return oss.str();
 }
 
-std::string SohTranspiler::GenerateExpression(const rls::ast::Expr::Variant& node) const {
+std::string SohTranspiler::GenerateExpression(const rls::ast::Expr* expr) const {
 	return std::visit([&](const auto& node) {
-		return GenerateExpression(node);
-	}, node);
+        if constexpr (std::is_same_v<std::decay_t<decltype(node)>, rls::ast::MatchExpr>) {
+            return GenerateExpression(node, *expr);
+        } else {
+            return GenerateExpression(node);
+        }
+	}, expr->node);
 }
 
 std::string SohTranspiler::GenerateExpression(const rls::ast::ExprPtr& expr) const {
-	return GenerateExpression(expr->node);
+	return GenerateExpression(expr.get());
 }
 
 std::string SohTranspiler::GenerateBoolExpression(const rls::ast::ExprPtr& expr) const {
@@ -412,7 +458,7 @@ std::string SohTranspiler::GenerateBoolExpression(const rls::ast::ExprPtr& expr)
 }
 
 std::string SohTranspiler::GenerateBoolExpression(const rls::ast::Expr* expr) const {
-    auto result = GenerateExpression(expr->node);
+    auto result = GenerateExpression(expr);
     if (project.getType(expr) == rls::ast::Type::Int) {
         if (GetCppPrecedence(expr) > 10) {
             result = "(" + result + ")";

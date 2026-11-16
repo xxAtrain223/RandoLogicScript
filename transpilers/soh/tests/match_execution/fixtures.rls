@@ -87,3 +87,21 @@ define thunk(gate: Bool):
 
 define conditional(d: Dispatch, gate: Bool):
     gate ? match d { FIRST: probe(0) } : probe(1)
+
+define collision(rls_match_active: Dispatch, rls_match_result: Int):
+    match rls_match_active {
+        FIRST: rls_match_result or
+        _: match rls_match_active {
+            FIRST: probe_int(1) or
+            _: probe_int(2)
+        }
+    }
+
+define integer_composed(d: Dispatch, gate: Bool):
+    gate or match d {
+        FIRST: probe_int(0)
+        _: probe_int(1)
+    }
+
+define single_integer(d: Dispatch):
+    match d { FIRST: probe_int(0) }

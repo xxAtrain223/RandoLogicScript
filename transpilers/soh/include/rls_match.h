@@ -1,10 +1,12 @@
 #pragma once
 
 /// @file rls_match.h
-/// @brief Runtime helper for evaluating RLS match expressions in generated C++.
+/// @brief Reference runtime helper for evaluating RLS match expressions.
 ///
-/// RLS match expressions transpile into calls to rls::match(), which emulates
-/// a switch/case with fallthrough using variadic template recursion.
+/// SoH now lowers match expressions directly into typed, immediately invoked
+/// lambdas. This helper remains available as a semantic reference and for
+/// compatibility with previously generated C++. It emulates switch/case
+/// fallthrough using variadic template recursion.
 ///
 /// Arguments are passed as flat triples of (condition, body, fallthrough):
 ///
