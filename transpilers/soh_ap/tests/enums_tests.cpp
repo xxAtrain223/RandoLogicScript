@@ -111,20 +111,20 @@ TEST(SohApEnums, RegionSceneMapIsGenerated) {
 		"    scene: SCENE_TEST_DUNGEON\n"
 		"}\n");
 
-	EXPECT_NE(out.find("REGION_SCENE: dict[Regions, str] = {\n"
-			"    Regions.RR_TEST_ROOM: \"SCENE_TEST_DUNGEON\",\n"),
+	EXPECT_NE(out.find("REGION_SCENE: dict[Regions, Scene] = {\n"
+			"    Regions.RR_TEST_ROOM: Scene.SCENE_TEST_DUNGEON,\n"),
 		std::string::npos) << out;
 }
 
-// A region with no `scene:` still gets a row, with an empty value rather than a missing key,
-// so the host can subscript REGION_SCENE without guarding every lookup.
-TEST(SohApEnums, RegionWithoutSceneGetsEmptyValue) {
+// A region with no `scene:` still gets a row, with Ship's SCENE_ID_MAX "no scene" member rather than
+// a missing key, so the host can subscript REGION_SCENE without guarding every lookup.
+TEST(SohApEnums, RegionWithoutSceneGetsNoSceneValue) {
 	const std::string out = generateEnums(
 		"region RR_TEST_ROOM {\n"
 		"    name: \"Test Room\"\n"
 		"}\n");
 
-	EXPECT_NE(out.find("    Regions.RR_TEST_ROOM: \"\","), std::string::npos) << out;
+	EXPECT_NE(out.find("    Regions.RR_TEST_ROOM: Scene.SCENE_ID_MAX,"), std::string::npos) << out;
 }
 
 // REGION_TIME_PASSES carries a region's explicit `timePasses:` and None for Auto (or no entry),
@@ -155,7 +155,7 @@ TEST(SohApEnums, RrNoneSentinelIsAlwaysEmitted) {
 		std::string::npos) << out;
 	// It is not a region, so it gets a scene row with no scene rather than being absent --
 	// REGION_SCENE stays subscriptable for every Regions member.
-	EXPECT_NE(out.find("    Regions.RR_NONE: \"\","), std::string::npos) << out;
+	EXPECT_NE(out.find("    Regions.RR_NONE: Scene.SCENE_ID_MAX,"), std::string::npos) << out;
 }
 
 // REGION_QUEST comes from the declaring file, not the region name: SoH splits the two dungeon
