@@ -25,6 +25,8 @@ if(BUILD_TESTING)
         "${CMAKE_CURRENT_BINARY_DIR}/generated/match_execution_fixtures.h")
     add_custom_command(
         OUTPUT "${match_fixture_header}"
+        COMMAND "${CMAKE_COMMAND}" -E make_directory
+            "${CMAKE_CURRENT_BINARY_DIR}/generated"
         COMMAND soh_match_fixture_generator
             "${CMAKE_CURRENT_SOURCE_DIR}/tests/match_execution/fixtures.rls"
             "${match_fixture_header}"
