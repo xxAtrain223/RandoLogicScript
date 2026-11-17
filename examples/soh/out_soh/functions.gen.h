@@ -4,7 +4,6 @@
 #include <functional>
 #include "soh/Enhancements/randomizer/location_access.h"
 #include "soh/Enhancements/randomizer/entrance.h"
-#include "rls_match.h"
 #include "rls_host.h"
 
 enum class TimePasses : int {
@@ -23,28 +22,30 @@ enum class WaterLevel : int {
 bool _can_get_drop_gold_skulltula(const EnemyDistance distance);
 bool _can_kill_gold_skulltula(const EnemyDistance distance, const bool wall_or_floor);
 bool blast_or_smash();
+bool bombchu_refill();
 bool call_gossip_fairy();
 bool call_gossip_fairy_except_suns();
-bool can_avoid(const RandomizerEnemy e, const bool grounded = false, const int quantity = 1);
+bool can_avoid(const RandomizerEnemy e, const bool grounded, const int quantity);
 bool can_break_lower_beehives();
 bool can_break_upper_beehives();
 bool can_climb_ladder();
 bool can_cut_shrubs();
 bool can_get_deku_baba_nuts();
 bool can_get_deku_baba_sticks();
-bool can_get_drop(const RandomizerEnemy e, const EnemyDistance distance = EnemyDistance::ED_CLOSE, const bool above_link = false);
+bool can_get_drop(const RandomizerEnemy e, const EnemyDistance distance, const bool above_link);
 bool can_get_night_time_gs();
-bool can_ground_jump(const bool hasBombflower = false);
+bool can_ground_jump(const bool hasBombflower);
 bool can_hit_eye_targets();
 bool can_jumpslash();
 bool can_jumpslash_except_hammer();
-bool can_kill(const RandomizerEnemy e, const EnemyDistance distance = EnemyDistance::ED_CLOSE, const bool wall_or_floor = true, const int quantity = 1, const bool timer = false, const bool in_water = false);
+bool can_kill(const RandomizerEnemy e, const EnemyDistance distance, const bool wall_or_floor, const int quantity, const bool timer, const bool in_water);
 bool can_open_storms_grotto();
-bool can_pass(const RandomizerEnemy e, const EnemyDistance distance = EnemyDistance::ED_CLOSE, const bool wall_or_floor = true);
+bool can_pass(const RandomizerEnemy e, const EnemyDistance distance, const bool wall_or_floor);
 bool can_reflect_nuts();
 bool can_shield();
 bool can_spawn_soil_skull(const RandomizerGet bean);
 bool can_standing_shield();
+bool can_use(const RandomizerGet item);
 bool can_use_sword();
 int distance_to_int(const EnemyDistance distance);
 bool has_bottle();

@@ -41,7 +41,7 @@ module.exports = grammar({
     section: ($) => seq(field("kind", choice("events", "locations", "exits")), "{", repeat($.entry), "}"),
     entry: ($) => seq(field("name", $.identifier), ":", field("value", $.expression)),
 
-    define_declaration: ($) => seq("define", field("name", $.identifier), "(", optional($.parameters), ")", ":", field("body", $.expression)),
+    define_declaration: ($) => seq("define", field("name", $.identifier), "(", optional($.parameters), ")", optional(seq("->", field("return_type", $.identifier))), ":", field("body", $.expression)),
     extern_define_declaration: ($) => seq("extern", "define", field("name", $.identifier), "(", optional($.parameters), ")", "->", field("return_type", $.identifier)),
     parameters: ($) => commaSep1($.parameter),
     parameter: ($) => seq(

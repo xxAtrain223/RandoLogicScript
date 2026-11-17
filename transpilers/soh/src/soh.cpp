@@ -24,7 +24,6 @@ std::vector<rls::ast::Diagnostic> SohTranspiler::Transpile(rls::OutputWriter& ou
 		return diagnostics;
 	}
 
-	GenerateRuntimeHeaders(out);
 	GenerateFunctionDefinitionsHeader(out);
 	GenerateFunctionDefinitionsSource(out);
 	GenerateRegionsHeader(out);

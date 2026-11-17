@@ -182,12 +182,10 @@ private:
 	// dominates Rule dominates BuildTime.
 	static ValueClass JoinClass(ValueClass a, ValueClass b);
 
-	// A user define's class, computed from its body (with parameters treated as
-	// BuildTime). Memoized because the same define is queried repeatedly; the
-	// in-progress set breaks recursion cycles conservatively (a cycle is a Rule).
+	// Infer classes from BuildTime to a fixed point across recursive definitions.
+	// Parameters are BuildTime; Rule and Runtime dependencies propagate to callers.
 	ValueClass DefineClass(const rls::ast::DefineDecl* decl) const;
 	mutable std::map<const rls::ast::DefineDecl*, ValueClass> defineClassCache;
-	mutable std::set<const rls::ast::DefineDecl*> defineClassInProgress;
 
 	// How a Bool `and`/`or` lowers, given its operands' classes (§4.1 of
 	// docs/AP-Function-Generation.md):

@@ -27,6 +27,11 @@ static std::string generateFunctions(const std::string& source) {
 }
 
 // The bundle receiver leads the parameter list, ahead of the RLS parameters.
+TEST(SohApFunctionSignatures, AnnotatedReturnAndInferredParameter) {
+	const auto output = generateFunctions("define identity(item) -> Item: item\n");
+	EXPECT_NE(output.find("def identity(bundle, item: Items) -> Items:"), std::string::npos) << output;
+}
+
 TEST(SohApFunctionSignatures, BundleIsFirstParameter) {
 	EXPECT_NE(generateFunctions(
 		"define needs(item: Item):\n"
@@ -74,24 +79,57 @@ TEST(SohApFunctionSignatures, ConditionParamAnnotatesAsCallable) {
 		std::string::npos);
 }
 
-// A default for a value (Bool) parameter uses Python's True/False, not the True_()/False_()
-// rule literals -- a default binds like a call argument (see GenerateCallArgument), and the
-// frozen build-time value of a bool parameter is a plain bool.
-TEST(SohApFunctionSignatures, BoolParamDefaultUsesPythonLiteral) {
+TEST(SohApFunctionSignatures, BoolDefaultIsSuppliedAtCallSite) {
 	std::string out = generateFunctions(
 		"define guard(flag: Bool = false):\n"
-		"    has(RG_HOOKSHOT)\n");
-	EXPECT_NE(out.find("def guard(bundle, flag: bool = False) -> bool:"), std::string::npos) << out;
+		"    has(RG_HOOKSHOT)\n"
+		"define caller(): guard()\n");
+	EXPECT_NE(out.find("def guard(bundle, flag: bool) -> bool:"), std::string::npos) << out;
+	EXPECT_NE(out.find("return guard(bundle, False)"), std::string::npos) << out;
 	EXPECT_EQ(out.find("False_()"), std::string::npos) << out;
 }
 
-// An enum-valued default renders through renderEnumValue, so it carries the enum class prefix.
-TEST(SohApFunctionSignatures, EnumParamDefaultIsPrefixed) {
-	EXPECT_NE(generateFunctions(
+TEST(SohApFunctionSignatures, EnumDefaultIsSuppliedAtCallSite) {
+	const auto out = generateFunctions(
 		"define at(distance: Distance = ED_CLOSE):\n"
-		"    has(RG_HOOKSHOT)\n").find(
-		"def at(bundle, distance: EnemyDistance = EnemyDistance.ED_CLOSE) -> bool:"),
-		std::string::npos);
+		"    has(RG_HOOKSHOT)\n"
+		"define caller(): at()\n");
+	EXPECT_NE(out.find("def at(bundle, distance: EnemyDistance) -> bool:"), std::string::npos) << out;
+	EXPECT_NE(out.find("return at(bundle, EnemyDistance.ED_CLOSE)"), std::string::npos) << out;
+}
+
+TEST(SohApFunctionSignatures, RecursiveValueHelpersUseValueBridgingAndNegation) {
+	auto project = resolveFromSource(
+		"define countdown(n: Int) -> Int: n <= 0 ? 0 : countdown(n - 1)\n"
+		"define zero(n: Int) -> Bool: n <= 0 ? n == 0 : zero(n - 1)\n"
+		"define check(): countdown(2) == 0 and true\n"
+		"define negated(): not zero(2)\n");
+	TestSohApTranspiler transpiler(project);
+	MemoryWriter writer;
+	transpiler.GenerateFunctionDefinitionsSource(writer);
+	const auto out = writer.content("functions_gen.py");
+	EXPECT_TRUE(transpiler.Diagnostics().empty());
+	EXPECT_NE(out.find("return True_() if countdown(bundle, 2) == 0 else False_()"), std::string::npos) << out;
+	EXPECT_NE(out.find("return not zero(bundle, 2)"), std::string::npos) << out;
+}
+
+TEST(SohApFunctionSignatures, RecursiveDefaultsAreExpandedOnlyAtCallSites) {
+	auto project = resolveFromSource(
+		"define first(n: Int = first(0)) -> Int: n <= 1 ? 1 : first()\n"
+		"define second(n: Int = third(0)) -> Int: n\n"
+		"define third(n: Int = second(0)) -> Int: n\n"
+		"define caller(): first() + second() + third()\n");
+	TestSohApTranspiler transpiler(project);
+	MemoryWriter writer;
+	transpiler.GenerateFunctionDefinitionsSource(writer);
+	const auto out = writer.content("functions_gen.py");
+	EXPECT_TRUE(transpiler.Diagnostics().empty());
+	for (const auto* name : {"first", "second", "third"}) {
+		EXPECT_NE(out.find(std::string("def ") + name + "(bundle, n: int) -> int:"), std::string::npos) << out;
+	}
+	EXPECT_NE(out.find("return 1 if n <= 1 else first(bundle, first(bundle, 0))"), std::string::npos) << out;
+	EXPECT_NE(out.find("return first(bundle, first(bundle, 0)) + second(bundle, third(bundle, 0)) + third(bundle, second(bundle, 0))"),
+		std::string::npos) << out;
 }
 
 // wallet_capacity is supplied natively by the host (it is folded into can_afford_slot), so it is

@@ -275,6 +275,11 @@ TEST(DeclDefine, ParamsWithTypeAndDefault) {
 	));
 }
 
+TEST(DeclDefine, OptionalReturnType) {
+	EXPECT_TRUE(matches<define_decl>("define foo(x: Int = 0) -> Int: x"));
+	EXPECT_FALSE(matches<define_decl>("define foo() -> : true"));
+}
+
 TEST(DeclDefine, ComplexBody) {
 	EXPECT_TRUE(matches<define_decl>(
 		"define spirit_explosive_key_logic():\n"

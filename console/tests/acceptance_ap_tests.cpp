@@ -16,5 +16,5 @@ TEST(AcceptanceAp, ExamplesRlsMatchesGolden) {
 	expectDirectoryMatchesGolden(
 		outputDir.path(),
 		repoPath("examples/soh/out_soh_ap"),
-		R"(.\build\console\RandoLogicScript.exe -p .\examples\soh\rls.json -t soh_ap)");
+		R"(.\build\console\Debug\RandoLogicScript.exe -p .\examples\soh\rls.json -t soh_ap)");
 }

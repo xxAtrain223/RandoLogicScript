@@ -127,11 +127,24 @@ inline ast::Diagnostic MatchArmImplicitBool(ast::Span span, std::string_view act
 inline ast::Diagnostic MatchArmTypeMismatch(ast::Span span, std::string_view actual, std::string_view previous) {
 	return {"RLS-T038", std::move(span), ast::DiagnosticLevel::Error, fmt::format("match arm type {} doesn't match previous arms ({})", actual, previous)};
 }
-inline ast::Diagnostic DefineCycle(ast::Span span, std::string_view names) {
-	return {"RLS-T039", std::move(span), ast::DiagnosticLevel::Error, fmt::format("cycle in define call graph: {}", names)};
+inline ast::Diagnostic RecursiveReturnTypeUnavailable(ast::Span span, std::string_view name) {
+	return {"RLS-T039", std::move(span), ast::DiagnosticLevel::Error,
+		fmt::format("cannot infer return type of recursive function '{}'; provide a typed base expression", name)};
 }
 inline ast::Diagnostic UnknownParameterTypeAnnotation(ast::Span span, std::string_view type, std::string_view parameter) {
 	return {"RLS-T040", std::move(span), ast::DiagnosticLevel::Error, fmt::format("unknown type annotation '{}' for parameter '{}'", type, parameter)};
+}
+inline ast::Diagnostic UnknownReturnTypeAnnotation(ast::Span span, std::string_view type, std::string_view function) {
+	return {"RLS-T042", std::move(span), ast::DiagnosticLevel::Error,
+		fmt::format("unknown return type annotation '{}' for function '{}'", type, function)};
+}
+inline ast::Diagnostic ReturnTypeMismatch(ast::Span span, std::string_view function, std::string_view expected, std::string_view actual) {
+	return {"RLS-T043", std::move(span), ast::DiagnosticLevel::Error,
+		fmt::format("function '{}' declares return type {} but its body has type {}", function, expected, actual)};
+}
+inline ast::Diagnostic RecursiveDefaultArgument(ast::Span span) {
+	return {"RLS-T041", std::move(span), ast::DiagnosticLevel::Error,
+		"omitted default arguments recursively expand; supply an explicit argument to break the cycle"};
 }
 
 inline ast::Diagnostic UnknownExtensionTarget(ast::Span span, std::string_view regionName) {

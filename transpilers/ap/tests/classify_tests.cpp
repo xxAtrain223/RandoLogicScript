@@ -131,6 +131,65 @@ TEST(ApClassify, BoolParameterIsValue) {
 		"test"));
 }
 
+TEST(ApClassify, SelfRecursiveIntHelperIsValue) {
+	EXPECT_FALSE(defineIsRule(
+		"define countdown(n: Int) -> Int: n <= 0 ? 0 : countdown(n - 1)\n"
+		"define test(): countdown(2) == 0\n",
+		"test"));
+}
+
+TEST(ApClassify, MutuallyRecursiveValuesAreIndependentOfQueryOrder) {
+	for (const bool reverse : {false, true}) {
+		auto project = resolveFromSource(
+			"define first(n: Int) -> Int: n <= 0 ? 0 : second(n - 1)\n"
+			"define second(n: Int) -> Int: first(n)\n");
+		TestApTranspiler transpiler(project);
+		for (const auto* name : reverse ? std::vector{"second", "first"} : std::vector{"first", "second"}) {
+			EXPECT_FALSE(transpiler.ExpressionIsRule(project.DefineDecls.at(name)->body));
+		}
+	}
+}
+
+TEST(ApClassify, RecursiveBoolComparisonIsValue) {
+	EXPECT_FALSE(defineIsRule(
+		"define zero(n: Int) -> Bool: n <= 0 ? n == 0 : zero(n - 1)\n"
+		"define test(): zero(2)\n",
+		"test"));
+}
+
+TEST(ApClassify, RecursiveBoolLiteralArgumentsAndDefaultsAreValues) {
+	EXPECT_FALSE(defineIsRule(
+		"define countdown(n: Int, flag: Bool = false) -> Int:\n"
+		"    n <= 0 ? 0 : countdown(n - 1)\n"
+		"define test(): countdown(2, true) == 0\n",
+		"test"));
+}
+
+TEST(ApClassify, MutualRecursionPropagatesRuleBaseToAllCallers) {
+	auto project = resolveFromSource(
+		"define first(n: Int) -> Bool: second(n)\n"
+		"define second(n: Int) -> Bool: third(n)\n"
+		"define third(n: Int) -> Bool: n <= 0 ? has(RG_HOOKSHOT) : first(n - 1)\n");
+	TestApTranspiler transpiler(project);
+	for (const auto* name : {"first", "second", "third"}) {
+		EXPECT_TRUE(transpiler.ExpressionIsRule(project.DefineDecls.at(name)->body));
+	}
+}
+
+TEST(ApClassify, RecursiveHostQuantityRemainsRuntimeValue) {
+	auto project = resolveFromSource(
+		"extern define quantity() -> Int\n"
+		"define first(n: Int) -> Int: second(n) + quantity()\n"
+		"define second(n: Int) -> Int: first(n)\n");
+	TestApTranspiler transpiler(project);
+	MemoryWriter writer;
+	transpiler.GenerateFunctionDefinitionsSource(writer);
+	EXPECT_FALSE(transpiler.Diagnostics().empty());
+	for (const auto* name : {"first", "second"}) {
+		EXPECT_FALSE(transpiler.ExpressionIsRule(project.DefineDecls.at(name)->body));
+	}
+}
+
 // == Mixed (folds to a rule) ==================================================
 
 // `V and R` is a rule: the build-time value (a bool parameter, frozen when the rule is

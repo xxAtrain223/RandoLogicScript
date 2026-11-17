@@ -1,0 +1,114 @@
+enum Dispatch { FIRST, MIDDLE, LAST, OTHER }
+enum Result { ZERO, VALUE, ALTERNATE }
+enum Numeric { NEGATIVE = -7, POSITIVE = 42 }
+extern enum Alias { ALIAS_FIRST, ALIAS_SECOND, ALIAS_OTHER }
+extern define probe(index: Int) -> Bool
+extern define probe_int(index: Int) -> Int
+extern define probe_result(index: Int) -> Result
+extern define evaluate(condition: Condition) -> Bool
+
+define chain(d: Dispatch):
+    match d {
+        FIRST: probe(0) or
+        MIDDLE: probe(1) or
+        LAST: probe(2)
+    }
+
+define terminal(d: Dispatch):
+    match d {
+        FIRST: probe(0) or
+        MIDDLE: probe(1)
+        LAST: probe(2)
+    }
+
+define grouped_default(d: Dispatch):
+    match d {
+        FIRST or MIDDLE: probe(0) or
+        _: probe(1)
+    }
+
+define body_or(d: Dispatch):
+    match d {
+        FIRST: probe(0) or probe(1) or
+        LAST: probe(2)
+    }
+
+define integer_chain(d: Dispatch):
+    match d {
+        FIRST: probe_int(0) or
+        MIDDLE: probe_int(1)
+        LAST: probe_int(2)
+    }
+
+define enum_chain(d: Dispatch):
+    match d {
+        FIRST: probe_result(0) or
+        MIDDLE: probe_result(1)
+        LAST: probe_result(2)
+    }
+
+define mixed_chain(d: Dispatch):
+    match d {
+        FIRST: probe_int(0) or
+        _: probe(1)
+    }
+
+define duplicate(d: Dispatch):
+    match d {
+        FIRST: probe(0) or
+        FIRST: probe(1)
+        _: probe(2)
+    }
+
+define runtime_pattern(d: Dispatch, pattern: Dispatch):
+    match d {
+        pattern: probe(0) or
+        FIRST: probe(1)
+        _: probe(2)
+    }
+
+define aliased(d: Alias):
+    match d {
+        ALIAS_FIRST: probe(0) or
+        ALIAS_SECOND: probe(1)
+        _: probe(2)
+    }
+
+define composed(d: Dispatch, gate: Bool):
+    gate and match d {
+        FIRST: probe(0)
+        _: match d { OTHER: probe(1) }
+    }
+
+define thunk(gate: Bool):
+    gate and evaluate(match FIRST {
+        FIRST: probe(0)
+        _: probe(1)
+    })
+
+define conditional(d: Dispatch, gate: Bool):
+    gate ? match d { FIRST: probe(0) } : probe(1)
+
+define collision(rls_match_active: Dispatch, rls_match_result: Int):
+    match rls_match_active {
+        FIRST: rls_match_result or
+        _: match rls_match_active {
+            FIRST: probe_int(1) or
+            _: probe_int(2)
+        }
+    }
+
+define integer_composed(d: Dispatch, gate: Bool):
+    gate or match d {
+        FIRST: probe_int(0)
+        _: probe_int(1)
+    }
+
+define single_integer(d: Dispatch):
+    match d { FIRST: probe_int(0) }
+
+define numeric_switch(d: Numeric):
+    match d {
+        NEGATIVE: probe_int(0) or
+        POSITIVE: probe_int(1)
+    }

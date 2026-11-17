@@ -145,7 +145,13 @@ ApTranspiler::ValueClass ApTranspiler::ClassifyCall(const rls::ast::CallExpr& ca
 		}
 		ValueClass combined = defineClass;
 		if (auto* args = project.getResolvedCallArgs(&call)) {
-			for (const rls::ast::Expr* arg : *args) {
+			for (size_t i = 0; i < args->size(); ++i) {
+				const auto* arg = (*args)[i];
+				// Bool arguments bind as Python values, not Rule literals.
+				if (std::holds_alternative<rls::ast::BoolLiteral>(arg->node)
+					&& ResolveCallParamType(call, i) == rls::ast::Type::Bool) {
+					continue;
+				}
 				combined = JoinClass(combined, ClassifyExpression(arg));
 			}
 		}
@@ -168,18 +174,25 @@ bool ApTranspiler::ExpressionIsRule(const rls::ast::ExprPtr& expr) const {
 }
 
 ApTranspiler::ValueClass ApTranspiler::DefineClass(const rls::ast::DefineDecl* decl) const {
-	if (auto it = defineClassCache.find(decl); it != defineClassCache.end()) {
-		return it->second;
+	if (defineClassCache.empty()) {
+		for (const auto& [name, definition] : project.DefineDecls) {
+			defineClassCache.emplace(definition, ValueClass::BuildTime);
+		}
+		bool changed;
+		do {
+			changed = false;
+			for (const auto& [name, definition] : project.DefineDecls) {
+				if (isHostProvidedDefine(name)) continue;
+				auto& current = defineClassCache.at(definition);
+				const auto inferred = JoinClass(current, ClassifyExpression(definition->body));
+				if (inferred != current) {
+					current = inferred;
+					changed = true;
+				}
+			}
+		} while (changed);
 	}
-	// A define that (transitively) calls itself is treated as a Rule; logic helpers do
-	// not actually recurse, so this only guards against pathological input.
-	if (!defineClassInProgress.insert(decl).second) {
-		return ValueClass::Rule;
-	}
-	ValueClass result = ClassifyExpression(decl->body);
-	defineClassInProgress.erase(decl);
-	defineClassCache[decl] = result;
-	return result;
+	return defineClassCache.at(decl);
 }
 
 bool ApTranspiler::IsPureOptionFilterRule(const rls::ast::ExprPtr& expr) const {

@@ -209,8 +209,16 @@ TEST(SohExpressions, IntsDecayToBoolExplicitly) {
 		"        _: false\n"
 		"    }\n",
 		"test")),
-		"rls::match([&]{return distance == EnemyDistance::ED_CLOSE;}, [&]{return 1 != 0;}, false, "
-		"[&]{return true;}, [&]{return false;}, false)");
+		"([&]() -> bool {\n"
+		"    switch (distance) {\n"
+		"        case EnemyDistance::ED_CLOSE: {\n"
+		"            return 1 != 0;\n"
+		"        }\n"
+		"        default: {\n"
+		"            return false;\n"
+		"        }\n"
+		"    }\n"
+		"}())");
 }
 
 TEST(SohExpressions, BinaryAndOr) {
@@ -720,9 +728,14 @@ TEST(SohExpressions, MatchSingleArm) {
 		"    }\n",
 		"test");
 	EXPECT_EQ(GenerateExpression(expr),
-		"rls::match("
-		"[&]{return distance == EnemyDistance::ED_CLOSE;}, "
-		"[&]{return can_use(RandomizerGet::RG_KOKIRI_SWORD);}, false)");
+		"([&]() -> bool {\n"
+		"    switch (distance) {\n"
+		"        case EnemyDistance::ED_CLOSE: {\n"
+		"            return can_use(RandomizerGet::RG_KOKIRI_SWORD);\n"
+		"        }\n"
+		"        default: return bool{};\n"
+		"    }\n"
+		"}())");
 }
 
 TEST(SohExpressions, MatchMultipleArmsNoFallthrough) {
@@ -734,11 +747,15 @@ TEST(SohExpressions, MatchMultipleArmsNoFallthrough) {
 		"    }\n",
 		"test");
 	EXPECT_EQ(GenerateExpression(expr),
-		"rls::match("
-		"[&]{return distance == EnemyDistance::ED_CLOSE;}, "
-		"[&]{return can_use(RandomizerGet::RG_KOKIRI_SWORD);}, false, "
-		"[&]{return distance == EnemyDistance::ED_FAR;}, "
-		"[&]{return can_use(RandomizerGet::RG_FAIRY_BOW);}, false)");
+		"([&]() -> bool {\n"
+		"    if (distance == EnemyDistance::ED_CLOSE) {\n"
+		"        return can_use(RandomizerGet::RG_KOKIRI_SWORD);\n"
+		"    }\n"
+		"    if (distance == EnemyDistance::ED_FAR) {\n"
+		"        return can_use(RandomizerGet::RG_FAIRY_BOW);\n"
+		"    }\n"
+		"    return bool{};\n"
+		"}())");
 }
 
 TEST(SohExpressions, MatchWithFallthrough) {
@@ -751,13 +768,23 @@ TEST(SohExpressions, MatchWithFallthrough) {
 		"    }\n",
 		"test");
 	EXPECT_EQ(GenerateExpression(expr),
-		"rls::match("
-		"[&]{return distance == EnemyDistance::ED_CLOSE;}, "
-		"[&]{return can_use(RandomizerGet::RG_KOKIRI_SWORD);}, true, "
-		"[&]{return distance == EnemyDistance::ED_HOOKSHOT;}, "
-		"[&]{return can_use(RandomizerGet::RG_HOOKSHOT);}, true, "
-		"[&]{return distance == EnemyDistance::ED_FAR;}, "
-		"[&]{return can_use(RandomizerGet::RG_FAIRY_BOW);}, false)");
+		"([&]() -> bool {\n"
+		"    bool rls_match_active = false;\n"
+		"    if (rls_match_active || distance == EnemyDistance::ED_CLOSE) {\n"
+		"        const bool rls_match_result = can_use(RandomizerGet::RG_KOKIRI_SWORD);\n"
+		"        if (static_cast<bool>(rls_match_result)) return rls_match_result;\n"
+		"        rls_match_active = true;\n"
+		"    }\n"
+		"    if (rls_match_active || distance == EnemyDistance::ED_HOOKSHOT) {\n"
+		"        const bool rls_match_result = can_use(RandomizerGet::RG_HOOKSHOT);\n"
+		"        if (static_cast<bool>(rls_match_result)) return rls_match_result;\n"
+		"        rls_match_active = true;\n"
+		"    }\n"
+		"    if (rls_match_active || distance == EnemyDistance::ED_FAR) {\n"
+		"        return can_use(RandomizerGet::RG_FAIRY_BOW);\n"
+		"    }\n"
+		"    return bool{};\n"
+		"}())");
 }
 
 TEST(SohExpressions, MatchMultiValueArm) {
@@ -768,9 +795,12 @@ TEST(SohExpressions, MatchMultiValueArm) {
 		"    }\n",
 		"test");
 	EXPECT_EQ(GenerateExpression(expr),
-		"rls::match("
-		"[&]{return distance == EnemyDistance::ED_CLOSE || distance == EnemyDistance::ED_SHORT_JUMPSLASH;}, "
-		"[&]{return can_use(RandomizerGet::RG_KOKIRI_SWORD);}, false)");
+		"([&]() -> bool {\n"
+		"    if (distance == EnemyDistance::ED_CLOSE || distance == EnemyDistance::ED_SHORT_JUMPSLASH) {\n"
+		"        return can_use(RandomizerGet::RG_KOKIRI_SWORD);\n"
+		"    }\n"
+		"    return bool{};\n"
+		"}())");
 }
 
 TEST(SohExpressions, MatchDefaultArm) {
@@ -782,11 +812,16 @@ TEST(SohExpressions, MatchDefaultArm) {
 		"    }\n",
 		"test");
 	EXPECT_EQ(GenerateExpression(expr),
-		"rls::match("
-		"[&]{return distance == EnemyDistance::ED_CLOSE;}, "
-		"[&]{return can_use(RandomizerGet::RG_KOKIRI_SWORD);}, false, "
-		"[&]{return true;}, "
-		"[&]{return can_use(RandomizerGet::RG_FAIRY_BOW);}, false)");
+		"([&]() -> bool {\n"
+		"    switch (distance) {\n"
+		"        case EnemyDistance::ED_CLOSE: {\n"
+		"            return can_use(RandomizerGet::RG_KOKIRI_SWORD);\n"
+		"        }\n"
+		"        default: {\n"
+		"            return can_use(RandomizerGet::RG_FAIRY_BOW);\n"
+		"        }\n"
+		"    }\n"
+		"}())");
 }
 
 TEST(SohExpressions, MatchComplexCanHitSwitch) {
@@ -799,12 +834,107 @@ TEST(SohExpressions, MatchComplexCanHitSwitch) {
 		"    }\n",
 		"test");
 	EXPECT_EQ(GenerateExpression(expr),
-		"rls::match("
-		"[&]{return distance == EnemyDistance::ED_SHORT_JUMPSLASH;}, "
-		"[&]{return can_use(RandomizerGet::RG_KOKIRI_SWORD);}, true, "
-		"[&]{return distance == EnemyDistance::ED_BOMB_THROW;}, "
-		"[&]{return !inWater && can_use(RandomizerGet::RG_BOMB_BAG);}, true, "
-		"[&]{return distance == EnemyDistance::ED_FAR;}, "
-		"[&]{return can_use(RandomizerGet::RG_FAIRY_BOW);}, false)");
+		"([&]() -> bool {\n"
+		"    bool rls_match_active = false;\n"
+		"    if (rls_match_active || distance == EnemyDistance::ED_SHORT_JUMPSLASH) {\n"
+		"        const bool rls_match_result = can_use(RandomizerGet::RG_KOKIRI_SWORD);\n"
+		"        if (static_cast<bool>(rls_match_result)) return rls_match_result;\n"
+		"        rls_match_active = true;\n"
+		"    }\n"
+		"    if (rls_match_active || distance == EnemyDistance::ED_BOMB_THROW) {\n"
+		"        const bool rls_match_result = !inWater && can_use(RandomizerGet::RG_BOMB_BAG);\n"
+		"        if (static_cast<bool>(rls_match_result)) return rls_match_result;\n"
+		"        rls_match_active = true;\n"
+		"    }\n"
+		"    if (rls_match_active || distance == EnemyDistance::ED_FAR) {\n"
+		"        return can_use(RandomizerGet::RG_FAIRY_BOW);\n"
+		"    }\n"
+		"    return bool{};\n"
+		"}())");
 }
 
+TEST(SohExpressions, MatchUsesResolvedIntegerAndHostEnumResultTypes) {
+    const auto integer = sourceToExpression(
+        "define test(d: Distance): match d { ED_CLOSE: -7 }\n", "test");
+    const auto integerCode = GenerateExpression(integer);
+    EXPECT_NE(integerCode.find("([&]() -> int {"), std::string::npos);
+    EXPECT_NE(integerCode.find("return -7;"), std::string::npos);
+    EXPECT_NE(integerCode.find("return int{};"), std::string::npos);
+
+    const auto enumeration = sourceToExpression(
+        "define test(d: Distance): match d { ED_CLOSE: RG_HOOKSHOT }\n", "test");
+    const auto enumCode = GenerateExpression(enumeration);
+    EXPECT_NE(enumCode.find("([&]() -> RandomizerGet {"), std::string::npos);
+    EXPECT_NE(enumCode.find("return RandomizerGet::RG_HOOKSHOT;"), std::string::npos);
+    EXPECT_NE(enumCode.find("return RandomizerGet{};"), std::string::npos);
+}
+
+TEST(SohExpressions, MatchEmitsEachContinuationBodyOnce) {
+    const auto expr = sourceToExpression(
+        "enum Reach { CLOSE, HOOKSHOT, FAR }\n"
+        "define test(d: Reach):\n"
+        "    match d {\n"
+        "        CLOSE: can_use(RG_KOKIRI_SWORD) or\n"
+        "        HOOKSHOT: can_use(RG_HOOKSHOT) or\n"
+        "        FAR: can_use(RG_FAIRY_BOW)\n"
+        "    }\n", "test");
+    const auto code = GenerateExpression(expr);
+    EXPECT_NE(code.find("switch (d)"), std::string::npos);
+    for (const auto* body : {"can_use(RandomizerGet::RG_KOKIRI_SWORD)",
+                            "can_use(RandomizerGet::RG_HOOKSHOT)",
+                            "can_use(RandomizerGet::RG_FAIRY_BOW)"}) {
+        const auto position = code.find(body);
+        ASSERT_NE(position, std::string::npos);
+        EXPECT_EQ(code.find(body, position + 1), std::string::npos);
+    }
+}
+
+TEST(SohExpressions, MatchSwitchGroupsCasesAndFallsThroughToWildcard) {
+    const auto expr = sourceToExpression(
+        "enum Mode { FIRST = -7, SECOND = 42 }\n"
+        "define test(d: Mode):\n"
+        "    match d {\n"
+        "        FIRST or SECOND: 0 or\n"
+        "        _: -7\n"
+        "    }\n", "test");
+    EXPECT_EQ(GenerateExpression(expr),
+        "([&]() -> int {\n"
+        "    switch (d) {\n"
+        "        case Mode::FIRST:\n"
+        "        case Mode::SECOND: {\n"
+        "            const int rls_match_result = 0;\n"
+        "            if (static_cast<bool>(rls_match_result)) return rls_match_result;\n"
+        "        }\n"
+        "        [[fallthrough]];\n"
+        "        default: {\n"
+        "            return -7;\n"
+        "        }\n"
+        "    }\n"
+        "}())");
+}
+
+TEST(SohExpressions, MatchKeepsOrderedFallbackForUnprovenCases) {
+    for (const auto& source : {
+        "enum Mode { FIRST, SECOND }\n"
+        "define test(d: Mode): match d { FIRST: false or\n FIRST: true }\n",
+        "enum Mode { FIRST, SECOND }\n"
+        "define test(d: Mode, pattern: Mode): match d { pattern: false or\n FIRST: true }\n",
+        "extern enum Alias { ONE, TWO }\n"
+        "define test(d: Alias): match d { ONE: false or\n TWO: true }\n",
+        "define test(d: Distance): match d { ED_CLOSE: false or\n ED_FAR: true }\n"}) {
+        const auto code = GenerateExpression(sourceToExpression(source, "test"));
+        EXPECT_EQ(code.find("switch ("), std::string::npos) << source;
+        EXPECT_NE(code.find("rls_match_active ||"), std::string::npos) << source;
+    }
+}
+
+TEST(SohExpressions, MatchNonFinalWildcardUsesOrderedLowerLevelFallback) {
+    auto expr = sourceToExpression(
+        "enum Mode { FIRST }\n"
+        "define test(d: Mode): match d { FIRST: true\n _: false }\n", "test");
+    auto& arms = std::get<rls::ast::MatchExpr>(expr.expr->node).arms;
+    std::swap(arms[0], arms[1]);
+    const auto code = GenerateExpression(expr);
+    EXPECT_EQ(code.find("switch ("), std::string::npos);
+    EXPECT_LT(code.find("if (true)"), code.find("if (d == Mode::FIRST)"));
+}

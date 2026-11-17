@@ -421,21 +421,24 @@ ast::ExtendRegionDecl buildExtendDecl(const Node& n, Diags& diags) {
 }
 
 ast::DefineDecl buildDefineDecl(const Node& n, Diags& diags) {
-	// children: [ident(name), param, param, ..., body_expr]
+	// children: [ident(name), param, ..., optional return type, body_expr]
 	ast::Name name(makeName(*n.children[0]));
 	std::vector<ast::Param> params;
+	std::optional<ast::TypeRef> returnType;
 	ast::ExprPtr body;
 
 	for (size_t i = 1; i < n.children.size(); ++i) {
 		if (n.children[i]->is_type<grammar::param>()) {
 			params.push_back(buildParam(*n.children[i], diags));
+		} else if (n.children[i]->is_type<grammar::return_type_name>()) {
+			returnType = ast::TypeRef(makeName(*n.children[i]));
 		} else {
 			body = buildExpr(*n.children[i], diags);
 		}
 	}
 
 	return ast::DefineDecl(
-		std::move(name), std::move(params), std::move(body), makeSpan(n));
+		std::move(name), std::move(params), std::move(returnType), std::move(body), makeSpan(n));
 }
 
 ast::ExternDefineDecl buildExternDefineDecl(const Node& n, Diags& diags) {

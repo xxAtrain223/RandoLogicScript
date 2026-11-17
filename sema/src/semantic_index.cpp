@@ -278,8 +278,12 @@ SemanticIndex buildSemanticIndex(const ast::Project& project,
 						node.name.text, node.span, node.name.span);
 					addSections(node.sections, id);
 				} else if constexpr (std::is_same_v<T, ast::DefineDecl>) {
-					const auto returnType = project.getType(node.body.get());
-					const auto returnEnum = project.getEnumType(node.body.get());
+					const auto annotation = node.returnType
+						? resolveTypeAnnotation(project, node.returnType->name.text) : std::nullopt;
+					const auto returnType = annotation
+						? std::optional(annotation->type) : project.getType(node.body.get());
+					const auto returnEnum = annotation && annotation->enumName
+						? annotation->enumName : project.getEnumType(node.body.get());
 					const auto id = index.addSymbol(SymbolCategory::Define, SymbolProvenance::Source,
 						node.name.text, node.span, node.name.span, std::nullopt,
 						"define " + node.name.text, returnType,
@@ -418,9 +422,7 @@ SemanticIndex buildSemanticIndex(const ast::Project& project,
 					for (const auto& parameter : node.params) {
 						if (parameter.type) addTypeReference(*parameter.type);
 					}
-					if constexpr (std::is_same_v<T, ast::ExternDefineDecl>) {
-						if (node.returnType) addTypeReference(*node.returnType);
-					}
+					if (node.returnType) addTypeReference(*node.returnType);
 				}
 			}, declaration);
 		}
@@ -679,7 +681,15 @@ SemanticIndex buildSemanticIndex(const ast::Project& project,
 							: SymbolCategory::ExternDefine,
 						node.name.text);
 					if constexpr (std::is_same_v<T, ast::DefineDecl>) {
-						if (node.body) indexExpression(*node.body, defineId);
+						if (node.body) {
+							if (node.returnType) {
+								if (const auto annotation = resolveTypeAnnotation(project, node.returnType->name.text)) {
+									addExpectedType(*node.body, annotation->type,
+										annotation->enumName ? std::optional<std::string>(*annotation->enumName) : std::nullopt);
+								}
+							}
+							indexExpression(*node.body, defineId);
+						}
 					}
 					for (const auto& parameter : node.params) {
 						if (parameter.defaultValue) {

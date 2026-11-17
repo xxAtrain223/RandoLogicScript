@@ -32,6 +32,7 @@ try {
   const validParse = runTreeSitter(["parse", validFixturePath]);
   assert.strictEqual(validParse.status, 0, validParse.output);
   assert(!validParse.output.includes("ERROR"), validParse.output);
+  assert(/return_type: \(identifier/.test(validParse.output), validParse.output);
 
   const incompleteParse = runTreeSitter(["parse", fixturePath]);
   assert.notStrictEqual(incompleteParse.status, 0, "Expected incomplete input to report a parse error.");
@@ -42,6 +43,9 @@ try {
   ["comment", "string", "number", "boolean", "type", "function", "constant", "variable.parameter", "property", "operator"].forEach((capture) => {
     assert(highlights.output.includes(capture), `Expected @${capture} in highlight output.\n${highlights.output}`);
   });
+  const annotationLine = validFixture.slice(0, validFixture.indexOf("define identity")).split("\n").length - 1;
+  assert(new RegExp(`capture: \\d+ - type, start: \\(${annotationLine}, 31\\).*text: \`Item\``).test(highlights.output),
+    `Expected the define return annotation to be highlighted as a type.\n${highlights.output}`);
 
   const folds = runTreeSitter(["query", "queries/folds.scm", validFixturePath]);
   assert.strictEqual(folds.status, 0, folds.output);

@@ -173,6 +173,18 @@ TEST(CompletionServiceTests, CompletesRecoveredParameterAndReturnTypes) {
     EXPECT_NE(findItem(returns, "Bool"), nullptr);
     EXPECT_EQ(findItem(returns, "RED"), nullptr);
     EXPECT_EQ(returns.front().label, "Color");
+
+    const std::string defineReturnSource =
+        "enum Color { RED }\ndefine choose() -> Col";
+    CompletionFixture defineReturnFixture(defineReturnSource);
+    const auto defineReturns = CompletionService(
+        defineReturnFixture.projects, defineReturnFixture.scheduler)
+        .complete(defineReturnFixture.uri, {1, 22});
+    EXPECT_NE(findItem(defineReturns, "Color"), nullptr);
+    EXPECT_NE(findItem(defineReturns, "Bool"), nullptr);
+    EXPECT_EQ(findItem(defineReturns, "RED"), nullptr);
+    ASSERT_FALSE(defineReturns.empty());
+    EXPECT_EQ(defineReturns.front().label, "Color");
 }
 
 TEST(CompletionServiceTests, UsesScopeAndExpectedEnumForExpressionCandidates) {

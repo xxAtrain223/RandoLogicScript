@@ -653,6 +653,27 @@ TEST(SemanticIndexTests, RecordsOperatorAndTernaryExpectedTypes) {
 	EXPECT_EQ(arithmeticLiteral->type, Type::Int);
 }
 
+TEST(SemanticIndexTests, IndexesDefineReturnAnnotationAndBodyContext) {
+	Project project;
+	project.files.push_back(rls::parser::ParseString(
+		"enum Color { RED }\n"
+		"define choose() -> Color: RED\n",
+		"return-annotation.rls"));
+	analyze(project);
+	const auto index = buildSemanticIndex(project);
+	const auto occurrence = index.occurrenceAt("return-annotation.rls", {2, 20});
+	ASSERT_TRUE(occurrence);
+	EXPECT_EQ(occurrence->kind, OccurrenceKind::TypeReference);
+	ASSERT_TRUE(occurrence->symbol);
+	const auto symbol = index.declaration(*occurrence->symbol);
+	ASSERT_TRUE(symbol);
+	EXPECT_EQ(symbol->displayName, "Color");
+	const auto expected = index.expectedTypeAt("return-annotation.rls", {2, 27});
+	ASSERT_TRUE(expected);
+	EXPECT_EQ(expected->type, Type::Enum);
+	EXPECT_EQ(expected->enumName, "Color");
+}
+
 TEST(SemanticIndexTests, CopiesResolvedTypesCallsAndMemberOccurrences) {
 	Project project;
 	project.files.push_back(rls::parser::ParseString(

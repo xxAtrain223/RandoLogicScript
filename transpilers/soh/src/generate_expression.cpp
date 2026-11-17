@@ -1,9 +1,13 @@
 #include "soh.h"
+#include "cpp_type.h"
 #include "soh/enum_mappings.h"
 
 #include <algorithm>
 #include <optional>
+#include <set>
 #include <sstream>
+#include <stdexcept>
+#include <type_traits>
 
 namespace rls::transpilers::soh {
 
@@ -28,6 +32,112 @@ std::string qualifyEnumValue(std::string_view enumName, std::string_view valueNa
         return std::string(valueName);
     }
     return std::string(enumName) + "::" + std::string(valueName);
+}
+
+struct MatchArmCode {
+    std::string condition;
+    std::vector<std::string> patterns;
+    std::string body;
+    bool isDefault;
+    bool fallthrough;
+};
+
+struct MatchCaseInfo {
+    bool isConstant;
+    std::optional<int> value;
+};
+
+MatchCaseInfo matchCaseInfo(const rls::ast::Project& project, const rls::ast::Expr& pattern) {
+    if (const auto* integer = std::get_if<rls::ast::IntLiteral>(&pattern.node)) {
+        return {true, integer->value};
+    }
+    if (const auto* boolean = std::get_if<rls::ast::BoolLiteral>(&pattern.node)) {
+        return {true, boolean->value ? 1 : 0};
+    }
+
+    std::string_view memberName;
+    if (const auto* identifier = std::get_if<rls::ast::Identifier>(&pattern.node);
+        identifier && identifier->kind == rls::ast::IdentifierKind::EnumValue) {
+        memberName = identifier->name.text;
+    } else if (const auto* member = std::get_if<rls::ast::MemberExpr>(&pattern.node)) {
+        memberName = member->member.text;
+    } else {
+        return {false, std::nullopt};
+    }
+
+    const auto enumName = project.getEnumType(&pattern);
+    if (!enumName) return {false, std::nullopt};
+    const auto* info = project.getEnumInfo(*enumName);
+    if (!info) return {false, std::nullopt};
+
+    // Only enums emitted by this backend guarantee the recorded numeric values.
+    if (info->kind == rls::ast::EnumKind::Normal && !findHostEnumMapping(*enumName)) {
+        for (const auto& entry : info->entries) {
+            if (const auto* member = std::get_if<rls::ast::EnumMemberInfo>(&entry);
+                member && member->name.text == memberName) {
+                return {true, member->value};
+            }
+        }
+        return {false, std::nullopt};
+    }
+    return {true, std::nullopt};
+}
+
+bool canUseMatchSwitch(const rls::ast::Project& project, const rls::ast::MatchExpr& match) {
+    const auto type = project.getType(match.discriminant.get());
+    if (type != rls::ast::Type::Int && type != rls::ast::Type::Bool
+        && type != rls::ast::Type::Enum) {
+        return false;
+    }
+    const auto* identifier = std::get_if<rls::ast::Identifier>(&match.discriminant->node);
+    if (!identifier || (identifier->kind != rls::ast::IdentifierKind::Parameter
+        && identifier->kind != rls::ast::IdentifierKind::EnumValue)) {
+        return false;
+    }
+
+    std::set<int> values;
+    size_t caseCount = 0;
+    bool allValuesKnown = true;
+    for (size_t index = 0; index < match.arms.size(); ++index) {
+        const auto& arm = match.arms[index];
+        if (arm.isDefault) {
+            if (!arm.patterns.empty() || index + 1 != match.arms.size()) return false;
+            continue;
+        }
+        if (arm.patterns.empty()) return false;
+        for (const auto& pattern : arm.patterns) {
+            if (project.getType(pattern.get()) != type) return false;
+            if (type == rls::ast::Type::Enum
+                && project.getEnumType(pattern.get()) != project.getEnumType(match.discriminant.get())) {
+                return false;
+            }
+            const auto info = matchCaseInfo(project, *pattern);
+            if (!info.isConstant) return false;
+            ++caseCount;
+            if (info.value) {
+                if (!values.insert(*info.value).second) return false;
+            } else {
+                allValuesKnown = false;
+            }
+        }
+    }
+    return caseCount != 0 && (allValuesKnown || caseCount == 1);
+}
+
+std::string matchLocalName(std::string name, std::string_view armCode) {
+    while (armCode.find(name) != std::string_view::npos) {
+        name += "_";
+    }
+    return name;
+}
+
+std::string indentMatchBody(std::string code, std::string_view indentation) {
+    size_t newline = code.find('\n');
+    while (newline != std::string::npos) {
+        code.insert(newline + 1, indentation);
+        newline = code.find('\n', newline + 1 + indentation.size());
+    }
+    return code;
 }
 
 } // namespace
@@ -277,14 +387,14 @@ std::string SohTranspiler::GenerateCallArgument(
             id != nullptr && id->kind == rls::ast::IdentifierKind::Parameter) {
             return id->name.text;
         }
-        return GenerateExpression(argExpr->node);
+        return GenerateExpression(argExpr);
     }
 
     if (emitConditionThunk) {
         return "[]{return " + GenerateBoolExpression(argExpr) + ";}";
     }
 
-    const auto argCode = GenerateExpression(argExpr->node);
+    const auto argCode = GenerateExpression(argExpr);
     if (!paramType.has_value() || !argType.has_value()) {
         return argCode;
     }
@@ -342,46 +452,92 @@ std::string SohTranspiler::GenerateExpression(const rls::ast::HereRef& node) con
     return "RandomizerRegion::" + node.resolvedRegion.text;
 }
 
-std::string SohTranspiler::GenerateExpression(const rls::ast::MatchExpr& node) const {
-	std::ostringstream oss;
-	oss << "rls::match(";
-    const bool hasBoolArm = std::ranges::any_of(node.arms, [&](const auto& arm) {
-        return project.getType(arm.body.get()) == rls::ast::Type::Bool;
-    });
-    const bool hasIntArm = std::ranges::any_of(node.arms, [&](const auto& arm) {
-        return project.getType(arm.body.get()) == rls::ast::Type::Int;
-    });
-    const bool decayArmBodiesToBool = hasBoolArm && hasIntArm;
+std::string SohTranspiler::GenerateExpression(
+    const rls::ast::MatchExpr& node, const rls::ast::Expr& expr) const
+{
+    const auto resultType = project.getType(&expr);
+    const auto cppType = nodeType(project, &expr);
+    if (!resultType || cppType == "missing_type" || cppType == "unsupported_type"
+        || (*resultType == rls::ast::Type::Enum && !project.getEnumType(&expr))) {
+        throw std::logic_error("SoH match lowering requires a supported resolved result type");
+    }
 
-	for (size_t i = 0; i < node.arms.size(); i++) {
-		const auto& arm = node.arms[i];
-
-		if (i > 0) oss << ", ";
-
-		// Condition lambda: [&]{ return discriminant == P1 || discriminant == P2; }
+    std::vector<MatchArmCode> arms;
+    std::string armCode;
+    for (size_t index = 0; index < node.arms.size(); ++index) {
+        const auto& arm = node.arms[index];
+        std::ostringstream condition;
+        std::vector<std::string> patterns;
         if (arm.isDefault) {
-            oss << "[&]{return true;}, ";
+            condition << "true";
         } else {
-            oss << "[&]{return ";
-            for (size_t j = 0; j < arm.patterns.size(); j++) {
-                if (j > 0) oss << " || ";
-                oss << GenerateExpression(node.discriminant) << " == "
-                    << GenerateExpression(arm.patterns[j]);
+            for (size_t pattern = 0; pattern < arm.patterns.size(); ++pattern) {
+                if (pattern != 0) condition << " || ";
+                patterns.push_back(GenerateExpression(arm.patterns[pattern]));
+                condition << GenerateExpression(node.discriminant) << " == " << patterns.back();
             }
-            oss << ";}, ";
         }
+        auto body = *resultType == rls::ast::Type::Bool
+            ? GenerateBoolExpression(arm.body) : GenerateExpression(arm.body);
+        armCode += condition.str() + "\n" + body + "\n";
+        arms.push_back({condition.str(), std::move(patterns), std::move(body), arm.isDefault,
+            arm.fallthrough && index + 1 < node.arms.size()});
+    }
 
-		// Body lambda: [&]{ return <body_expression>; }
-        oss << "[&]{return "
-            << (decayArmBodiesToBool ? GenerateBoolExpression(arm.body) : GenerateExpression(arm.body))
-            << ";}, ";
-
-		// Fallthrough flag
-		oss << (arm.fallthrough ? "true" : "false");
-	}
-
-	oss << ")";
-	return oss.str();
+    const bool hasContinuation = std::ranges::any_of(arms, [](const auto& arm) {
+        return arm.fallthrough;
+    });
+    const auto activeName = matchLocalName("rls_match_active", armCode);
+    const auto resultName = matchLocalName("rls_match_result", armCode);
+    std::ostringstream output;
+    output << "([&]() -> " << cppType << " {\n";
+    if (canUseMatchSwitch(project, node)) {
+        output << "    switch (" << GenerateExpression(node.discriminant) << ") {\n";
+        for (const auto& arm : arms) {
+            if (arm.isDefault) {
+                output << "        default:";
+            } else {
+                for (size_t index = 0; index < arm.patterns.size(); ++index) {
+                    output << "        case " << arm.patterns[index] << ":";
+                    if (index + 1 < arm.patterns.size()) output << "\n";
+                }
+            }
+            output << " {\n";
+            const auto body = indentMatchBody(arm.body, "            ");
+            if (arm.fallthrough) {
+                output << "            const " << cppType << " " << resultName << " = " << body << ";\n"
+                       << "            if (static_cast<bool>(" << resultName << ")) return " << resultName << ";\n";
+            } else {
+                output << "            return " << body << ";\n";
+            }
+            output << "        }\n";
+            if (arm.fallthrough) output << "        [[fallthrough]];\n";
+        }
+        if (!arms.back().isDefault) {
+            output << "        default: return " << cppType << "{};\n";
+        }
+        output << "    }\n}())";
+        return output.str();
+    }
+    if (hasContinuation) {
+        output << "    bool " << activeName << " = false;\n";
+    }
+    for (const auto& arm : arms) {
+        output << "    if (";
+        if (hasContinuation) output << activeName << " || ";
+        output << arm.condition << ") {\n";
+        const auto body = indentMatchBody(arm.body, "        ");
+        if (arm.fallthrough) {
+            output << "        const " << cppType << " " << resultName << " = " << body << ";\n"
+                   << "        if (static_cast<bool>(" << resultName << ")) return " << resultName << ";\n"
+                   << "        " << activeName << " = true;\n";
+        } else {
+            output << "        return " << body << ";\n";
+        }
+        output << "    }\n";
+    }
+    output << "    return " << cppType << "{};\n}())";
+    return output.str();
 }
 
 std::string SohTranspiler::GenerateExpression(const rls::ast::ListExpr& node) const {
@@ -397,14 +553,18 @@ std::string SohTranspiler::GenerateExpression(const rls::ast::ListExpr& node) co
     return oss.str();
 }
 
-std::string SohTranspiler::GenerateExpression(const rls::ast::Expr::Variant& node) const {
+std::string SohTranspiler::GenerateExpression(const rls::ast::Expr* expr) const {
 	return std::visit([&](const auto& node) {
-		return GenerateExpression(node);
-	}, node);
+        if constexpr (std::is_same_v<std::decay_t<decltype(node)>, rls::ast::MatchExpr>) {
+            return GenerateExpression(node, *expr);
+        } else {
+            return GenerateExpression(node);
+        }
+	}, expr->node);
 }
 
 std::string SohTranspiler::GenerateExpression(const rls::ast::ExprPtr& expr) const {
-	return GenerateExpression(expr->node);
+	return GenerateExpression(expr.get());
 }
 
 std::string SohTranspiler::GenerateBoolExpression(const rls::ast::ExprPtr& expr) const {
@@ -412,7 +572,7 @@ std::string SohTranspiler::GenerateBoolExpression(const rls::ast::ExprPtr& expr)
 }
 
 std::string SohTranspiler::GenerateBoolExpression(const rls::ast::Expr* expr) const {
-    auto result = GenerateExpression(expr->node);
+    auto result = GenerateExpression(expr);
     if (project.getType(expr) == rls::ast::Type::Int) {
         if (GetCppPrecedence(expr) > 10) {
             result = "(" + result + ")";
